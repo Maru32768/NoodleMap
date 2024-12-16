@@ -1,0 +1,16 @@
+version: "2"
+sql:
+  - engine: "postgresql"
+    queries:
+      - "./db/restaurants/query.sql"
+      - "./db/temporary_users/query.sql"
+      - "./db/users/query.sql"
+    schema:
+      - "./db/restaurants/schema.sql"
+      - "./db/temporary_users/schema.sql"
+      - "./db/users/schema.sql"
+    gen:
+      go:
+        package: infrastructure
+        out: "./server/infrastructure"
+        emit_interface: true

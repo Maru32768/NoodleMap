@@ -1,0 +1,49 @@
+version: "3.8"
+
+services:
+  db:
+    image: postgres:17.2
+    platform: linux/x86_64
+    volumes:
+      - ./db:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    hostname: db
+    healthcheck:
+      test: psql -U postgres -c 'select 1;' 2>&1 > /dev/null
+      interval: 30s
+      start_period: 30s
+      start_interval: 1s
+    environment:
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_HOST_AUTH_METHOD=trust
+
+  server:
+    build:
+      context: ./
+      dockerfile: ./server/Dockerfile
+    #    env_file:
+    #      - .env
+    ports:
+      #      - ${PORT:-8888}:8888
+      - "8888:8888"
+    healthcheck:
+      test: curl --fail localhost:8888/health || exit 1
+      interval: 30s
+      start_period: 30s
+      start_interval: 1s
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./
+      dockerfile: ./web/Dockerfile
+    ports:
+      - "8080:80"
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    depends_on:
+      server:
+        condition: service_healthy
