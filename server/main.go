@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"server/infrastructure"
 	"server/restaurants"
+	"time"
 )
 
 func main() {
@@ -28,44 +29,27 @@ func run() error {
 		}
 	}(db)
 
-	if err := db.Ping(); err != nil {
-		return err
+	const DbRetryTimes = 5
+	for i := 1; i <= DbRetryTimes; i++ {
+		if err := db.Ping(); err != nil {
+			if i == DbRetryTimes {
+				return err
+			}
+			log.Println("Waiting DB for 10 seconds")
+			time.Sleep(10 * time.Second)
+		} else {
+			break
+		}
 	}
-	queries := infrastructure.New(db)
 
 	engine := gin.Default()
-
 	engine.GET("/health", func(ctx *gin.Context) {
 		ctx.String(http.StatusOK, "ok")
 	})
-
 	apiGroup := engine.Group("/api")
-	apiGroup.GET("/restaurants", func(ctx *gin.Context) {
-		rs, _ := queries.FindAllRestaurants(ctx)
-		visiteds, _ := queries.FindAllVisitedRestaurants(ctx)
-		res := make([]restaurants.Restaurant, 10)
 
-		for _, r := range rs {
-			for _, visited := range visiteds {
-				if visited.RestaurantID == r.ID {
-					res = append(res, restaurants.Restaurant{
-						ID:            r.ID,
-						Name:          r.Name,
-						Lat:           r.Lat,
-						Lng:           r.Lng,
-						Address:       r.Address,
-						GooglePlaceID: r.GooglePlaceID,
-						Rate:          visited.Rate,
-						Favorite:      visited.Favorite,
-					})
-				}
-			}
-		}
-
-		ctx.JSON(http.StatusOK, gin.H{
-			"restaurants": res,
-		})
-	})
+	restaurantHandler := restaurants.NewHandler(restaurants.NewService(infrastructure.NewStore(db)))
+	apiGroup.GET("/restaurants", restaurantHandler.GetRestaurants)
 
 	authApiGroup := apiGroup.Group("/auth")
 	authApiGroup.Use(func(ctx *gin.Context) {

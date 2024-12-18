@@ -6,13 +6,14 @@ package infrastructure
 
 import (
 	"context"
+
+	"github.com/google/uuid"
 )
 
 type Querier interface {
-	FindAllRestaurants(ctx context.Context) ([]Restaurant, error)
+	FindAllRestaurants(ctx context.Context) ([]FindAllRestaurantsRow, error)
 	FindAllTemporaryUsers(ctx context.Context) ([]TemporaryUser, error)
-	FindAllUsers(ctx context.Context) ([]User, error)
-	FindAllVisitedRestaurants(ctx context.Context) ([]VisitedRestaurant, error)
+	FindCategoriesByRestaurantIds(ctx context.Context, dollar_1 []uuid.UUID) ([]FindCategoriesByRestaurantIdsRow, error)
 }
 
 var _ Querier = (*Queries)(nil)

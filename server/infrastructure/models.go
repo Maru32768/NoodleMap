@@ -10,38 +10,61 @@ import (
 	"github.com/google/uuid"
 )
 
+type Category struct {
+	ID        uuid.UUID `json:"id"`
+	Label     string    `json:"label"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+type CategoryIcon struct {
+	ID         uuid.UUID `json:"id"`
+	CategoryID uuid.UUID `json:"categoryId"`
+	Icon       string    `json:"icon"`
+	CreatedAt  time.Time `json:"createdAt"`
+	UpdatedAt  time.Time `json:"updatedAt"`
+}
+
 type Restaurant struct {
-	ID            uuid.UUID
-	Name          string
-	Lat           float64
-	Lng           float64
-	Address       string
-	GooglePlaceID string
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	ID            uuid.UUID `json:"id"`
+	Name          string    `json:"name"`
+	Lat           float64   `json:"lat"`
+	Lng           float64   `json:"lng"`
+	Address       string    `json:"address"`
+	GooglePlaceID string    `json:"googlePlaceId"`
+	CreatedAt     time.Time `json:"createdAt"`
+	UpdatedAt     time.Time `json:"updatedAt"`
+}
+
+type RestaurantsCategory struct {
+	ID           uuid.UUID `json:"id"`
+	RestaurantID uuid.UUID `json:"restaurantId"`
+	CategoryID   uuid.UUID `json:"categoryId"`
+	CreatedAt    time.Time `json:"createdAt"`
+	UpdatedAt    time.Time `json:"updatedAt"`
 }
 
 type TemporaryUser struct {
-	ID        uuid.UUID
-	Email     string
-	Token     string
-	CreatedAt time.Time
+	ID        uuid.UUID `json:"id"`
+	Email     string    `json:"email"`
+	Token     string    `json:"token"`
+	CreatedAt time.Time `json:"createdAt"`
 }
 
 type User struct {
-	ID        uuid.UUID
-	Email     string
-	Password  string
-	Salt      string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID        uuid.UUID `json:"id"`
+	Email     string    `json:"email"`
+	Password  string    `json:"password"`
+	Salt      string    `json:"salt"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }
 
 type VisitedRestaurant struct {
-	ID           uuid.UUID
-	RestaurantID uuid.UUID
-	Rate         string
-	Favorite     bool
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	ID           uuid.UUID `json:"id"`
+	RestaurantID uuid.UUID `json:"restaurantId"`
+	Rate         string    `json:"rate"`
+	Favorite     bool      `json:"favorite"`
+	CreatedAt    time.Time `json:"createdAt"`
+	UpdatedAt    time.Time `json:"updatedAt"`
 }

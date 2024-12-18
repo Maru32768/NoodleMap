@@ -7,22 +7,47 @@ package infrastructure
 
 import (
 	"context"
+
+	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 const findAllRestaurants = `-- name: FindAllRestaurants :many
-select id, name, lat, lng, address, google_place_id, created_at, updated_at
-from restaurants
+select r.id,
+       r.name,
+       r.lat,
+       r.lng,
+       r.address,
+       r.google_place_id,
+       bool_and(vr.id is not null) as visited,
+       avg(vr.rate)                as rate,
+       bool_and(vr.favorite)       as favorite
+from restaurants r
+         left join visited_restaurants vr on r.id = vr.restaurant_id
+group by r.id, r.name, r.lat, r.lng, r.address, r.google_place_id
 `
 
-func (q *Queries) FindAllRestaurants(ctx context.Context) ([]Restaurant, error) {
+type FindAllRestaurantsRow struct {
+	ID            uuid.UUID `json:"id"`
+	Name          string    `json:"name"`
+	Lat           float64   `json:"lat"`
+	Lng           float64   `json:"lng"`
+	Address       string    `json:"address"`
+	GooglePlaceID string    `json:"googlePlaceId"`
+	Visited       bool      `json:"visited"`
+	Rate          float64   `json:"rate"`
+	Favorite      bool      `json:"favorite"`
+}
+
+func (q *Queries) FindAllRestaurants(ctx context.Context) ([]FindAllRestaurantsRow, error) {
 	rows, err := q.db.QueryContext(ctx, findAllRestaurants)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Restaurant
+	items := []FindAllRestaurantsRow{}
 	for rows.Next() {
-		var i Restaurant
+		var i FindAllRestaurantsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
@@ -30,8 +55,9 @@ func (q *Queries) FindAllRestaurants(ctx context.Context) ([]Restaurant, error) 
 			&i.Lng,
 			&i.Address,
 			&i.GooglePlaceID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
+			&i.Visited,
+			&i.Rate,
+			&i.Favorite,
 		); err != nil {
 			return nil, err
 		}
@@ -57,7 +83,7 @@ func (q *Queries) FindAllTemporaryUsers(ctx context.Context) ([]TemporaryUser, e
 		return nil, err
 	}
 	defer rows.Close()
-	var items []TemporaryUser
+	items := []TemporaryUser{}
 	for rows.Next() {
 		var i TemporaryUser
 		if err := rows.Scan(
@@ -79,63 +105,29 @@ func (q *Queries) FindAllTemporaryUsers(ctx context.Context) ([]TemporaryUser, e
 	return items, nil
 }
 
-const findAllUsers = `-- name: FindAllUsers :many
-select id, email, password, salt, created_at, updated_at
-from users
+const findCategoriesByRestaurantIds = `-- name: FindCategoriesByRestaurantIds :many
+select c.id, c.label, rc.restaurant_id
+from categories c
+         inner join restaurants_categories rc on c.id = rc.category_id
+where rc.restaurant_id = any ($1::uuid[])
 `
 
-func (q *Queries) FindAllUsers(ctx context.Context) ([]User, error) {
-	rows, err := q.db.QueryContext(ctx, findAllUsers)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []User
-	for rows.Next() {
-		var i User
-		if err := rows.Scan(
-			&i.ID,
-			&i.Email,
-			&i.Password,
-			&i.Salt,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+type FindCategoriesByRestaurantIdsRow struct {
+	ID           uuid.UUID `json:"id"`
+	Label        string    `json:"label"`
+	RestaurantID uuid.UUID `json:"restaurantId"`
 }
 
-const findAllVisitedRestaurants = `-- name: FindAllVisitedRestaurants :many
-select id, restaurant_id, rate, favorite, created_at, updated_at
-from visited_restaurants
-`
-
-func (q *Queries) FindAllVisitedRestaurants(ctx context.Context) ([]VisitedRestaurant, error) {
-	rows, err := q.db.QueryContext(ctx, findAllVisitedRestaurants)
+func (q *Queries) FindCategoriesByRestaurantIds(ctx context.Context, dollar_1 []uuid.UUID) ([]FindCategoriesByRestaurantIdsRow, error) {
+	rows, err := q.db.QueryContext(ctx, findCategoriesByRestaurantIds, pq.Array(dollar_1))
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []VisitedRestaurant
+	items := []FindCategoriesByRestaurantIdsRow{}
 	for rows.Next() {
-		var i VisitedRestaurant
-		if err := rows.Scan(
-			&i.ID,
-			&i.RestaurantID,
-			&i.Rate,
-			&i.Favorite,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-		); err != nil {
+		var i FindCategoriesByRestaurantIdsRow
+		if err := rows.Scan(&i.ID, &i.Label, &i.RestaurantID); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
