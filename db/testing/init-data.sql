@@ -2,14 +2,14 @@ insert into restaurants
     (id, name, lat, lng, address, google_place_id)
 values ('e493d756-ea65-433a-91d0-eb3fc4a9c5c0',
         'RAMEN MATSUI',
-        35.6887731,
-        139.7151334,
+        35.68911996354835,
+        139.71547333407958,
         'Test Address',
         'ChIJGUxqAGCNGGARO3hE-VYdT1E'),
        ('4fe1e70a-f8d7-4800-a5d7-b29c3cbbe267',
         'Ramen Afro Beats',
-        35.6887899,
-        139.7112803,
+        35.69001793816234,
+        139.71113100117188,
         'Test Address',
         'ChIJ0xyUTKyNGGARnudXuriv4zc');
 
