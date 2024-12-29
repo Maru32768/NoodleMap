@@ -2,7 +2,7 @@
 // versions:
 //   sqlc v1.27.0
 
-package infrastructure
+package infra
 
 import (
 	"time"
@@ -30,6 +30,7 @@ type Restaurant struct {
 	Name          string    `json:"name"`
 	Lat           float64   `json:"lat"`
 	Lng           float64   `json:"lng"`
+	PostalCode    string    `json:"postalCode"`
 	Address       string    `json:"address"`
 	GooglePlaceID string    `json:"googlePlaceId"`
 	CreatedAt     time.Time `json:"createdAt"`

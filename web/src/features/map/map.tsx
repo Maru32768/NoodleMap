@@ -2,12 +2,14 @@ import { Restaurant } from "@/features/restaurants/api/useRestaurants.ts";
 import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
 import { Icon as LeafletIcon, Map as LeafletMap } from "leaflet";
 import { forwardRef, memo } from "react";
-import { Link, Text } from "@chakra-ui/react";
+import { Link, Text, VStack } from "@chakra-ui/react";
 import icon from "@/assets/icon.png";
 import { LuExternalLink } from "react-icons/lu";
+import MarkerClusterGroup from "react-leaflet-cluster";
 
 interface Props {
   restaurants: Restaurant[];
+  onSelectRestaurant?: (r: Restaurant) => void;
 }
 
 export const Map = memo(
@@ -15,7 +17,7 @@ export const Map = memo(
     return (
       <MapContainer
         ref={ref}
-        layers={[]}
+        preferCanvas
         zoomControl={false}
         center={[35.6895315, 139.700492]}
         zoom={13}
@@ -28,33 +30,62 @@ export const Map = memo(
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        {restaurants.map((r) => {
-          const url = new URL("https://www.google.com/maps/dir/");
-          url.searchParams.set("api", "1");
-          url.searchParams.set("destination", r.name);
-          url.searchParams.set("destination_place_id", r.googlePlaceId);
+        <MarkerClusterGroup
+          chunkedLoading
+          disableClusteringAtZoom={15}
+          maxClusterRadius={40}
+        >
+          {restaurants.map((r) => {
+            const restaurantUrl = new URL(
+              "https://www.google.com/maps/search/",
+            );
+            restaurantUrl.searchParams.set("api", "1");
+            restaurantUrl.searchParams.set("query", `${r.name} ${r.address}`);
+            restaurantUrl.searchParams.set("query_place_id", r.googlePlaceId);
 
-          return (
-            <Marker
-              key={r.id}
-              position={[r.lat, r.lng]}
-              icon={
-                new LeafletIcon({
-                  iconUrl: icon,
-                  iconSize: [24, 24],
-                })
-              }
-            >
-              <Popup>
-                <Text>{r.name}</Text>
-                <Link href={url.toString()} target="_blank">
-                  Google Mapsでルート検索
-                  <LuExternalLink />
-                </Link>
-              </Popup>
-            </Marker>
-          );
-        })}
+            const routeUrl = new URL("https://www.google.com/maps/dir/");
+            routeUrl.searchParams.set("api", "1");
+            routeUrl.searchParams.set("destination", r.name);
+            routeUrl.searchParams.set("destination_place_id", r.googlePlaceId);
+
+            return (
+              <Marker
+                key={r.id}
+                position={[r.lat, r.lng]}
+                icon={
+                  new LeafletIcon({
+                    iconUrl: icon,
+                    iconSize: [24, 24],
+                  })
+                }
+              >
+                <Popup>
+                  <VStack
+                    alignItems="start"
+                    css={{
+                      "& p": {
+                        margin: 0,
+                      },
+                    }}
+                  >
+                    <Text textStyle="md" fontWeight="semibold">
+                      {r.name}
+                    </Text>
+                    <Text textStyle="sm">{r.address}</Text>
+                    <Link href={restaurantUrl.toString()} target="_blank">
+                      Google Mapsで開く
+                      <LuExternalLink />
+                    </Link>
+                    <Link href={routeUrl.toString()} target="_blank">
+                      Google Mapsでルート検索
+                      <LuExternalLink />
+                    </Link>
+                  </VStack>
+                </Popup>
+              </Marker>
+            );
+          })}
+        </MarkerClusterGroup>
       </MapContainer>
     );
   }),

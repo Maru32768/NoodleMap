@@ -10,5 +10,3 @@ COPY ./web .
 RUN npm run build
 
 ENTRYPOINT /usr/sbin/nginx -g 'daemon off;' -c /work/nginx.conf
-
-RUN ls

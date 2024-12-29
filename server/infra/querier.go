@@ -2,7 +2,7 @@
 // versions:
 //   sqlc v1.27.0
 
-package infrastructure
+package infra
 
 import (
 	"context"
@@ -11,6 +11,8 @@ import (
 )
 
 type Querier interface {
+	//        avg(vr.rate)                as rate,
+	//        bool_and(vr.favorite)       as favorite
 	FindAllRestaurants(ctx context.Context) ([]FindAllRestaurantsRow, error)
 	FindAllTemporaryUsers(ctx context.Context) ([]TemporaryUser, error)
 	FindCategoriesByRestaurantIds(ctx context.Context, dollar_1 []uuid.UUID) ([]FindCategoriesByRestaurantIdsRow, error)

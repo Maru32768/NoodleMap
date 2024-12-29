@@ -3,7 +3,7 @@
 //   sqlc v1.27.0
 // source: query.sql
 
-package infrastructure
+package infra
 
 import (
 	"context"
@@ -19,9 +19,7 @@ select r.id,
        r.lng,
        r.address,
        r.google_place_id,
-       bool_and(vr.id is not null) as visited,
-       avg(vr.rate)                as rate,
-       bool_and(vr.favorite)       as favorite
+       bool_and(vr.id is not null) as visited
 from restaurants r
          left join visited_restaurants vr on r.id = vr.restaurant_id
 group by r.id, r.name, r.lat, r.lng, r.address, r.google_place_id
@@ -35,10 +33,10 @@ type FindAllRestaurantsRow struct {
 	Address       string    `json:"address"`
 	GooglePlaceID string    `json:"googlePlaceId"`
 	Visited       bool      `json:"visited"`
-	Rate          float64   `json:"rate"`
-	Favorite      bool      `json:"favorite"`
 }
 
+// avg(vr.rate)                as rate,
+// bool_and(vr.favorite)       as favorite
 func (q *Queries) FindAllRestaurants(ctx context.Context) ([]FindAllRestaurantsRow, error) {
 	rows, err := q.db.QueryContext(ctx, findAllRestaurants)
 	if err != nil {
@@ -56,8 +54,6 @@ func (q *Queries) FindAllRestaurants(ctx context.Context) ([]FindAllRestaurantsR
 			&i.Address,
 			&i.GooglePlaceID,
 			&i.Visited,
-			&i.Rate,
-			&i.Favorite,
 		); err != nil {
 			return nil, err
 		}

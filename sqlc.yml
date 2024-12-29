@@ -11,8 +11,8 @@ sql:
       - "./db/users/schema.sql"
     gen:
       go:
-        package: infrastructure
-        out: "./server/infrastructure"
+        package: infra
+        out: "./server/infra"
         emit_json_tags: true
         emit_interface: true
         emit_empty_slices: true

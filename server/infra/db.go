@@ -2,7 +2,7 @@
 // versions:
 //   sqlc v1.27.0
 
-package infrastructure
+package infra
 
 import (
 	"context"

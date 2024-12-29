@@ -1,28 +1,24 @@
 import { Restaurant } from "@/features/restaurants/api/useRestaurants.ts";
 
 export function searchRestaurants(restaurants: Restaurant[], q: string) {
-  const splitted = splitQuery(q);
-  if (!splitted) {
+  if (q === "") {
     return restaurants;
   }
+  const splitted = q.split(" ");
 
   return restaurants.filter((x) => {
+    let hit = true;
     for (const s of splitted) {
-      const sLowerCase = s.toLowerCase();
-      if (x.name.toLowerCase().includes(sLowerCase)) {
-        return true;
+      if (s === "") {
+        continue;
       }
+      const lowerS = s.toLowerCase();
 
-      if (x.address.toLowerCase().includes(sLowerCase)) {
-        return true;
-      }
+      hit =
+        (hit && x.name.toLowerCase().includes(lowerS)) ||
+        x.address.toLowerCase().includes(lowerS);
     }
 
-    return false;
+    return hit;
   });
-}
-
-function splitQuery(q: string) {
-  // TODO Consider double quotes
-  return q.split(" ");
 }

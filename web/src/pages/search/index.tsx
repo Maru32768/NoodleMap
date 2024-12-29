@@ -2,7 +2,7 @@ import { Box } from "@chakra-ui/react";
 import { Map as LeafletMap } from "leaflet";
 import { useSearchParams } from "react-router";
 import { useDebouncedCallback } from "use-debounce";
-import { useDeferredValue, useMemo, useRef } from "react";
+import { useMemo, useRef } from "react";
 import { useRestaurants } from "@/features/restaurants/api/useRestaurants.ts";
 import { searchRestaurants } from "@/features/search/utils.ts";
 import { useGeolocated } from "react-geolocated";
@@ -11,11 +11,11 @@ import { KEYWORD_PARAM_NAME } from "@/utils/search-params.ts";
 import { SearchPanel } from "@/features/search/search-panel.tsx";
 
 export default function SearchPage() {
-  const leafmapRef = useRef<LeafletMap>(null);
+  const leafMapRef = useRef<LeafletMap>(null);
   const { restaurants } = useRestaurants();
   useGeolocated({
     onSuccess: (pos) => {
-      leafmapRef.current?.setView({
+      leafMapRef.current?.setView({
         lat: pos.coords.latitude,
         lng: pos.coords.longitude,
       });
@@ -26,9 +26,8 @@ export default function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams({
     [KEYWORD_PARAM_NAME]: "",
   });
+  const keyword = searchParams.get(KEYWORD_PARAM_NAME);
 
-  const keyword = searchParams.get(KEYWORD_PARAM_NAME) ?? "";
-  const deferredKeyword = useDeferredValue(keyword);
   const updateKeyword = useDebouncedCallback(
     (query: string, resolve: (value: unknown) => void) => {
       resolve("");
@@ -47,8 +46,8 @@ export default function SearchPage() {
       return undefined;
     }
 
-    return searchRestaurants(restaurants, deferredKeyword);
-  }, [restaurants, deferredKeyword]);
+    return searchRestaurants(restaurants, keyword ?? "");
+  }, [restaurants, keyword]);
 
   return (
     <Box position="relative" boxSize="full">
@@ -62,7 +61,7 @@ export default function SearchPage() {
         bg="white"
       >
         <SearchPanel
-          defaultKeyword={keyword}
+          defaultKeyword={keyword ?? ""}
           onChangeKeyword={(keyword) => {
             return new Promise((resolve) => {
               updateKeyword(keyword, resolve);
@@ -70,7 +69,7 @@ export default function SearchPage() {
           }}
         />
       </Box>
-      <Map restaurants={filteredRestaurants ?? []} />
+      <Map ref={leafMapRef} restaurants={filteredRestaurants ?? []} />
     </Box>
   );
 }

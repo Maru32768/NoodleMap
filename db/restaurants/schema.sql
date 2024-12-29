@@ -1,11 +1,12 @@
 create table restaurants
 (
     id              uuid             not null primary key,
-    name            varchar(256)     not null,
+    name            varchar(65535)   not null,
     lat             double precision not null,
     lng             double precision not null,
-    address         varchar(1024)    not null,
-    google_place_id varchar(256)     not null unique,
+    postal_code     varchar(255)     not null,
+    address         varchar(65535)   not null,
+    google_place_id varchar(255)     not null unique,
     created_at      timestamptz      not null default now(),
     updated_at      timestamptz      not null default now()
 );
@@ -24,7 +25,7 @@ create table visited_restaurants
 create table categories
 (
     id         uuid         not null primary key,
-    label      varchar(256) not null,
+    label      varchar(255) not null,
     created_at timestamptz  not null default now(),
     updated_at timestamptz  not null default now()
 );

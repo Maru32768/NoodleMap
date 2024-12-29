@@ -3,27 +3,27 @@ package restaurants
 import (
 	"context"
 	"github.com/google/uuid"
-	"server/infrastructure"
+	"server/infra"
 )
 
 type Service struct {
-	store *infrastructure.Store
+	store *infra.Store
 }
 
 type RegisteredRestaurant struct {
-	ID            uuid.UUID                                         `json:"id"`
-	Name          string                                            `json:"name"`
-	Lat           float64                                           `json:"lat"`
-	Lng           float64                                           `json:"lng"`
-	Address       string                                            `json:"address"`
-	GooglePlaceID string                                            `json:"googlePlaceId"`
-	Visited       bool                                              `json:"visited"`
-	Rate          float64                                           `json:"rate"`
-	Favorite      bool                                              `json:"favorite"`
-	Categories    []infrastructure.FindCategoriesByRestaurantIdsRow `json:"categories"`
+	ID            uuid.UUID                                `json:"id"`
+	Name          string                                   `json:"name"`
+	Lat           float64                                  `json:"lat"`
+	Lng           float64                                  `json:"lng"`
+	Address       string                                   `json:"address"`
+	GooglePlaceID string                                   `json:"googlePlaceId"`
+	Visited       bool                                     `json:"visited"`
+	Rate          float64                                  `json:"rate"`
+	Favorite      bool                                     `json:"favorite"`
+	Categories    []infra.FindCategoriesByRestaurantIdsRow `json:"categories"`
 }
 
-func NewService(store *infrastructure.Store) *Service {
+func NewService(store *infra.Store) *Service {
 	return &Service{
 		store: store,
 	}
@@ -43,11 +43,11 @@ func (s *Service) FindRegisteredRestaurants(ctx context.Context) ([]RegisteredRe
 	if err != nil {
 		return nil, err
 	}
-	restaurantCategoriesMap := make(map[uuid.UUID][]infrastructure.FindCategoriesByRestaurantIdsRow)
+	restaurantCategoriesMap := make(map[uuid.UUID][]infra.FindCategoriesByRestaurantIdsRow)
 	for _, c := range cs {
 		arr, ok := restaurantCategoriesMap[c.RestaurantID]
 		if !ok {
-			arr = make([]infrastructure.FindCategoriesByRestaurantIdsRow, 0)
+			arr = make([]infra.FindCategoriesByRestaurantIdsRow, 0)
 		}
 		arr = append(arr, c)
 		restaurantCategoriesMap[c.RestaurantID] = arr
@@ -57,7 +57,7 @@ func (s *Service) FindRegisteredRestaurants(ctx context.Context) ([]RegisteredRe
 	for _, r := range rs {
 		c, ok := restaurantCategoriesMap[r.ID]
 		if !ok {
-			c = make([]infrastructure.FindCategoriesByRestaurantIdsRow, 0)
+			c = make([]infra.FindCategoriesByRestaurantIdsRow, 0)
 		}
 
 		res = append(res, RegisteredRestaurant{
@@ -68,9 +68,9 @@ func (s *Service) FindRegisteredRestaurants(ctx context.Context) ([]RegisteredRe
 			Address:       r.Address,
 			GooglePlaceID: r.GooglePlaceID,
 			Visited:       r.Visited,
-			Rate:          r.Rate,
-			Favorite:      r.Favorite,
-			Categories:    c,
+			//Rate:          r.Rate,
+			//Favorite:      r.Favorite,
+			Categories: c,
 		})
 	}
 

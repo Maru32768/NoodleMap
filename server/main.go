@@ -6,7 +6,7 @@ import (
 	_ "github.com/lib/pq"
 	"log"
 	"net/http"
-	"server/infrastructure"
+	"server/infra"
 	"server/restaurants"
 	"time"
 )
@@ -48,7 +48,7 @@ func run() error {
 	})
 	apiGroup := engine.Group("/api")
 
-	restaurantHandler := restaurants.NewHandler(restaurants.NewService(infrastructure.NewStore(db)))
+	restaurantHandler := restaurants.NewHandler(restaurants.NewService(infra.NewStore(db)))
 	apiGroup.GET("/restaurants", restaurantHandler.GetRestaurants)
 
 	authApiGroup := apiGroup.Group("/auth")

@@ -20,6 +20,7 @@
     "react-geolocated": "^4.3.0",
     "react-icons": "^5.4.0",
     "react-leaflet": "^4.2.1",
+    "react-leaflet-cluster": "^2.1.0",
     "react-router": "^7.0.2",
     "swr": "^2.2.5",
     "use-debounce": "^10.0.4"
@@ -27,6 +28,7 @@
   "devDependencies": {
     "@eslint/js": "^9.15.0",
     "@types/leaflet": "^1.9.15",
+    "@types/leaflet.markercluster": "^1.5.5",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react-swc": "^3.5.0",
