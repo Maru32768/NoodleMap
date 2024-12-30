@@ -11,8 +11,7 @@ import (
 )
 
 type Querier interface {
-	//        avg(vr.rate)                as rate,
-	//        bool_and(vr.favorite)       as favorite
+	FindAllCategories(ctx context.Context) ([]FindAllCategoriesRow, error)
 	FindAllRestaurants(ctx context.Context) ([]FindAllRestaurantsRow, error)
 	FindAllTemporaryUsers(ctx context.Context) ([]TemporaryUser, error)
 	FindCategoriesByRestaurantIds(ctx context.Context, dollar_1 []uuid.UUID) ([]FindCategoriesByRestaurantIdsRow, error)

@@ -7,6 +7,7 @@ create table restaurants
     postal_code     varchar(255)     not null,
     address         varchar(65535)   not null,
     google_place_id varchar(255)     not null unique,
+    closed          boolean          not null,
     created_at      timestamptz      not null default now(),
     updated_at      timestamptz      not null default now()
 );
@@ -26,18 +27,9 @@ create table categories
 (
     id         uuid         not null primary key,
     label      varchar(255) not null,
+    icon       text         not null,
     created_at timestamptz  not null default now(),
     updated_at timestamptz  not null default now()
-);
-
-create table category_icons
-(
-    id          uuid        not null primary key,
-    category_id uuid        not null unique,
-    icon        text        not null,
-    created_at  timestamptz not null default now(),
-    updated_at  timestamptz not null default now(),
-    foreign key (category_id) references categories
 );
 
 create table restaurants_categories
@@ -49,4 +41,14 @@ create table restaurants_categories
     updated_at    timestamptz not null default now(),
     foreign key (restaurant_id) references restaurants,
     foreign key (category_id) references categories
+);
+
+create table restaurant_images
+(
+    id            uuid           not null primary key,
+    restaurant_id uuid           not null,
+    path          varchar(65535) not null,
+    created_at    timestamptz    not null default now(),
+    updated_at    timestamptz    not null default now(),
+    foreign key (restaurant_id) references restaurants
 )

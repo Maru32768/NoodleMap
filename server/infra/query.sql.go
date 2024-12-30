@@ -12,6 +12,40 @@ import (
 	"github.com/lib/pq"
 )
 
+const findAllCategories = `-- name: FindAllCategories :many
+select c.id, c.label, c.icon
+from categories c
+`
+
+type FindAllCategoriesRow struct {
+	ID    uuid.UUID `json:"id"`
+	Label string    `json:"label"`
+	Icon  string    `json:"icon"`
+}
+
+func (q *Queries) FindAllCategories(ctx context.Context) ([]FindAllCategoriesRow, error) {
+	rows, err := q.db.QueryContext(ctx, findAllCategories)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []FindAllCategoriesRow{}
+	for rows.Next() {
+		var i FindAllCategoriesRow
+		if err := rows.Scan(&i.ID, &i.Label, &i.Icon); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const findAllRestaurants = `-- name: FindAllRestaurants :many
 select r.id,
        r.name,
@@ -19,7 +53,9 @@ select r.id,
        r.lng,
        r.address,
        r.google_place_id,
-       bool_and(vr.id is not null) as visited
+       bool_and(vr.id is not null)                     as visited,
+       coalesce(avg(vr.rate), 0)::double precision     as rate,
+       coalesce(bool_and(vr.favorite), false)::boolean as favorite
 from restaurants r
          left join visited_restaurants vr on r.id = vr.restaurant_id
 group by r.id, r.name, r.lat, r.lng, r.address, r.google_place_id
@@ -33,10 +69,10 @@ type FindAllRestaurantsRow struct {
 	Address       string    `json:"address"`
 	GooglePlaceID string    `json:"googlePlaceId"`
 	Visited       bool      `json:"visited"`
+	Rate          float64   `json:"rate"`
+	Favorite      bool      `json:"favorite"`
 }
 
-// avg(vr.rate)                as rate,
-// bool_and(vr.favorite)       as favorite
 func (q *Queries) FindAllRestaurants(ctx context.Context) ([]FindAllRestaurantsRow, error) {
 	rows, err := q.db.QueryContext(ctx, findAllRestaurants)
 	if err != nil {
@@ -54,6 +90,8 @@ func (q *Queries) FindAllRestaurants(ctx context.Context) ([]FindAllRestaurantsR
 			&i.Address,
 			&i.GooglePlaceID,
 			&i.Visited,
+			&i.Rate,
+			&i.Favorite,
 		); err != nil {
 			return nil, err
 		}
@@ -102,7 +140,7 @@ func (q *Queries) FindAllTemporaryUsers(ctx context.Context) ([]TemporaryUser, e
 }
 
 const findCategoriesByRestaurantIds = `-- name: FindCategoriesByRestaurantIds :many
-select c.id, c.label, rc.restaurant_id
+select c.id, rc.restaurant_id
 from categories c
          inner join restaurants_categories rc on c.id = rc.category_id
 where rc.restaurant_id = any ($1::uuid[])
@@ -110,7 +148,6 @@ where rc.restaurant_id = any ($1::uuid[])
 
 type FindCategoriesByRestaurantIdsRow struct {
 	ID           uuid.UUID `json:"id"`
-	Label        string    `json:"label"`
 	RestaurantID uuid.UUID `json:"restaurantId"`
 }
 
@@ -123,7 +160,7 @@ func (q *Queries) FindCategoriesByRestaurantIds(ctx context.Context, dollar_1 []
 	items := []FindCategoriesByRestaurantIdsRow{}
 	for rows.Next() {
 		var i FindCategoriesByRestaurantIdsRow
-		if err := rows.Scan(&i.ID, &i.Label, &i.RestaurantID); err != nil {
+		if err := rows.Scan(&i.ID, &i.RestaurantID); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

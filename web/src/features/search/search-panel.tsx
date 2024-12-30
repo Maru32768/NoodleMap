@@ -4,13 +4,24 @@ import { CiSearch } from "react-icons/ci";
 import { InputGroup } from "@/components/ui/input-group.tsx";
 import { Loading } from "@/components/loading.tsx";
 import { useState } from "react";
+import { Category } from "@/features/categories/api/useCategories.ts";
+import { Checkbox } from "@/components/ui/checkbox.tsx";
 
 interface Props {
+  categories: Category[];
+  currentCategories: string[];
   defaultKeyword: string;
   onChangeKeyword: (keyword: string) => Promise<unknown>;
+  onChangeCategories: (categories: string[]) => void;
 }
 
-export function SearchPanel({ defaultKeyword, onChangeKeyword }: Props) {
+export function SearchPanel({
+  categories,
+  currentCategories,
+  defaultKeyword,
+  onChangeKeyword,
+  onChangeCategories,
+}: Props) {
   const [isPending, setIsPending] = useState(false);
 
   return (
@@ -37,6 +48,32 @@ export function SearchPanel({ defaultKeyword, onChangeKeyword }: Props) {
             }}
           />
         </InputGroup>
+      </Field>
+      <Field label="カテゴリー">
+        <HStack>
+          {categories.map((x) => {
+            const isChecked = currentCategories.includes(x.id);
+            return (
+              <Checkbox
+                htmlFor={x.id}
+                key={x.id}
+                value={x.id}
+                checked={isChecked}
+                onCheckedChange={({ checked }) => {
+                  if (checked) {
+                    onChangeCategories([...currentCategories, x.id]);
+                  } else {
+                    onChangeCategories(
+                      currentCategories.filter((y) => y !== x.id),
+                    );
+                  }
+                }}
+              >
+                {x.label}
+              </Checkbox>
+            );
+          })}
+        </HStack>
       </Field>
     </VStack>
   );

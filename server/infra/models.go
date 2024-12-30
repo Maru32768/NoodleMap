@@ -13,16 +13,9 @@ import (
 type Category struct {
 	ID        uuid.UUID `json:"id"`
 	Label     string    `json:"label"`
+	Icon      string    `json:"icon"`
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
-}
-
-type CategoryIcon struct {
-	ID         uuid.UUID `json:"id"`
-	CategoryID uuid.UUID `json:"categoryId"`
-	Icon       string    `json:"icon"`
-	CreatedAt  time.Time `json:"createdAt"`
-	UpdatedAt  time.Time `json:"updatedAt"`
 }
 
 type Restaurant struct {
@@ -33,8 +26,17 @@ type Restaurant struct {
 	PostalCode    string    `json:"postalCode"`
 	Address       string    `json:"address"`
 	GooglePlaceID string    `json:"googlePlaceId"`
+	Closed        bool      `json:"closed"`
 	CreatedAt     time.Time `json:"createdAt"`
 	UpdatedAt     time.Time `json:"updatedAt"`
+}
+
+type RestaurantImage struct {
+	ID           uuid.UUID `json:"id"`
+	RestaurantID uuid.UUID `json:"restaurantId"`
+	Path         string    `json:"path"`
+	CreatedAt    time.Time `json:"createdAt"`
+	UpdatedAt    time.Time `json:"updatedAt"`
 }
 
 type RestaurantsCategory struct {

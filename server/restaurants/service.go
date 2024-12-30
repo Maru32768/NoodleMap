@@ -11,16 +11,16 @@ type Service struct {
 }
 
 type RegisteredRestaurant struct {
-	ID            uuid.UUID                                `json:"id"`
-	Name          string                                   `json:"name"`
-	Lat           float64                                  `json:"lat"`
-	Lng           float64                                  `json:"lng"`
-	Address       string                                   `json:"address"`
-	GooglePlaceID string                                   `json:"googlePlaceId"`
-	Visited       bool                                     `json:"visited"`
-	Rate          float64                                  `json:"rate"`
-	Favorite      bool                                     `json:"favorite"`
-	Categories    []infra.FindCategoriesByRestaurantIdsRow `json:"categories"`
+	ID            uuid.UUID   `json:"id"`
+	Name          string      `json:"name"`
+	Lat           float64     `json:"lat"`
+	Lng           float64     `json:"lng"`
+	Address       string      `json:"address"`
+	GooglePlaceID string      `json:"googlePlaceId"`
+	Visited       bool        `json:"visited"`
+	Rate          float64     `json:"rate"`
+	Favorite      bool        `json:"favorite"`
+	Categories    []uuid.UUID `json:"categories"`
 }
 
 func NewService(store *infra.Store) *Service {
@@ -43,21 +43,21 @@ func (s *Service) FindRegisteredRestaurants(ctx context.Context) ([]RegisteredRe
 	if err != nil {
 		return nil, err
 	}
-	restaurantCategoriesMap := make(map[uuid.UUID][]infra.FindCategoriesByRestaurantIdsRow)
+	restaurantCategoryIdsMap := make(map[uuid.UUID][]uuid.UUID)
 	for _, c := range cs {
-		arr, ok := restaurantCategoriesMap[c.RestaurantID]
+		arr, ok := restaurantCategoryIdsMap[c.RestaurantID]
 		if !ok {
-			arr = make([]infra.FindCategoriesByRestaurantIdsRow, 0)
+			arr = make([]uuid.UUID, 0)
 		}
-		arr = append(arr, c)
-		restaurantCategoriesMap[c.RestaurantID] = arr
+		arr = append(arr, c.ID)
+		restaurantCategoryIdsMap[c.RestaurantID] = arr
 	}
 
 	res := make([]RegisteredRestaurant, 0)
 	for _, r := range rs {
-		c, ok := restaurantCategoriesMap[r.ID]
+		c, ok := restaurantCategoryIdsMap[r.ID]
 		if !ok {
-			c = make([]infra.FindCategoriesByRestaurantIdsRow, 0)
+			c = make([]uuid.UUID, 0)
 		}
 
 		res = append(res, RegisteredRestaurant{
@@ -68,9 +68,9 @@ func (s *Service) FindRegisteredRestaurants(ctx context.Context) ([]RegisteredRe
 			Address:       r.Address,
 			GooglePlaceID: r.GooglePlaceID,
 			Visited:       r.Visited,
-			//Rate:          r.Rate,
-			//Favorite:      r.Favorite,
-			Categories: c,
+			Rate:          r.Rate,
+			Favorite:      r.Favorite,
+			Categories:    c,
 		})
 	}
 

@@ -6,6 +6,7 @@ import (
 	_ "github.com/lib/pq"
 	"log"
 	"net/http"
+	"server/categories"
 	"server/infra"
 	"server/restaurants"
 	"time"
@@ -41,15 +42,18 @@ func run() error {
 			break
 		}
 	}
+	store := infra.NewStore(db)
 
 	engine := gin.Default()
 	engine.GET("/health", func(ctx *gin.Context) {
 		ctx.String(http.StatusOK, "ok")
 	})
-	apiGroup := engine.Group("/api")
-
-	restaurantHandler := restaurants.NewHandler(restaurants.NewService(infra.NewStore(db)))
+	apiGroup := engine.Group("/api/v1")
+	restaurantHandler := restaurants.NewHandler(restaurants.NewService(store))
 	apiGroup.GET("/restaurants", restaurantHandler.GetRestaurants)
+
+	categoryHandler := categories.NewHandler(categories.NewService(store))
+	apiGroup.GET("/categories", categoryHandler.GetCategories)
 
 	authApiGroup := apiGroup.Group("/auth")
 	authApiGroup.Use(func(ctx *gin.Context) {

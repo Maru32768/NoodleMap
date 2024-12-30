@@ -2,7 +2,9 @@ version: "3.8"
 
 services:
   db:
-    image: postgres:17.2
+    build:
+      context: ./
+      dockerfile: ./db/Dockerfile
     platform: linux/x86_64
     volumes:
       - ./db:/docker-entrypoint-initdb.d

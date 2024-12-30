@@ -1,4 +1,4 @@
-package restaurants
+package categories
 
 import (
 	"github.com/gin-gonic/gin"
@@ -15,14 +15,14 @@ func NewHandler(service *Service) *Handler {
 	}
 }
 
-func (h *Handler) GetRestaurants(ctx *gin.Context) {
-	rs, err := h.service.FindRegisteredRestaurants(ctx)
+func (h *Handler) GetCategories(ctx *gin.Context) {
+	cs, err := h.service.FindCategories(ctx)
 	if err != nil {
 		ctx.AbortWithError(http.StatusInternalServerError, err)
 		return
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{
-		"restaurants": rs,
+		"categories": cs,
 	})
 }
