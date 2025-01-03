@@ -1,0 +1,60 @@
+version: "3.8"
+
+services:
+  db:
+    build:
+      context: ./
+      dockerfile: ./db/Dockerfile
+    platform: linux/x86_64
+    volumes:
+      - ./db:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    hostname: db
+    healthcheck:
+      test: psql -U postgres -c 'select 1;' 2>&1 > /dev/null
+      interval: 30s
+      start_period: 30s
+      start_interval: 1s
+    environment:
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_HOST_AUTH_METHOD=trust
+
+  server:
+    image: noodle-map-server
+    build:
+      context: ./
+      dockerfile: ./server/Dockerfile
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=password
+      - DB_NAME=noodle_map
+      - DB_SSL_MODE=disable
+      - SERVER_PORT=8888
+    ports:
+      - "8888:8888"
+    healthcheck:
+      test: curl --fail localhost:8888/health || exit 1
+      interval: 30s
+      start_period: 30s
+      start_interval: 1s
+    depends_on:
+      db:
+        condition: service_healthy
+
+  front:
+    image: noodle-map-front
+    build:
+      context: ./
+      dockerfile: ./web/Dockerfile
+    environment:
+      - SERVER_ADDRESS=http://server:8888
+    ports:
+      - "8080:80"
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    depends_on:
+      server:
+        condition: service_healthy
