@@ -21,13 +21,19 @@ services:
       - POSTGRES_HOST_AUTH_METHOD=trust
 
   server:
+    image: noodle-map-server
     build:
       context: ./
       dockerfile: ./server/Dockerfile
-    #    env_file:
-    #      - .env
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=password
+      - DB_NAME=noodle_map
+      - DB_SSL_MODE=disable
+      - SERVER_PORT=8888
     ports:
-      #      - ${PORT:-8888}:8888
       - "8888:8888"
     healthcheck:
       test: curl --fail localhost:8888/health || exit 1
@@ -38,10 +44,13 @@ services:
       db:
         condition: service_healthy
 
-  web:
+  front:
+    image: noodle-map-front
     build:
       context: ./
       dockerfile: ./web/Dockerfile
+    environment:
+      - SERVER_ADDRESS=http://server:8888
     ports:
       - "8080:80"
     extra_hosts:

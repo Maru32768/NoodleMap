@@ -2,13 +2,15 @@ version: "2"
 sql:
   - engine: "postgresql"
     queries:
-      - "./db/restaurants/query.sql"
+      - "./db/categories/query.sql"
       - "./db/temporary_users/query.sql"
       - "./db/users/query.sql"
+      - "./db/restaurants/query.sql"
     schema:
-      - "./db/restaurants/schema.sql"
+      - "./db/categories/schema.sql"
       - "./db/temporary_users/schema.sql"
       - "./db/users/schema.sql"
+      - "./db/restaurants/schema.sql"
     gen:
       go:
         package: infra

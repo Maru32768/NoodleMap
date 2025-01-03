@@ -5,6 +5,7 @@ PSQL_OPTS="-U postgres -d ${DB_NAME}"
 
 psql -U postgres -c "create database ${DB_NAME};"
 
+psql $PSQL_OPTS -f /docker-entrypoint-initdb.d/categories/schema.sql
 psql $PSQL_OPTS -f /docker-entrypoint-initdb.d/users/schema.sql
 psql $PSQL_OPTS -f /docker-entrypoint-initdb.d/temporary_users/schema.sql
 psql $PSQL_OPTS -f /docker-entrypoint-initdb.d/restaurants/schema.sql

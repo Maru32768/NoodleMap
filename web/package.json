@@ -1,5 +1,5 @@
 {
-  "name": "noodle-map-front",
+  "name": "noodle-map-web",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -45,7 +45,7 @@
     "vite-plugin-checker": "^0.8.0"
   },
   "volta": {
-    "node": "23.4.0",
+    "node": "22.12.0",
     "npm": "10.9.2"
   }
 }

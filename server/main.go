@@ -2,10 +2,13 @@ package main
 
 import (
 	"database/sql"
+	"errors"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	_ "github.com/lib/pq"
 	"log"
 	"net/http"
+	"os"
 	"server/categories"
 	"server/infra"
 	"server/restaurants"
@@ -19,7 +22,36 @@ func main() {
 }
 
 func run() error {
-	db, err := sql.Open("postgres", "host=db port=5432 user=postgres password=password dbname=noodle_map sslmode=disable")
+	dbHost := os.Getenv(DbHostEnv)
+	if dbHost == "" {
+		return errors.New(fmt.Sprintf("%s is missing.", DbHostEnv))
+	}
+	dbPort := os.Getenv(DbPortEnv)
+	if dbPort == "" {
+		return errors.New(fmt.Sprintf("%s is missing.", DbPortEnv))
+	}
+	dbUser := os.Getenv(DbUserEnv)
+	if dbUser == "" {
+		return errors.New(fmt.Sprintf("%s is missing.", DbUserEnv))
+	}
+	dbPassword := os.Getenv(DbPasswordEnv)
+	if dbPassword == "" {
+		return errors.New(fmt.Sprintf("%s is missing.", DbPasswordEnv))
+	}
+	dbName := os.Getenv(DbNameEnv)
+	if dbName == "" {
+		return errors.New(fmt.Sprintf("%s is missing.", DbNameEnv))
+	}
+	dbSslMode := os.Getenv(DbSslModeEnv)
+	if dbSslMode == "" {
+		return errors.New(fmt.Sprintf("%s is missing.", DbSslModeEnv))
+	}
+	serverPort := os.Getenv(ServerPortEnv)
+	if serverPort == "" {
+		return errors.New(fmt.Sprintf("%s is missing.", ServerPortEnv))
+	}
+
+	db, err := sql.Open("postgres", fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s", dbHost, dbPort, dbUser, dbPassword, dbName, dbSslMode))
 	if err != nil {
 		return err
 	}
@@ -36,7 +68,7 @@ func run() error {
 			if i == DbRetryTimes {
 				return err
 			}
-			log.Println("Waiting DB for 10 seconds")
+			log.Printf("Waiting DB for 10 seconds. err=%s\n", err)
 			time.Sleep(10 * time.Second)
 		} else {
 			break
@@ -60,7 +92,7 @@ func run() error {
 		// TODO impl authentication
 	})
 
-	if err := engine.Run(":8888"); err != nil {
+	if err := engine.Run(":" + serverPort); err != nil {
 		return err
 	}
 

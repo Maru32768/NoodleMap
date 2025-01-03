@@ -17,7 +17,3 @@ select c.id, rc.restaurant_id
 from categories c
          inner join restaurants_categories rc on c.id = rc.category_id
 where rc.restaurant_id = any ($1::uuid[]);
-
--- name: FindAllCategories :many
-select c.id, c.label, c.icon
-from categories c;

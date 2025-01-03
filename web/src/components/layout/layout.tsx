@@ -1,26 +1,21 @@
 import {
   Button,
-  ButtonProps,
   Center,
-  chakra,
   Grid,
   GridItem,
   HStack,
+  Icon,
   Text,
 } from "@chakra-ui/react";
-import { Link, Outlet, useLocation } from "react-router";
-import { FAVORITE_PATH, SEARCH_PATH } from "@/utils/path.ts";
+import { Outlet } from "react-router";
 import { Suspense } from "react";
 import { Loading } from "@/components/loading.tsx";
-
-const ChakraLink = chakra(Link);
-
-function ButtonLink(props: ButtonProps & { to: string }) {
-  return <Button as={ChakraLink} {...props} />;
-}
+import { useSetAtom } from "jotai";
+import { searchPanelModalOpenAtom } from "@/state/search-panel-modal-state.ts";
+import { LuTextSearch } from "react-icons/lu";
 
 export function Layout() {
-  const location = useLocation();
+  const setOpen = useSetAtom(searchPanelModalOpenAtom);
 
   return (
     <Grid
@@ -34,6 +29,7 @@ export function Layout() {
     >
       <GridItem gridArea="header">
         <HStack
+          position="relative"
           paddingY={2}
           paddingX={4}
           boxSize="full"
@@ -41,26 +37,21 @@ export function Layout() {
           justifyContent="space-between"
         >
           <Text>Maru&apos;s Noodle Map</Text>
-          <HStack>
-            <ButtonLink
-              size="xl"
-              colorPalette="teal"
-              variant="ghost"
-              aria-expanded={location.pathname.startsWith(SEARCH_PATH)}
-              to={SEARCH_PATH}
-            >
-              店舗検索
-            </ButtonLink>
-            <ButtonLink
-              size="xl"
-              colorPalette="teal"
-              variant="ghost"
-              aria-expanded={location.pathname.startsWith(FAVORITE_PATH)}
-              to={FAVORITE_PATH}
-            >
-              お気に入り
-            </ButtonLink>
-          </HStack>
+          <Button
+            paddingX={0}
+            size="lg"
+            colorPalette="teal"
+            lg={{
+              display: "none",
+            }}
+            onClick={() => {
+              setOpen((prev) => !prev);
+            }}
+          >
+            <Icon boxSize="1.5rem">
+              <LuTextSearch />
+            </Icon>
+          </Button>
         </HStack>
       </GridItem>
       <GridItem gridArea="main" bg="gray.100">

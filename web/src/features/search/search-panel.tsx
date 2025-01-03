@@ -4,28 +4,47 @@ import { CiSearch } from "react-icons/ci";
 import { InputGroup } from "@/components/ui/input-group.tsx";
 import { Loading } from "@/components/loading.tsx";
 import { useState } from "react";
-import { Category } from "@/features/categories/api/useCategories.ts";
+import { Category } from "@/features/categories/api/use-categories.ts";
 import { Checkbox } from "@/components/ui/checkbox.tsx";
 
-interface Props {
+export interface SearchPanelProps {
+  count: number;
   categories: Category[];
   currentCategories: string[];
+  onChangeCategories: (categories: string[]) => void;
   defaultKeyword: string;
   onChangeKeyword: (keyword: string) => Promise<unknown>;
-  onChangeCategories: (categories: string[]) => void;
+  favoriteOnly: boolean;
+  onChangeFavoriteOnly: (favoriteOnly: boolean) => void;
+  visited: boolean;
+  onChangeVisited: (visited: boolean) => void;
+  unvisited: boolean;
+  onChangeUnvisited: (unvisited: boolean) => void;
+  clustering: boolean;
+  onChangeClustering: (clustering: boolean) => void;
 }
 
 export function SearchPanel({
+  count,
   categories,
   currentCategories,
   defaultKeyword,
   onChangeKeyword,
   onChangeCategories,
-}: Props) {
+  favoriteOnly,
+  onChangeFavoriteOnly,
+  visited,
+  onChangeVisited,
+  unvisited,
+  onChangeUnvisited,
+  clustering,
+  onChangeClustering,
+}: SearchPanelProps) {
   const [isPending, setIsPending] = useState(false);
 
   return (
-    <VStack boxSize="20rem" fontSize="md">
+    <VStack alignItems="start" boxSize="full" fontSize="md">
+      <Text fontSize="sm">現在の表示件数: {count}</Text>
       <Field
         label={
           <HStack gap={1}>
@@ -74,6 +93,56 @@ export function SearchPanel({
             );
           })}
         </HStack>
+      </Field>
+      <Field label="その他">
+        <VStack alignItems="start">
+          <HStack>
+            <Checkbox
+              htmlFor="visited"
+              checked={visited}
+              onCheckedChange={({ checked }) => {
+                if (typeof checked === "boolean") {
+                  onChangeVisited(checked);
+                }
+              }}
+            >
+              既訪問店
+            </Checkbox>
+            <Checkbox
+              htmlFor="unvisited"
+              checked={unvisited}
+              onCheckedChange={({ checked }) => {
+                if (typeof checked === "boolean") {
+                  onChangeUnvisited(checked);
+                }
+              }}
+            >
+              未訪問店
+            </Checkbox>
+          </HStack>
+          <Checkbox
+            htmlFor="maruFavorite"
+            checked={favoriteOnly}
+            onCheckedChange={({ checked }) => {
+              if (typeof checked === "boolean") {
+                onChangeFavoriteOnly(checked);
+              }
+            }}
+          >
+            Maruのお気に入りのみ
+          </Checkbox>
+          <Checkbox
+            htmlFor="clustering"
+            checked={clustering}
+            onCheckedChange={({ checked }) => {
+              if (typeof checked === "boolean") {
+                onChangeClustering(checked);
+              }
+            }}
+          >
+            マーカーのクラスタリング
+          </Checkbox>
+        </VStack>
       </Field>
     </VStack>
   );

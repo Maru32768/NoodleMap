@@ -28,12 +28,12 @@ export class ApiError extends Error {
 
 export async function request<T>(input: RequestInfo | URL, init?: RequestInit) {
   const res = await fetch(input, {
+    ...init,
     headers: {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
       ...init?.headers,
     },
-    ...init,
   });
   const body = await getResponseBody(res);
   catchError({
