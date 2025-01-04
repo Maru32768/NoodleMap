@@ -8,7 +8,7 @@ import {
   Map as LeafletMap,
 } from "leaflet";
 import { forwardRef, memo, useEffect, useRef } from "react";
-import { Link, Text, VStack } from "@chakra-ui/react";
+import { HStack, Link, Text, VStack } from "@chakra-ui/react";
 import { LuExternalLink } from "react-icons/lu";
 import MarkerClusterGroup from "react-leaflet-cluster";
 import { Button } from "@/components/ui/button.tsx";
@@ -123,7 +123,7 @@ export const Map = memo(
                   })
                 }
               >
-                <Popup>
+                <Popup maxWidth={500}>
                   <VStack
                     alignItems="stretch"
                     css={{
@@ -133,9 +133,16 @@ export const Map = memo(
                     }}
                   >
                     <VStack alignItems="start" gap={0}>
-                      <Text textStyle="md" fontWeight="semibold">
-                        {r.name}
-                      </Text>
+                      <HStack whiteSpace="nowrap">
+                        <Text textStyle="md" fontWeight="semibold">
+                          {r.name}
+                        </Text>
+                        {r.closed && (
+                          <Text textStyle="sm" color="red">
+                            閉店
+                          </Text>
+                        )}
+                      </HStack>
                       <Text textStyle="sm">{r.address}</Text>
                     </VStack>
                     <Button asChild variant="outline">

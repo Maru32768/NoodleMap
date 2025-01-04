@@ -7,6 +7,7 @@ export interface Restaurant {
   name: string;
   lat: number;
   lng: number;
+  closed: boolean;
   address: string;
   googlePlaceId: string;
   visited: boolean;

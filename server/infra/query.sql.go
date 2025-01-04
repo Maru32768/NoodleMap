@@ -52,13 +52,14 @@ select r.id,
        r.lat,
        r.lng,
        r.address,
+       r.closed,
        r.google_place_id,
        bool_and(vr.id is not null)                     as visited,
        coalesce(avg(vr.rate), 0)::double precision     as rate,
        coalesce(bool_and(vr.favorite), false)::boolean as favorite
 from restaurants r
          left join visited_restaurants vr on r.id = vr.restaurant_id
-group by r.id, r.name, r.lat, r.lng, r.address, r.google_place_id
+group by r.id, r.name, r.lat, r.lng, r.address, r.closed, r.google_place_id
 `
 
 type FindAllRestaurantsRow struct {
@@ -67,6 +68,7 @@ type FindAllRestaurantsRow struct {
 	Lat           float64   `json:"lat"`
 	Lng           float64   `json:"lng"`
 	Address       string    `json:"address"`
+	Closed        bool      `json:"closed"`
 	GooglePlaceID string    `json:"googlePlaceId"`
 	Visited       bool      `json:"visited"`
 	Rate          float64   `json:"rate"`
@@ -88,6 +90,7 @@ func (q *Queries) FindAllRestaurants(ctx context.Context) ([]FindAllRestaurantsR
 			&i.Lat,
 			&i.Lng,
 			&i.Address,
+			&i.Closed,
 			&i.GooglePlaceID,
 			&i.Visited,
 			&i.Rate,

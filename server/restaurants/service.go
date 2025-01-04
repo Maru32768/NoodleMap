@@ -15,6 +15,7 @@ type RegisteredRestaurant struct {
 	Name          string      `json:"name"`
 	Lat           float64     `json:"lat"`
 	Lng           float64     `json:"lng"`
+	Closed        bool        `json:"closed"`
 	Address       string      `json:"address"`
 	GooglePlaceID string      `json:"googlePlaceId"`
 	Visited       bool        `json:"visited"`
@@ -65,6 +66,7 @@ func (s *Service) FindRegisteredRestaurants(ctx context.Context) ([]RegisteredRe
 			Name:          r.Name,
 			Lat:           r.Lat,
 			Lng:           r.Lng,
+			Closed:        r.Closed,
 			Address:       r.Address,
 			GooglePlaceID: r.GooglePlaceID,
 			Visited:       r.Visited,
