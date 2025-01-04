@@ -6,3 +6,9 @@ create table categories
     created_at timestamptz  not null default now(),
     updated_at timestamptz  not null default now()
 );
+
+create trigger update_categories_modtime
+    before update
+    on categories
+    for each row
+execute procedure update_timestamp();

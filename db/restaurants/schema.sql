@@ -12,6 +12,12 @@ create table restaurants
     updated_at      timestamptz      not null default now()
 );
 
+create trigger update_restaurants_modtime
+    before update
+    on restaurants
+    for each row
+execute procedure update_timestamp();
+
 create table visited_restaurants
 (
     id            uuid        not null primary key,
@@ -22,6 +28,12 @@ create table visited_restaurants
     updated_at    timestamptz not null default now(),
     foreign key (restaurant_id) references restaurants
 );
+
+create trigger update_visited_restaurants_modtime
+    before update
+    on visited_restaurants
+    for each row
+execute procedure update_timestamp();
 
 create table restaurants_categories
 (
@@ -34,6 +46,12 @@ create table restaurants_categories
     foreign key (category_id) references categories
 );
 
+create trigger update_restaurants_categories_modtime
+    before update
+    on restaurants_categories
+    for each row
+execute procedure update_timestamp();
+
 create table restaurant_images
 (
     id            uuid           not null primary key,
@@ -42,4 +60,10 @@ create table restaurant_images
     created_at    timestamptz    not null default now(),
     updated_at    timestamptz    not null default now(),
     foreign key (restaurant_id) references restaurants
-)
+);
+
+create trigger update_restaurant_images_modtime
+    before update
+    on restaurant_images
+    for each row
+execute procedure update_timestamp();
