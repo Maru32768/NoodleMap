@@ -49,7 +49,7 @@ export default function SearchPage() {
     searchPanelModalOpenAtom,
   );
 
-  const keyword = searchParams.get(KEYWORD_PARAM_NAME);
+  const keywordParam = searchParams.get(KEYWORD_PARAM_NAME);
 
   const [currentCategories, setCurrentCategories] = useState(
     searchParams.getAll(CATEGORIES_PARAM_NAME),
@@ -164,7 +164,7 @@ export default function SearchPage() {
 
     return searchRestaurants(
       restaurants,
-      keyword ?? "",
+      keywordParam ?? "",
       deferredCurrentCategories,
       deferredFavoriteOnly,
       deferredVisited,
@@ -172,7 +172,7 @@ export default function SearchPage() {
     );
   }, [
     restaurants,
-    keyword,
+    keywordParam,
     deferredCurrentCategories,
     deferredFavoriteOnly,
     deferredVisited,
@@ -182,7 +182,7 @@ export default function SearchPage() {
   const searchPanelProps: SearchPanelProps = {
     count: filteredRestaurants?.length ?? 0,
     currentCategories: currentCategories,
-    defaultKeyword: keyword ?? "",
+    defaultKeyword: keywordParam ?? "",
     onChangeKeyword: (keyword) => {
       return new Promise((resolve) => {
         updateKeyword(keyword, resolve);
