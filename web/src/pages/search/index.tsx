@@ -96,7 +96,7 @@ export default function SearchPage() {
 
   const leafletMapRef = useRef<LeafletMap>(null);
   const mapDraggingRef = useRef(false);
-  const isMoveOccurredByChangeLocation = useRef(false);
+  const isMoveOccurredByParamChange = useRef(false);
   const handleDragStart = useCallback(() => {
     mapDraggingRef.current = true;
   }, []);
@@ -110,14 +110,14 @@ export default function SearchPage() {
     if (!mapDraggingRef.current) {
       if (center?.lat !== lat || center?.lng !== lng) {
         leafletMapRef.current?.flyTo([lat, lng]);
-        isMoveOccurredByChangeLocation.current = true;
+        isMoveOccurredByParamChange.current = true;
       }
     }
   }, [latParam, lngParam]);
 
   const handleMoveEnd: MapEventHandler = useCallback((map) => {
-    if (isMoveOccurredByChangeLocation.current) {
-      isMoveOccurredByChangeLocation.current = false;
+    if (isMoveOccurredByParamChange.current) {
+      isMoveOccurredByParamChange.current = false;
       return;
     }
     const center = map.getCenter();
@@ -129,7 +129,11 @@ export default function SearchPage() {
     });
   }, []);
 
-  const { restaurants } = useRestaurants();
+  const { restaurants } = useRestaurants({
+    revalidateIfStale: false,
+    revalidateOnFocus: false,
+    revalidateOnReconnect: false,
+  });
   const { categories } = useCategories({
     onSuccess: (cs) => {
       if (!searchParams.has(CATEGORIES_PARAM_NAME)) {
@@ -143,9 +147,12 @@ export default function SearchPage() {
         });
       }
     },
+    revalidateIfStale: false,
+    revalidateOnFocus: false,
+    revalidateOnReconnect: false,
   });
 
-  const updateKeyword = useDebouncedCallback(
+  const updateKeywordDebounced = useDebouncedCallback(
     (query: string, resolve: (value: unknown) => void) => {
       resolve("");
       setSearchParams((prev) => {
@@ -185,7 +192,7 @@ export default function SearchPage() {
     defaultKeyword: keywordParam ?? "",
     onChangeKeyword: (keyword) => {
       return new Promise((resolve) => {
-        updateKeyword(keyword, resolve);
+        updateKeywordDebounced(keyword, resolve);
       });
     },
     categories: categories ?? [],
