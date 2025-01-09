@@ -24,7 +24,12 @@ export function useCategories(config?: SWRConfiguration<Category[]>) {
           throw err;
         });
     },
-    config,
+    {
+      revalidateIfStale: false,
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      ...config,
+    },
   );
 
   return {

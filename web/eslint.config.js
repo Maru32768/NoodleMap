@@ -12,7 +12,7 @@ export default tseslint.config(
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],
     languageOptions: {
-      ecmaVersion: 2020,
+      ecmaVersion: 2023,
       globals: globals.builtin,
     },
     plugins: {
@@ -32,6 +32,7 @@ export default tseslint.config(
       "react/jsx-uses-react": "off",
       "react/react-in-jsx-scope": "off",
       "@typescript-eslint/no-empty-object-type": "off",
+      "react/prop-types": "off",
     },
   },
 );

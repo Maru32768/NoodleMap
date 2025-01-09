@@ -147,9 +147,6 @@ export default function SearchPage() {
         });
       }
     },
-    revalidateIfStale: false,
-    revalidateOnFocus: false,
-    revalidateOnReconnect: false,
   });
 
   const updateKeywordDebounced = useDebouncedCallback(

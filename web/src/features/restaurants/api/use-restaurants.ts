@@ -32,7 +32,12 @@ export function useRestaurants(config?: SWRConfiguration<Restaurant[]>) {
           throw err;
         });
     },
-    config,
+    {
+      revalidateIfStale: false,
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      ...config,
+    },
   );
 
   return {
