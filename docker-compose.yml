@@ -33,6 +33,7 @@ services:
       - DB_NAME=noodle_map
       - DB_SSL_MODE=disable
       - SERVER_PORT=8888
+      - TOKEN_SECRET=test-secret
     ports:
       - "8888:8888"
     healthcheck:

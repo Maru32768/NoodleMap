@@ -1,6 +1,6 @@
 import useSWR, { SWRConfiguration } from "swr";
-import { ApiError, request } from "@/utils/request.ts";
-import { toaster } from "@/components/ui/toaster.tsx";
+import { ApiError, get } from "@/utils/request.ts";
+import { toastApiError } from "@/utils/toast.ts";
 
 export interface Category {
   id: string;
@@ -12,19 +12,21 @@ export function useCategories(config?: SWRConfiguration<Category[]>) {
   const resp = useSWR(
     ["/api/v1/categories"],
     () => {
-      return request<{ categories: Category[] }>("/api/v1/categories")
+      return get<{ categories: Category[] }>("/api/v1/categories")
         .then((res) => {
           return res.body.categories;
         })
         .catch((err: ApiError) => {
-          toaster.create({
-            title: err.statusText,
-            description: JSON.stringify(err.body),
-          });
+          toastApiError(err);
           throw err;
         });
     },
-    config,
+    {
+      revalidateIfStale: false,
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      ...config,
+    },
   );
 
   return {

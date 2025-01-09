@@ -1,12 +1,11 @@
-export let token: string | undefined = undefined;
-// TODO remove
-token = "";
+import { token } from "@/features/auth/use-auth.ts";
 
 export interface ApiResult<T> {
   readonly url: RequestInfo | URL;
   readonly ok: boolean;
   readonly status: number;
   readonly statusText: string;
+  readonly headers: Headers;
   readonly body: T;
 }
 
@@ -26,12 +25,49 @@ export class ApiError extends Error {
   }
 }
 
-export async function request<T>(input: RequestInfo | URL, init?: RequestInit) {
+export async function get<T>(
+  input: RequestInfo | URL,
+  init?: Omit<RequestInit, "method">,
+) {
+  return request<T>(input, {
+    ...init,
+    method: "GET",
+  });
+}
+
+export async function post<T>(
+  input: RequestInfo | URL,
+  init?: Omit<RequestInit, "method">,
+) {
+  return request<T>(input, {
+    ...init,
+    method: "POST",
+  });
+}
+
+export async function put<T>(
+  input: RequestInfo | URL,
+  init?: Omit<RequestInit, "method">,
+) {
+  return request<T>(input, {
+    ...init,
+    method: "PUT",
+  });
+}
+
+export async function request<T>(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+): Promise<ApiResult<T>> {
   const res = await fetch(input, {
     ...init,
     headers: {
-      Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
+      ...(token
+        ? {
+            Authorization: `Bearer ${token}`,
+          }
+        : {}),
       ...init?.headers,
     },
   });
@@ -41,13 +77,16 @@ export async function request<T>(input: RequestInfo | URL, init?: RequestInit) {
     ok: res.ok,
     status: res.status,
     statusText: res.statusText,
+    headers: res.headers,
     body,
   });
+
   return {
     url: input,
     ok: res.ok,
     status: res.status,
     statusText: res.statusText,
+    headers: res.headers,
     body: body as T,
   };
 }
