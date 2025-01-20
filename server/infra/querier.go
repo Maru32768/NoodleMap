@@ -11,10 +11,21 @@ import (
 )
 
 type Querier interface {
+	DeleteTokenByUserId(ctx context.Context, userID uuid.UUID) error
+	DeleteVisitedRestaurantByRestaurantId(ctx context.Context, restaurantID uuid.UUID) error
 	FindAllCategories(ctx context.Context) ([]FindAllCategoriesRow, error)
 	FindAllRestaurants(ctx context.Context) ([]FindAllRestaurantsRow, error)
 	FindAllTemporaryUsers(ctx context.Context) ([]TemporaryUser, error)
 	FindCategoriesByRestaurantIds(ctx context.Context, dollar_1 []uuid.UUID) ([]FindCategoriesByRestaurantIdsRow, error)
+	FindTokenByUserId(ctx context.Context, userID uuid.UUID) (string, error)
+	FindUserByEmail(ctx context.Context, email string) (FindUserByEmailRow, error)
+	FindUserById(ctx context.Context, id uuid.UUID) (FindUserByIdRow, error)
+	InsertRestaurant(ctx context.Context, arg InsertRestaurantParams) error
+	InsertRestaurantCategory(ctx context.Context, arg InsertRestaurantCategoryParams) error
+	InsertToken(ctx context.Context, arg InsertTokenParams) error
+	InsertUser(ctx context.Context, arg InsertUserParams) error
+	UpdateRestaurant(ctx context.Context, arg UpdateRestaurantParams) error
+	UpsertVisitedRestaurant(ctx context.Context, arg UpsertVisitedRestaurantParams) error
 }
 
 var _ Querier = (*Queries)(nil)

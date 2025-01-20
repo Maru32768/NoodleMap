@@ -3,18 +3,34 @@ import {
   ListTable,
   useSortableListTableHeader,
 } from "@/components/list-table.tsx";
-import { useRestaurants } from "@/features/restaurants/api/use-restaurants.ts";
+import {
+  Restaurant,
+  useRestaurants,
+} from "@/features/restaurants/api/use-restaurants.ts";
 import { useCategories } from "@/features/categories/api/use-categories.ts";
 import { useDeferredValue, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button.tsx";
 import { Tooltip } from "@/components/ui/tooltip.tsx";
+import { RestaurantEditModal } from "@/features/restaurants/restaurant-edit-modal.tsx";
+import { RestaurantAddModal } from "@/features/restaurants/restaurant-add-modal.tsx";
 
 export default function AdminPage() {
-  const { restaurants } = useRestaurants();
+  const { restaurants, addRestaurant, updateRestaurant } = useRestaurants();
   const { categories } = useCategories();
 
+  const [keyword, setKeyword] = useState("");
+  const deferredKeyword = useDeferredValue(keyword);
+  const filteredData = useMemo(() => {
+    return restaurants?.filter((x) => {
+      return (
+        x.name.toLowerCase().includes(deferredKeyword.toLowerCase()) ||
+        x.address.toLowerCase().includes(deferredKeyword.toLowerCase())
+      );
+    });
+  }, [restaurants, deferredKeyword]);
+
   const tableData = useMemo(() => {
-    return restaurants?.map((x) => {
+    return filteredData?.map((x) => {
       return {
         name: x.name,
         address: x.address,
@@ -32,26 +48,22 @@ export default function AdminPage() {
             .join(", ");
         })(),
         visited: x.visited,
+        favorite: x.favorite,
         closed: x.closed,
         googlePlaceId: x.googlePlaceId,
+        rawData: x,
       };
     });
-  }, [restaurants, categories]);
+  }, [filteredData, categories]);
 
   const { sortedData, createSortableColumn } = useSortableListTableHeader(
     tableData ?? [],
   );
 
-  const [keyword, setKeyword] = useState("");
-  const deferredKeyword = useDeferredValue(keyword);
-  const filteredData = useMemo(() => {
-    return sortedData.filter((x) => {
-      return (
-        x.name.toLowerCase().includes(deferredKeyword.toLowerCase()) ||
-        x.address.toLowerCase().includes(deferredKeyword.toLowerCase())
-      );
-    });
-  }, [sortedData, deferredKeyword]);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editRestaurantTarget, setEditRestaurantTarget] = useState<
+    Restaurant | undefined
+  >();
 
   return (
     <VStack alignItems="start" boxSize="full" padding={4}>
@@ -64,11 +76,18 @@ export default function AdminPage() {
               setKeyword(e.target.value);
             }}
           />
-          <Text>{filteredData.length}件</Text>
-          <Button colorPalette="teal">店舗追加</Button>
+          <Text>{filteredData?.length}件</Text>
+          <Button
+            colorPalette="teal"
+            onClick={() => {
+              setShowAddModal(true);
+            }}
+          >
+            店舗追加
+          </Button>
         </HStack>
         <ListTable
-          data={filteredData}
+          data={sortedData}
           columns={[
             createSortableColumn({
               property: "categoryLabel",
@@ -102,6 +121,15 @@ export default function AdminPage() {
               property: "visited",
               header: "訪問済み",
               width: "7rem",
+              cellProps: { textAlign: "center" },
+              render: (visited) => {
+                return visited ? "◯" : "";
+              },
+            }),
+            createSortableColumn({
+              property: "favorite",
+              header: "お気に入り",
+              width: "8rem",
               cellProps: { textAlign: "center" },
               render: (visited) => {
                 return visited ? "◯" : "";
@@ -149,11 +177,17 @@ export default function AdminPage() {
               header: "編集",
               width: "8rem",
               cellProps: { textAlign: "center" },
-              render: () => {
+              render: (r) => {
                 return (
                   <HStack justifyContent="center">
-                    <Button variant="outline">訪問情報</Button>
-                    <Button variant="outline">お店情報</Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setEditRestaurantTarget(r.rawData);
+                      }}
+                    >
+                      店舗情報
+                    </Button>
                   </HStack>
                 );
               },
@@ -161,6 +195,29 @@ export default function AdminPage() {
           ]}
         />
       </VStack>
+      <RestaurantAddModal
+        open={showAddModal}
+        onOpenChange={setShowAddModal}
+        onConfirm={(x) => {
+          return addRestaurant(x);
+        }}
+      />
+      {editRestaurantTarget && (
+        <RestaurantEditModal
+          initialValue={editRestaurantTarget}
+          open={!!editRestaurantTarget}
+          onOpenChange={() => {
+            setEditRestaurantTarget(undefined);
+          }}
+          onConfirm={(x) => {
+            if (editRestaurantTarget) {
+              return updateRestaurant(editRestaurantTarget.id, x).then(() => {
+                setEditRestaurantTarget(undefined);
+              });
+            }
+          }}
+        />
+      )}
     </VStack>
   );
 }

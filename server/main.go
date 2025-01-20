@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"server/auth"
 	"server/categories"
 	"server/infra"
 	"server/restaurants"
@@ -50,6 +51,10 @@ func run() error {
 	if serverPort == "" {
 		return errors.New(fmt.Sprintf("%s is missing.", ServerPortEnv))
 	}
+	tokenSecret := os.Getenv(TokenSecretEnv)
+	if tokenSecret == "" {
+		return errors.New(fmt.Sprintf("%s is missing.", TokenSecretEnv))
+	}
 
 	db, err := sql.Open("postgres", fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s", dbHost, dbPort, dbUser, dbPassword, dbName, dbSslMode))
 	if err != nil {
@@ -87,10 +92,11 @@ func run() error {
 	categoryHandler := categories.NewHandler(categories.NewService(store))
 	apiGroup.GET("/categories", categoryHandler.GetCategories)
 
+	authHandler := auth.NewHandler(auth.NewService(store, tokenSecret))
 	authApiGroup := apiGroup.Group("/auth")
-	authApiGroup.Use(func(ctx *gin.Context) {
-		// TODO impl authentication
-	})
+	authApiGroup.Use(authHandler.Authenticate)
+	authApiGroup.POST("/restaurants", restaurantHandler.AddRestaurant)
+	authApiGroup.PUT("/restaurants/:id", restaurantHandler.UpdateRestaurant)
 
 	if err := engine.Run(":" + serverPort); err != nil {
 		return err

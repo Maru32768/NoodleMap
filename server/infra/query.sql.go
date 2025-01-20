@@ -12,6 +12,28 @@ import (
 	"github.com/lib/pq"
 )
 
+const deleteTokenByUserId = `-- name: DeleteTokenByUserId :exec
+delete
+from user_tokens
+where user_id = $1
+`
+
+func (q *Queries) DeleteTokenByUserId(ctx context.Context, userID uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, deleteTokenByUserId, userID)
+	return err
+}
+
+const deleteVisitedRestaurantByRestaurantId = `-- name: DeleteVisitedRestaurantByRestaurantId :exec
+delete
+from visited_restaurants
+where restaurant_id = $1
+`
+
+func (q *Queries) DeleteVisitedRestaurantByRestaurantId(ctx context.Context, restaurantID uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, deleteVisitedRestaurantByRestaurantId, restaurantID)
+	return err
+}
+
 const findAllCategories = `-- name: FindAllCategories :many
 select c.id, c.label, c.icon
 from categories c
@@ -51,6 +73,7 @@ select r.id,
        r.name,
        r.lat,
        r.lng,
+       r.postal_code,
        r.address,
        r.closed,
        r.google_place_id,
@@ -59,7 +82,7 @@ select r.id,
        coalesce(bool_and(vr.favorite), false)::boolean as favorite
 from restaurants r
          left join visited_restaurants vr on r.id = vr.restaurant_id
-group by r.id, r.name, r.lat, r.lng, r.address, r.closed, r.google_place_id
+group by r.id, r.name, r.lat, r.lng, r.postal_code, r.address, r.closed, r.google_place_id
 `
 
 type FindAllRestaurantsRow struct {
@@ -67,6 +90,7 @@ type FindAllRestaurantsRow struct {
 	Name          string    `json:"name"`
 	Lat           float64   `json:"lat"`
 	Lng           float64   `json:"lng"`
+	PostalCode    string    `json:"postalCode"`
 	Address       string    `json:"address"`
 	Closed        bool      `json:"closed"`
 	GooglePlaceID string    `json:"googlePlaceId"`
@@ -89,6 +113,7 @@ func (q *Queries) FindAllRestaurants(ctx context.Context) ([]FindAllRestaurantsR
 			&i.Name,
 			&i.Lat,
 			&i.Lng,
+			&i.PostalCode,
 			&i.Address,
 			&i.Closed,
 			&i.GooglePlaceID,
@@ -175,4 +200,212 @@ func (q *Queries) FindCategoriesByRestaurantIds(ctx context.Context, dollar_1 []
 		return nil, err
 	}
 	return items, nil
+}
+
+const findTokenByUserId = `-- name: FindTokenByUserId :one
+select token
+from user_tokens
+where user_id = $1
+`
+
+func (q *Queries) FindTokenByUserId(ctx context.Context, userID uuid.UUID) (string, error) {
+	row := q.db.QueryRowContext(ctx, findTokenByUserId, userID)
+	var token string
+	err := row.Scan(&token)
+	return token, err
+}
+
+const findUserByEmail = `-- name: FindUserByEmail :one
+select id, email, password, salt, is_admin
+from users
+where email = $1
+`
+
+type FindUserByEmailRow struct {
+	ID       uuid.UUID `json:"id"`
+	Email    string    `json:"email"`
+	Password string    `json:"password"`
+	Salt     string    `json:"salt"`
+	IsAdmin  bool      `json:"isAdmin"`
+}
+
+func (q *Queries) FindUserByEmail(ctx context.Context, email string) (FindUserByEmailRow, error) {
+	row := q.db.QueryRowContext(ctx, findUserByEmail, email)
+	var i FindUserByEmailRow
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Password,
+		&i.Salt,
+		&i.IsAdmin,
+	)
+	return i, err
+}
+
+const findUserById = `-- name: FindUserById :one
+select id, email, is_admin
+from users
+where id = $1
+`
+
+type FindUserByIdRow struct {
+	ID      uuid.UUID `json:"id"`
+	Email   string    `json:"email"`
+	IsAdmin bool      `json:"isAdmin"`
+}
+
+func (q *Queries) FindUserById(ctx context.Context, id uuid.UUID) (FindUserByIdRow, error) {
+	row := q.db.QueryRowContext(ctx, findUserById, id)
+	var i FindUserByIdRow
+	err := row.Scan(&i.ID, &i.Email, &i.IsAdmin)
+	return i, err
+}
+
+const insertRestaurant = `-- name: InsertRestaurant :exec
+insert into restaurants (id, name, lat, lng, postal_code, address, closed, google_place_id)
+values ($1, $2, $3, $4, $5, $6, $7, $8)
+`
+
+type InsertRestaurantParams struct {
+	ID            uuid.UUID `json:"id"`
+	Name          string    `json:"name"`
+	Lat           float64   `json:"lat"`
+	Lng           float64   `json:"lng"`
+	PostalCode    string    `json:"postalCode"`
+	Address       string    `json:"address"`
+	Closed        bool      `json:"closed"`
+	GooglePlaceID string    `json:"googlePlaceId"`
+}
+
+func (q *Queries) InsertRestaurant(ctx context.Context, arg InsertRestaurantParams) error {
+	_, err := q.db.ExecContext(ctx, insertRestaurant,
+		arg.ID,
+		arg.Name,
+		arg.Lat,
+		arg.Lng,
+		arg.PostalCode,
+		arg.Address,
+		arg.Closed,
+		arg.GooglePlaceID,
+	)
+	return err
+}
+
+const insertRestaurantCategory = `-- name: InsertRestaurantCategory :exec
+insert
+into restaurants_categories(id, restaurant_id, category_id)
+values ($1, $2, $3)
+`
+
+type InsertRestaurantCategoryParams struct {
+	ID           uuid.UUID `json:"id"`
+	RestaurantID uuid.UUID `json:"restaurantId"`
+	CategoryID   uuid.UUID `json:"categoryId"`
+}
+
+func (q *Queries) InsertRestaurantCategory(ctx context.Context, arg InsertRestaurantCategoryParams) error {
+	_, err := q.db.ExecContext(ctx, insertRestaurantCategory, arg.ID, arg.RestaurantID, arg.CategoryID)
+	return err
+}
+
+const insertToken = `-- name: InsertToken :exec
+insert into user_tokens(id, user_id, token)
+values ($1, $2, $3)
+`
+
+type InsertTokenParams struct {
+	ID     uuid.UUID `json:"id"`
+	UserID uuid.UUID `json:"userId"`
+	Token  string    `json:"token"`
+}
+
+func (q *Queries) InsertToken(ctx context.Context, arg InsertTokenParams) error {
+	_, err := q.db.ExecContext(ctx, insertToken, arg.ID, arg.UserID, arg.Token)
+	return err
+}
+
+const insertUser = `-- name: InsertUser :exec
+insert into users(id, email, password, salt, is_admin)
+values ($1, $2, $3, $4, $5)
+`
+
+type InsertUserParams struct {
+	ID       uuid.UUID `json:"id"`
+	Email    string    `json:"email"`
+	Password string    `json:"password"`
+	Salt     string    `json:"salt"`
+	IsAdmin  bool      `json:"isAdmin"`
+}
+
+func (q *Queries) InsertUser(ctx context.Context, arg InsertUserParams) error {
+	_, err := q.db.ExecContext(ctx, insertUser,
+		arg.ID,
+		arg.Email,
+		arg.Password,
+		arg.Salt,
+		arg.IsAdmin,
+	)
+	return err
+}
+
+const updateRestaurant = `-- name: UpdateRestaurant :exec
+update restaurants
+set name            = $2,
+    lat             = $3,
+    lng             = $4,
+    postal_code     = $5,
+    address         = $6,
+    closed          = $7,
+    google_place_id = $8
+where id = $1
+`
+
+type UpdateRestaurantParams struct {
+	ID            uuid.UUID `json:"id"`
+	Name          string    `json:"name"`
+	Lat           float64   `json:"lat"`
+	Lng           float64   `json:"lng"`
+	PostalCode    string    `json:"postalCode"`
+	Address       string    `json:"address"`
+	Closed        bool      `json:"closed"`
+	GooglePlaceID string    `json:"googlePlaceId"`
+}
+
+func (q *Queries) UpdateRestaurant(ctx context.Context, arg UpdateRestaurantParams) error {
+	_, err := q.db.ExecContext(ctx, updateRestaurant,
+		arg.ID,
+		arg.Name,
+		arg.Lat,
+		arg.Lng,
+		arg.PostalCode,
+		arg.Address,
+		arg.Closed,
+		arg.GooglePlaceID,
+	)
+	return err
+}
+
+const upsertVisitedRestaurant = `-- name: UpsertVisitedRestaurant :exec
+insert into visited_restaurants(id, restaurant_id, rate, favorite)
+values ($1, $2, $3, $4)
+on conflict(restaurant_id)
+    do update set rate     = excluded.rate,
+                  favorite = excluded.favorite
+`
+
+type UpsertVisitedRestaurantParams struct {
+	ID           uuid.UUID `json:"id"`
+	RestaurantID uuid.UUID `json:"restaurantId"`
+	Rate         string    `json:"rate"`
+	Favorite     bool      `json:"favorite"`
+}
+
+func (q *Queries) UpsertVisitedRestaurant(ctx context.Context, arg UpsertVisitedRestaurantParams) error {
+	_, err := q.db.ExecContext(ctx, upsertVisitedRestaurant,
+		arg.ID,
+		arg.RestaurantID,
+		arg.Rate,
+		arg.Favorite,
+	)
+	return err
 }

@@ -1,5 +1,5 @@
 import useSWR, { SWRConfiguration } from "swr";
-import { ApiError, request } from "@/utils/request.ts";
+import { ApiError, get } from "@/utils/request.ts";
 import { toaster } from "@/components/ui/toaster.tsx";
 
 export interface Category {
@@ -12,7 +12,7 @@ export function useCategories(config?: SWRConfiguration<Category[]>) {
   const resp = useSWR(
     ["/api/v1/categories"],
     () => {
-      return request<{ categories: Category[] }>("/api/v1/categories")
+      return get<{ categories: Category[] }>("/api/v1/categories")
         .then((res) => {
           return res.body.categories;
         })

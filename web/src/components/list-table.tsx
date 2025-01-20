@@ -1,5 +1,5 @@
 import { HStack, Icon, Table, TableCellProps, Text } from "@chakra-ui/react";
-import React, { useCallback } from "react";
+import React, { forwardRef, useCallback } from "react";
 import { TableProps, TableVirtuoso } from "react-virtuoso";
 import { useSort } from "@/utils/array.ts";
 import { FaSort, FaSortDown, FaSortUp } from "react-icons/fa";
@@ -63,7 +63,7 @@ export function ListTable<T extends DataType>({
       data={data}
       fixedHeaderContent={() => {
         return (
-          <Table.Row bg="gray.50" borderY="1px solid" borderColor="gray">
+          <Table.Row bg="gray.100" borderY="1px solid" borderColor="gray">
             {columns.map((column, i) => {
               return (
                 <Table.ColumnHeader
@@ -91,6 +91,7 @@ export function ListTable<T extends DataType>({
                 borderRight: "1px solid",
                 borderBottom: "1px solid",
                 borderColor: "gray",
+                bg: index % 2 === 0 ? "white" : "gray.50",
               } satisfies Table.CellProps;
 
               if (column.property === undefined) {
@@ -145,9 +146,9 @@ export function useSortableListTableHeader<T extends DataType>(data: T[]) {
         }
 
         if (sortOrder === "ASC") {
-          return <FaSortUp />;
+          return <FaSortDown />;
         }
-        return <FaSortDown />;
+        return <FaSortUp />;
       })();
 
       return {
@@ -190,17 +191,20 @@ export function useSortableListTableHeader<T extends DataType>(data: T[]) {
   return { sortedData, createSortableColumn };
 }
 
-function TableComponent({ children, style }: TableProps) {
-  return (
-    <Table.Root
-      style={{
-        tableLayout: "fixed",
-        borderCollapse: "separate",
-        width: "auto",
-        ...style,
-      }}
-    >
-      {children}
-    </Table.Root>
-  );
-}
+const TableComponent = forwardRef<HTMLTableElement, TableProps>(
+  function TableComponent({ children, style }, ref) {
+    return (
+      <Table.Root
+        ref={ref}
+        style={{
+          tableLayout: "fixed",
+          borderCollapse: "separate",
+          width: "auto",
+          ...style,
+        }}
+      >
+        {children}
+      </Table.Root>
+    );
+  },
+);

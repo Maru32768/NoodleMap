@@ -26,6 +26,36 @@ export class ApiError extends Error {
   }
 }
 
+export async function get<T>(
+  input: RequestInfo | URL,
+  init?: Omit<RequestInit, "method">,
+) {
+  return request<T>(input, {
+    ...init,
+    method: "GET",
+  });
+}
+
+export async function post<T>(
+  input: RequestInfo | URL,
+  init?: Omit<RequestInit, "method">,
+) {
+  return request<T>(input, {
+    ...init,
+    method: "POST",
+  });
+}
+
+export async function put<T>(
+  input: RequestInfo | URL,
+  init?: Omit<RequestInit, "method">,
+) {
+  return request<T>(input, {
+    ...init,
+    method: "PUT",
+  });
+}
+
 export async function request<T>(input: RequestInfo | URL, init?: RequestInit) {
   const res = await fetch(input, {
     ...init,
