@@ -59,7 +59,7 @@ func (s *Service) Login(ctx context.Context, email string, password string) (*Us
 		return nil, "", ErrInvalidPassword
 	}
 
-	token, err := s.store.FindTokenByUserId(ctx, user.ID)
+	storedToken, err := s.store.FindTokenByUserId(ctx, user.ID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			issuedToken, err := issueToken(user.ID, s.secret)
@@ -67,7 +67,7 @@ func (s *Service) Login(ctx context.Context, email string, password string) (*Us
 				return nil, "", err
 			}
 
-			if err := s.store.InsertToken(ctx, infra.InsertTokenParams{ID: uuid.New(), UserID: user.ID, Token: token}); err != nil {
+			if err := s.store.InsertToken(ctx, infra.InsertTokenParams{ID: uuid.New(), UserID: user.ID, Token: issuedToken}); err != nil {
 				return nil, "", err
 			}
 			return &User{ID: user.ID, Email: user.Email, IsAdmin: user.IsAdmin}, issuedToken, nil
@@ -75,7 +75,7 @@ func (s *Service) Login(ctx context.Context, email string, password string) (*Us
 
 		return nil, "", err
 	}
-	return &User{ID: user.ID, Email: user.Email, IsAdmin: user.IsAdmin}, token, nil
+	return &User{ID: user.ID, Email: user.Email, IsAdmin: user.IsAdmin}, storedToken, nil
 }
 
 func (s *Service) Logout(ctx context.Context, userId uuid.UUID) error {
