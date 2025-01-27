@@ -95,23 +95,14 @@ export default function SearchPage() {
   });
 
   const leafletMapRef = useRef<LeafletMap>(null);
-  const mapDraggingRef = useRef(false);
   const isMoveOccurredByParamChange = useRef(false);
-  const handleDragStart = useCallback(() => {
-    mapDraggingRef.current = true;
-  }, []);
-  const handleDragEnd = useCallback(() => {
-    mapDraggingRef.current = false;
-  }, []);
   useLayoutEffect(() => {
     const center = leafletMapRef.current?.getCenter();
     const lat = Number(latParam);
     const lng = Number(lngParam);
-    if (!mapDraggingRef.current) {
-      if (center?.lat !== lat || center?.lng !== lng) {
-        leafletMapRef.current?.flyTo([lat, lng]);
-        isMoveOccurredByParamChange.current = true;
-      }
+    if (center?.lat !== lat || center?.lng !== lng) {
+      leafletMapRef.current?.flyTo([lat, lng]);
+      isMoveOccurredByParamChange.current = true;
     }
   }, [latParam, lngParam]);
 
@@ -121,19 +112,13 @@ export default function SearchPage() {
       return;
     }
     const center = map.getCenter();
-    setSearchParamsRef.current((prev) => {
-      const copy = new URLSearchParams(prev);
-      copy.set(LAT_PARAM_NAME, String(center.lat));
-      copy.set(LNG_PARAM_NAME, String(center.lng));
-      return copy;
-    });
+    const newUrl = new URL(location.href);
+    newUrl.searchParams.set(LAT_PARAM_NAME, String(center.lat));
+    newUrl.searchParams.set(LNG_PARAM_NAME, String(center.lng));
+    window.history.pushState("", "", newUrl);
   }, []);
 
-  const { restaurants } = useRestaurants({
-    revalidateIfStale: false,
-    revalidateOnFocus: false,
-    revalidateOnReconnect: false,
-  });
+  const { restaurants } = useRestaurants();
   const { categories } = useCategories({
     onSuccess: (cs) => {
       if (!searchParams.has(CATEGORIES_PARAM_NAME)) {
@@ -185,7 +170,6 @@ export default function SearchPage() {
 
   const searchPanelProps: SearchPanelProps = {
     count: filteredRestaurants?.length ?? 0,
-    currentCategories: currentCategories,
     defaultKeyword: keywordParam ?? "",
     onChangeKeyword: (keyword) => {
       return new Promise((resolve) => {
@@ -193,51 +177,42 @@ export default function SearchPage() {
       });
     },
     categories: categories ?? [],
+    currentCategories: currentCategories,
     onChangeCategories: (cs) => {
       setCurrentCategories(cs);
-      setSearchParams((prev) => {
-        const copy = new URLSearchParams(prev);
-        copy.delete(CATEGORIES_PARAM_NAME);
-        cs.forEach((x) => {
-          copy.append(CATEGORIES_PARAM_NAME, x);
-        });
-        return copy;
+      const newUrl = new URL(location.href);
+      newUrl.searchParams.delete(CATEGORIES_PARAM_NAME);
+      cs.forEach((x) => {
+        newUrl.searchParams.append(CATEGORIES_PARAM_NAME, x);
       });
+      window.history.pushState("", "", newUrl);
     },
     favoriteOnly: favoriteOnly,
     onChangeFavoriteOnly: (x) => {
       setFavoriteOnly(x);
-      setSearchParams((prev) => {
-        const copy = new URLSearchParams(prev);
-        copy.set(FAVORITE_ONLY_PARAM_NAME, String(x));
-        return copy;
-      });
+      const newUrl = new URL(location.href);
+      newUrl.searchParams.set(FAVORITE_ONLY_PARAM_NAME, String(x));
+      window.history.pushState("", "", newUrl);
     },
     visited: visited,
     onChangeVisited: (x) => {
       setVisited(x);
-      setSearchParams((prev) => {
-        const copy = new URLSearchParams(prev);
-        copy.set(VISITED_PARAM_NAME, String(x));
-        return copy;
-      });
+      const newUrl = new URL(location.href);
+      newUrl.searchParams.set(VISITED_PARAM_NAME, String(x));
+      window.history.pushState("", "", newUrl);
     },
     unvisited: unvisited,
     onChangeUnvisited: (x) => {
       setUnvisited(x);
-      setSearchParams((prev) => {
-        const copy = new URLSearchParams(prev);
-        copy.set(UNVISITED_PARAM_NAME, String(x));
-        return copy;
-      });
+      const newUrl = new URL(location.href);
+      newUrl.searchParams.set(UNVISITED_PARAM_NAME, String(x));
+      window.history.pushState("", "", newUrl);
     },
     clustering: clustering,
     onChangeClustering: (x) => {
-      setSearchParams((prev) => {
-        const copy = new URLSearchParams(prev);
-        copy.set(CLUSTERING_PARAM_NAME, String(x));
-        return copy;
-      });
+      const newUrl = new URL(location.href);
+      newUrl.searchParams.set(CLUSTERING_PARAM_NAME, String(x));
+      window.history.pushState("", "", newUrl);
       window.location.reload();
     },
   };
@@ -275,6 +250,10 @@ export default function SearchPage() {
         <FlyToLocationButton
           onFly={(to) => {
             leafletMapRef.current?.flyTo(to);
+            const newUrl = new URL(location.href);
+            newUrl.searchParams.set(LAT_PARAM_NAME, String(to[0]));
+            newUrl.searchParams.set(LNG_PARAM_NAME, String(to[1]));
+            window.history.pushState("", "", newUrl);
           }}
         />
       </Box>
@@ -292,8 +271,6 @@ export default function SearchPage() {
         restaurants={filteredRestaurants ?? []}
         clustering={clustering}
         onMoveEnd={handleMoveEnd}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
       />
     </Box>
   );

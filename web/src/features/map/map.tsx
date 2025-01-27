@@ -28,21 +28,11 @@ interface Props {
   restaurants: Restaurant[];
   clustering: boolean;
   onMoveEnd: MapEventHandler;
-  onDragStart: MapEventHandler;
-  onDragEnd: MapEventHandler;
 }
 
 export const Map = memo(
   forwardRef<LeafletMap, Props>(function Map(
-    {
-      center,
-      categories,
-      restaurants,
-      clustering,
-      onMoveEnd,
-      onDragStart,
-      onDragEnd,
-    },
+    { center, categories, restaurants, clustering, onMoveEnd },
     ref,
   ) {
     const internalRef = useRef<LeafletMap>(null);
@@ -80,8 +70,6 @@ export const Map = memo(
         />
 
         <MoveEndListener onMoveEnd={onMoveEnd} />
-        <DragStartListener onDragStart={onDragStart} />
-        <DragEndListener onDragEnd={onDragEnd} />
 
         <MarkerClusterGroup
           chunkedLoading
@@ -181,40 +169,6 @@ function MoveEndListener({ onMoveEnd }: { onMoveEnd: MapEventHandler }) {
       map.removeEventListener("moveend", handler);
     };
   }, [map, onMoveEnd]);
-
-  return null;
-}
-
-function DragStartListener({ onDragStart }: { onDragStart: MapEventHandler }) {
-  const map = useMap();
-
-  useEffect(() => {
-    const handler: LeafletEventHandlerFn = (e) => {
-      onDragStart(map, e);
-    };
-
-    map.on("dragstart", handler);
-    return () => {
-      map.removeEventListener("dragstart", handler);
-    };
-  }, [map, onDragStart]);
-
-  return null;
-}
-
-function DragEndListener({ onDragEnd }: { onDragEnd: MapEventHandler }) {
-  const map = useMap();
-
-  useEffect(() => {
-    const handler: LeafletEventHandlerFn = (e) => {
-      onDragEnd(map, e);
-    };
-
-    map.on("dragend", handler);
-    return () => {
-      map.removeEventListener("dragend", handler);
-    };
-  }, [map, onDragEnd]);
 
   return null;
 }
