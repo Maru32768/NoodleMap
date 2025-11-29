@@ -12,6 +12,7 @@ import (
 	"server/auth"
 	"server/categories"
 	"server/infra"
+	"server/middleware"
 	"server/restaurants"
 	"time"
 )
