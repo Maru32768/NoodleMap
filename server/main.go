@@ -88,6 +88,7 @@ func run() error {
 	if err := engine.SetTrustedProxies([]string{"0.0.0.0/0", "::/0"}); err != nil {
 		return err
 	}
+	engine.Use(middleware.NoCache())
 
 	engine.GET("/health", func(ctx *gin.Context) {
 		ctx.String(http.StatusOK, "ok")
