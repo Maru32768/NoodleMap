@@ -82,6 +82,13 @@ func run() error {
 	store := infra.NewStore(db)
 
 	engine := gin.Default()
+	engine.RedirectTrailingSlash = false
+	engine.RedirectFixedPath = false
+	engine.HandleMethodNotAllowed = false
+	if err := engine.SetTrustedProxies([]string{"0.0.0.0/0", "::/0"}); err != nil {
+		return err
+	}
+
 	engine.GET("/health", func(ctx *gin.Context) {
 		ctx.String(http.StatusOK, "ok")
 	})
