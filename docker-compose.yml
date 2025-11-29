@@ -23,7 +23,7 @@ services:
   server:
     image: noodle-map-server
     build:
-      context: ./
+      context: ./server
       dockerfile: ./server/Dockerfile
     environment:
       - DB_HOST=db
