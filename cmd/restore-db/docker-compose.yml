@@ -1,0 +1,33 @@
+services:
+  restore-db:
+    build: .
+    image: restore-db
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PSASWORD=password
+      - DB_NAME=test_db
+      - DB_SSL_MODE=disable
+      - BACKUP_DB_NAME=noodle_map
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:18.1
+    ports:
+      - "5433:5432"
+    hostname: db
+    healthcheck:
+      test: psql -U postgres -c 'select 1;' 2>&1 > /dev/null
+      interval: 30s
+      start_period: 30s
+      start_interval: 1s
+    environment:
+      - POSTGRES_DB=test_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_HOST_AUTH_METHOD=trust

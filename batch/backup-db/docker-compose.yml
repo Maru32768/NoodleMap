@@ -1,0 +1,6 @@
+services:
+  backup-db:
+    build: .
+    image: backup-db
+    env_file:
+      - .env
