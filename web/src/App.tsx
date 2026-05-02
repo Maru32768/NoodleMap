@@ -1,16 +1,16 @@
-import { Navigate, Outlet, Route, Routes } from "react-router";
 import { Layout } from "@/components/layout/layout.tsx";
+import { Loading } from "@/components/loading.tsx";
+import { ProtectedRoute } from "@/features/auth/protected-route.tsx";
+import { useAuth } from "@/features/auth/use-auth.ts";
 import {
   ADMIN_PATH,
   LOGIN_PATH,
   REGISTER_PATH,
   SEARCH_PATH,
 } from "@/utils/path.ts";
+import { AbsoluteCenter, Box } from "@chakra-ui/react";
 import React, { Suspense } from "react";
-import { useAuth } from "@/features/auth/use-auth.ts";
-import { AbsoluteCenter, Box, Center } from "@chakra-ui/react";
-import { Loading } from "@/components/loading.tsx";
-import { ProtectedRoute } from "@/features/auth/protected-route.tsx";
+import { Navigate, Outlet, Route, Routes } from "react-router";
 
 function App() {
   const { currentUser, isLoading } = useAuth();
@@ -31,9 +31,9 @@ function App() {
         element={
           <Suspense
             fallback={
-              <Center boxSize="full">
-                <Loading />
-              </Center>
+              <AbsoluteCenter>
+                <Loading size="xl" />
+              </AbsoluteCenter>
             }
           >
             <Outlet />

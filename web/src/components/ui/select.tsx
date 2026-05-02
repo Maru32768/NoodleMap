@@ -1,11 +1,11 @@
 "use client";
 
+import { ModalDialogContext } from "@/components/modal-dialog.tsx";
 import type { CollectionItem } from "@chakra-ui/react";
-import { Portal, Select as ChakraSelect } from "@chakra-ui/react";
-import { CloseButton } from "./close-button";
+import { Select as ChakraSelect, Portal } from "@chakra-ui/react";
 import * as React from "react";
 import { useContext } from "react";
-import { ModalDialogContext } from "@/components/modal-dialog.tsx";
+import { CloseButton } from "./close-button";
 
 interface SelectTriggerProps extends ChakraSelect.ControlProps {
   clearable?: boolean;

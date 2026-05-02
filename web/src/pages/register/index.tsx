@@ -1,10 +1,10 @@
-import { useForm } from "react-hook-form";
-import { Flex, Input, VStack } from "@chakra-ui/react";
+import { LoadableButton } from "@/components/loadable-button.tsx";
 import { Field } from "@/components/ui/field.tsx";
 import { useAuth } from "@/features/auth/use-auth.ts";
-import { LoadableButton } from "@/components/loadable-button.tsx";
-import { useNavigate } from "react-router";
 import { SEARCH_PATH } from "@/utils/path.ts";
+import { Flex, Input, VStack } from "@chakra-ui/react";
+import { useForm } from "react-hook-form";
+import { useNavigate } from "react-router";
 
 export default function RegisterPage() {
   const { register } = useAuth();
@@ -35,7 +35,6 @@ export default function RegisterPage() {
           />
         </Field>
         <LoadableButton
-          colorPalette="teal"
           disabled={!form.formState.isValid}
           onClick={() => {
             const values = form.getValues();

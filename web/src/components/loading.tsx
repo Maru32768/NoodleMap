@@ -6,7 +6,7 @@ import { ComponentProps } from "react";
 
 export function Loading(props: ComponentProps<typeof ProgressCircleRoot>) {
   return (
-    <ProgressCircleRoot value={null} size="sm" colorPalette="teal" {...props}>
+    <ProgressCircleRoot value={null} size="sm" {...props}>
       <ProgressCircleRing />
     </ProgressCircleRoot>
   );

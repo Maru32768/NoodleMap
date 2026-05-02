@@ -1,10 +1,4 @@
-import {
-  DialogBackdrop,
-  DialogBody,
-  DialogCloseTrigger,
-  DialogContent,
-  DialogRoot,
-} from "@/components/ui/dialog.tsx";
+import { ModalDialog } from "@/components/modal-dialog.tsx";
 import {
   SearchPanel,
   SearchPanelProps,
@@ -23,16 +17,15 @@ export function SearchPanelModal({
   searchPanelProps,
 }: Props) {
   return (
-    <DialogRoot open={open} onOpenChange={onOpenChange}>
-      <DialogBackdrop />
-      <DialogContent>
-        <DialogCloseTrigger boxSize="2.5rem" />
-        <DialogBody>
-          <Box padding={2}>
-            <SearchPanel {...searchPanelProps} />
-          </Box>
-        </DialogBody>
-      </DialogContent>
-    </DialogRoot>
+    <ModalDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      width={{ base: "calc(100vw - 24px)", md: "32rem" }}
+      bodyProps={{ pt: "48px" }}
+    >
+      <Box padding={2}>
+        <SearchPanel {...searchPanelProps} />
+      </Box>
+    </ModalDialog>
   );
 }

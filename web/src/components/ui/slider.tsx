@@ -13,7 +13,9 @@ export const Slider = React.forwardRef<HTMLDivElement, SliderProps>(
     const value = props.defaultValue ?? props.value;
 
     const marks = marksProp?.map((mark) => {
-      if (typeof mark === "number") return { value: mark, label: undefined };
+      if (typeof mark === "number") {
+        return { value: mark, label: undefined };
+      }
       return mark;
     });
 
@@ -62,7 +64,9 @@ interface SliderMarksProps {
 const SliderMarks = React.forwardRef<HTMLDivElement, SliderMarksProps>(
   function SliderMarks(props, ref) {
     const { marks } = props;
-    if (!marks?.length) return null;
+    if (!marks?.length) {
+      return null;
+    }
 
     return (
       <ChakraSlider.MarkerGroup ref={ref}>

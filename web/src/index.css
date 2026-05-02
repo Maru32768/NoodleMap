@@ -1,38 +1,110 @@
 @font-face {
   font-family: "noto-sans-jp";
   src: url("./assets/NotoSansJP-Medium.ttf");
+  font-weight: 100 900;
+  font-display: swap;
 }
 
-:root {
-  font-family: "noto-sans-jp", sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-  color-scheme: light;
-  color: #213547;
-  background-color: #ffffff;
+* {
+  box-sizing: border-box;
+}
 
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 #root {
-  width: 100vw;
-  height: 100vh;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
-a {
-  font-weight: 500;
-  color: #213547;
-  text-decoration: inherit;
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(26, 22, 20, 0.22);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #6b5e52;
 }
 
-a#hover {
-  color: #213547;
+/* MapLibre cursor override when placing a new shop pin */
+.nm-adding-mode .maplibregl-canvas {
+  cursor: crosshair !important;
 }
 
-body {
-  min-width: 320px;
-  min-height: 100vh;
+/* Detail panel slide-in */
+@keyframes nm-detail-in {
+  from {
+    transform: translateX(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Admin dropdown / modal appear */
+@keyframes adm-modal-in {
+  from {
+    transform: translateY(12px) scale(0.98);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+/* Admin draft pin pulse */
+@keyframes adm-draft-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+}
+
+.adm-draft-pin {
+  width: 38px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  animation: adm-draft-pulse 1.4s ease-in-out infinite;
+}
+.adm-draft-pin svg {
+  width: 100%;
+  height: 100%;
+}
+
+.adm-pin {
+  filter: drop-shadow(0 3px 5px rgba(26, 22, 20, 0.3));
+  transition: filter 0.15s;
+}
+.adm-pin:hover {
+  filter: drop-shadow(0 4px 8px rgba(26, 22, 20, 0.45));
+}
+.adm-pin.adm-pin-active {
+  filter: drop-shadow(0 5px 10px rgba(181, 74, 60, 0.6));
+}
+.adm-pin-wrap,
+.adm-draft-pin-wrap {
+  background: none !important;
+  border: none !important;
 }

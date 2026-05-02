@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button.tsx";
-import { useGeolocated } from "react-geolocated";
 import { Icon } from "@chakra-ui/react";
+import { useGeolocated } from "react-geolocated";
 import { FaLocationCrosshairs } from "react-icons/fa6";
 
 interface Props {
@@ -19,7 +19,6 @@ export function FlyToLocationButton({ onFly }: Props) {
 
   return (
     <Button
-      colorPalette="gray"
       variant="ghost"
       boxSize="3rem"
       padding={0}

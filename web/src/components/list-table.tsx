@@ -1,10 +1,17 @@
-import { HStack, Icon, Table, TableCellProps, Text } from "@chakra-ui/react";
-import React, { forwardRef, useCallback } from "react";
-import { TableProps, TableVirtuoso } from "react-virtuoso";
 import { useSort } from "@/utils/array.ts";
-import { FaSort, FaSortDown, FaSortUp } from "react-icons/fa";
 import { assertNever } from "@/utils/std.ts";
+import {
+  Box,
+  HStack,
+  Icon,
+  Table,
+  TableCellProps,
+  Text,
+} from "@chakra-ui/react";
 import { isFunction, isString } from "es-toolkit";
+import React, { forwardRef, useCallback, useMemo } from "react";
+import { FaSort, FaSortDown, FaSortUp } from "react-icons/fa";
+import { ItemProps, TableProps, TableVirtuoso } from "react-virtuoso";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type DataType = Record<string, any>;
@@ -12,9 +19,16 @@ type DataType = Record<string, any>;
 type ListTableProps<T extends DataType> = {
   data: T[];
   columns: ListTableColumnProps<T>[];
+  className?: string;
+  emptyMessage?: React.ReactNode;
+  getRowProps?: (item: T, index: number) => Table.RowProps;
 };
 
-type ListTableColumnProps<T extends DataType> =
+type ListTableContext = {
+  getRowProps?: (item: DataType, index: number) => Table.RowProps;
+};
+
+export type ListTableColumnProps<T extends DataType> =
   | ListTableColumnPropsWithProperty<T>
   | ListTableColumnPropsWithoutProperty<T>;
 
@@ -46,33 +60,84 @@ type CommonColumnProps = {
 export function ListTable<T extends DataType>({
   data,
   columns,
+  className,
+  emptyMessage = "No data",
+  getRowProps,
 }: ListTableProps<T>) {
+  const components = useMemo(
+    () => ({
+      Table: TableComponent,
+      TableHead: Table.Header,
+      TableBody: Table.Body,
+      TableRow: TableRowComponent,
+      TableFoot: Table.Footer,
+    }),
+    [],
+  );
+
+  const context = useMemo<ListTableContext>(
+    () => ({
+      getRowProps: getRowProps as
+        | ((item: DataType, index: number) => Table.RowProps)
+        | undefined,
+    }),
+    [getRowProps],
+  );
+
+  if (data.length === 0) {
+    return (
+      <Box className={className} h="100%" w="100%" bg="nm.paper">
+        <Box
+          display="grid"
+          placeItems="center"
+          h="100%"
+          minH="10rem"
+          px="1.5rem"
+          py="2.5rem"
+          color="nm.inkFaint"
+          fontSize="0.8125rem"
+          textAlign="center"
+        >
+          {emptyMessage}
+        </Box>
+      </Box>
+    );
+  }
+
   return (
     <TableVirtuoso
+      className={className}
       style={{
         height: "100%",
         width: "100%",
       }}
-      components={{
-        Table: TableComponent,
-        TableHead: Table.Header,
-        TableBody: Table.Body,
-        TableRow: Table.Row,
-        TableFoot: Table.Footer,
-      }}
+      components={components}
+      context={context}
       data={data}
       fixedHeaderContent={() => {
         return (
-          <Table.Row bg="gray.100" borderY="1px solid" borderColor="gray">
+          <Table.Row
+            bg="nm.bg"
+            borderBottom="1px solid"
+            borderColor="nm.lineStrong"
+          >
             {columns.map((column, i) => {
               return (
                 <Table.ColumnHeader
                   key={i}
                   width={column.width}
-                  textAlign="center"
-                  borderLeft={i === 0 ? "1px solid" : undefined}
-                  borderRight="1px solid"
-                  borderColor="gray"
+                  px="0.625rem"
+                  py="0.5rem"
+                  textAlign="left"
+                  borderRight="none"
+                  borderColor="nm.line"
+                  color="nm.inkMuted"
+                  fontFamily="mono"
+                  fontSize="0.625rem"
+                  fontWeight="600"
+                  letterSpacing="0.15em"
+                  textTransform="uppercase"
+                  userSelect="none"
                   {...column.headerProps}
                 >
                   {column.header}
@@ -87,11 +152,18 @@ export function ListTable<T extends DataType>({
           <>
             {columns.map((column, columnIndex) => {
               const commonProps = {
-                borderLeft: columnIndex === 0 ? "1px solid" : undefined,
-                borderRight: "1px solid",
                 borderBottom: "1px solid",
-                borderColor: "gray",
-                bg: index % 2 === 0 ? "white" : "gray.50",
+                borderColor: "nm.lineFaint",
+                bg: "transparent",
+                color: "nm.ink",
+                fontSize: "0.78125rem",
+                lineHeight: "1.45",
+                overflow: "hidden",
+                px: "0.625rem",
+                py: "0.5rem",
+                textOverflow: "ellipsis",
+                verticalAlign: "middle",
+                whiteSpace: "nowrap",
               } satisfies Table.CellProps;
 
               if (column.property === undefined) {
@@ -131,9 +203,16 @@ export function ListTable<T extends DataType>({
   );
 }
 
-export function useSortableListTableHeader<T extends DataType>(data: T[]) {
-  const { sortedData, sortKey, setSortKey, sortOrder, setSortOrder } =
-    useSort(data);
+export function useSortableListTableHeader<T extends DataType>(
+  data: T[],
+  initialSortKey?: keyof T,
+  initialSortOrder?: "ASC" | "DESC",
+) {
+  const { sortedData, sortKey, setSortKey, sortOrder, setSortOrder } = useSort(
+    data,
+    initialSortKey,
+    initialSortOrder,
+  );
 
   const createSortableColumn = useCallback(
     ({
@@ -153,9 +232,23 @@ export function useSortableListTableHeader<T extends DataType>(data: T[]) {
 
       return {
         header: (
-          <HStack cursor="pointer" justifyContent="center">
+          <HStack
+            cursor="pointer"
+            justifyContent="flex-start"
+            gap="0.3125rem"
+            color={sortKey === columnProps.property ? "nm.ink" : undefined}
+          >
             {isString(header) ? <Text>{header}</Text> : header}
-            <Icon>{sortIcon}</Icon>
+            <Icon
+              color={
+                sortKey === columnProps.property && sortOrder
+                  ? "nm.shu"
+                  : "currentColor"
+              }
+              opacity={sortKey === columnProps.property && sortOrder ? 1 : 0.35}
+            >
+              {sortIcon}
+            </Icon>
           </HStack>
         ),
         ...columnProps,
@@ -199,7 +292,8 @@ const TableComponent = forwardRef<HTMLTableElement, TableProps>(
         style={{
           tableLayout: "fixed",
           borderCollapse: "separate",
-          width: "auto",
+          borderSpacing: 0,
+          width: "100%",
           ...style,
         }}
       >
@@ -208,3 +302,19 @@ const TableComponent = forwardRef<HTMLTableElement, TableProps>(
     );
   },
 );
+
+function TableRowComponent({
+  item,
+  children,
+  style,
+  context,
+  ...props
+}: ItemProps<DataType> & { context?: ListTableContext }) {
+  const rowProps = context?.getRowProps?.(item, props["data-index"]) ?? {};
+
+  return (
+    <Table.Row {...props} {...rowProps} style={{ ...style, ...rowProps.style }}>
+      {children}
+    </Table.Row>
+  );
+}

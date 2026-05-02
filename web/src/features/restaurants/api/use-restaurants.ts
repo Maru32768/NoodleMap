@@ -1,7 +1,7 @@
 import { ApiError, get, post, put } from "@/utils/request.ts";
-import useSWR, { SWRConfiguration } from "swr";
-import { useCallback } from "react";
 import { toastApiError } from "@/utils/toast.ts";
+import { useCallback } from "react";
+import useSWR, { SWRConfiguration } from "swr";
 
 export interface Restaurant {
   id: string;

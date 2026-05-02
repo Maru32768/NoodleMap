@@ -1,0 +1,11 @@
+.git
+.idea
+.claude
+
+**/node_modules
+**/build
+**/dist
+**/.react-router
+**/*.log
+
+img.png

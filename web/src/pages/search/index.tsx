@@ -1,277 +1,512 @@
-import { Box } from "@chakra-ui/react";
-import { useSearchParams } from "react-router";
-import { useDebouncedCallback } from "use-debounce";
+import { Button } from "@/components/ui/button.tsx";
+import {
+  DrawerBackdrop,
+  DrawerBody,
+  DrawerCloseTrigger,
+  DrawerContent,
+  DrawerHeader,
+  DrawerRoot,
+  DrawerTitle,
+} from "@/components/ui/drawer.tsx";
+import { useCategories } from "@/features/categories/api/use-categories.ts";
+import { FlyToLocationButton } from "@/features/map/fly-to-location-button.tsx";
+import { Map, MapEventHandler, MapHandle } from "@/features/map/map.tsx";
+import { useRestaurants } from "@/features/restaurants/api/use-restaurants.ts";
+import { DetailPanel } from "@/features/restaurants/detail-panel.tsx";
+import { MobileSheet } from "@/features/restaurants/mobile-sheet.tsx";
+import { RestaurantFilters, Sidebar } from "@/features/restaurants/sidebar.tsx";
+import {
+  CategoryType,
+  ClosedState,
+  VisitState,
+  filterRestaurants,
+  sortRestaurants,
+} from "@/features/search/utils.ts";
+import {
+  CATEGORY_TYPE_PARAM_NAME,
+  CLOSED_STATE_PARAM_NAME,
+  FAV_MIN_PARAM_NAME,
+  KEYWORD_PARAM_NAME,
+  LAT_PARAM_NAME,
+  LNG_PARAM_NAME,
+  VISIT_STATE_PARAM_NAME,
+} from "@/utils/search-params.ts";
+import { Box, Input } from "@chakra-ui/react";
 import {
   useCallback,
   useDeferredValue,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
-import { useRestaurants } from "@/features/restaurants/api/use-restaurants.ts";
-import { searchRestaurants } from "@/features/search/utils.ts";
-import { Map, MapEventHandler } from "@/features/map/map.tsx";
-import {
-  CATEGORIES_PARAM_NAME,
-  CLUSTERING_PARAM_NAME,
-  FAVORITE_ONLY_PARAM_NAME,
-  KEYWORD_PARAM_NAME,
-  LAT_PARAM_NAME,
-  LNG_PARAM_NAME,
-  UNVISITED_PARAM_NAME,
-  VISITED_PARAM_NAME,
-} from "@/utils/search-params.ts";
-import {
-  SearchPanel,
-  SearchPanelProps,
-} from "@/features/search/search-panel.tsx";
-import { useCategories } from "@/features/categories/api/use-categories.ts";
-import { isBooleanStr } from "@/utils/std.ts";
-import { SearchPanelModal } from "@/features/search/search-panel-modal.tsx";
-import { useAtom } from "jotai";
-import { searchPanelModalOpenAtom } from "@/state/search-panel-modal-state.ts";
-import { Map as LeafletMap } from "leaflet";
-import { FlyToLocationButton } from "@/features/map/fly-to-location-button.tsx";
+import { CiFilter } from "react-icons/ci";
+import { useNavigationType, useSearchParams } from "react-router";
+import { useDebouncedCallback } from "use-debounce";
+
+function MobileSearchBar({
+  syncedQuery,
+  onQueryChange,
+  onFilterClick,
+}: {
+  syncedQuery: string;
+  onQueryChange: (q: string) => void;
+  onFilterClick: () => void;
+}) {
+  const [localQuery, setLocalQuery] = useState(syncedQuery);
+  if (localQuery !== syncedQuery) {
+    setLocalQuery(syncedQuery);
+  }
+
+  return (
+    <Box
+      position="absolute"
+      top="14px"
+      left="14px"
+      right="14px"
+      zIndex={600}
+      display={{ base: "flex", md: "none" }}
+      bg="nm.paper"
+      borderRadius="999px"
+      boxShadow="nmMd"
+      alignItems="center"
+      px="14px"
+      py="8px"
+      pl="14px"
+      pr="10px"
+      gap="8px"
+    >
+      <Box
+        w="30px"
+        h="30px"
+        borderRadius="full"
+        bg="nm.shu"
+        display="grid"
+        placeItems="center"
+        fontFamily="display"
+        color="nm.paper"
+        fontWeight={700}
+        fontSize="14px"
+        flexShrink={0}
+      >
+        麺
+      </Box>
+      <Input
+        flex="1"
+        bg="transparent"
+        border="none"
+        outline="none"
+        fontSize="14px"
+        placeholder="店名・エリアで検索..."
+        value={localQuery}
+        onChange={(e) => {
+          setLocalQuery(e.target.value);
+          onQueryChange(e.target.value);
+        }}
+      />
+      <Button
+        variant="plain"
+        w="34px"
+        h="34px"
+        minW="34px"
+        minH="34px"
+        p="0"
+        borderRadius="full"
+        color="nm.ink"
+        display="grid"
+        placeItems="center"
+        onClick={onFilterClick}
+        aria-label="フィルター"
+      >
+        <CiFilter style={{ width: 22, height: 22 }} />
+      </Button>
+    </Box>
+  );
+}
+
+function isCategoryType(s: string | null): s is CategoryType {
+  return s === "all" || s === "ramen" || s === "udon";
+}
+function isVisitState(s: string | null): s is VisitState {
+  return s === "all" || s === "visited" || s === "wish";
+}
+function isClosedState(s: string | null): s is ClosedState {
+  return s === "all" || s === "hide";
+}
+
+function formatMapCoordinate(n: number) {
+  return n.toFixed(6);
+}
 
 export default function SearchPage() {
+  const navigationType = useNavigationType();
+
   const [searchParams, setSearchParams] = useSearchParams({
     [KEYWORD_PARAM_NAME]: "",
-    [FAVORITE_ONLY_PARAM_NAME]: "false",
-    [VISITED_PARAM_NAME]: "true",
-    [UNVISITED_PARAM_NAME]: "false",
-    [CLUSTERING_PARAM_NAME]: "true",
+    [CATEGORY_TYPE_PARAM_NAME]: "all",
+    [VISIT_STATE_PARAM_NAME]: "visited",
+    [CLOSED_STATE_PARAM_NAME]: "hide",
+    [FAV_MIN_PARAM_NAME]: "0",
   });
-  const setSearchParamsRef = useRef(setSearchParams);
-  setSearchParamsRef.current = setSearchParams;
-  const [searchPanelModalOpen, setSearchPanelModalOpen] = useAtom(
-    searchPanelModalOpenAtom,
-  );
 
-  const keywordParam = searchParams.get(KEYWORD_PARAM_NAME);
-
-  const [currentCategories, setCurrentCategories] = useState(
-    searchParams.getAll(CATEGORIES_PARAM_NAME),
-  );
-  const deferredCurrentCategories = useDeferredValue(currentCategories);
-  useEffect(() => {
-    setCurrentCategories(searchParams.getAll(CATEGORIES_PARAM_NAME));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [...searchParams.getAll(CATEGORIES_PARAM_NAME)]);
-
-  const [favoriteOnly, setFavoriteOnly] = useState(
-    isBooleanStr(searchParams.get(FAVORITE_ONLY_PARAM_NAME)),
-  );
-  const deferredFavoriteOnly = useDeferredValue(favoriteOnly);
-  useEffect(() => {
-    setFavoriteOnly(isBooleanStr(searchParams.get(FAVORITE_ONLY_PARAM_NAME)));
-  }, [searchParams]);
-
-  const [visited, setVisited] = useState(
-    isBooleanStr(searchParams.get(VISITED_PARAM_NAME)),
-  );
-  const deferredVisited = useDeferredValue(visited);
-  useEffect(() => {
-    setVisited(isBooleanStr(searchParams.get(VISITED_PARAM_NAME)));
-  }, [searchParams]);
-
-  const [unvisited, setUnvisited] = useState(
-    isBooleanStr(searchParams.get(UNVISITED_PARAM_NAME)),
-  );
-  const deferredUnvisited = useDeferredValue(unvisited);
-  useEffect(() => {
-    setUnvisited(isBooleanStr(searchParams.get(UNVISITED_PARAM_NAME)));
-  }, [searchParams]);
-
-  const clustering = isBooleanStr(searchParams.get(CLUSTERING_PARAM_NAME));
   const latParam = searchParams.get(LAT_PARAM_NAME);
   const lngParam = searchParams.get(LNG_PARAM_NAME);
   const [initialCenter] = useState<[number, number] | undefined>(() => {
     const lat = parseFloat(latParam ?? "");
     const lng = parseFloat(lngParam ?? "");
-
     return isNaN(lat) || isNaN(lng) ? undefined : [lat, lng];
   });
 
-  const leafletMapRef = useRef<LeafletMap>(null);
-  const isMoveOccurredByParamChange = useRef(false);
-  useLayoutEffect(() => {
-    const center = leafletMapRef.current?.getCenter();
-    const lat = Number(latParam);
-    const lng = Number(lngParam);
-    if (center?.lat !== lat || center?.lng !== lng) {
-      leafletMapRef.current?.flyTo([lat, lng]);
-      isMoveOccurredByParamChange.current = true;
-    }
-  }, [latParam, lngParam]);
+  const keywordParam = searchParams.get(KEYWORD_PARAM_NAME) ?? "";
+  const ctParam = searchParams.get(CATEGORY_TYPE_PARAM_NAME);
+  const [categoryType, setCategoryType] = useState<CategoryType>(
+    isCategoryType(ctParam) ? ctParam : "all",
+  );
+  const vsParam = searchParams.get(VISIT_STATE_PARAM_NAME);
+  const [visitState, setVisitState] = useState<VisitState>(
+    isVisitState(vsParam) ? vsParam : "all",
+  );
+  const csParam = searchParams.get(CLOSED_STATE_PARAM_NAME);
+  const [closedState, setClosedState] = useState<ClosedState>(
+    isClosedState(csParam) ? csParam : "hide",
+  );
+  const [favMin, setFavMin] = useState<number>(
+    Math.min(
+      100,
+      Math.max(0, parseInt(searchParams.get(FAV_MIN_PARAM_NAME) ?? "0", 10)),
+    ),
+  );
 
-  const handleMoveEnd: MapEventHandler = useCallback((map) => {
-    if (isMoveOccurredByParamChange.current) {
-      isMoveOccurredByParamChange.current = false;
+  const deferredCategoryType = useDeferredValue(categoryType);
+  const deferredVisitState = useDeferredValue(visitState);
+  const deferredClosedState = useDeferredValue(closedState);
+  const deferredFavMin = useDeferredValue(favMin);
+
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+
+  const mapRef = useRef<MapHandle>(null);
+
+  useEffect(() => {
+    if (navigationType !== "POP") {
       return;
     }
-    const center = map.getCenter();
-    const newUrl = new URL(location.href);
-    newUrl.searchParams.set(LAT_PARAM_NAME, String(center.lat));
-    newUrl.searchParams.set(LNG_PARAM_NAME, String(center.lng));
-    window.history.pushState("", "", newUrl);
-  }, []);
+    if (latParam === null || lngParam === null) {
+      return;
+    }
+
+    const center = mapRef.current?.getCenter();
+    const lat = parseFloat(latParam);
+    const lng = parseFloat(lngParam);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      return;
+    }
+
+    if (
+      center &&
+      (Math.abs(center.lat - lat) > 0.000001 ||
+        Math.abs(center.lng - lng) > 0.000001)
+    ) {
+      mapRef.current?.flyTo([lat, lng]);
+    }
+  }, [latParam, lngParam, navigationType]);
+
+  const handleMoveEnd: MapEventHandler = useCallback(
+    (map, source) => {
+      if (source === "programmatic") {
+        return;
+      }
+
+      const center = map.getCenter();
+      const lat = formatMapCoordinate(center.lat);
+      const lng = formatMapCoordinate(center.lng);
+      setSearchParams(
+        (prev) => {
+          const copy = new URLSearchParams(prev);
+          copy.set(LAT_PARAM_NAME, lat);
+          copy.set(LNG_PARAM_NAME, lng);
+          return copy;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
 
   const { restaurants } = useRestaurants();
-  const { categories } = useCategories({
-    onSuccess: (cs) => {
-      if (!searchParams.has(CATEGORIES_PARAM_NAME)) {
-        setCurrentCategories(cs.map((x) => x.id));
-        setSearchParams((prev) => {
-          const copy = new URLSearchParams(prev);
-          cs.forEach((x) => {
-            copy.append(CATEGORIES_PARAM_NAME, x.id);
-          });
-          return copy;
-        });
-      }
-    },
-  });
+  const { categories } = useCategories();
 
-  const updateKeywordDebounced = useDebouncedCallback(
-    (query: string, resolve: (value: unknown) => void) => {
-      resolve("");
+  const updateKeywordDebounced = useDebouncedCallback((q: string) => {
+    setSearchParams((prev) => {
+      const copy = new URLSearchParams(prev);
+      copy.set(KEYWORD_PARAM_NAME, q);
+      return copy;
+    });
+  }, 300);
+
+  const handleQueryChange = useCallback(
+    (q: string) => {
+      updateKeywordDebounced(q);
+    },
+    [updateKeywordDebounced],
+  );
+
+  const handleCategoryTypeChange = useCallback(
+    (ct: CategoryType) => {
+      setCategoryType(ct);
       setSearchParams((prev) => {
         const copy = new URLSearchParams(prev);
-        copy.set(KEYWORD_PARAM_NAME, query);
+        copy.set(CATEGORY_TYPE_PARAM_NAME, ct);
         return copy;
       });
     },
-    300,
+    [setSearchParams],
+  );
+
+  const handleVisitStateChange = useCallback(
+    (vs: VisitState) => {
+      setVisitState(vs);
+      setSearchParams((prev) => {
+        const copy = new URLSearchParams(prev);
+        copy.set(VISIT_STATE_PARAM_NAME, vs);
+        return copy;
+      });
+    },
+    [setSearchParams],
+  );
+
+  const handleClosedStateChange = useCallback(
+    (cs: ClosedState) => {
+      setClosedState(cs);
+      setSearchParams((prev) => {
+        const copy = new URLSearchParams(prev);
+        copy.set(CLOSED_STATE_PARAM_NAME, cs);
+        return copy;
+      });
+    },
+    [setSearchParams],
+  );
+
+  const handleFavMinChange = useCallback(
+    (n: number) => {
+      setFavMin(n);
+      setSearchParams((prev) => {
+        const copy = new URLSearchParams(prev);
+        copy.set(FAV_MIN_PARAM_NAME, String(n));
+        return copy;
+      });
+    },
+    [setSearchParams],
   );
 
   const filteredRestaurants = useMemo(() => {
     if (!restaurants) {
-      return undefined;
+      return [];
     }
-
-    return searchRestaurants(
-      restaurants,
-      keywordParam ?? "",
-      deferredCurrentCategories,
-      deferredFavoriteOnly,
-      deferredVisited,
-      deferredUnvisited,
-    );
+    return filterRestaurants(restaurants, categories ?? [], {
+      query: keywordParam,
+      categoryType: deferredCategoryType,
+      visitState: deferredVisitState,
+      closedState: deferredClosedState,
+      favMin: deferredFavMin,
+    });
   }, [
     restaurants,
+    categories,
     keywordParam,
-    deferredCurrentCategories,
-    deferredFavoriteOnly,
-    deferredVisited,
-    deferredUnvisited,
+    deferredCategoryType,
+    deferredVisitState,
+    deferredClosedState,
+    deferredFavMin,
   ]);
 
-  const searchPanelProps: SearchPanelProps = {
-    count: filteredRestaurants?.length ?? 0,
-    defaultKeyword: keywordParam ?? "",
-    onChangeKeyword: (keyword) => {
-      return new Promise((resolve) => {
-        updateKeywordDebounced(keyword, resolve);
-      });
+  const sortedRestaurants = useMemo(() => {
+    const lat = parseFloat(latParam ?? "");
+    const lng = parseFloat(lngParam ?? "");
+    const mapCenter =
+      Number.isFinite(lat) && Number.isFinite(lng)
+        ? { lat, lng }
+        : { lat: 35.6895315, lng: 139.700492 };
+    return sortRestaurants(filteredRestaurants, mapCenter);
+  }, [filteredRestaurants, latParam, lngParam]);
+
+  const selectedRestaurant = useMemo(
+    () => restaurants?.find((r) => r.id === selectedId) ?? undefined,
+    [restaurants, selectedId],
+  );
+
+  const handleSelect = useCallback(
+    (id: string) => {
+      setSelectedId(id);
+      const r = restaurants?.find((x) => x.id === id);
+      if (r && mapRef.current) {
+        const map = mapRef.current;
+        map.panTo([r.lat, r.lng], { animate: true });
+      }
     },
-    categories: categories ?? [],
-    currentCategories: currentCategories,
-    onChangeCategories: (cs) => {
-      setCurrentCategories(cs);
-      const newUrl = new URL(location.href);
-      newUrl.searchParams.delete(CATEGORIES_PARAM_NAME);
-      cs.forEach((x) => {
-        newUrl.searchParams.append(CATEGORIES_PARAM_NAME, x);
-      });
-      window.history.pushState("", "", newUrl);
-    },
-    favoriteOnly: favoriteOnly,
-    onChangeFavoriteOnly: (x) => {
-      setFavoriteOnly(x);
-      const newUrl = new URL(location.href);
-      newUrl.searchParams.set(FAVORITE_ONLY_PARAM_NAME, String(x));
-      window.history.pushState("", "", newUrl);
-    },
-    visited: visited,
-    onChangeVisited: (x) => {
-      setVisited(x);
-      const newUrl = new URL(location.href);
-      newUrl.searchParams.set(VISITED_PARAM_NAME, String(x));
-      window.history.pushState("", "", newUrl);
-    },
-    unvisited: unvisited,
-    onChangeUnvisited: (x) => {
-      setUnvisited(x);
-      const newUrl = new URL(location.href);
-      newUrl.searchParams.set(UNVISITED_PARAM_NAME, String(x));
-      window.history.pushState("", "", newUrl);
-    },
-    clustering: clustering,
-    onChangeClustering: (x) => {
-      const newUrl = new URL(location.href);
-      newUrl.searchParams.set(CLUSTERING_PARAM_NAME, String(x));
-      window.history.pushState("", "", newUrl);
-      window.location.reload();
-    },
-  };
+    [restaurants],
+  );
+
+  const handleClose = useCallback(() => {
+    setSelectedId(null);
+  }, []);
 
   return (
-    <Box position="relative" boxSize="full">
-      <Box
-        padding={6}
-        borderRadius="md"
-        zIndex={1000}
-        position="absolute"
-        top={10}
-        left={10}
-        bg="white"
-        width="24rem"
-        display="none"
-        lg={{
-          display: "block",
-        }}
-      >
-        <SearchPanel {...searchPanelProps} />
-      </Box>
-      <Box
-        position="absolute"
-        bg="white"
-        borderRadius="full"
-        top={7}
-        right={7}
-        lg={{
-          top: 10,
-          right: 10,
-        }}
-        zIndex={1000}
-      >
-        <FlyToLocationButton
-          onFly={(to) => {
-            leafletMapRef.current?.flyTo(to);
-            const newUrl = new URL(location.href);
-            newUrl.searchParams.set(LAT_PARAM_NAME, String(to[0]));
-            newUrl.searchParams.set(LNG_PARAM_NAME, String(to[1]));
-            window.history.pushState("", "", newUrl);
-          }}
+    <Box
+      position="relative"
+      h="100vh"
+      w="100vw"
+      overflow="hidden"
+      display="flex"
+    >
+      {/* Sidebar (desktop) */}
+      <Sidebar
+        allRestaurants={restaurants ?? []}
+        sortedRestaurants={sortedRestaurants}
+        allCategories={categories ?? []}
+        query={keywordParam}
+        onQueryChange={handleQueryChange}
+        categoryType={categoryType}
+        onCategoryTypeChange={handleCategoryTypeChange}
+        visitState={visitState}
+        onVisitStateChange={handleVisitStateChange}
+        closedState={closedState}
+        onClosedStateChange={handleClosedStateChange}
+        favMin={favMin}
+        onFavMinChange={handleFavMinChange}
+        selectedId={selectedId}
+        onSelect={handleSelect}
+      />
+
+      {/* Map column */}
+      <Box position="absolute" inset="0" overflow="hidden" h="100%" w="100%">
+        {/* Mobile search bar */}
+        <MobileSearchBar
+          syncedQuery={keywordParam}
+          onQueryChange={handleQueryChange}
+          onFilterClick={() => setMobileFiltersOpen(true)}
         />
+
+        <Box
+          position="relative"
+          bg="nm.bgSoft"
+          overflow="hidden"
+          h="100%"
+          w="100%"
+        >
+          <Map
+            ref={mapRef}
+            center={initialCenter}
+            categories={categories ?? []}
+            restaurants={filteredRestaurants}
+            selectedId={selectedId}
+            onSelect={handleSelect}
+            onMoveEnd={handleMoveEnd}
+          />
+
+          {/* Map legend */}
+          <Box
+            position="absolute"
+            bottom="28px"
+            left="396px"
+            zIndex={500}
+            bg="nm.paper"
+            borderRadius="nmMd"
+            px="14px"
+            py="10px"
+            boxShadow="nmMd"
+            fontSize="11px"
+            display={{ base: "none", md: "flex" }}
+            alignItems="center"
+            gap="14px"
+          >
+            {[
+              { label: "訪問済", bg: "nm.shu" },
+              { label: "気になる", bg: "nm.paper", border: "nm.inkSoft" },
+              { label: "閉店", bg: "nm.ink" },
+            ].map(({ label, bg, border }) => (
+              <Box
+                key={label}
+                display="flex"
+                alignItems="center"
+                gap="6px"
+                color="nm.inkSoft"
+              >
+                <Box
+                  w="10px"
+                  h="10px"
+                  borderRadius="full"
+                  bg={bg}
+                  border={border ? "2px solid" : "2px solid white"}
+                  borderColor={border ?? "white"}
+                  boxShadow={`0 0 0 1px var(--chakra-colors-nm-line-strong)`}
+                />
+                {label}
+              </Box>
+            ))}
+          </Box>
+
+          {/* Fly to location button */}
+          <Box
+            position="absolute"
+            bg="nm.bg"
+            borderRadius="full"
+            bottom={10}
+            right={3}
+            lg={{ bottom: 20, right: 5 }}
+          >
+            <FlyToLocationButton
+              onFly={(to) => {
+                mapRef.current?.flyTo(to);
+              }}
+            />
+          </Box>
+        </Box>
+
+        {/* Desktop detail panel */}
+        {selectedRestaurant && (
+          <DetailPanel
+            restaurant={selectedRestaurant}
+            allCategories={categories ?? []}
+            onClose={handleClose}
+          />
+        )}
       </Box>
-      <SearchPanelModal
-        open={searchPanelModalOpen}
-        onOpenChange={() => {
-          setSearchPanelModalOpen(!searchPanelModalOpen);
-        }}
-        searchPanelProps={searchPanelProps}
+
+      {/* Mobile bottom sheet */}
+      <MobileSheet
+        shop={selectedRestaurant}
+        sortedRestaurants={sortedRestaurants}
+        allCategories={categories ?? []}
+        onSelect={handleSelect}
+        onClose={handleClose}
       />
-      <Map
-        ref={leafletMapRef}
-        center={initialCenter}
-        categories={categories ?? []}
-        restaurants={filteredRestaurants ?? []}
-        clustering={clustering}
-        onMoveEnd={handleMoveEnd}
-      />
+
+      <DrawerRoot
+        open={mobileFiltersOpen}
+        onOpenChange={(details) => setMobileFiltersOpen(details.open)}
+        placement="bottom"
+      >
+        <DrawerBackdrop />
+        <DrawerContent borderTopRadius="nmLg" maxH="82vh">
+          <DrawerHeader>
+            <DrawerTitle>フィルター</DrawerTitle>
+          </DrawerHeader>
+          <DrawerCloseTrigger />
+          <DrawerBody px="0">
+            <RestaurantFilters
+              categoryType={categoryType}
+              onCategoryTypeChange={handleCategoryTypeChange}
+              visitState={visitState}
+              onVisitStateChange={handleVisitStateChange}
+              closedState={closedState}
+              onClosedStateChange={handleClosedStateChange}
+              favMin={favMin}
+              onFavMinChange={handleFavMinChange}
+            />
+          </DrawerBody>
+        </DrawerContent>
+      </DrawerRoot>
     </Box>
   );
 }

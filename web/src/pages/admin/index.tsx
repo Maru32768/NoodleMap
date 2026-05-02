@@ -1,18 +1,126 @@
-import { HStack, Input, Link, Text, VStack } from "@chakra-ui/react";
+import { Button } from "@/components/ui/button.tsx";
+import { toaster } from "@/components/ui/toaster.tsx";
+import { AddDraft, AddModal } from "@/features/admin/add-modal.tsx";
+import { AdminFilters, VisitFilter } from "@/features/admin/admin-filters.tsx";
+import { AdminMap } from "@/features/admin/admin-map.tsx";
+import { AdminTable } from "@/features/admin/admin-table.tsx";
+import { EditDraft, EditModal } from "@/features/admin/edit-modal.tsx";
+import { MobileShopList } from "@/features/admin/mobile-shop-list.tsx";
+import { useCategories } from "@/features/categories/api/use-categories.ts";
 import {
-  ListTable,
-  useSortableListTableHeader,
-} from "@/components/list-table.tsx";
-import {
-  Restaurant,
+  UpdateRestaurantCommand,
   useRestaurants,
 } from "@/features/restaurants/api/use-restaurants.ts";
-import { useCategories } from "@/features/categories/api/use-categories.ts";
-import { useDeferredValue, useMemo, useState } from "react";
-import { Button } from "@/components/ui/button.tsx";
-import { Tooltip } from "@/components/ui/tooltip.tsx";
-import { RestaurantEditModal } from "@/features/restaurants/restaurant-edit-modal.tsx";
-import { RestaurantAddModal } from "@/features/restaurants/restaurant-add-modal.tsx";
+import type { CategoryType } from "@/features/search/utils.ts";
+import { getCategoryType } from "@/features/search/utils.ts";
+import { Box, Input, Span } from "@chakra-ui/react";
+import { useCallback, useDeferredValue, useState } from "react";
+import { CiLocationOn, CiSearch } from "react-icons/ci";
+import { LuPlus } from "react-icons/lu";
+
+type MobileAdminView = "list" | "map";
+
+function AdminStat({
+  value,
+  label,
+  tone,
+}: {
+  value: number;
+  label: string;
+  tone?: "warning";
+}) {
+  return (
+    <Box
+      fontFamily="mono"
+      fontSize="11px"
+      color="nm.inkMuted"
+      letterSpacing="0.05em"
+    >
+      <Span
+        fontFamily="display"
+        fontSize="16px"
+        color={tone === "warning" ? "nm.shuDeep" : "nm.ink"}
+        mr="4px"
+        fontWeight="700"
+      >
+        {value}
+      </Span>
+      {label}
+    </Box>
+  );
+}
+
+function AdminSearchBox({
+  keyword,
+  onKeywordChange,
+  placement,
+}: {
+  keyword: string;
+  onKeywordChange: (keyword: string) => void;
+  placement: "header" | "mobile";
+}) {
+  const input = (
+    <Box position="relative">
+      <Box
+        as={CiSearch}
+        position="absolute"
+        left="12px"
+        top="50%"
+        transform="translateY(-50%)"
+        w="14px"
+        h="14px"
+        color="nm.inkMuted"
+        pointerEvents="none"
+        zIndex="1"
+      />
+      <Input
+        placeholder="店名・住所で絞り込み..."
+        value={keyword}
+        onChange={(e) => onKeywordChange(e.target.value)}
+        w="100%"
+        pl="36px"
+        pr="14px"
+        py="9px"
+        h="auto"
+        bg="nm.bg"
+        border="1px solid"
+        borderColor="nm.line"
+        rounded="nmMd"
+        fontSize="13px"
+        color="nm.ink"
+        outline="none"
+        transition="border-color 0.15s, background 0.15s"
+        _focus={{ borderColor: "nm.shu", bg: "white", boxShadow: "none" }}
+      />
+    </Box>
+  );
+
+  if (placement === "mobile") {
+    return (
+      <Box
+        display={{ base: "block", md: "none" }}
+        px="12px"
+        py="10px"
+        bg="nm.paper"
+        borderBottom="1px solid"
+        borderBottomColor="nm.line"
+      >
+        {input}
+      </Box>
+    );
+  }
+
+  return (
+    <Box
+      flex="1"
+      maxW="480px"
+      position="relative"
+      display={{ base: "none", md: "block" }}
+    >
+      {input}
+    </Box>
+  );
+}
 
 export default function AdminPage() {
   const { restaurants, addRestaurant, updateRestaurant } = useRestaurants();
@@ -20,204 +128,549 @@ export default function AdminPage() {
 
   const [keyword, setKeyword] = useState("");
   const deferredKeyword = useDeferredValue(keyword);
-  const filteredData = useMemo(() => {
-    return restaurants?.filter((x) => {
-      return (
-        x.name.toLowerCase().includes(deferredKeyword.toLowerCase()) ||
-        x.address.toLowerCase().includes(deferredKeyword.toLowerCase())
-      );
-    });
-  }, [restaurants, deferredKeyword]);
+  const [categoryFilter, setCategoryFilter] = useState<CategoryType>("all");
+  const [visitFilter, setVisitFilter] = useState<VisitFilter>("all");
 
-  const tableData = useMemo(() => {
-    return filteredData?.map((x) => {
-      return {
-        name: x.name,
-        address: x.address,
-        categoryLabel: (() => {
-          if (x.categories.length === 0) {
-            return "";
-          }
-          if (x.categories.length === 1) {
-            return categories?.find((y) => y.id === x.categories[0])?.label;
-          }
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [mobileView, setMobileView] = useState<MobileAdminView>("list");
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editTab, setEditTab] = useState<"info" | "visit" | "images">("info");
+  const [showAdd, setShowAdd] = useState(false);
+  const [showAddMenu, setShowAddMenu] = useState(false);
 
-          return categories
-            ?.filter((y) => x.categories.includes(y.id))
-            .map((y) => y.label)
-            .join(", ");
-        })(),
-        visited: x.visited,
-        favorite: x.favorite,
-        closed: x.closed,
-        googlePlaceId: x.googlePlaceId,
-        rawData: x,
-      };
-    });
-  }, [filteredData, categories]);
+  const [addingMode, setAddingMode] = useState(false);
+  const [draftLatLng, setDraftLatLng] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
 
-  const { sortedData, createSortableColumn } = useSortableListTableHeader(
-    tableData ?? [],
+  const filtered =
+    restaurants?.filter((shop) => {
+      if (!categories) {
+        return false;
+      }
+
+      if (deferredKeyword) {
+        const kw = deferredKeyword.toLowerCase();
+        if (
+          !shop.name.toLowerCase().includes(kw) &&
+          !shop.address.toLowerCase().includes(kw)
+        ) {
+          return false;
+        }
+      }
+      if (categoryFilter !== "all") {
+        if (getCategoryType(shop, categories) !== categoryFilter) {
+          return false;
+        }
+      }
+      if (visitFilter === "visited") {
+        return shop.visited && !shop.closed;
+      }
+      if (visitFilter === "wish") {
+        return !shop.visited && !shop.closed;
+      }
+      if (visitFilter === "closed") {
+        return shop.closed;
+      }
+      return true;
+    }) ?? [];
+
+  const total = restaurants?.length ?? 0;
+  const visitedCount = restaurants?.filter((r) => r.visited).length ?? 0;
+  const wishCount =
+    restaurants?.filter((r) => !r.visited && !r.closed).length ?? 0;
+  const editShop = restaurants?.find((r) => r.id === editId);
+
+  const handleEdit = (id: string, tab?: "images") => {
+    setEditId(id);
+    setEditTab(tab ?? "info");
+  };
+
+  const handleSave = async (draft: EditDraft) => {
+    const cmd: UpdateRestaurantCommand = {
+      name: draft.name,
+      lat: draft.lat,
+      lng: draft.lng,
+      postalCode: draft.postalCode,
+      address: draft.address,
+      closed: draft.closed,
+      googlePlaceId: draft.googlePlaceId,
+      visited: draft.visited,
+      favorite: draft.favorite,
+      rate: draft.rate,
+    };
+    await updateRestaurant(draft.id, cmd);
+    setEditId(null);
+    toaster.success({ description: "保存しました" });
+  };
+
+  const handleAdd = async (draft: AddDraft) => {
+    await addRestaurant(draft);
+    setShowAdd(false);
+    setDraftLatLng(null);
+    toaster.success({ description: "店舗を追加しました" });
+  };
+
+  const handleMapClick = useCallback(
+    (latlng: { lat: number; lng: number } | null) => {
+      if (!latlng) {
+        setAddingMode(false);
+        setDraftLatLng(null);
+        return;
+      }
+      setDraftLatLng(latlng);
+      setAddingMode(false);
+      setShowAdd(true);
+    },
+    [],
   );
 
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [editRestaurantTarget, setEditRestaurantTarget] = useState<
-    Restaurant | undefined
-  >();
-
   return (
-    <VStack alignItems="start" boxSize="full" padding={4}>
-      <VStack alignItems="start" boxSize="full">
-        <HStack width="full">
-          <Input
-            width="24rem"
-            value={keyword}
-            onChange={(e) => {
-              setKeyword(e.target.value);
-            }}
-          />
-          <Text>{filteredData?.length}件</Text>
-          <Button
-            colorPalette="teal"
-            onClick={() => {
-              setShowAddModal(true);
+    <Box
+      display="grid"
+      gridTemplateRows={{ base: "52px 1fr", md: "56px 1fr" }}
+      h="100vh"
+      w="100vw"
+      bg="nm.bg"
+      overflow="hidden"
+    >
+      {/* Topbar */}
+      <Box
+        as="header"
+        display="flex"
+        alignItems="center"
+        gap="16px"
+        px={{ base: "12px", md: "18px" }}
+        bg="nm.paper"
+        borderBottom="1px solid"
+        borderBottomColor="nm.line"
+        zIndex="800"
+        position="relative"
+      >
+        <Box display="flex" alignItems="center" gap="12px" flexShrink="0">
+          <Box
+            boxSize="32px"
+            rounded="full"
+            bg="nm.ink"
+            color="nm.paper"
+            display="grid"
+            placeItems="center"
+            fontFamily="display"
+            fontWeight="700"
+            fontSize="15px"
+            position="relative"
+            flexShrink="0"
+            _after={{
+              content: '""',
+              position: "absolute",
+              top: "-2px",
+              right: "-2px",
+              w: "8px",
+              h: "8px",
+              rounded: "full",
+              bg: "nm.shu",
+              border: "1.5px solid",
+              borderColor: "nm.paper",
             }}
           >
+            麺
+          </Box>
+          <Box
+            as="span"
+            fontFamily="mono"
+            fontSize="9px"
+            letterSpacing="0.18em"
+            bg="nm.ink"
+            color="nm.paper"
+            px="7px"
+            py="3px"
+            rounded="3px"
+            ml="6px"
+          >
+            ADMIN
+          </Box>
+        </Box>
+
+        <AdminSearchBox
+          keyword={keyword}
+          onKeywordChange={setKeyword}
+          placement="header"
+        />
+
+        <Box
+          display={{ base: "none", md: "flex" }}
+          gap="18px"
+          alignItems="baseline"
+        >
+          <AdminStat value={total} label="店舗" />
+          <AdminStat value={visitedCount} label="訪問済" />
+          <AdminStat value={wishCount} label="未訪問" tone="warning" />
+        </Box>
+
+        <Box position="relative" ml="auto">
+          <Button
+            variant="plain"
+            display="flex"
+            alignItems="center"
+            gap="6px"
+            px="14px"
+            py="8px"
+            h="auto"
+            minH="auto"
+            rounded="nmMd"
+            bg="nm.shu"
+            color="white"
+            fontSize="13px"
+            fontWeight={600}
+            _hover={{ bg: "nm.shuDeep" }}
+            onClick={() => setShowAddMenu((v) => !v)}
+          >
+            <LuPlus />
             店舗追加
           </Button>
-        </HStack>
-        <ListTable
-          data={sortedData}
-          columns={[
-            createSortableColumn({
-              property: "categoryLabel",
-              header: "カテゴリー",
-              width: "8rem",
-              render: (categoryLabel) => {
-                return categoryLabel;
-              },
-            }),
-            createSortableColumn({
-              property: "name",
-              header: "名前",
-              width: "24rem",
-              render: (name) => {
-                return name;
-              },
-            }),
-            createSortableColumn({
-              property: "address",
-              header: "住所",
-              width: "12rem",
-              render: (address) => {
-                return (
-                  <Tooltip content={address}>
-                    <Text>{address}</Text>
-                  </Tooltip>
-                );
-              },
-            }),
-            createSortableColumn({
-              property: "visited",
-              header: "訪問済み",
-              width: "7rem",
-              cellProps: { textAlign: "center" },
-              render: (visited) => {
-                return visited ? "◯" : "";
-              },
-            }),
-            createSortableColumn({
-              property: "favorite",
-              header: "お気に入り",
-              width: "8rem",
-              cellProps: { textAlign: "center" },
-              render: (visited) => {
-                return visited ? "◯" : "";
-              },
-            }),
-            createSortableColumn({
-              property: "closed",
-              header: "閉店",
-              width: "7rem",
-              cellProps: { textAlign: "center" },
-              render: (closed) => {
-                return closed ? "◯" : "";
-              },
-            }),
-            {
-              property: "googlePlaceId",
-              header: "Google Maps",
-              width: "8rem",
-              cellProps: { textAlign: "center" },
-              render: (_, r) => {
-                const restaurantUrl = new URL(
-                  "https://www.google.com/maps/search/",
-                );
-                restaurantUrl.searchParams.set("api", "1");
-                restaurantUrl.searchParams.set(
-                  "query",
-                  `${r.name} ${r.address}`,
-                );
-                restaurantUrl.searchParams.set(
-                  "query_place_id",
-                  r.googlePlaceId,
-                );
 
-                return (
-                  <Button asChild variant="outline">
-                    <Link href={restaurantUrl.toString()} target="_blank">
-                      Google Mapsへ
-                    </Link>
-                  </Button>
-                );
-              },
-            },
-            {
-              property: undefined,
-              header: "編集",
-              width: "8rem",
-              cellProps: { textAlign: "center" },
-              render: (r) => {
-                return (
-                  <HStack justifyContent="center">
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setEditRestaurantTarget(r.rawData);
-                      }}
+          {showAddMenu && (
+            <>
+              <Box
+                position="fixed"
+                inset="0"
+                zIndex="850"
+                onClick={() => setShowAddMenu(false)}
+              />
+              <Box
+                position="absolute"
+                top="calc(100% + 6px)"
+                right="0"
+                zIndex="860"
+                bg="nm.paper"
+                border="1px solid"
+                borderColor="nm.line"
+                rounded="nmMd"
+                boxShadow="nmLg"
+                minW="260px"
+                p="6px"
+                display="flex"
+                flexDirection="column"
+                gap="2px"
+                animation="adm-modal-in 0.16s cubic-bezier(0.2, 0.8, 0.2, 1)"
+              >
+                <Button
+                  variant="plain"
+                  display="flex"
+                  alignItems="center"
+                  gap="12px"
+                  p="10px 12px"
+                  rounded="6px"
+                  textAlign="left"
+                  w="100%"
+                  justifyContent="flex-start"
+                  fontFamily="body"
+                  _hover={{ bg: "nm.bg" }}
+                  onClick={() => {
+                    setShowAddMenu(false);
+                    setShowAdd(true);
+                  }}
+                >
+                  <Box
+                    w="32px"
+                    h="32px"
+                    rounded="6px"
+                    bg="nm.bg"
+                    color="nm.shu"
+                    display="grid"
+                    placeItems="center"
+                    flexShrink="0"
+                  >
+                    <CiSearch />
+                  </Box>
+                  <Box display="flex" flexDirection="column" gap="1px" minW="0">
+                    <Box
+                      as="span"
+                      fontSize="13px"
+                      fontWeight="600"
+                      color="nm.ink"
                     >
-                      店舗情報
-                    </Button>
-                  </HStack>
-                );
-              },
-            },
-          ]}
-        />
-      </VStack>
-      <RestaurantAddModal
-        open={showAddModal}
-        onOpenChange={setShowAddModal}
-        onConfirm={(x) => {
-          return addRestaurant(x);
-        }}
-      />
-      {editRestaurantTarget && (
-        <RestaurantEditModal
-          initialValue={editRestaurantTarget}
-          open={!!editRestaurantTarget}
-          onOpenChange={() => {
-            setEditRestaurantTarget(undefined);
+                      Googleで検索して追加
+                    </Box>
+                    <Box as="span" fontSize="11px" color="nm.inkMuted">
+                      Google Placeから自動入力
+                    </Box>
+                  </Box>
+                </Button>
+                <Button
+                  variant="plain"
+                  display="flex"
+                  alignItems="center"
+                  gap="12px"
+                  p="10px 12px"
+                  rounded="6px"
+                  textAlign="left"
+                  w="100%"
+                  justifyContent="flex-start"
+                  fontFamily="body"
+                  _hover={{ bg: "nm.bg" }}
+                  onClick={() => {
+                    setShowAddMenu(false);
+                    setAddingMode(true);
+                    setMobileView("map");
+                  }}
+                >
+                  <Box
+                    w="32px"
+                    h="32px"
+                    rounded="6px"
+                    bg="nm.bg"
+                    color="nm.shu"
+                    display="grid"
+                    placeItems="center"
+                    flexShrink="0"
+                  >
+                    <CiLocationOn />
+                  </Box>
+                  <Box display="flex" flexDirection="column" gap="1px" minW="0">
+                    <Box
+                      as="span"
+                      fontSize="13px"
+                      fontWeight="600"
+                      color="nm.ink"
+                    >
+                      地図上でピンを立てて追加
+                    </Box>
+                    <Box as="span" fontSize="11px" color="nm.inkMuted">
+                      地図をクリックして位置を指定
+                    </Box>
+                  </Box>
+                </Button>
+              </Box>
+            </>
+          )}
+        </Box>
+      </Box>
+
+      {/* Main */}
+      <Box
+        display="grid"
+        gridTemplateColumns={{ base: "1fr", lg: "minmax(380px, 0.9fr) 1.6fr" }}
+        h="100%"
+        minH="0"
+        overflow="hidden"
+      >
+        {/* Map pane */}
+        {restaurants && categories && (
+          <AdminMap
+            shops={restaurants}
+            filtered={filtered}
+            categories={categories}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+            addingMode={addingMode}
+            onMapClick={handleMapClick}
+            draftLatLng={draftLatLng}
+            display={{
+              base: mobileView === "map" ? "block" : "none",
+              lg: "block",
+            }}
+          />
+        )}
+
+        {/* List pane */}
+        <Box
+          display={{
+            base: mobileView === "list" ? "grid" : "none",
+            lg: "grid",
           }}
-          onConfirm={(x) => {
-            if (editRestaurantTarget) {
-              return updateRestaurant(editRestaurantTarget.id, x).then(() => {
-                setEditRestaurantTarget(undefined);
-              });
-            }
+          gridTemplateRows={{ base: "auto auto auto 1fr", md: "auto auto 1fr" }}
+          minH="0"
+          bg="nm.paper"
+          h="100%"
+          overflow="hidden"
+          pb={{ base: "70px", md: 0 }}
+        >
+          <AdminSearchBox
+            keyword={keyword}
+            onKeywordChange={setKeyword}
+            placement="mobile"
+          />
+          {categories && (
+            <AdminFilters
+              categoryFilter={categoryFilter}
+              setCategoryFilter={setCategoryFilter}
+              visitFilter={visitFilter}
+              setVisitFilter={setVisitFilter}
+              filteredCount={filtered.length}
+              totalCount={total}
+              onClearAll={() => {
+                setCategoryFilter("all");
+                setVisitFilter("all");
+              }}
+            />
+          )}
+          {restaurants && categories && (
+            <Box h="100%" minH="0" overflow="hidden">
+              <Box
+                display={{ base: "none", md: "block" }}
+                h="100%"
+                overflow="hidden"
+              >
+                <AdminTable
+                  shops={filtered}
+                  categories={categories}
+                  selectedId={selectedId}
+                  onSelect={setSelectedId}
+                  onEdit={handleEdit}
+                />
+              </Box>
+              <Box
+                display={{ base: "block", md: "none" }}
+                h="100%"
+                overflow="hidden"
+              >
+                <MobileShopList
+                  shops={filtered}
+                  categories={categories}
+                  onEdit={handleEdit}
+                />
+              </Box>
+            </Box>
+          )}
+        </Box>
+      </Box>
+
+      {/* Mobile bottom nav */}
+      <Box
+        as="nav"
+        position="fixed"
+        bottom="0"
+        left="0"
+        right="0"
+        bg="nm.paper"
+        borderTop="1px solid"
+        borderTopColor="nm.line"
+        display={{ base: "flex", md: "none" }}
+        zIndex="700"
+        p="6px 8px calc(6px + env(safe-area-inset-bottom))"
+      >
+        <Button
+          variant="plain"
+          flex="1"
+          display="flex"
+          flexDirection="column"
+          alignItems="center"
+          gap="2px"
+          py="8px"
+          px="0"
+          fontSize="10px"
+          fontFamily="mono"
+          letterSpacing="0.05em"
+          textTransform="uppercase"
+          aria-label="リストを表示"
+          aria-current={mobileView === "list" ? "page" : undefined}
+          color={mobileView === "list" ? "nm.ink" : "nm.inkMuted"}
+          _icon={{
+            w: "20px",
+            h: "20px",
+            color: mobileView === "list" ? "nm.shu" : "nm.inkMuted",
           }}
+          onClick={() => setMobileView("list")}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={1.8}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+            <polyline points="9 22 9 12 15 12 15 22" />
+          </svg>
+          リスト
+        </Button>
+        <Button
+          variant="plain"
+          flex="0 0 56px"
+          w="56px"
+          h="56px"
+          rounded="full"
+          bg="nm.shu"
+          color="white"
+          display="grid"
+          placeItems="center"
+          mt="-16px"
+          mx="4px"
+          boxShadow="0 6px 18px rgba(140, 46, 33, 0.4)"
+          _hover={{ bg: "nm.shuDeep" }}
+          _icon={{ w: "24px", h: "24px" }}
+          onClick={() => setShowAdd(true)}
+        >
+          <LuPlus />
+        </Button>
+        <Button
+          variant="plain"
+          flex="1"
+          display="flex"
+          flexDirection="column"
+          alignItems="center"
+          gap="2px"
+          py="8px"
+          px="0"
+          fontSize="10px"
+          fontFamily="mono"
+          letterSpacing="0.05em"
+          textTransform="uppercase"
+          aria-label="地図を表示"
+          aria-current={mobileView === "map" ? "page" : undefined}
+          color={mobileView === "map" ? "nm.ink" : "nm.inkMuted"}
+          _icon={{
+            w: "20px",
+            h: "20px",
+            color: mobileView === "map" ? "nm.shu" : "nm.inkMuted",
+          }}
+          onClick={() => setMobileView("map")}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={1.8}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <line x1="2" y1="12" x2="22" y2="12" />
+            <path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" />
+          </svg>
+          地図
+        </Button>
+      </Box>
+
+      {/* Edit modal */}
+      {editShop && categories && (
+        <EditModal
+          shop={editShop}
+          categories={categories}
+          open={!!editId}
+          initialTab={editTab}
+          onClose={() => setEditId(null)}
+          onSave={handleSave}
         />
       )}
-    </VStack>
+
+      {/* Add modal — mount fresh each time so state resets */}
+      {showAdd && categories && (
+        <AddModal
+          key={draftLatLng ? `${draftLatLng.lat},${draftLatLng.lng}` : "new"}
+          categories={categories}
+          open={true}
+          onClose={() => {
+            setShowAdd(false);
+            setDraftLatLng(null);
+          }}
+          onSave={handleAdd}
+          initialLatLng={draftLatLng ?? undefined}
+        />
+      )}
+    </Box>
   );
 }

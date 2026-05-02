@@ -14,12 +14,12 @@ import Place = google.maps.Place;
 import PlacesServiceStatus = google.maps.places.PlacesServiceStatus;
 import QueryAutocompletePrediction = google.maps.places.QueryAutocompletePrediction;
 import AutocompleteService = google.maps.places.AutocompleteService;
-import { Box, VStack } from "@chakra-ui/react";
-import { memo, useEffect, useRef, useState } from "react";
-import { useDebouncedCallback } from "use-debounce";
-import Select from "react-select/base";
 import { toastError } from "@/utils/toast.ts";
+import { Box, VStack } from "@chakra-ui/react";
 import { Loader } from "@googlemaps/js-api-loader";
+import { memo, useEffect, useRef, useState } from "react";
+import Select from "react-select/base";
+import { useDebouncedCallback } from "use-debounce";
 
 const autocompleteService = new AutocompleteService();
 
@@ -95,8 +95,8 @@ export const GooglePlaceFinder = memo(function GooglePlaceFinder({
   }, 200);
 
   const mapWrapperRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<Map>();
-  const placesServiceRef = useRef<PlacesService>();
+  const mapRef = useRef<Map>(null);
+  const placesServiceRef = useRef<PlacesService>(null);
   const markerRef = useRef<Marker | undefined>(
     initialPlace
       ? new Marker({

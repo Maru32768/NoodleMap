@@ -6,7 +6,9 @@ export type ReactRef<T> =
   | React.ForwardedRef<T>;
 
 function assignRef<T = unknown>(ref: ReactRef<T> | null | undefined, value: T) {
-  if (ref == null) return;
+  if (ref == null) {
+    return;
+  }
 
   if (typeof ref === "function") {
     ref(value);
@@ -28,7 +30,9 @@ export function useMergeRefs<T>(...refs: (ReactRef<T> | undefined)[]) {
 
     return (value: T) => {
       refs.forEach((ref) => {
-        if (ref) assignRef(ref, value);
+        if (ref) {
+          assignRef(ref, value);
+        }
       });
     };
 

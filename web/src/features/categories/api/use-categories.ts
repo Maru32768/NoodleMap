@@ -1,6 +1,6 @@
-import useSWR, { SWRConfiguration } from "swr";
 import { ApiError, get } from "@/utils/request.ts";
 import { toastApiError } from "@/utils/toast.ts";
+import useSWR, { SWRConfiguration } from "swr";
 
 export interface Category {
   id: string;

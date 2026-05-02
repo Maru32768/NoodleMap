@@ -1,5 +1,5 @@
-import { ApiError } from "@/utils/request.ts";
 import { toaster } from "@/components/ui/toaster.tsx";
+import { ApiError } from "@/utils/request.ts";
 
 export function toastError(options: Parameters<typeof toaster.error>[0]) {
   toaster.error(options);

@@ -22,7 +22,7 @@ services:
     image: noodle-map-server
     build:
       context: ./server
-      dockerfile: ./server/Dockerfile
+      dockerfile: Dockerfile
     environment:
       - DB_HOST=db
       - DB_PORT=5432
@@ -46,8 +46,8 @@ services:
   front:
     image: noodle-map-front
     build:
-      context: ./
-      dockerfile: ./web/Dockerfile
+      context: ./web
+      dockerfile: Dockerfile
     environment:
       - SERVER_ADDRESS=http://server:8888
     ports:

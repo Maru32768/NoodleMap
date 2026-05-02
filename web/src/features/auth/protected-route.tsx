@@ -1,7 +1,7 @@
-import { CurrentUserProvider } from "@/features/auth/use-current-user.ts";
-import { Navigate } from "react-router";
-import { ReactNode } from "react";
 import { User } from "@/features/auth/use-auth.ts";
+import { CurrentUserProvider } from "@/features/auth/use-current-user.ts";
+import { ReactNode } from "react";
+import { Navigate } from "react-router";
 
 interface Props {
   children: ReactNode;

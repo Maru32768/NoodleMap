@@ -1,8 +1,8 @@
-import { Flex, Input, VStack } from "@chakra-ui/react";
-import { useForm } from "react-hook-form";
+import { LoadableButton } from "@/components/loadable-button.tsx";
 import { Field } from "@/components/ui/field.tsx";
 import { useAuth } from "@/features/auth/use-auth.ts";
-import { LoadableButton } from "@/components/loadable-button.tsx";
+import { Flex, Input, VStack } from "@chakra-ui/react";
+import { useForm } from "react-hook-form";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -32,7 +32,6 @@ export default function LoginPage() {
           />
         </Field>
         <LoadableButton
-          colorPalette="teal"
           disabled={!form.formState.isValid}
           onClick={() => {
             const values = form.getValues();
