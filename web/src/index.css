@@ -46,6 +46,22 @@ body {
   cursor: crosshair !important;
 }
 
+.nm-map-shell {
+  --nm-mobile-sheet-peek: clamp(6.5rem, 14vh, 8.25rem);
+}
+
+.nm-map-shell--detail {
+  --nm-mobile-sheet-peek: clamp(8.25rem, 20.5vh, 9rem);
+}
+
+@media (max-width: 61.98em) {
+  .maplibregl-ctrl-bottom-left {
+    bottom: calc(
+      var(--nm-mobile-sheet-peek) + 0.25rem + env(safe-area-inset-bottom)
+    );
+  }
+}
+
 /* Detail panel slide-in */
 @keyframes nm-detail-in {
   from {

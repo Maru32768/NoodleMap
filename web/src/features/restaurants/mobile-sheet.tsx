@@ -30,9 +30,9 @@ export interface MobileSheetProps {
 }
 
 // Index 0 = pseudo-close (redirected back to peek), index 1 = peek, index 2 = full.
-// List peek is small (12% — count only); detail peek is larger (32% — header row).
-const LIST_SNAP_POINTS = [0, 0.14, 0.88, 1];
-const DETAIL_SNAP_POINTS = [0, 0.22, 0.88, 1];
+// Peek heights are clamped so short and tall screens stay usable.
+const LIST_PEEK = { minPx: 104, ratio: 0.14, maxPx: 132 };
+const DETAIL_PEEK = { minPx: 132, ratio: 0.205, maxPx: 144 };
 const LEVEL_TO_SNAP: Record<MobileSheetLevel, number> = {
   peek: 1,
   full: 2,
@@ -42,6 +42,20 @@ const SNAP_TO_LEVEL: Record<number, MobileSheetLevel> = {
   2: "full",
   3: "full",
 };
+
+function getPeekRatio(
+  viewportHeight: number,
+  config: { minPx: number; ratio: number; maxPx: number },
+) {
+  if (viewportHeight <= 0) {
+    return config.ratio;
+  }
+  const height = Math.min(
+    config.maxPx,
+    Math.max(config.minPx, viewportHeight * config.ratio),
+  );
+  return height / viewportHeight;
+}
 
 function MobileListItem({
   restaurant,
@@ -105,7 +119,19 @@ export function MobileSheet({
   const catType = shop ? getCategoryType(shop, allCategories) : "ramen";
   const mapsUrl = shop ? buildGoogleMapsUrl(shop) : "";
   const [level, setLevel] = useState<MobileSheetLevel>("peek");
+  const [viewportHeight, setViewportHeight] = useState(() =>
+    typeof window === "undefined" ? 0 : window.innerHeight,
+  );
   const detailsVisible = level !== "peek";
+
+  useEffect(() => {
+    const handleResize = () => {
+      setViewportHeight(window.innerHeight);
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const handleClose = () => {
     setLevel("peek");
@@ -119,12 +145,16 @@ export function MobileSheet({
     sheetRef.current?.snapTo(LEVEL_TO_SNAP.peek);
   }, [isDetailMode]);
 
+  const snapPoints = shop
+    ? [0, getPeekRatio(viewportHeight, DETAIL_PEEK), 0.88, 1]
+    : [0, getPeekRatio(viewportHeight, LIST_PEEK), 0.88, 1];
+
   return (
     <Sheet
       key={shop ? "detail" : "list"}
       ref={sheetRef}
       isOpen={!isPc}
-      snapPoints={shop ? DETAIL_SNAP_POINTS : LIST_SNAP_POINTS}
+      snapPoints={snapPoints}
       onClose={() => {
         // Sheet is never truly closed. If in detail mode, go back to list.
         if (shop) {

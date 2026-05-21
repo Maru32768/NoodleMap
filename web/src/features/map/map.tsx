@@ -650,8 +650,11 @@ export const Map = memo(
 
       map.addControl(
         new maplibregl.AttributionControl({ compact: true }),
-        "bottom-right",
+        "bottom-left",
       );
+      containerRef.current
+        .querySelector(".maplibregl-ctrl-attrib")
+        ?.classList.remove("maplibregl-compact-show");
 
       const handleMoveEnd = () => {
         if (handleRef.current) {

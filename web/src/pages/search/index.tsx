@@ -388,6 +388,9 @@ export default function SearchPage() {
         />
 
         <Box
+          className={
+            selectedRestaurant ? "nm-map-shell nm-map-shell--detail" : "nm-map-shell"
+          }
           position="relative"
           bg="nm.bgSoft"
           overflow="hidden"
@@ -451,7 +454,7 @@ export default function SearchPage() {
             position="absolute"
             bg="nm.bg"
             borderRadius="full"
-            bottom={10}
+            bottom="calc(var(--nm-mobile-sheet-peek) + 0.75rem + env(safe-area-inset-bottom))"
             right={3}
             lg={{ bottom: 20, right: 5 }}
           >
