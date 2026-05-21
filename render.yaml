@@ -56,7 +56,7 @@ services:
     buildCommand: npm run build
     staticPublishPath: build/client
     branch: master
-    plan: starter
+    plan: free
     autoDeploy: true
     pullRequestPreviewsEnabled: false
     envVars:
