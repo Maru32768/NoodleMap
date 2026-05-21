@@ -61,6 +61,13 @@ services:
     domains:
       - noodle-map.marulab.jp
       - noodle-map.marulabs.dev
+    routes:
+      - type: rewrite
+        source: /api/*
+        destination: https://noodle-map-backend.onrender.com/api/:splat
+      - type: rewrite
+        source: /*
+        destination: /
     envVars:
       - key: VITE_GOOGLE_API_KEY
         sync: false
