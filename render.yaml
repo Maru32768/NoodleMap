@@ -58,6 +58,9 @@ services:
     branch: master
     autoDeploy: true
     pullRequestPreviewsEnabled: false
+    domains:
+      - noodle-map.marulab.jp
+      - noodle-map.marulabs.dev
     envVars:
       - key: VITE_GOOGLE_API_KEY
         sync: false
