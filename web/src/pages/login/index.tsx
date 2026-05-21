@@ -1,11 +1,25 @@
 import { LoadableButton } from "@/components/loadable-button.tsx";
 import { Field } from "@/components/ui/field.tsx";
 import { useAuth } from "@/features/auth/use-auth.ts";
+import { SEARCH_PATH } from "@/utils/path.ts";
 import { Flex, Input, VStack } from "@chakra-ui/react";
 import { useForm } from "react-hook-form";
+import { useNavigate, useSearchParams } from "react-router";
+
+function getSafeRedirectTo(searchParams: URLSearchParams) {
+  const redirectTo = searchParams.get("redirectTo");
+
+  if (!redirectTo || !redirectTo.startsWith("/") || redirectTo.startsWith("//")) {
+    return SEARCH_PATH;
+  }
+
+  return redirectTo;
+}
 
 export default function LoginPage() {
   const { login } = useAuth();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const form = useForm<{
     email: string;
@@ -35,7 +49,9 @@ export default function LoginPage() {
           disabled={!form.formState.isValid}
           onClick={() => {
             const values = form.getValues();
-            return login(values.email, values.password);
+            return login(values.email, values.password).then(() => {
+              navigate(getSafeRedirectTo(searchParams), { replace: true });
+            });
           }}
         >
           ログイン
