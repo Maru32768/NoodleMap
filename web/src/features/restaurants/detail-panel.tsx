@@ -194,7 +194,7 @@ export function DetailPanel({
           <CategoryBadge catType={catType} />
         </Box>
 
-        {r.visited && !r.closed && (
+        {r.visited && (
           <Box
             bg="nm.bg"
             borderRadius="nmMd"

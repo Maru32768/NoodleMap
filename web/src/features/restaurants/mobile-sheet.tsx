@@ -239,7 +239,7 @@ export function MobileSheet({
                       />
                     </Box>
                   </Box>
-                  {shop.visited && !shop.closed && (
+                  {shop.visited && (
                     <Box mt="0.375rem">
                       <MiniHearts rate={shop.rate} />
                     </Box>
@@ -264,7 +264,7 @@ export function MobileSheet({
 
               {detailsVisible && (
                 <>
-                  {shop.visited && !shop.closed && (
+                  {shop.visited && (
                     <Box
                       bg="nm.bg"
                       borderRadius="nmMd"
