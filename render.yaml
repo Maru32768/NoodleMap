@@ -64,7 +64,7 @@ services:
     routes:
       - type: rewrite
         source: /api/*
-        destination: https://noodle-map-backend.onrender.com/api/:splat
+        destination: https://noodle-map-backend.onrender.com/api/*
       - type: rewrite
         source: /*
         destination: /
