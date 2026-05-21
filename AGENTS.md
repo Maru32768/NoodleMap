@@ -9,6 +9,7 @@ This repository contains a full-stack noodle map application.
 - `db/`: SQL schemas, queries, initialization scripts, and seed CSV data.
 - `batch/` and `cmd/`: Go utilities for backup and restore workflows.
 - `tools/`: auxiliary tooling, currently including a Gradle-based place-info fetch tool.
+- `render.yaml`: Render Blueprint defining all services (frontend, backend, cron), the PostgreSQL database, and non-secret environment variables. Edit this file when adding or changing Render service configuration.
 
 ## Build, Test, and Development Commands
 
@@ -65,3 +66,5 @@ Pull requests should include a short summary, affected areas (`web`, `server`, `
 ## Security & Configuration Tips
 
 Do not commit secrets or local environment files. The frontend expects values such as `VITE_GOOGLE_API_KEY` from the environment. Keep generated build output, local IDE files, and runtime logs out of commits unless explicitly required.
+
+Non-secret environment variables (region names, bucket names, ports) are declared directly in `render.yaml`. Secret values (`TOKEN_SECRET`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `VITE_GOOGLE_API_KEY`) are marked `sync: false` and must be set manually in the Render dashboard.
