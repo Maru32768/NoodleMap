@@ -49,7 +49,8 @@ services:
       - key: TOKEN_SECRET
         sync: false
 
-  - type: static
+  - type: web
+    runtime: static
     name: noodle-map-front
     rootDir: web
     buildCommand: npm run build
