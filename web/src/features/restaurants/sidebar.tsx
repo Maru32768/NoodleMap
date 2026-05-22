@@ -7,9 +7,7 @@ import {
   MiniHearts,
 } from "@/features/restaurants/rating-hearts.tsx";
 import {
-  CategoryType,
-  ClosedState,
-  VisitState,
+  FilterToggles,
   favToHearts,
   getCategoryType,
 } from "@/features/search/utils.ts";
@@ -294,12 +292,8 @@ export interface SidebarProps {
   allCategories: Category[];
   query: string;
   onQueryChange: (q: string) => void;
-  categoryType: CategoryType;
-  onCategoryTypeChange: (ct: CategoryType) => void;
-  visitState: VisitState;
-  onVisitStateChange: (vs: VisitState) => void;
-  closedState: ClosedState;
-  onClosedStateChange: (cs: ClosedState) => void;
+  filters: FilterToggles;
+  onFilterChange: (key: keyof FilterToggles, value: boolean) => void;
   favMin: number;
   onFavMinChange: (n: number) => void;
   selectedId: string | null;
@@ -308,23 +302,12 @@ export interface SidebarProps {
 
 export type RestaurantFiltersProps = Pick<
   SidebarProps,
-  | "categoryType"
-  | "onCategoryTypeChange"
-  | "visitState"
-  | "onVisitStateChange"
-  | "closedState"
-  | "onClosedStateChange"
-  | "favMin"
-  | "onFavMinChange"
+  "filters" | "onFilterChange" | "favMin" | "onFavMinChange"
 >;
 
 export function RestaurantFilters({
-  categoryType,
-  onCategoryTypeChange,
-  visitState,
-  onVisitStateChange,
-  closedState,
-  onClosedStateChange,
+  filters,
+  onFilterChange,
   favMin,
   onFavMinChange,
 }: RestaurantFiltersProps) {
@@ -342,19 +325,15 @@ export function RestaurantFilters({
         <Box display="flex" flexWrap="wrap" gap="0.375rem">
           <Chip
             color="shu"
-            active={categoryType === "ramen"}
-            onClick={() =>
-              onCategoryTypeChange(categoryType === "ramen" ? "all" : "ramen")
-            }
+            active={filters.ramen}
+            onClick={() => onFilterChange("ramen", !filters.ramen)}
           >
             ラーメン
           </Chip>
           <Chip
             color="kincha"
-            active={categoryType === "udon"}
-            onClick={() =>
-              onCategoryTypeChange(categoryType === "udon" ? "all" : "udon")
-            }
+            active={filters.udon}
+            onClick={() => onFilterChange("udon", !filters.udon)}
           >
             うどん
           </Chip>
@@ -372,29 +351,23 @@ export function RestaurantFilters({
           <Chip
             color="matcha"
             dot
-            active={visitState === "visited"}
-            onClick={() =>
-              onVisitStateChange(visitState === "visited" ? "all" : "visited")
-            }
+            active={filters.visited}
+            onClick={() => onFilterChange("visited", !filters.visited)}
           >
             食べた
           </Chip>
           <Chip
             color="kincha"
             dot
-            active={visitState === "wish"}
-            onClick={() =>
-              onVisitStateChange(visitState === "wish" ? "all" : "wish")
-            }
+            active={filters.wish}
+            onClick={() => onFilterChange("wish", !filters.wish)}
           >
             気になる
           </Chip>
           <Chip
             color="ink"
-            active={closedState === "all"}
-            onClick={() =>
-              onClosedStateChange(closedState === "hide" ? "all" : "hide")
-            }
+            active={filters.closed}
+            onClick={() => onFilterChange("closed", !filters.closed)}
           >
             閉店
           </Chip>
@@ -428,12 +401,8 @@ export function Sidebar({
   allCategories,
   query,
   onQueryChange,
-  categoryType,
-  onCategoryTypeChange,
-  visitState,
-  onVisitStateChange,
-  closedState,
-  onClosedStateChange,
+  filters,
+  onFilterChange,
   favMin,
   onFavMinChange,
   selectedId,
@@ -639,12 +608,8 @@ export function Sidebar({
       </Box>
 
       <RestaurantFilters
-        categoryType={categoryType}
-        onCategoryTypeChange={onCategoryTypeChange}
-        visitState={visitState}
-        onVisitStateChange={onVisitStateChange}
-        closedState={closedState}
-        onClosedStateChange={onClosedStateChange}
+        filters={filters}
+        onFilterChange={onFilterChange}
         favMin={favMin}
         onFavMinChange={onFavMinChange}
       />

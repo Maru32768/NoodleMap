@@ -2,8 +2,14 @@ import { Category } from "@/features/categories/api/use-categories.ts";
 import { Restaurant } from "@/features/restaurants/api/use-restaurants.ts";
 
 export type CategoryType = "all" | "ramen" | "udon";
-export type VisitState = "all" | "visited" | "wish";
-export type ClosedState = "all" | "hide";
+
+export type FilterToggles = {
+  visited: boolean;
+  wish: boolean;
+  closed: boolean;
+  ramen: boolean;
+  udon: boolean;
+};
 
 export function getCategoryType(
   r: Restaurant,
@@ -45,40 +51,44 @@ export function filterRestaurants(
   allCategories: Category[],
   opts: {
     query: string;
-    categoryType: CategoryType;
-    visitState: VisitState;
-    closedState: ClosedState;
+    filters: FilterToggles;
     favMin: number;
   },
 ): Restaurant[] {
-  const { query, categoryType, visitState, closedState, favMin } = opts;
+  const { query, filters, favMin } = opts;
   const q = query.trim().toLowerCase();
 
   return restaurants.filter((r) => {
-    if (categoryType !== "all") {
-      const ct = getCategoryType(r, allCategories);
-      if (ct !== categoryType) {
-        return false;
-      }
-    }
-    if (visitState === "visited" && !r.visited) {
+    const isClosed = r.closed;
+    const isVisited = r.visited && !r.closed;
+    const isWish = !r.visited && !r.closed;
+    const statusMatch =
+      (isClosed && filters.closed) ||
+      (isVisited && filters.visited) ||
+      (isWish && filters.wish);
+    if (!statusMatch) {
       return false;
     }
-    if (visitState === "wish" && (r.visited || r.closed)) {
+
+    const catType = getCategoryType(r, allCategories);
+    const categoryMatch =
+      (catType === "ramen" && filters.ramen) ||
+      (catType === "udon" && filters.udon);
+    if (!categoryMatch) {
       return false;
     }
-    if (closedState === "hide" && r.closed) {
-      return false;
-    }
+
     if (favMin > 0 && (r.rate ?? 0) < favMin) {
       return false;
     }
+
     if (q) {
       const hay = [r.name, r.address].filter(Boolean).join(" ").toLowerCase();
       if (!hay.includes(q)) {
         return false;
       }
     }
+
     return true;
   });
 }

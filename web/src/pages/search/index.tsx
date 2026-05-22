@@ -24,20 +24,20 @@ import {
 } from "@/features/restaurants/restaurant-edit-modal.tsx";
 import { RestaurantFilters, Sidebar } from "@/features/restaurants/sidebar.tsx";
 import {
-  CategoryType,
-  ClosedState,
-  VisitState,
+  FilterToggles,
   filterRestaurants,
   sortRestaurants,
 } from "@/features/search/utils.ts";
 import {
-  CATEGORY_TYPE_PARAM_NAME,
-  CLOSED_STATE_PARAM_NAME,
   FAV_MIN_PARAM_NAME,
   KEYWORD_PARAM_NAME,
   LAT_PARAM_NAME,
   LNG_PARAM_NAME,
-  VISIT_STATE_PARAM_NAME,
+  SHOW_CLOSED_PARAM,
+  SHOW_RAMEN_PARAM,
+  SHOW_UDON_PARAM,
+  SHOW_VISITED_PARAM,
+  SHOW_WISH_PARAM,
 } from "@/utils/search-params.ts";
 import { Box, Input } from "@chakra-ui/react";
 import {
@@ -132,14 +132,13 @@ function MobileSearchBar({
   );
 }
 
-function isCategoryType(s: string | null): s is CategoryType {
-  return s === "all" || s === "ramen" || s === "udon";
-}
-function isVisitState(s: string | null): s is VisitState {
-  return s === "all" || s === "visited" || s === "wish";
-}
-function isClosedState(s: string | null): s is ClosedState {
-  return s === "all" || s === "hide";
+function readBoolParam(
+  params: URLSearchParams,
+  name: string,
+  defaultValue: boolean,
+): boolean {
+  const v = params.get(name);
+  return v === null ? defaultValue : v === "1";
 }
 
 function formatMapCoordinate(n: number) {
@@ -151,10 +150,12 @@ export default function SearchPage() {
 
   const [searchParams, setSearchParams] = useSearchParams({
     [KEYWORD_PARAM_NAME]: "",
-    [CATEGORY_TYPE_PARAM_NAME]: "all",
-    [VISIT_STATE_PARAM_NAME]: "visited",
-    [CLOSED_STATE_PARAM_NAME]: "hide",
     [FAV_MIN_PARAM_NAME]: "0",
+    [SHOW_VISITED_PARAM]: "1",
+    [SHOW_WISH_PARAM]: "1",
+    [SHOW_CLOSED_PARAM]: "0",
+    [SHOW_RAMEN_PARAM]: "1",
+    [SHOW_UDON_PARAM]: "1",
   });
 
   const latParam = searchParams.get(LAT_PARAM_NAME);
@@ -166,18 +167,13 @@ export default function SearchPage() {
   });
 
   const keywordParam = searchParams.get(KEYWORD_PARAM_NAME) ?? "";
-  const ctParam = searchParams.get(CATEGORY_TYPE_PARAM_NAME);
-  const [categoryType, setCategoryType] = useState<CategoryType>(
-    isCategoryType(ctParam) ? ctParam : "all",
-  );
-  const vsParam = searchParams.get(VISIT_STATE_PARAM_NAME);
-  const [visitState, setVisitState] = useState<VisitState>(
-    isVisitState(vsParam) ? vsParam : "all",
-  );
-  const csParam = searchParams.get(CLOSED_STATE_PARAM_NAME);
-  const [closedState, setClosedState] = useState<ClosedState>(
-    isClosedState(csParam) ? csParam : "hide",
-  );
+  const [filters, setFilters] = useState<FilterToggles>({
+    visited: readBoolParam(searchParams, SHOW_VISITED_PARAM, true),
+    wish: readBoolParam(searchParams, SHOW_WISH_PARAM, true),
+    closed: readBoolParam(searchParams, SHOW_CLOSED_PARAM, false),
+    ramen: readBoolParam(searchParams, SHOW_RAMEN_PARAM, true),
+    udon: readBoolParam(searchParams, SHOW_UDON_PARAM, true),
+  });
   const [favMin, setFavMin] = useState<number>(
     Math.min(
       100,
@@ -185,9 +181,7 @@ export default function SearchPage() {
     ),
   );
 
-  const deferredCategoryType = useDeferredValue(categoryType);
-  const deferredVisitState = useDeferredValue(visitState);
-  const deferredClosedState = useDeferredValue(closedState);
+  const deferredFilters = useDeferredValue(filters);
   const deferredFavMin = useDeferredValue(favMin);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -260,36 +254,20 @@ export default function SearchPage() {
     [updateKeywordDebounced],
   );
 
-  const handleCategoryTypeChange = useCallback(
-    (ct: CategoryType) => {
-      setCategoryType(ct);
-      setSearchParams((prev) => {
-        const copy = new URLSearchParams(prev);
-        copy.set(CATEGORY_TYPE_PARAM_NAME, ct);
-        return copy;
-      });
-    },
-    [setSearchParams],
-  );
+  const handleFilterChange = useCallback(
+    (key: keyof FilterToggles, value: boolean) => {
+      const FILTER_PARAM: Record<keyof FilterToggles, string> = {
+        visited: SHOW_VISITED_PARAM,
+        wish: SHOW_WISH_PARAM,
+        closed: SHOW_CLOSED_PARAM,
+        ramen: SHOW_RAMEN_PARAM,
+        udon: SHOW_UDON_PARAM,
+      };
 
-  const handleVisitStateChange = useCallback(
-    (vs: VisitState) => {
-      setVisitState(vs);
+      setFilters((prev) => ({ ...prev, [key]: value }));
       setSearchParams((prev) => {
         const copy = new URLSearchParams(prev);
-        copy.set(VISIT_STATE_PARAM_NAME, vs);
-        return copy;
-      });
-    },
-    [setSearchParams],
-  );
-
-  const handleClosedStateChange = useCallback(
-    (cs: ClosedState) => {
-      setClosedState(cs);
-      setSearchParams((prev) => {
-        const copy = new URLSearchParams(prev);
-        copy.set(CLOSED_STATE_PARAM_NAME, cs);
+        copy.set(FILTER_PARAM[key], value ? "1" : "0");
         return copy;
       });
     },
@@ -314,20 +292,10 @@ export default function SearchPage() {
     }
     return filterRestaurants(restaurants, categories ?? [], {
       query: keywordParam,
-      categoryType: deferredCategoryType,
-      visitState: deferredVisitState,
-      closedState: deferredClosedState,
+      filters: deferredFilters,
       favMin: deferredFavMin,
     });
-  }, [
-    restaurants,
-    categories,
-    keywordParam,
-    deferredCategoryType,
-    deferredVisitState,
-    deferredClosedState,
-    deferredFavMin,
-  ]);
+  }, [restaurants, categories, keywordParam, deferredFilters, deferredFavMin]);
 
   const sortedRestaurants = useMemo(() => {
     const lat = parseFloat(latParam ?? "");
@@ -404,12 +372,8 @@ export default function SearchPage() {
         allCategories={categories ?? []}
         query={keywordParam}
         onQueryChange={handleQueryChange}
-        categoryType={categoryType}
-        onCategoryTypeChange={handleCategoryTypeChange}
-        visitState={visitState}
-        onVisitStateChange={handleVisitStateChange}
-        closedState={closedState}
-        onClosedStateChange={handleClosedStateChange}
+        filters={filters}
+        onFilterChange={handleFilterChange}
         favMin={favMin}
         onFavMinChange={handleFavMinChange}
         selectedId={selectedId}
@@ -540,12 +504,8 @@ export default function SearchPage() {
           <DrawerCloseTrigger />
           <DrawerBody px="0">
             <RestaurantFilters
-              categoryType={categoryType}
-              onCategoryTypeChange={handleCategoryTypeChange}
-              visitState={visitState}
-              onVisitStateChange={handleVisitStateChange}
-              closedState={closedState}
-              onClosedStateChange={handleClosedStateChange}
+              filters={filters}
+              onFilterChange={handleFilterChange}
               favMin={favMin}
               onFavMinChange={handleFavMinChange}
             />

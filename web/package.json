@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm run check:mojibake && tsc -b && vite build",
+    "build": "npm run check:mojibake && npm run lint && tsc -b && vite build",
     "check:mojibake": "node scripts/check-mojibake.mjs",
     "lint": "eslint .",
     "lint-fix": "eslint --fix .",

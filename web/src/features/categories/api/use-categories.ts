@@ -1,6 +1,6 @@
+import type { components } from "@/generated/api.ts";
 import { ApiError, get } from "@/utils/request.ts";
 import { toastApiError } from "@/utils/toast.ts";
-import type { components } from "@/generated/api.ts";
 import useSWR, { SWRConfiguration } from "swr";
 
 export type Category = components["schemas"]["Category"];

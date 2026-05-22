@@ -1,6 +1,6 @@
+import type { components } from "@/generated/api.ts";
 import { ApiError, get, post } from "@/utils/request.ts";
 import { toastApiError } from "@/utils/toast.ts";
-import type { components } from "@/generated/api.ts";
 import { useCallback } from "react";
 import useSWR from "swr";
 

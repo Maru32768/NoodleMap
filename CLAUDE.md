@@ -62,7 +62,7 @@ When editing files that contain Japanese text, prefer patch-based edits that onl
 
 ## Testing Guidelines
 
-There is no dedicated frontend test script currently; at minimum run `npm run build` and `npm run lint` before submitting frontend changes. For Go changes, add or update tests near the package being changed and run `go test ./...`.
+There is no dedicated frontend test script currently; before submitting frontend changes, run `npm run format` then `npm run build` from `web/`. `npm run build` includes lint and mojibake checks. For Go changes, add or update tests near the package being changed and run `go test ./...`.
 
 Prefer focused tests for request handlers, service logic, and database-facing behavior. Name Go test files `*_test.go`.
 

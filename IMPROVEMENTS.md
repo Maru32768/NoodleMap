@@ -39,6 +39,7 @@
 | 未着手 | ID体系の再考               |                                                   |
 | 未着手 | RestaurntをShopにリネーム   |                                                   |
 | 未着手 | `visited` を `eaten` にリネーム | DB カラム・API フィールド・Go 構造体の `Visited` を `Eaten` に統一する（フロントは「食べた」表記に変更済み） |
+| 未着手 | カテゴリをコード固定化 | `categories` テーブルを廃止しラーメン/うどんをアプリ定数に移す |
 
 ### Phase 2. DB 基盤
 
@@ -207,6 +208,27 @@ Set-Cookie: token=<jwt>; HttpOnly; Secure; SameSite=Strict; Path=/api
 ---
 
 ## 🔴 未実装・中途半端な機能
+
+### 0. カテゴリをコード固定化する
+
+| 項目 | 詳細 |
+|----|------|
+| 現状 | `categories` テーブルが DB に存在し、API 経由で取得している |
+| 問題 | カテゴリは「ラーメン」「うどん」の2種類で事実上固定。DB・API・フロント全体に余分な複雑さが生じている |
+| 方針 | カテゴリをアプリ定数として定義し、`categories` テーブル・`/api/v1/categories` エンドポイント・`useCategories` フックを削除する |
+
+**変更範囲:**
+
+- `db/`: `categories` テーブル・シードデータを削除（goose マイグレーションで対応）
+- `server/categories/`: パッケージごと削除
+- `server/restaurants/`: カテゴリ取得ロジックを定数判定に置き換え
+- `web/src/features/categories/`: `useCategories` フックを削除
+- フロントエンド各所: `allCategories` 引数を `getCategoryType` から除いて定数判定に変更
+- `web/src/features/search/utils.ts`: `getCategoryType` をカテゴリ名ではなく `restaurant.categories` 内の固定スラッグで判定するよう変更
+
+タグ機能（項目14）と組み合わせると「大分類はコード固定 + 細分類はタグ」という整理になる。
+
+---
 
 ### 1. カテゴリ更新が完全に無効化されている
 

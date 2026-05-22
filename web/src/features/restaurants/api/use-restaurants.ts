@@ -1,11 +1,12 @@
+import type { components } from "@/generated/api.ts";
 import { ApiError, get, post, put } from "@/utils/request.ts";
 import { toastApiError } from "@/utils/toast.ts";
-import type { components } from "@/generated/api.ts";
 import { useCallback } from "react";
 import useSWR, { SWRConfiguration } from "swr";
 
 export type Restaurant = components["schemas"]["Restaurant"];
-export type AddRestaurantCommand = components["schemas"]["AddRestaurantRequest"];
+export type AddRestaurantCommand =
+  components["schemas"]["AddRestaurantRequest"];
 export type UpdateRestaurantCommand =
   components["schemas"]["UpdateRestaurantRequest"];
 type RestaurantsResponse = components["schemas"]["RestaurantsResponse"];
