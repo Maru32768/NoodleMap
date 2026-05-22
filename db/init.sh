@@ -5,12 +5,18 @@ PSQL_OPTS="-U postgres -d ${DB_NAME}"
 
 psql -U postgres -c "create database ${DB_NAME};"
 
-psql $PSQL_OPTS -f /docker-entrypoint-initdb.d/function/update_timestamp.sql
+goose -dir /migrations postgres "host=/var/run/postgresql user=postgres dbname=${DB_NAME} sslmode=disable" up
 
-psql $PSQL_OPTS -f /docker-entrypoint-initdb.d/categories/schema.sql
-psql $PSQL_OPTS -f /docker-entrypoint-initdb.d/users/schema.sql
-psql $PSQL_OPTS -f /docker-entrypoint-initdb.d/temporary_users/schema.sql
-psql $PSQL_OPTS -f /docker-entrypoint-initdb.d/restaurants/schema.sql
+psql $PSQL_OPTS -c "
+insert into users (id, email, password, salt, is_admin)
+values (
+    '0db3f068-b86b-4ae3-875a-868b6108b087',
+    'admin@example.com',
+    '\$2a\$10\$Nl82/aKPd8Pd/l8Ol93Qde2GmbWz3QAap.xibUog3ygKm9hCUNGWS',
+    'aa92d84c-c770-4bb1-8e9f-ce1e4066f42f',
+    true
+);
+"
 
 psql $PSQL_OPTS -c "
 copy categories (id, label, icon)

@@ -6,6 +6,7 @@ services:
     platform: linux/x86_64
     volumes:
       - ./db:/docker-entrypoint-initdb.d
+      - ./server/data/sql/migrations:/migrations
     ports:
       - "5432:5432"
     hostname: db

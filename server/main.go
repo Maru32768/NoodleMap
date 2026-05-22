@@ -2,9 +2,11 @@ package main
 
 import (
 	"database/sql"
+	"embed"
 	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/pressly/goose/v3"
 	_ "github.com/lib/pq"
 	"log"
 	"net/http"
@@ -17,6 +19,9 @@ import (
 	"server/restaurants"
 	"time"
 )
+
+//go:embed data/sql/migrations
+var migrations embed.FS
 
 func main() {
 	if err := run(); err != nil {
@@ -81,6 +86,14 @@ func run() error {
 			break
 		}
 	}
+	goose.SetBaseFS(migrations)
+	if err := goose.SetDialect("postgres"); err != nil {
+		return fmt.Errorf("goose: set dialect: %w", err)
+	}
+	if err := goose.Up(db, "data/sql/migrations"); err != nil {
+		return fmt.Errorf("goose: up: %w", err)
+	}
+
 	store := infraDB.NewStore(db)
 
 	engine := gin.Default()
