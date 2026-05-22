@@ -17,7 +17,7 @@ func NewStore(db *sql.DB) *Store {
 	}
 }
 
-func (store *Store) ExecTx(ctx context.Context, fn func(store *Store) error) (err error) {
+func (store *Store) Tx(ctx context.Context, fn func(txStore *Store) error) (err error) {
 	tx, err := store.db.BeginTx(ctx, &sql.TxOptions{})
 	if err != nil {
 		return err
@@ -25,16 +25,17 @@ func (store *Store) ExecTx(ctx context.Context, fn func(store *Store) error) (er
 	defer func() {
 		if p := recover(); p != nil {
 			_ = tx.Rollback()
+			panic(p)
 		} else if err != nil {
 			_ = tx.Rollback()
 		}
 	}()
 
-	s := &Store{
+	txStore := &Store{
 		db:      store.db,
 		Queries: New(store.db).WithTx(tx),
 	}
-	if err = fn(s); err != nil {
+	if err = fn(txStore); err != nil {
 		return err
 	}
 

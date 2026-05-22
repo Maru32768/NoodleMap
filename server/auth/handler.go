@@ -175,7 +175,7 @@ func (h *Handler) register(ctx *gin.Context, emailRaw string, password string) (
 	}
 	isAdmin := false
 
-	if err := h.store.ExecTx(ctx, func(store *db.Store) error {
+	if err := h.store.Tx(ctx, func(store *db.Store) error {
 		if err := store.InsertUser(ctx, db.InsertUserParams{ID: userId, Email: email, Password: hash, Salt: salt, IsAdmin: isAdmin}); err != nil {
 			return err
 		}

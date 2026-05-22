@@ -140,7 +140,7 @@ func (h *Handler) addRestaurant(ctx *gin.Context, command AddRestaurantCommand) 
 		GooglePlaceID: command.GooglePlaceID,
 	}
 
-	if err := h.store.ExecTx(ctx, func(store *db.Store) error {
+	if err := h.store.Tx(ctx, func(store *db.Store) error {
 		err := store.InsertRestaurant(ctx, params)
 		if err != nil {
 			return err
@@ -193,7 +193,7 @@ func (h *Handler) updateRestaurant(ctx *gin.Context, id uuid.UUID, command Updat
 		GooglePlaceID: command.GooglePlaceID,
 	}
 
-	if err := h.store.ExecTx(ctx, func(store *db.Store) error {
+	if err := h.store.Tx(ctx, func(store *db.Store) error {
 		if err := store.UpdateRestaurant(ctx, params); err != nil {
 			return err
 		}
