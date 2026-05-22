@@ -26,18 +26,18 @@ func NewHandler(store *db.Store, secret string) *Handler {
 func (h *Handler) Authenticate(ctx *gin.Context) {
 	authorization := ctx.GetHeader("Authorization")
 	if authorization == "" {
-		ctx.AbortWithError(http.StatusBadRequest, errors.New("no Authorization header"))
+		ctx.AbortWithError(http.StatusUnauthorized, errors.New("no Authorization header"))
 		return
 	}
 	if !strings.HasPrefix(authorization, "Bearer ") {
-		ctx.AbortWithError(http.StatusBadRequest, errors.New("not supported token type"))
+		ctx.AbortWithError(http.StatusUnauthorized, errors.New("not supported token type"))
 		return
 	}
 	token := strings.TrimPrefix(authorization, "Bearer ")
 
 	user, err := h.authenticate(ctx, token)
 	if err != nil {
-		ctx.AbortWithError(http.StatusBadRequest, err)
+		ctx.AbortWithError(http.StatusUnauthorized, err)
 		return
 	}
 
