@@ -61,6 +61,28 @@ services:
     domains:
       - noodle-map.marulab.jp
       - noodle-map.marulabs.dev
+    headers:
+      - path: /
+        name: Cache-Control
+        value: no-cache
+      - path: /index.html
+        name: Cache-Control
+        value: no-cache
+      - path: /admin
+        name: Cache-Control
+        value: no-cache
+      - path: /admin/*
+        name: Cache-Control
+        value: no-cache
+      - path: /admin/index.html
+        name: Cache-Control
+        value: no-cache
+      - path: /manifest.webmanifest
+        name: Cache-Control
+        value: no-cache
+      - path: /admin-manifest.webmanifest
+        name: Cache-Control
+        value: no-cache
     routes:
       - type: rewrite
         source: /api/*
