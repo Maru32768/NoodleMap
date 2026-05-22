@@ -1,5 +1,6 @@
 import { ModalDialog } from "@/components/modal-dialog.tsx";
 import { Button } from "@/components/ui/button.tsx";
+import { AdminImage, ImageUploader } from "@/features/admin/image-uploader.tsx";
 import { Category } from "@/features/categories/api/use-categories.ts";
 import { CategoryIcon } from "@/features/map/category-icon.tsx";
 import { Restaurant } from "@/features/restaurants/api/use-restaurants.ts";
@@ -7,9 +8,8 @@ import { MiniHearts } from "@/features/restaurants/rating-hearts.tsx";
 import { getCategoryType } from "@/features/search/utils.ts";
 import { Box, Input } from "@chakra-ui/react";
 import { useState } from "react";
-import { AdminImage, ImageUploader } from "./image-uploader.tsx";
 
-export interface EditDraft {
+export interface RestaurantEditDraft {
   id: string;
   name: string;
   address: string;
@@ -147,17 +147,17 @@ function FavPicker({
 
 type Tab = "info" | "visit" | "images";
 
-interface EditModalProps {
+interface RestaurantEditModalProps {
   shop: Restaurant;
   categories: Category[];
   open: boolean;
   initialTab?: Tab;
   onClose: () => void;
-  onSave: (draft: EditDraft) => Promise<void>;
+  onSave: (draft: RestaurantEditDraft) => Promise<void>;
   onDelete?: (id: string) => void;
 }
 
-export function EditModal({
+export function RestaurantEditModal({
   shop,
   categories,
   open,
@@ -165,9 +165,9 @@ export function EditModal({
   onClose,
   onSave,
   onDelete,
-}: EditModalProps) {
+}: RestaurantEditModalProps) {
   const [tab, setTab] = useState<Tab>(initialTab);
-  const [draft, setDraft] = useState<EditDraft>(() => ({
+  const [draft, setDraft] = useState<RestaurantEditDraft>(() => ({
     id: shop.id,
     name: shop.name,
     address: shop.address,
@@ -183,8 +183,10 @@ export function EditModal({
   }));
   const [saving, setSaving] = useState(false);
 
-  const set = <K extends keyof EditDraft>(k: K, v: EditDraft[K]) =>
-    setDraft((d) => ({ ...d, [k]: v }));
+  const set = <K extends keyof RestaurantEditDraft>(
+    k: K,
+    v: RestaurantEditDraft[K],
+  ) => setDraft((d) => ({ ...d, [k]: v }));
 
   const catType = getCategoryType(shop, categories);
 

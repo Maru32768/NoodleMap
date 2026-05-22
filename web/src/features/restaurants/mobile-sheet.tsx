@@ -1,6 +1,7 @@
 import { CategoryBadge } from "@/components/category-badge.tsx";
 import { ShopThumb } from "@/components/shop-thumb.tsx";
 import { CloseButton } from "@/components/ui/close-button.tsx";
+import { useCurrentUser } from "@/features/auth/use-current-user.ts";
 import { Category } from "@/features/categories/api/use-categories.ts";
 import { Restaurant } from "@/features/restaurants/api/use-restaurants.ts";
 import {
@@ -25,6 +26,7 @@ export interface MobileSheetProps {
   shop: Restaurant | undefined;
   sortedRestaurants: Restaurant[];
   allCategories: Category[];
+  onAdminEdit: (id: string) => void;
   onSelect: (id: string) => void;
   onClose: () => void;
 }
@@ -111,9 +113,11 @@ export function MobileSheet({
   shop,
   sortedRestaurants,
   allCategories,
+  onAdminEdit,
   onSelect,
   onClose,
 }: MobileSheetProps) {
+  const currentUser = useCurrentUser();
   const isPc = useIsPc();
   const sheetRef = useRef<SheetRef>(null);
   const catType = shop ? getCategoryType(shop, allCategories) : "ramen";
@@ -331,6 +335,11 @@ export function MobileSheet({
                     <RestaurantActions
                       mapsUrl={mapsUrl}
                       mapsLabel="Google Maps"
+                      onAdminClick={
+                        currentUser?.isAdmin
+                          ? () => onAdminEdit(shop.id)
+                          : undefined
+                      }
                     />
                   </Box>
                 </>

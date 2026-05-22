@@ -9,7 +9,11 @@ import { useNavigate, useSearchParams } from "react-router";
 function getSafeRedirectTo(searchParams: URLSearchParams) {
   const redirectTo = searchParams.get("redirectTo");
 
-  if (!redirectTo || !redirectTo.startsWith("/") || redirectTo.startsWith("//")) {
+  if (
+    !redirectTo ||
+    !redirectTo.startsWith("/") ||
+    redirectTo.startsWith("//")
+  ) {
     return SEARCH_PATH;
   }
 

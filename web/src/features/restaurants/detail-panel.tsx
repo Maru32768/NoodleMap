@@ -1,5 +1,6 @@
 import { CategoryBadge } from "@/components/category-badge.tsx";
 import { CloseButton } from "@/components/ui/close-button.tsx";
+import { useCurrentUser } from "@/features/auth/use-current-user.ts";
 import { Category } from "@/features/categories/api/use-categories.ts";
 import { CategoryIcon } from "@/features/map/category-icon.tsx";
 import { Restaurant } from "@/features/restaurants/api/use-restaurants.ts";
@@ -24,14 +25,17 @@ const HERO_BG: Record<string, string> = {
 export interface DetailPanelProps {
   restaurant: Restaurant;
   allCategories: Category[];
+  onAdminEdit: (id: string) => void;
   onClose: () => void;
 }
 
 export function DetailPanel({
   restaurant: r,
   allCategories,
+  onAdminEdit,
   onClose,
 }: DetailPanelProps) {
+  const currentUser = useCurrentUser();
   const catType = getCategoryType(r, allCategories);
   const mapsUrl = buildGoogleMapsUrl(r);
   const heroBg = HERO_BG[catType] ?? HERO_BG.ramen;
@@ -297,7 +301,13 @@ export function DetailPanel({
         display="flex"
         gap="0.625rem"
       >
-        <RestaurantActions mapsUrl={mapsUrl} mapsLabel="Google Maps" />
+        <RestaurantActions
+          mapsUrl={mapsUrl}
+          mapsLabel="Google Maps"
+          onAdminClick={
+            currentUser?.isAdmin ? () => onAdminEdit(r.id) : undefined
+          }
+        />
       </Box>
     </Box>
   );

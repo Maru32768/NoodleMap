@@ -2,6 +2,7 @@ import { Layout } from "@/components/layout/layout.tsx";
 import { Loading } from "@/components/loading.tsx";
 import { ProtectedRoute } from "@/features/auth/protected-route.tsx";
 import { useAuth } from "@/features/auth/use-auth.ts";
+import { CurrentUserProvider } from "@/features/auth/use-current-user.ts";
 import {
   ADMIN_PATH,
   LOGIN_PATH,
@@ -22,42 +23,45 @@ function App() {
       </AbsoluteCenter>
     </Box>
   ) : (
-    <Routes>
-      <Route element={<Layout />}>
-        <Route path={SEARCH_PATH} element={<LazySearchPage />} />
-      </Route>
+    <CurrentUserProvider value={currentUser}>
+      <Routes>
+        <Route element={<Layout />}>
+          <Route path={SEARCH_PATH} element={<LazySearchPage />} />
+        </Route>
 
-      <Route
-        element={
-          <Suspense
-            fallback={
-              <AbsoluteCenter>
-                <Loading size="xl" />
-              </AbsoluteCenter>
-            }
-          >
-            <Outlet />
-          </Suspense>
-        }
-      >
         <Route
-          path={ADMIN_PATH}
           element={
-            <ProtectedRoute
-              currentUser={currentUser}
-              permissionPredicate={(user) => user.isAdmin}
+            <Suspense
+              fallback={
+                <AbsoluteCenter>
+                  <Loading size="xl" />
+                </AbsoluteCenter>
+              }
             >
-              <LazyAdminPage />
-            </ProtectedRoute>
+              <Outlet />
+            </Suspense>
           }
-        />
-        {!currentUser && (
-          <Route path={LOGIN_PATH} element={<LazyLoginPage />} />
-        )}
-        <Route path={REGISTER_PATH} element={<LazyRegisterPage />} />
-        <Route path="*" element={<Navigate to={SEARCH_PATH} replace />} />
-      </Route>
-    </Routes>
+        >
+          <Route
+            path={ADMIN_PATH}
+            element={
+              <ProtectedRoute
+                permissionPredicate={(user) => {
+                  return user.isAdmin;
+                }}
+              >
+                <LazyAdminPage />
+              </ProtectedRoute>
+            }
+          />
+          {!currentUser && (
+            <Route path={LOGIN_PATH} element={<LazyLoginPage />} />
+          )}
+          <Route path={REGISTER_PATH} element={<LazyRegisterPage />} />
+          <Route path="*" element={<Navigate to={SEARCH_PATH} replace />} />
+        </Route>
+      </Routes>
+    </CurrentUserProvider>
   );
 }
 

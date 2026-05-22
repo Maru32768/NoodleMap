@@ -1,6 +1,7 @@
+import { Button } from "@/components/ui/button.tsx";
 import { Restaurant } from "@/features/restaurants/api/use-restaurants.ts";
 import { Link } from "@chakra-ui/react";
-import { LuExternalLink } from "react-icons/lu";
+import { LuExternalLink, LuSettings } from "react-icons/lu";
 
 export function buildGoogleMapsUrl(r: Restaurant) {
   const url = new URL("https://www.google.com/maps/search/");
@@ -31,25 +32,43 @@ const actionBtnBase = {
 export function RestaurantActions({
   mapsUrl,
   mapsLabel,
+  onAdminClick,
 }: {
   mapsUrl: string;
   mapsLabel: string;
+  onAdminClick?: () => void;
 }) {
   return (
-    <Link
-      href={mapsUrl}
-      target="_blank"
-      rel="noopener noreferrer"
-      {...actionBtnBase}
-      bg="nm.bg"
-      color="nm.ink"
-      border="1px solid"
-      borderColor="nm.line"
-      textDecoration="none"
-      _hover={{ borderColor: "nm.ink", textDecoration: "none" }}
-    >
-      {mapsLabel}
-    </Link>
+    <>
+      <Link
+        href={mapsUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        {...actionBtnBase}
+        bg="nm.bg"
+        color="nm.ink"
+        border="1px solid"
+        borderColor="nm.line"
+        textDecoration="none"
+        _hover={{ borderColor: "nm.ink", textDecoration: "none" }}
+      >
+        {mapsLabel}
+      </Link>
+      {onAdminClick && (
+        <Button
+          onClick={onAdminClick}
+          variant="plain"
+          {...actionBtnBase}
+          bg="nm.ink"
+          color="nm.paper"
+          textDecoration="none"
+          _hover={{ bg: "nm.inkSoft", textDecoration: "none" }}
+        >
+          <LuSettings aria-hidden="true" />
+          編集
+        </Button>
+      )}
+    </>
   );
 }
 

@@ -1,11 +1,7 @@
+import { User } from "@/features/auth/use-auth.ts";
 import { createContext, useContext } from "react";
 
-export interface CurrentUser {
-  id: string;
-  email: string;
-}
-
-const currentUserContext = createContext<CurrentUser | null>(null);
+const currentUserContext = createContext<User | undefined>(undefined);
 
 export const CurrentUserProvider = currentUserContext.Provider;
 

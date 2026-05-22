@@ -8,12 +8,20 @@ import {
   DrawerRoot,
   DrawerTitle,
 } from "@/components/ui/drawer.tsx";
+import { toaster } from "@/components/ui/toaster.tsx";
 import { useCategories } from "@/features/categories/api/use-categories.ts";
 import { FlyToLocationButton } from "@/features/map/fly-to-location-button.tsx";
 import { Map, MapEventHandler, MapHandle } from "@/features/map/map.tsx";
-import { useRestaurants } from "@/features/restaurants/api/use-restaurants.ts";
+import {
+  UpdateRestaurantCommand,
+  useRestaurants,
+} from "@/features/restaurants/api/use-restaurants.ts";
 import { DetailPanel } from "@/features/restaurants/detail-panel.tsx";
 import { MobileSheet } from "@/features/restaurants/mobile-sheet.tsx";
+import {
+  RestaurantEditDraft,
+  RestaurantEditModal,
+} from "@/features/restaurants/restaurant-edit-modal.tsx";
 import { RestaurantFilters, Sidebar } from "@/features/restaurants/sidebar.tsx";
 import {
   CategoryType,
@@ -183,6 +191,7 @@ export default function SearchPage() {
   const deferredFavMin = useDeferredValue(favMin);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   const mapRef = useRef<MapHandle>(null);
@@ -233,7 +242,7 @@ export default function SearchPage() {
     [setSearchParams],
   );
 
-  const { restaurants } = useRestaurants();
+  const { restaurants, updateRestaurant } = useRestaurants();
   const { categories } = useCategories();
 
   const updateKeywordDebounced = useDebouncedCallback((q: string) => {
@@ -334,6 +343,10 @@ export default function SearchPage() {
     () => restaurants?.find((r) => r.id === selectedId) ?? undefined,
     [restaurants, selectedId],
   );
+  const editRestaurant = useMemo(
+    () => restaurants?.find((r) => r.id === editId) ?? undefined,
+    [restaurants, editId],
+  );
 
   const handleSelect = useCallback(
     (id: string) => {
@@ -350,6 +363,31 @@ export default function SearchPage() {
   const handleClose = useCallback(() => {
     setSelectedId(null);
   }, []);
+
+  const handleEditOpen = useCallback((id: string) => {
+    setEditId(id);
+  }, []);
+
+  const handleEditSave = useCallback(
+    async (draft: RestaurantEditDraft) => {
+      const cmd: UpdateRestaurantCommand = {
+        name: draft.name,
+        lat: draft.lat,
+        lng: draft.lng,
+        postalCode: draft.postalCode,
+        address: draft.address,
+        closed: draft.closed,
+        googlePlaceId: draft.googlePlaceId,
+        visited: draft.visited,
+        favorite: draft.favorite,
+        rate: draft.rate,
+      };
+      await updateRestaurant(draft.id, cmd);
+      setEditId(null);
+      toaster.success({ description: "保存しました" });
+    },
+    [updateRestaurant],
+  );
 
   return (
     <Box
@@ -389,7 +427,9 @@ export default function SearchPage() {
 
         <Box
           className={
-            selectedRestaurant ? "nm-map-shell nm-map-shell--detail" : "nm-map-shell"
+            selectedRestaurant
+              ? "nm-map-shell nm-map-shell--detail"
+              : "nm-map-shell"
           }
           position="relative"
           bg="nm.bgSoft"
@@ -471,6 +511,7 @@ export default function SearchPage() {
           <DetailPanel
             restaurant={selectedRestaurant}
             allCategories={categories ?? []}
+            onAdminEdit={handleEditOpen}
             onClose={handleClose}
           />
         )}
@@ -481,6 +522,7 @@ export default function SearchPage() {
         shop={selectedRestaurant}
         sortedRestaurants={sortedRestaurants}
         allCategories={categories ?? []}
+        onAdminEdit={handleEditOpen}
         onSelect={handleSelect}
         onClose={handleClose}
       />
@@ -510,6 +552,17 @@ export default function SearchPage() {
           </DrawerBody>
         </DrawerContent>
       </DrawerRoot>
+
+      {editRestaurant && categories && (
+        <RestaurantEditModal
+          shop={editRestaurant}
+          categories={categories}
+          open={!!editId}
+          initialTab="info"
+          onClose={() => setEditId(null)}
+          onSave={handleEditSave}
+        />
+      )}
     </Box>
   );
 }

@@ -13,6 +13,7 @@ import React, {
   ComponentProps,
   createContext,
   ReactNode,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -71,6 +72,14 @@ export function ModalDialog({
 }: Props) {
   const [isLoading, setIsLoading] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null!);
+
+  useEffect(() => {
+    return () => {
+      if (document.body.style.pointerEvents === "none") {
+        document.body.style.pointerEvents = "";
+      }
+    };
+  }, []);
 
   const context = useMemo(() => {
     return {

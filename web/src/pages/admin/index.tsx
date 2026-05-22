@@ -4,13 +4,16 @@ import { AddDraft, AddModal } from "@/features/admin/add-modal.tsx";
 import { AdminFilters, VisitFilter } from "@/features/admin/admin-filters.tsx";
 import { AdminMap } from "@/features/admin/admin-map.tsx";
 import { AdminTable } from "@/features/admin/admin-table.tsx";
-import { EditDraft, EditModal } from "@/features/admin/edit-modal.tsx";
 import { MobileShopList } from "@/features/admin/mobile-shop-list.tsx";
 import { useCategories } from "@/features/categories/api/use-categories.ts";
 import {
   UpdateRestaurantCommand,
   useRestaurants,
 } from "@/features/restaurants/api/use-restaurants.ts";
+import {
+  RestaurantEditDraft,
+  RestaurantEditModal,
+} from "@/features/restaurants/restaurant-edit-modal.tsx";
 import type { CategoryType } from "@/features/search/utils.ts";
 import { getCategoryType } from "@/features/search/utils.ts";
 import { Box, Input, Span } from "@chakra-ui/react";
@@ -187,7 +190,7 @@ export default function AdminPage() {
     setEditTab(tab ?? "info");
   };
 
-  const handleSave = async (draft: EditDraft) => {
+  const handleSave = async (draft: RestaurantEditDraft) => {
     const cmd: UpdateRestaurantCommand = {
       name: draft.name,
       lat: draft.lat,
@@ -647,7 +650,7 @@ export default function AdminPage() {
 
       {/* Edit modal */}
       {editShop && categories && (
-        <EditModal
+        <RestaurantEditModal
           shop={editShop}
           categories={categories}
           open={!!editId}
