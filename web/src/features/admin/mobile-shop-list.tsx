@@ -3,6 +3,7 @@ import { Restaurant } from "@/features/restaurants/api/use-restaurants.ts";
 import { favToHearts, getCategoryType } from "@/features/search/utils.ts";
 import { Box } from "@chakra-ui/react";
 import { useEffect, useRef } from "react";
+import { Virtuoso, VirtuosoHandle } from "react-virtuoso";
 
 interface MobileShopListProps {
   shops: Restaurant[];
@@ -49,27 +50,155 @@ const PILL: Record<string, { bg: string; color: string; label: string }> = {
   unvisited: { bg: "nm.bg", color: "nm.inkMuted", label: "未訪問" },
 };
 
+function MobileShopListItem({
+  shop,
+  categories,
+  selected,
+  onEdit,
+}: {
+  shop: Restaurant;
+  categories: Category[];
+  selected: boolean;
+  onEdit: (id: string) => void;
+}) {
+  const catType = getCategoryType(shop, categories);
+  const catLabel =
+    catType === "udon" ? "うどん" : catType === "ramen" ? "ラーメン" : "その他";
+  const pillKey = shop.closed
+    ? "closed"
+    : shop.visited
+      ? "visited"
+      : "unvisited";
+  const pill = PILL[pillKey];
+
+  return (
+    <Box
+      display="flex"
+      gap="12px"
+      alignItems="flex-start"
+      px="14px"
+      py="12px"
+      borderBottom="1px solid"
+      borderBottomColor="nm.lineFaint"
+      cursor="pointer"
+      opacity={shop.closed ? 0.6 : 1}
+      transition="background 0.1s"
+      bg={selected ? "nm.bg" : undefined}
+      _hover={{ bg: "nm.bg" }}
+      _active={{ bg: "nm.bgSoft" }}
+      onClick={() => onEdit(shop.id)}
+    >
+      {/* Thumb */}
+      <Box
+        w="48px"
+        h="48px"
+        borderRadius="nmMd"
+        flexShrink={0}
+        background={THUMB_BG[catType] ?? THUMB_BG.other}
+        display="grid"
+        placeItems="center"
+        fontFamily="display"
+        fontSize="18px"
+        color="rgba(255,255,255,0.9)"
+      >
+        {catType === "udon" ? "饂" : "麺"}
+      </Box>
+
+      {/* Info */}
+      <Box flex="1" minW="0">
+        <Box
+          fontWeight={600}
+          fontSize="14px"
+          color="nm.ink"
+          overflow="hidden"
+          textOverflow="ellipsis"
+          whiteSpace="nowrap"
+        >
+          {shop.name}
+        </Box>
+        <Box
+          display="flex"
+          alignItems="center"
+          gap="6px"
+          mt="3px"
+          fontSize="11px"
+          color="nm.inkMuted"
+        >
+          <Box as="span">{catLabel}</Box>
+          <Box
+            as="span"
+            w="3px"
+            h="3px"
+            borderRadius="full"
+            bg="nm.inkFaint"
+            flexShrink={0}
+          />
+          {shop.visited ? (
+            <MiniHearts rate={shop.rate} />
+          ) : (
+            <Box as="span" color="nm.inkFaint">
+              未訪問
+            </Box>
+          )}
+        </Box>
+        <Box
+          mt="2px"
+          fontSize="11px"
+          color="nm.inkMuted"
+          overflow="hidden"
+          textOverflow="ellipsis"
+          whiteSpace="nowrap"
+        >
+          {shop.address}
+        </Box>
+        <Box mt="5px">
+          <Box
+            as="span"
+            display="inline-block"
+            px="7px"
+            py="2px"
+            bg={pill.bg}
+            color={pill.color}
+            borderRadius="nmSm"
+            fontSize="10px"
+            fontFamily="mono"
+            letterSpacing="0.08em"
+          >
+            {pill.label}
+          </Box>
+        </Box>
+      </Box>
+    </Box>
+  );
+}
+
 export function MobileShopList({
   shops,
   categories,
   selectedId,
   onEdit,
 }: MobileShopListProps) {
-  const itemRefs = useRef(new Map<string, HTMLDivElement>());
+  const listRef = useRef<VirtuosoHandle>(null);
 
   useEffect(() => {
     if (!selectedId) {
       return;
     }
 
-    itemRefs.current.get(selectedId)?.scrollIntoView({
-      block: "center",
+    const selectedIndex = shops.findIndex((shop) => shop.id === selectedId);
+    if (selectedIndex === -1) {
+      return;
+    }
+
+    listRef.current?.scrollToIndex({
+      index: selectedIndex,
+      align: "center",
       behavior: "smooth",
     });
   }, [selectedId, shops]);
 
   return (
-    <Box overflowY="auto" h="100%">
+    <Box h="100%">
       {shops.length === 0 && (
         <Box
           display="grid"
@@ -81,129 +210,21 @@ export function MobileShopList({
           該当する店舗がありません
         </Box>
       )}
-      {shops.map((shop) => {
-        const catType = getCategoryType(shop, categories);
-        const catLabel =
-          catType === "udon"
-            ? "うどん"
-            : catType === "ramen"
-              ? "ラーメン"
-              : "その他";
-        const pillKey = shop.closed
-          ? "closed"
-          : shop.visited
-            ? "visited"
-            : "unvisited";
-        const pill = PILL[pillKey];
-
-        return (
-          <Box
-            ref={(element: HTMLDivElement | null) => {
-              if (element) {
-                itemRefs.current.set(shop.id, element);
-                return;
-              }
-              itemRefs.current.delete(shop.id);
-            }}
-            key={shop.id}
-            display="flex"
-            gap="12px"
-            alignItems="flex-start"
-            px="14px"
-            py="12px"
-            borderBottom="1px solid"
-            borderBottomColor="nm.lineFaint"
-            cursor="pointer"
-            opacity={shop.closed ? 0.6 : 1}
-            transition="background 0.1s"
-            bg={shop.id === selectedId ? "nm.bg" : undefined}
-            _hover={{ bg: "nm.bg" }}
-            _active={{ bg: "nm.bgSoft" }}
-            onClick={() => onEdit(shop.id)}
-          >
-            {/* Thumb */}
-            <Box
-              w="48px"
-              h="48px"
-              borderRadius="nmMd"
-              flexShrink={0}
-              background={THUMB_BG[catType] ?? THUMB_BG.other}
-              display="grid"
-              placeItems="center"
-              fontFamily="display"
-              fontSize="18px"
-              color="rgba(255,255,255,0.9)"
-            >
-              {catType === "udon" ? "饂" : "麺"}
-            </Box>
-
-            {/* Info */}
-            <Box flex="1" minW="0">
-              <Box
-                fontWeight={600}
-                fontSize="14px"
-                color="nm.ink"
-                overflow="hidden"
-                textOverflow="ellipsis"
-                whiteSpace="nowrap"
-              >
-                {shop.name}
-              </Box>
-              <Box
-                display="flex"
-                alignItems="center"
-                gap="6px"
-                mt="3px"
-                fontSize="11px"
-                color="nm.inkMuted"
-              >
-                <Box as="span">{catLabel}</Box>
-                <Box
-                  as="span"
-                  w="3px"
-                  h="3px"
-                  borderRadius="full"
-                  bg="nm.inkFaint"
-                  flexShrink={0}
-                />
-                {shop.visited ? (
-                  <MiniHearts rate={shop.rate} />
-                ) : (
-                  <Box as="span" color="nm.inkFaint">
-                    未訪問
-                  </Box>
-                )}
-              </Box>
-              <Box
-                mt="2px"
-                fontSize="11px"
-                color="nm.inkMuted"
-                overflow="hidden"
-                textOverflow="ellipsis"
-                whiteSpace="nowrap"
-              >
-                {shop.address}
-              </Box>
-              <Box mt="5px">
-                <Box
-                  as="span"
-                  display="inline-block"
-                  px="7px"
-                  py="2px"
-                  bg={pill.bg}
-                  color={pill.color}
-                  borderRadius="nmSm"
-                  fontSize="10px"
-                  fontFamily="mono"
-                  letterSpacing="0.08em"
-                >
-                  {pill.label}
-                </Box>
-              </Box>
-            </Box>
-          </Box>
-        );
-      })}
+      {shops.length > 0 && (
+        <Virtuoso
+          ref={listRef}
+          style={{ height: "100%" }}
+          data={shops}
+          itemContent={(_, shop) => (
+            <MobileShopListItem
+              shop={shop}
+              categories={categories}
+              selected={shop.id === selectedId}
+              onEdit={onEdit}
+            />
+          )}
+        />
+      )}
     </Box>
   );
 }
