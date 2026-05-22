@@ -1,0 +1,417 @@
+openapi: 3.0.0
+info:
+  title: NoodleMap API
+  version: 0.0.0
+tags: []
+paths:
+  /api/v1/auth/logout:
+    post:
+      operationId: logout
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+      security:
+        - BearerAuth: []
+  /api/v1/auth/me:
+    get:
+      operationId: me
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+      security:
+        - BearerAuth: []
+  /api/v1/auth/restaurants:
+    post:
+      operationId: addRestaurant
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Restaurant'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddRestaurantRequest'
+      security:
+        - BearerAuth: []
+  /api/v1/auth/restaurants/{id}:
+    put:
+      operationId: updateRestaurant
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '200':
+          description: The request has succeeded.
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRestaurantRequest'
+      security:
+        - BearerAuth: []
+  /api/v1/categories:
+    get:
+      operationId: listCategories
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoriesResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+  /api/v1/login:
+    post:
+      operationId: login
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthRequest'
+  /api/v1/register:
+    post:
+      operationId: register
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthRequest'
+  /api/v1/restaurants:
+    get:
+      operationId: listRestaurants
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RestaurantsResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+components:
+  schemas:
+    AddRestaurantRequest:
+      type: object
+      required:
+        - name
+        - lat
+        - lng
+        - postalCode
+        - address
+        - closed
+        - googlePlaceId
+        - categories
+      properties:
+        name:
+          type: string
+        lat:
+          type: number
+          format: double
+        lng:
+          type: number
+          format: double
+        postalCode:
+          type: string
+        address:
+          type: string
+        closed:
+          type: boolean
+        googlePlaceId:
+          type: string
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/uuid'
+    AuthRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+    AuthResponse:
+      type: object
+      required:
+        - user
+        - token
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        token:
+          type: string
+    CategoriesResponse:
+      type: object
+      required:
+        - categories
+      properties:
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/Category'
+    Category:
+      type: object
+      required:
+        - id
+        - label
+        - icon
+      properties:
+        id:
+          $ref: '#/components/schemas/uuid'
+        label:
+          type: string
+        icon:
+          type: string
+    ErrorBody:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+    Restaurant:
+      type: object
+      required:
+        - id
+        - name
+        - lat
+        - lng
+        - closed
+        - postalCode
+        - address
+        - googlePlaceId
+        - visited
+        - rate
+        - favorite
+        - categories
+      properties:
+        id:
+          $ref: '#/components/schemas/uuid'
+        name:
+          type: string
+        lat:
+          type: number
+          format: double
+        lng:
+          type: number
+          format: double
+        closed:
+          type: boolean
+        postalCode:
+          type: string
+        address:
+          type: string
+        googlePlaceId:
+          type: string
+        visited:
+          type: boolean
+        rate:
+          type: number
+          format: double
+        favorite:
+          type: boolean
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/uuid'
+    RestaurantsResponse:
+      type: object
+      required:
+        - restaurants
+      properties:
+        restaurants:
+          type: array
+          items:
+            $ref: '#/components/schemas/Restaurant'
+    UpdateRestaurantRequest:
+      type: object
+      required:
+        - name
+        - lat
+        - lng
+        - postalCode
+        - address
+        - closed
+        - googlePlaceId
+        - visited
+        - rate
+        - favorite
+      properties:
+        name:
+          type: string
+        lat:
+          type: number
+          format: double
+        lng:
+          type: number
+          format: double
+        postalCode:
+          type: string
+        address:
+          type: string
+        closed:
+          type: boolean
+        googlePlaceId:
+          type: string
+        visited:
+          type: boolean
+        rate:
+          type: number
+          format: double
+        favorite:
+          type: boolean
+    User:
+      type: object
+      required:
+        - id
+        - email
+        - isAdmin
+      properties:
+        id:
+          $ref: '#/components/schemas/uuid'
+        email:
+          type: string
+        isAdmin:
+          type: boolean
+    uuid:
+      type: string
+      description: UUID serialized as a string.
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: Bearer
+servers:
+  - url: /
+    description: Current origin
+    variables: {}

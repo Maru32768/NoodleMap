@@ -1,52 +1,20 @@
 import { ApiError, get, post, put } from "@/utils/request.ts";
 import { toastApiError } from "@/utils/toast.ts";
+import type { components } from "@/generated/api.ts";
 import { useCallback } from "react";
 import useSWR, { SWRConfiguration } from "swr";
 
-export interface Restaurant {
-  id: string;
-  name: string;
-  lat: number;
-  lng: number;
-  closed: boolean;
-  postalCode: string;
-  address: string;
-  googlePlaceId: string;
-  visited: boolean;
-  rate: number | undefined;
-  favorite: boolean | undefined;
-  categories: string[];
-}
-
-export interface AddRestaurantCommand {
-  name: string;
-  lat: number;
-  lng: number;
-  postalCode: string;
-  address: string;
-  closed: boolean;
-  googlePlaceId: string;
-  categories: string[];
-}
-
-export interface UpdateRestaurantCommand {
-  name: string;
-  lat: number;
-  lng: number;
-  postalCode: string;
-  address: string;
-  closed: boolean;
-  googlePlaceId: string;
-  visited: boolean;
-  favorite: boolean;
-  rate: number;
-}
+export type Restaurant = components["schemas"]["Restaurant"];
+export type AddRestaurantCommand = components["schemas"]["AddRestaurantRequest"];
+export type UpdateRestaurantCommand =
+  components["schemas"]["UpdateRestaurantRequest"];
+type RestaurantsResponse = components["schemas"]["RestaurantsResponse"];
 
 export function useRestaurants(config?: SWRConfiguration<Restaurant[]>) {
   const resp = useSWR(
     ["/api/v1/restaurants"],
     () => {
-      return get<{ restaurants: Restaurant[] }>("/api/v1/restaurants")
+      return get<RestaurantsResponse>("/api/v1/restaurants")
         .then((res) => {
           return res.body.restaurants;
         })

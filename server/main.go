@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"server/api"
 	"server/auth"
 	"server/categories"
 	"server/infra"
@@ -94,23 +95,11 @@ func run() error {
 	engine.GET("/health", func(ctx *gin.Context) {
 		ctx.String(http.StatusOK, "ok")
 	})
-	apiGroup := engine.Group("/api/v1")
+
 	restaurantHandler := restaurants.NewHandler(restaurants.NewService(store))
-	apiGroup.GET("/restaurants", restaurantHandler.GetRestaurants)
-
 	categoryHandler := categories.NewHandler(categories.NewService(store))
-	apiGroup.GET("/categories", categoryHandler.GetCategories)
-
 	authHandler := auth.NewHandler(auth.NewService(store, tokenSecret))
-	apiGroup.POST("/register", authHandler.Register)
-	apiGroup.POST("/login", authHandler.Login)
-
-	authApiGroup := apiGroup.Group("/auth")
-	authApiGroup.Use(authHandler.Authenticate)
-	authApiGroup.POST("/logout", authHandler.Logout)
-	authApiGroup.GET("/me", authHandler.Me)
-	authApiGroup.POST("/restaurants", restaurantHandler.AddRestaurant)
-	authApiGroup.PUT("/restaurants/:id", restaurantHandler.UpdateRestaurant)
+	api.RegisterHandlers(engine, api.NewHandler(authHandler, categoryHandler, restaurantHandler))
 
 	if err := engine.Run(":" + serverPort); err != nil {
 		return err

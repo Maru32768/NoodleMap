@@ -1,0 +1,21 @@
+{
+  "name": "noodle-map",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "api:generate": "npm run tsp:compile && openapi-typescript api/openapi.yaml -o web/src/generated/api.ts && cd server && go generate ./api",
+    "api:check": "npm run tsp:check && openapi-typescript api/openapi.yaml -o web/src/generated/api.ts --check",
+    "tsp:compile": "tsp compile typespec",
+    "tsp:check": "tsp compile typespec --no-emit"
+  },
+  "devDependencies": {
+    "@typespec/compiler": "^1.12.0",
+    "@typespec/http": "^1.12.0",
+    "@typespec/openapi3": "^1.12.0",
+    "openapi-typescript": "^7.13.0"
+  },
+  "volta": {
+    "node": "22.12.0",
+    "npm": "10.9.2"
+  }
+}

@@ -9,6 +9,8 @@ This repository contains a full-stack noodle map application.
 - `db/`: SQL schemas, queries, initialization scripts, and seed CSV data.
 - `batch/` and `cmd/`: Go utilities for backup and restore workflows.
 - `tools/`: auxiliary tooling, currently including a Gradle-based place-info fetch tool.
+- `typespec/`: TypeSpec API contract source. `typespec/main.tsp` is the source of truth for HTTP API shapes.
+- `api/openapi.yaml`: generated OpenAPI document. Regenerate it from TypeSpec; do not edit it by hand.
 - `render.yaml`: Render Blueprint defining all services (frontend, backend, cron), the PostgreSQL database, and non-secret environment variables. Edit this file when adding or changing Render service configuration.
 
 ## Build, Test, and Development Commands
@@ -27,7 +29,24 @@ Backend commands run from `server/`:
 - `go test ./...`: run all Go tests.
 - `go fmt ./...`: format Go code.
 
+API generation commands run from the repository root:
+
+- `npm run api:generate`: regenerate OpenAPI, frontend TypeScript API types, and backend Go API bindings.
+- `npm run api:check`: verify TypeSpec and generated frontend API types are current.
+
 Use `docker-compose.yml` at the repository root for local container orchestration when database services are needed.
+
+## API Contract & Generated Code
+
+Keep `typespec/main.tsp` as the source of truth for API request and response shapes. When changing API routes, payloads, or response models, update TypeSpec first and run `npm run api:generate`.
+
+Generated files are committed for reviewability:
+
+- `api/openapi.yaml`
+- `web/src/generated/api.ts`
+- `server/api/api.gen.go`
+
+Do not edit generated files directly. Frontend API-facing types should come from `web/src/generated/api.ts`. Backend routing should stay wired through the generated `server/api` bindings, with hand-written adapters delegating to domain packages.
 
 ## Coding Style & Naming Conventions
 

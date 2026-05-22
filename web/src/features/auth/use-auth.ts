@@ -1,5 +1,6 @@
 import { ApiError, get, post } from "@/utils/request.ts";
 import { toastApiError } from "@/utils/toast.ts";
+import type { components } from "@/generated/api.ts";
 import { useCallback } from "react";
 import useSWR from "swr";
 
@@ -8,11 +9,8 @@ const TOKEN_KEY = "token";
 export let token: string | undefined =
   localStorage.getItem(TOKEN_KEY) ?? undefined;
 
-export interface User {
-  id: string;
-  email: string;
-  isAdmin: boolean;
-}
+export type User = components["schemas"]["User"];
+type AuthResponse = components["schemas"]["AuthResponse"];
 
 export function useAuth() {
   const resp = useSWR(
@@ -36,7 +34,7 @@ export function useAuth() {
 
   const login = useCallback(
     (email: string, password: string) => {
-      return post<{ user: User; token: string }>("/api/v1/login", {
+      return post<AuthResponse>("/api/v1/login", {
         body: JSON.stringify({ email, password }),
       })
         .then((res) => {
@@ -67,7 +65,7 @@ export function useAuth() {
 
   const register = useCallback(
     (email: string, password: string) => {
-      return post<{ user: User; token: string }>("/api/v1/register", {
+      return post<AuthResponse>("/api/v1/register", {
         body: JSON.stringify({ email, password }),
       })
         .then((res) => {
