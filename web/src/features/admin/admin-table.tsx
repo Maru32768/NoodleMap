@@ -243,8 +243,8 @@ export function AdminTable({
     }),
     createSortableColumn({
       property: "visited",
-      header: "訪問",
-      width: "60px",
+      header: "食べた",
+      width: "70px",
       render: (visited) => <CheckDot on={visited} variant="visited" />,
     }),
     createSortableColumn({

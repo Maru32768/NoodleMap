@@ -201,7 +201,7 @@ export function RestaurantEditModal({
 
   const TAB_LABELS: Record<Tab, string> = {
     info: "店舗情報",
-    visit: "訪問情報",
+    visit: "食べた記録",
     images: "画像",
   };
 
@@ -394,7 +394,7 @@ export function RestaurantEditModal({
               >
                 <Box>
                   <Box fontSize="13px" fontWeight={500} color="nm.ink">
-                    訪問済み
+                    食べた
                   </Box>
                 </Box>
                 <Toggle

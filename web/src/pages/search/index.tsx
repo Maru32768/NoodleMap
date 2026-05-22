@@ -464,7 +464,7 @@ export default function SearchPage() {
             gap="14px"
           >
             {[
-              { label: "訪問済", bg: "nm.shu" },
+              { label: "食べた", bg: "nm.shu" },
               { label: "気になる", bg: "nm.paper", border: "nm.inkSoft" },
               { label: "閉店", bg: "nm.ink" },
             ].map(({ label, bg, border }) => (

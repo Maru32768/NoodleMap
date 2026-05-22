@@ -19,13 +19,13 @@ import { Virtuoso } from "react-virtuoso";
 
 function StatusPill({ restaurant }: { restaurant: Restaurant }) {
   const props = restaurant.closed
-    ? { bg: "nm.ink", color: "nm.paper", label: "CLOSED", border: undefined }
+    ? { bg: "nm.ink", color: "nm.paper", label: "閉店", border: undefined }
     : restaurant.visited
-      ? { bg: "nm.matcha", color: "white", label: "VISITED", border: undefined }
+      ? { bg: "nm.matcha", color: "white", label: "食べた", border: undefined }
       : {
           bg: "nm.bgSoft",
           color: "nm.inkMuted",
-          label: "WISH",
+          label: "気になる",
           border: "1px solid",
         };
 
@@ -367,7 +367,7 @@ export function RestaurantFilters({
         borderTop="1px dashed"
         borderTopColor="nm.lineFaint"
       >
-        <SectionLabel>訪問状況 — Status</SectionLabel>
+        <SectionLabel>ステータス — Status</SectionLabel>
         <Box display="flex" flexWrap="wrap" gap="0.375rem">
           <Chip
             color="matcha"
@@ -377,7 +377,7 @@ export function RestaurantFilters({
               onVisitStateChange(visitState === "visited" ? "all" : "visited")
             }
           >
-            訪問済み
+            食べた
           </Chip>
           <Chip
             color="kincha"
@@ -389,25 +389,14 @@ export function RestaurantFilters({
           >
             気になる
           </Chip>
-        </Box>
-      </Box>
-
-      <Box
-        pt="0.875rem"
-        pb="0.625rem"
-        borderTop="1px dashed"
-        borderTopColor="nm.lineFaint"
-      >
-        <SectionLabel>閉店 — Closed</SectionLabel>
-        <Box display="flex" flexWrap="wrap" gap="0.375rem">
           <Chip
             color="ink"
-            active={closedState === "hide"}
+            active={closedState === "all"}
             onClick={() =>
               onClosedStateChange(closedState === "hide" ? "all" : "hide")
             }
           >
-            閉店を非表示
+            閉店
           </Chip>
         </Box>
       </Box>

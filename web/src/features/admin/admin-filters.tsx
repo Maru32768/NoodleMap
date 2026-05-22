@@ -150,13 +150,13 @@ export function AdminFilters({
             active={visitFilter === "visited"}
             onClick={() => setVisitFilter("visited")}
           >
-            訪問済
+            食べた
           </SegBtn>
           <SegBtn
             active={visitFilter === "wish"}
             onClick={() => setVisitFilter("wish")}
           >
-            未訪問
+            気になる
           </SegBtn>
           <SegBtn
             active={visitFilter === "closed"}

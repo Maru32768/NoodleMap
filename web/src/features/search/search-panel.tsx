@@ -121,7 +121,7 @@ export function SearchPanel({
                     }
                   }}
                 >
-                  既訪問店
+                  食べた店
                 </Checkbox>
                 <Checkbox
                   htmlFor="unvisited"
@@ -132,7 +132,7 @@ export function SearchPanel({
                     }
                   }}
                 >
-                  未訪問店
+                  気になる店
                 </Checkbox>
               </HStack>
               <Checkbox

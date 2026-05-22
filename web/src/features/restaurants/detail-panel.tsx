@@ -56,7 +56,7 @@ export function DetailPanel({
   const statusTag = r.closed
     ? { label: "閉店", bg: "nm.ink", color: "nm.paper" }
     : r.visited
-      ? { label: "訪問済", bg: "nm.matcha", color: "white" }
+      ? { label: "食べた", bg: "nm.matcha", color: "white" }
       : { label: "気になる", bg: "nm.shu", color: "white" };
 
   const noteBlock = r.closed
@@ -68,7 +68,7 @@ export function DetailPanel({
     : !r.visited
       ? {
           color: "nm.kincha",
-          label: "未訪問",
+          label: "気になる",
           text: "まだ行っていない一杯。次の遠征リストへ。",
         }
       : null;
@@ -230,7 +230,7 @@ export function DetailPanel({
             },
             {
               label: "Status",
-              value: r.closed ? "閉店" : r.visited ? "訪問済み" : "気になる",
+              value: r.closed ? "閉店" : r.visited ? "食べた" : "気になる",
             },
           ].map(({ label, value }) => (
             <Box

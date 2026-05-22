@@ -306,7 +306,7 @@ export function MobileSheet({
                         value: shop.closed
                           ? "閉店"
                           : shop.visited
-                            ? "訪問済み"
+                            ? "食べた"
                             : "気になる",
                       },
                     ].map(({ label, value }) => (

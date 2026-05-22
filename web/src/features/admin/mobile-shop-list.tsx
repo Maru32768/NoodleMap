@@ -46,8 +46,8 @@ const THUMB_BG: Record<string, string> = {
 
 const PILL: Record<string, { bg: string; color: string; label: string }> = {
   closed: { bg: "nm.ink", color: "nm.paper", label: "閉店" },
-  visited: { bg: "nm.matcha", color: "white", label: "訪問済" },
-  unvisited: { bg: "nm.bg", color: "nm.inkMuted", label: "未訪問" },
+  visited: { bg: "nm.matcha", color: "white", label: "食べた" },
+  unvisited: { bg: "nm.bg", color: "nm.inkMuted", label: "気になる" },
 };
 
 function MobileShopListItem({
@@ -137,7 +137,7 @@ function MobileShopListItem({
             <MiniHearts rate={shop.rate} />
           ) : (
             <Box as="span" color="nm.inkFaint">
-              未訪問
+              気になる
             </Box>
           )}
         </Box>

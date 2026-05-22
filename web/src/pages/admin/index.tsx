@@ -312,8 +312,8 @@ export default function AdminPage() {
           alignItems="baseline"
         >
           <AdminStat value={total} label="店舗" />
-          <AdminStat value={visitedCount} label="訪問済" />
-          <AdminStat value={wishCount} label="未訪問" tone="warning" />
+          <AdminStat value={visitedCount} label="食べた" />
+          <AdminStat value={wishCount} label="気になる" tone="warning" />
         </Box>
 
         <Box position="relative" ml="auto">
