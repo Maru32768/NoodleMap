@@ -10,11 +10,45 @@ import {
   SEARCH_PATH,
 } from "@/utils/path.ts";
 import { AbsoluteCenter, Box } from "@chakra-ui/react";
-import React, { Suspense } from "react";
-import { Navigate, Outlet, Route, Routes } from "react-router";
+import React, { Suspense, useEffect } from "react";
+import { Navigate, Outlet, Route, Routes, useLocation } from "react-router";
 
 function App() {
   const { currentUser, isLoading } = useAuth();
+  const location = useLocation();
+
+  useEffect(() => {
+    const isAdminPath = location.pathname.startsWith(ADMIN_PATH);
+    const manifestHref = isAdminPath
+      ? "/admin-manifest.webmanifest"
+      : "/manifest.webmanifest";
+    const touchIconHref = isAdminPath ? "/admin-pwa-512.png" : "/pwa-512.png";
+    const title = isAdminPath
+      ? "Maru's Noodle Map Admin"
+      : "Maru's Noodle Map";
+    let manifestLink = document.querySelector<HTMLLinkElement>(
+      'link[rel="manifest"]',
+    );
+    let touchIconLink = document.querySelector<HTMLLinkElement>(
+      'link[rel="apple-touch-icon"]',
+    );
+
+    if (!manifestLink) {
+      manifestLink = document.createElement("link");
+      manifestLink.rel = "manifest";
+      document.head.append(manifestLink);
+    }
+
+    manifestLink.href = manifestHref;
+    if (!touchIconLink) {
+      touchIconLink = document.createElement("link");
+      touchIconLink.rel = "apple-touch-icon";
+      document.head.append(touchIconLink);
+    }
+
+    touchIconLink.href = touchIconHref;
+    document.title = title;
+  }, [location.pathname]);
 
   return isLoading ? (
     <Box position="relative" height="100vh" width="100vw">
@@ -43,7 +77,7 @@ function App() {
           }
         >
           <Route
-            path={ADMIN_PATH}
+            path={`${ADMIN_PATH}/*`}
             element={
               <ProtectedRoute
                 permissionPredicate={(user) => {

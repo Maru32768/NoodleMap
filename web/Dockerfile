@@ -10,7 +10,7 @@ COPY . .
 ARG VITE_GOOGLE_API_KEY
 ENV VITE_GOOGLE_API_KEY=$VITE_GOOGLE_API_KEY
 
-RUN npx vite build
+RUN npm run build
 
 
 FROM nginx:1.30.0

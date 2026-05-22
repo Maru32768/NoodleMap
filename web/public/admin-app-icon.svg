@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Noodle Map Admin">
+  <rect width="512" height="512" rx="108" fill="#faf6ec"/>
+  <circle cx="256" cy="256" r="184" fill="#1a1614"/>
+  <text
+    x="256"
+    y="288"
+    text-anchor="middle"
+    dominant-baseline="middle"
+    font-family="Shippori Mincho, Hiragino Mincho ProN, Yu Mincho, serif"
+    font-size="174"
+    font-weight="700"
+    fill="#faf6ec"
+  >麺</text>
+</svg>

@@ -66,8 +66,14 @@ services:
         source: /api/*
         destination: https://noodle-map-backend.onrender.com/api/*
       - type: rewrite
+        source: /admin
+        destination: /admin/index.html
+      - type: rewrite
+        source: /admin/*
+        destination: /admin/index.html
+      - type: rewrite
         source: /*
-        destination: /
+        destination: /index.html
     envVars:
       - key: VITE_GOOGLE_API_KEY
         sync: false

@@ -1,12 +1,22 @@
 import react from "@vitejs/plugin-react";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import checker from "vite-plugin-checker";
 import { VitePWA } from "vite-plugin-pwa";
+
+const rootDir = dirname(fileURLToPath(import.meta.url));
 
 // https://vite.dev/config/
 export default defineConfig(({ command }) => ({
   build: {
     outDir: "build/client",
+    rollupOptions: {
+      input: {
+        main: resolve(rootDir, "index.html"),
+        admin: resolve(rootDir, "admin/index.html"),
+      },
+    },
     target: "esnext",
   },
   plugins: [
@@ -25,25 +35,16 @@ export default defineConfig(({ command }) => ({
       }),
     VitePWA({
       registerType: "autoUpdate",
-      manifest: {
-        name: "Maru's Noodle Map",
-        short_name: "Noodle Map",
-        description: "ラーメン・うどん店の個人マップ",
-        theme_color: "#b54a3c",
-        background_color: "#faf8f5",
-        display: "standalone",
-        start_url: "/",
-        icons: [
-          { src: "/pwa-192.png", sizes: "192x192", type: "image/png" },
-          { src: "/pwa-512.png", sizes: "512x512", type: "image/png" },
-          {
-            src: "/pwa-512.png",
-            sizes: "512x512",
-            type: "image/png",
-            purpose: "maskable",
-          },
-        ],
-      },
+      includeAssets: [
+        "favicon.png",
+        "manifest.webmanifest",
+        "admin-manifest.webmanifest",
+        "pwa-192.png",
+        "pwa-512.png",
+        "admin-pwa-192.png",
+        "admin-pwa-512.png",
+      ],
+      manifest: false,
     }),
   ],
   resolve: {
