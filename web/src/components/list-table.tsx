@@ -11,7 +11,12 @@ import {
 import { isFunction, isString } from "es-toolkit";
 import React, { forwardRef, useCallback, useMemo } from "react";
 import { FaSort, FaSortDown, FaSortUp } from "react-icons/fa";
-import { ItemProps, TableProps, TableVirtuoso } from "react-virtuoso";
+import {
+  ItemProps,
+  TableProps,
+  TableVirtuoso,
+  TableVirtuosoHandle,
+} from "react-virtuoso";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type DataType = Record<string, any>;
@@ -22,6 +27,7 @@ type ListTableProps<T extends DataType> = {
   className?: string;
   emptyMessage?: React.ReactNode;
   getRowProps?: (item: T, index: number) => Table.RowProps;
+  virtuosoRef?: React.Ref<TableVirtuosoHandle>;
 };
 
 type ListTableContext = {
@@ -63,6 +69,7 @@ export function ListTable<T extends DataType>({
   className,
   emptyMessage = "No data",
   getRowProps,
+  virtuosoRef,
 }: ListTableProps<T>) {
   const components = useMemo(
     () => ({
@@ -106,6 +113,7 @@ export function ListTable<T extends DataType>({
 
   return (
     <TableVirtuoso
+      ref={virtuosoRef}
       className={className}
       style={{
         height: "100%",

@@ -2,10 +2,12 @@ import { Category } from "@/features/categories/api/use-categories.ts";
 import { Restaurant } from "@/features/restaurants/api/use-restaurants.ts";
 import { favToHearts, getCategoryType } from "@/features/search/utils.ts";
 import { Box } from "@chakra-ui/react";
+import { useEffect, useRef } from "react";
 
 interface MobileShopListProps {
   shops: Restaurant[];
   categories: Category[];
+  selectedId: string | null;
   onEdit: (id: string) => void;
 }
 
@@ -50,8 +52,22 @@ const PILL: Record<string, { bg: string; color: string; label: string }> = {
 export function MobileShopList({
   shops,
   categories,
+  selectedId,
   onEdit,
 }: MobileShopListProps) {
+  const itemRefs = useRef(new Map<string, HTMLDivElement>());
+
+  useEffect(() => {
+    if (!selectedId) {
+      return;
+    }
+
+    itemRefs.current.get(selectedId)?.scrollIntoView({
+      block: "center",
+      behavior: "smooth",
+    });
+  }, [selectedId, shops]);
+
   return (
     <Box overflowY="auto" h="100%">
       {shops.length === 0 && (
@@ -82,6 +98,13 @@ export function MobileShopList({
 
         return (
           <Box
+            ref={(element: HTMLDivElement | null) => {
+              if (element) {
+                itemRefs.current.set(shop.id, element);
+                return;
+              }
+              itemRefs.current.delete(shop.id);
+            }}
             key={shop.id}
             display="flex"
             gap="12px"
@@ -93,6 +116,7 @@ export function MobileShopList({
             cursor="pointer"
             opacity={shop.closed ? 0.6 : 1}
             transition="background 0.1s"
+            bg={shop.id === selectedId ? "nm.bg" : undefined}
             _hover={{ bg: "nm.bg" }}
             _active={{ bg: "nm.bgSoft" }}
             onClick={() => onEdit(shop.id)}

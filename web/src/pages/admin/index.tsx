@@ -190,6 +190,11 @@ export default function AdminPage() {
     setEditTab(tab ?? "info");
   };
 
+  const handleSelect = useCallback((id: string) => {
+    setSelectedId(id);
+    setMobileView("list");
+  }, []);
+
   const handleSave = async (draft: RestaurantEditDraft) => {
     const cmd: UpdateRestaurantCommand = {
       name: draft.name,
@@ -466,7 +471,7 @@ export default function AdminPage() {
             filtered={filtered}
             categories={categories}
             selectedId={selectedId}
-            onSelect={setSelectedId}
+            onSelect={handleSelect}
             addingMode={addingMode}
             onMapClick={handleMapClick}
             draftLatLng={draftLatLng}
@@ -532,6 +537,7 @@ export default function AdminPage() {
                 <MobileShopList
                   shops={filtered}
                   categories={categories}
+                  selectedId={selectedId}
                   onEdit={handleEdit}
                 />
               </Box>

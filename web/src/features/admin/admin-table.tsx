@@ -10,7 +10,8 @@ import { Restaurant } from "@/features/restaurants/api/use-restaurants.ts";
 import { buildGoogleMapsUrl } from "@/features/restaurants/restaurant-actions.tsx";
 import { favToHearts, getCategoryType } from "@/features/search/utils.ts";
 import { Box, Link } from "@chakra-ui/react";
-import React from "react";
+import React, { useEffect } from "react";
+import { TableVirtuosoHandle } from "react-virtuoso";
 
 interface AdminTableProps {
   shops: Restaurant[];
@@ -157,6 +158,7 @@ export function AdminTable({
   onSelect,
   onEdit,
 }: AdminTableProps) {
+  const tableRef = React.useRef<TableVirtuosoHandle>(null);
   const rows = shops.map((shop) => ({
     ...shop,
     categorySort: getCategoryType(shop, categories),
@@ -165,6 +167,25 @@ export function AdminTable({
 
   const { sortedData, createSortableColumn } =
     useSortableListTableHeader<AdminTableRow>(rows, "name", "ASC");
+
+  useEffect(() => {
+    if (!selectedId) {
+      return;
+    }
+
+    const selectedIndex = sortedData.findIndex(
+      (shop) => shop.id === selectedId,
+    );
+    if (selectedIndex === -1) {
+      return;
+    }
+
+    tableRef.current?.scrollToIndex({
+      index: selectedIndex,
+      align: "center",
+      behavior: "smooth",
+    });
+  }, [selectedId, sortedData]);
 
   const columns: ListTableColumnProps<AdminTableRow>[] = [
     createSortableColumn({
@@ -321,6 +342,7 @@ export function AdminTable({
   return (
     <Box h="100%" overflow="hidden">
       <ListTable
+        virtuosoRef={tableRef}
         data={sortedData}
         columns={columns}
         emptyMessage="該当する店舗がありません"
