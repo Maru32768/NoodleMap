@@ -12,7 +12,7 @@ import (
 	"server/api"
 	"server/auth"
 	"server/categories"
-	"server/infra"
+	infraDB "server/infra/db"
 	"server/middleware"
 	"server/restaurants"
 	"time"
@@ -81,7 +81,7 @@ func run() error {
 			break
 		}
 	}
-	store := infra.NewStore(db)
+	store := infraDB.NewStore(db)
 
 	engine := gin.Default()
 	engine.RedirectTrailingSlash = false
@@ -96,9 +96,9 @@ func run() error {
 		ctx.String(http.StatusOK, "ok")
 	})
 
-	restaurantHandler := restaurants.NewHandler(restaurants.NewService(store))
-	categoryHandler := categories.NewHandler(categories.NewService(store))
-	authHandler := auth.NewHandler(auth.NewService(store, tokenSecret))
+	restaurantHandler := restaurants.NewHandler(store)
+	categoryHandler := categories.NewHandler(store)
+	authHandler := auth.NewHandler(store, tokenSecret)
 	api.RegisterHandlers(engine, api.NewHandler(authHandler, categoryHandler, restaurantHandler))
 
 	if err := engine.Run(":" + serverPort); err != nil {

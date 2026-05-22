@@ -13,9 +13,8 @@ sql:
       - "./db/restaurants/schema.sql"
     gen:
       go:
-        package: infra
-        out: "./server/infra"
+        package: db
+        out: "./server/infra/db"
         emit_json_tags: true
-        emit_interface: true
         emit_empty_slices: true
         json_tags_case_style: camel

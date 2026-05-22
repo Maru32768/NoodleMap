@@ -3,20 +3,21 @@ package categories
 import (
 	"github.com/gin-gonic/gin"
 	"net/http"
+	"server/infra/db"
 )
 
 type Handler struct {
-	service *Service
+	store *db.Store
 }
 
-func NewHandler(service *Service) *Handler {
+func NewHandler(store *db.Store) *Handler {
 	return &Handler{
-		service: service,
+		store: store,
 	}
 }
 
 func (h *Handler) GetCategories(ctx *gin.Context) {
-	cs, err := h.service.FindCategories(ctx)
+	cs, err := h.store.FindAllCategories(ctx)
 	if err != nil {
 		ctx.AbortWithError(http.StatusInternalServerError, err)
 		return

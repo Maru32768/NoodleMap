@@ -1,4 +1,4 @@
-package infra
+package db
 
 import (
 	"context"
@@ -6,14 +6,14 @@ import (
 )
 
 type Store struct {
-	Querier
+	*Queries
 	db *sql.DB
 }
 
 func NewStore(db *sql.DB) *Store {
 	return &Store{
 		db:      db,
-		Querier: New(db),
+		Queries: New(db),
 	}
 }
 
@@ -32,7 +32,7 @@ func (store *Store) ExecTx(ctx context.Context, fn func(store *Store) error) (er
 
 	s := &Store{
 		db:      store.db,
-		Querier: New(store.db).WithTx(tx),
+		Queries: New(store.db).WithTx(tx),
 	}
 	if err = fn(s); err != nil {
 		return err
