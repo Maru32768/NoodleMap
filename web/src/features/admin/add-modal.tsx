@@ -347,7 +347,7 @@ export function AddModal({
                 />
               </Box>
               <Box gridColumn="span 2">
-                <FieldLabel>菴乗園</FieldLabel>
+                <FieldLabel>住所</FieldLabel>
                 <FormInput
                   value={draft.address}
                   onChange={(v) => set("address", v)}
