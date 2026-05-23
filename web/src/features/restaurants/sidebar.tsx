@@ -409,8 +409,10 @@ export function Sidebar({
   onSelect,
 }: SidebarProps) {
   const [localQuery, setLocalQuery] = useState(query);
-  if (localQuery !== query) {
+  const [prevQuery, setPrevQuery] = useState(query);
+  if (prevQuery !== query) {
     setLocalQuery(query);
+    setPrevQuery(query);
   }
 
   return (

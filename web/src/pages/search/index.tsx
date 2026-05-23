@@ -62,8 +62,10 @@ function MobileSearchBar({
   onFilterClick: () => void;
 }) {
   const [localQuery, setLocalQuery] = useState(syncedQuery);
-  if (localQuery !== syncedQuery) {
+  const [prevSyncedQuery, setPrevSyncedQuery] = useState(syncedQuery);
+  if (prevSyncedQuery !== syncedQuery) {
     setLocalQuery(syncedQuery);
+    setPrevSyncedQuery(syncedQuery);
   }
 
   return (
