@@ -1,14 +1,3 @@
-# TODO: remove databases section after PostgreSQL → SQLite data migration is complete
-databases:
-  - name: noodle-map-db
-    databaseName: noodle_map
-    user: noodle_map_user
-    plan: basic-256mb
-    region: oregon
-    postgresMajorVersion: 18
-    ipAllowList:
-      - source: 0.0.0.0/0
-        description: everywhere
 
 services:
   - type: web
