@@ -23,22 +23,8 @@ import {
   RestaurantEditModal,
 } from "@/features/restaurants/restaurant-edit-modal.tsx";
 import { RestaurantFilters, Sidebar } from "@/features/restaurants/sidebar.tsx";
-import {
-  FilterToggles,
-  filterRestaurants,
-  sortRestaurants,
-} from "@/features/search/utils.ts";
-import {
-  FAV_MIN_PARAM_NAME,
-  KEYWORD_PARAM_NAME,
-  LAT_PARAM_NAME,
-  LNG_PARAM_NAME,
-  SHOW_CLOSED_PARAM,
-  SHOW_RAMEN_PARAM,
-  SHOW_UDON_PARAM,
-  SHOW_VISITED_PARAM,
-  SHOW_WISH_PARAM,
-} from "@/utils/search-params.ts";
+import { useSearchStateParams } from "@/features/search/use-search-state-params.ts";
+import { filterRestaurants, sortRestaurants } from "@/features/search/utils.ts";
 import { Box, Input } from "@chakra-ui/react";
 import {
   useCallback,
@@ -49,8 +35,7 @@ import {
   useState,
 } from "react";
 import { CiFilter } from "react-icons/ci";
-import { useNavigationType, useSearchParams } from "react-router";
-import { useDebouncedCallback } from "use-debounce";
+import { useNavigationType } from "react-router";
 
 function MobileSearchBar({
   syncedQuery,
@@ -134,57 +119,24 @@ function MobileSearchBar({
   );
 }
 
-function readBoolParam(
-  params: URLSearchParams,
-  name: string,
-  defaultValue: boolean,
-): boolean {
-  const v = params.get(name);
-  return v === null ? defaultValue : v === "1";
-}
-
 function formatMapCoordinate(n: number) {
   return n.toFixed(6);
 }
 
 export default function SearchPage() {
   const navigationType = useNavigationType();
-
-  const [searchParams, setSearchParams] = useSearchParams({
-    [KEYWORD_PARAM_NAME]: "",
-    [FAV_MIN_PARAM_NAME]: "0",
-    [SHOW_VISITED_PARAM]: "1",
-    [SHOW_WISH_PARAM]: "1",
-    [SHOW_CLOSED_PARAM]: "0",
-    [SHOW_RAMEN_PARAM]: "1",
-    [SHOW_UDON_PARAM]: "1",
-  });
-
-  const latParam = searchParams.get(LAT_PARAM_NAME);
-  const lngParam = searchParams.get(LNG_PARAM_NAME);
-  const [initialCenter] = useState<[number, number] | undefined>(() => {
-    const lat = parseFloat(latParam ?? "");
-    const lng = parseFloat(lngParam ?? "");
-    return isNaN(lat) || isNaN(lng) ? undefined : [lat, lng];
-  });
-
-  const keywordParam = searchParams.get(KEYWORD_PARAM_NAME) ?? "";
-  const [filters, setFilters] = useState<FilterToggles>({
-    visited: readBoolParam(searchParams, SHOW_VISITED_PARAM, true),
-    wish: readBoolParam(searchParams, SHOW_WISH_PARAM, true),
-    closed: readBoolParam(searchParams, SHOW_CLOSED_PARAM, false),
-    ramen: readBoolParam(searchParams, SHOW_RAMEN_PARAM, true),
-    udon: readBoolParam(searchParams, SHOW_UDON_PARAM, true),
-  });
-  const [favMin, setFavMin] = useState<number>(
-    Math.min(
-      100,
-      Math.max(0, parseInt(searchParams.get(FAV_MIN_PARAM_NAME) ?? "0", 10)),
-    ),
-  );
+  const {
+    filters,
+    handleFilterChange,
+    handleQueryChange,
+    initialCenter,
+    keywordParam,
+    latParam,
+    lngParam,
+    setMapCenterParams,
+  } = useSearchStateParams();
 
   const deferredFilters = useDeferredValue(filters);
-  const deferredFavMin = useDeferredValue(favMin);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
@@ -225,68 +177,13 @@ export default function SearchPage() {
       const center = map.getCenter();
       const lat = formatMapCoordinate(center.lat);
       const lng = formatMapCoordinate(center.lng);
-      setSearchParams(
-        (prev) => {
-          const copy = new URLSearchParams(prev);
-          copy.set(LAT_PARAM_NAME, lat);
-          copy.set(LNG_PARAM_NAME, lng);
-          return copy;
-        },
-        { replace: true },
-      );
+      setMapCenterParams(lat, lng);
     },
-    [setSearchParams],
+    [setMapCenterParams],
   );
 
   const { restaurants, updateRestaurant } = useRestaurants();
   const { categories } = useCategories();
-
-  const updateKeywordDebounced = useDebouncedCallback((q: string) => {
-    setSearchParams((prev) => {
-      const copy = new URLSearchParams(prev);
-      copy.set(KEYWORD_PARAM_NAME, q);
-      return copy;
-    });
-  }, 300);
-
-  const handleQueryChange = useCallback(
-    (q: string) => {
-      updateKeywordDebounced(q);
-    },
-    [updateKeywordDebounced],
-  );
-
-  const handleFilterChange = useCallback(
-    (key: keyof FilterToggles, value: boolean) => {
-      const FILTER_PARAM: Record<keyof FilterToggles, string> = {
-        visited: SHOW_VISITED_PARAM,
-        wish: SHOW_WISH_PARAM,
-        closed: SHOW_CLOSED_PARAM,
-        ramen: SHOW_RAMEN_PARAM,
-        udon: SHOW_UDON_PARAM,
-      };
-
-      setFilters((prev) => ({ ...prev, [key]: value }));
-      setSearchParams((prev) => {
-        const copy = new URLSearchParams(prev);
-        copy.set(FILTER_PARAM[key], value ? "1" : "0");
-        return copy;
-      });
-    },
-    [setSearchParams],
-  );
-
-  const handleFavMinChange = useCallback(
-    (n: number) => {
-      setFavMin(n);
-      setSearchParams((prev) => {
-        const copy = new URLSearchParams(prev);
-        copy.set(FAV_MIN_PARAM_NAME, String(n));
-        return copy;
-      });
-    },
-    [setSearchParams],
-  );
 
   const filteredRestaurants = useMemo(() => {
     if (!restaurants) {
@@ -295,9 +192,8 @@ export default function SearchPage() {
     return filterRestaurants(restaurants, categories ?? [], {
       query: keywordParam,
       filters: deferredFilters,
-      favMin: deferredFavMin,
     });
-  }, [restaurants, categories, keywordParam, deferredFilters, deferredFavMin]);
+  }, [restaurants, categories, keywordParam, deferredFilters]);
 
   const sortedRestaurants = useMemo(() => {
     const lat = parseFloat(latParam ?? "");
@@ -376,8 +272,6 @@ export default function SearchPage() {
         onQueryChange={handleQueryChange}
         filters={filters}
         onFilterChange={handleFilterChange}
-        favMin={favMin}
-        onFavMinChange={handleFavMinChange}
         selectedId={selectedId}
         onSelect={handleSelect}
       />
@@ -508,8 +402,6 @@ export default function SearchPage() {
             <RestaurantFilters
               filters={filters}
               onFilterChange={handleFilterChange}
-              favMin={favMin}
-              onFavMinChange={handleFavMinChange}
             />
           </DrawerBody>
         </DrawerContent>

@@ -7,9 +7,9 @@ import {
   MiniHearts,
 } from "@/features/restaurants/rating-hearts.tsx";
 import {
-  FilterToggles,
   favToHearts,
   getCategoryType,
+  SearchFilters,
 } from "@/features/search/utils.ts";
 import { Box, Input } from "@chakra-ui/react";
 import { useState } from "react";
@@ -292,24 +292,23 @@ export interface SidebarProps {
   allCategories: Category[];
   query: string;
   onQueryChange: (q: string) => void;
-  filters: FilterToggles;
-  onFilterChange: (key: keyof FilterToggles, value: boolean) => void;
-  favMin: number;
-  onFavMinChange: (n: number) => void;
+  filters: SearchFilters;
+  onFilterChange: <K extends keyof SearchFilters>(
+    key: K,
+    value: SearchFilters[K],
+  ) => void;
   selectedId: string | null;
   onSelect: (id: string) => void;
 }
 
 export type RestaurantFiltersProps = Pick<
   SidebarProps,
-  "filters" | "onFilterChange" | "favMin" | "onFavMinChange"
+  "filters" | "onFilterChange"
 >;
 
 export function RestaurantFilters({
   filters,
   onFilterChange,
-  favMin,
-  onFavMinChange,
 }: RestaurantFiltersProps) {
   return (
     <Box
@@ -381,14 +380,17 @@ export function RestaurantFilters({
         borderTopColor="nm.lineFaint"
       >
         <SectionLabel>お気に入り度 — Favorite</SectionLabel>
-        <HeartFilter value={favMin} onChange={onFavMinChange} />
+        <HeartFilter
+          value={filters.favMin}
+          onChange={(n) => onFilterChange("favMin", n)}
+        />
         <Box
           mt="0.375rem"
           fontSize="0.6875rem"
           color="nm.inkMuted"
           fontFamily="mono"
         >
-          {favMin > 0 ? `${favMin} 以上のみ表示` : "指定なし"}
+          {filters.favMin > 0 ? `${filters.favMin} 以上のみ表示` : "指定なし"}
         </Box>
       </Box>
     </Box>
@@ -403,8 +405,6 @@ export function Sidebar({
   onQueryChange,
   filters,
   onFilterChange,
-  favMin,
-  onFavMinChange,
   selectedId,
   onSelect,
 }: SidebarProps) {
@@ -609,12 +609,7 @@ export function Sidebar({
         </Box>
       </Box>
 
-      <RestaurantFilters
-        filters={filters}
-        onFilterChange={onFilterChange}
-        favMin={favMin}
-        onFavMinChange={onFavMinChange}
-      />
+      <RestaurantFilters filters={filters} onFilterChange={onFilterChange} />
 
       {/* List */}
       <Box flex="1" overflow="hidden" display="flex" flexDirection="column">

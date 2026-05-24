@@ -11,6 +11,10 @@ export type FilterToggles = {
   udon: boolean;
 };
 
+export type SearchFilters = FilterToggles & {
+  favMin: number;
+};
+
 export function getCategoryType(
   r: Restaurant,
   allCategories: Category[],
@@ -51,11 +55,10 @@ export function filterRestaurants(
   allCategories: Category[],
   opts: {
     query: string;
-    filters: FilterToggles;
-    favMin: number;
+    filters: SearchFilters;
   },
 ): Restaurant[] {
-  const { query, filters, favMin } = opts;
+  const { query, filters } = opts;
   const q = query.trim().toLowerCase();
 
   return restaurants.filter((r) => {
@@ -78,7 +81,7 @@ export function filterRestaurants(
       return false;
     }
 
-    if (favMin > 0 && (r.rate ?? 0) < favMin) {
+    if (filters.favMin > 0 && (r.rate ?? 0) < filters.favMin) {
       return false;
     }
 
