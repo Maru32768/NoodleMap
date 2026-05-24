@@ -75,7 +75,7 @@ type UserToken struct {
 type VisitedRestaurant struct {
 	ID           uuid.UUID `json:"id"`
 	RestaurantID uuid.UUID `json:"restaurantId"`
-	Rate         string    `json:"rate"`
+	Rate         float64   `json:"rate"`
 	Favorite     bool      `json:"favorite"`
 	CreatedAt    time.Time `json:"createdAt"`
 	UpdatedAt    time.Time `json:"updatedAt"`

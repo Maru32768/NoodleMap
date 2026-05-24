@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"server/auth"
 	"server/infra/db"
-	"strconv"
 )
 
 type Handler struct {
@@ -75,11 +74,7 @@ func (h *Handler) findRegisteredRestaurants(ctx *gin.Context) ([]RegisteredResta
 		return nil, err
 	}
 
-	ids := make([]uuid.UUID, 0, len(rs))
-	for _, r := range rs {
-		ids = append(ids, r.ID)
-	}
-	cs, err := h.store.FindCategoriesByRestaurantIds(ctx, ids)
+	cs, err := h.store.FindAllRestaurantCategories(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -204,7 +199,7 @@ func (h *Handler) updateRestaurant(ctx *gin.Context, id uuid.UUID, command Updat
 			if err := store.UpsertVisitedRestaurant(ctx, db.UpsertVisitedRestaurantParams{
 				ID:           uuid.New(),
 				RestaurantID: id,
-				Rate:         strconv.FormatFloat(command.Rate, 'f', -1, 64),
+				Rate:         command.Rate,
 				Favorite:     command.Favorite,
 			}); err != nil {
 				return err

@@ -9,13 +9,12 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/lib/pq"
 )
 
 const deleteTokenByUserId = `-- name: DeleteTokenByUserId :exec
 delete
 from user_tokens
-where user_id = $1
+where user_id = ?
 `
 
 func (q *Queries) DeleteTokenByUserId(ctx context.Context, userID uuid.UUID) error {
@@ -26,7 +25,7 @@ func (q *Queries) DeleteTokenByUserId(ctx context.Context, userID uuid.UUID) err
 const deleteVisitedRestaurantByRestaurantId = `-- name: DeleteVisitedRestaurantByRestaurantId :exec
 delete
 from visited_restaurants
-where restaurant_id = $1
+where restaurant_id = ?
 `
 
 func (q *Queries) DeleteVisitedRestaurantByRestaurantId(ctx context.Context, restaurantID uuid.UUID) error {
@@ -68,6 +67,40 @@ func (q *Queries) FindAllCategories(ctx context.Context) ([]FindAllCategoriesRow
 	return items, nil
 }
 
+const findAllRestaurantCategories = `-- name: FindAllRestaurantCategories :many
+select c.id, rc.restaurant_id
+from categories c
+         inner join restaurants_categories rc on c.id = rc.category_id
+`
+
+type FindAllRestaurantCategoriesRow struct {
+	ID           uuid.UUID `json:"id"`
+	RestaurantID uuid.UUID `json:"restaurantId"`
+}
+
+func (q *Queries) FindAllRestaurantCategories(ctx context.Context) ([]FindAllRestaurantCategoriesRow, error) {
+	rows, err := q.db.QueryContext(ctx, findAllRestaurantCategories)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []FindAllRestaurantCategoriesRow{}
+	for rows.Next() {
+		var i FindAllRestaurantCategoriesRow
+		if err := rows.Scan(&i.ID, &i.RestaurantID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const findAllRestaurants = `-- name: FindAllRestaurants :many
 select r.id,
        r.name,
@@ -77,12 +110,11 @@ select r.id,
        r.address,
        r.closed,
        r.google_place_id,
-       bool_and(vr.id is not null)                     as visited,
-       coalesce(avg(vr.rate), 0)::double precision     as rate,
-       coalesce(bool_and(vr.favorite), false)::boolean as favorite
+       vr.id IS NOT NULL        as visited,
+       COALESCE(vr.rate, 0.0)   as rate,
+       COALESCE(vr.favorite, 0) as favorite
 from restaurants r
          left join visited_restaurants vr on r.id = vr.restaurant_id
-group by r.id, r.name, r.lat, r.lng, r.postal_code, r.address, r.closed, r.google_place_id
 `
 
 type FindAllRestaurantsRow struct {
@@ -167,45 +199,10 @@ func (q *Queries) FindAllTemporaryUsers(ctx context.Context) ([]TemporaryUser, e
 	return items, nil
 }
 
-const findCategoriesByRestaurantIds = `-- name: FindCategoriesByRestaurantIds :many
-select c.id, rc.restaurant_id
-from categories c
-         inner join restaurants_categories rc on c.id = rc.category_id
-where rc.restaurant_id = any ($1::uuid[])
-`
-
-type FindCategoriesByRestaurantIdsRow struct {
-	ID           uuid.UUID `json:"id"`
-	RestaurantID uuid.UUID `json:"restaurantId"`
-}
-
-func (q *Queries) FindCategoriesByRestaurantIds(ctx context.Context, dollar_1 []uuid.UUID) ([]FindCategoriesByRestaurantIdsRow, error) {
-	rows, err := q.db.QueryContext(ctx, findCategoriesByRestaurantIds, pq.Array(dollar_1))
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []FindCategoriesByRestaurantIdsRow{}
-	for rows.Next() {
-		var i FindCategoriesByRestaurantIdsRow
-		if err := rows.Scan(&i.ID, &i.RestaurantID); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const findTokenByUserId = `-- name: FindTokenByUserId :one
 select token
 from user_tokens
-where user_id = $1
+where user_id = ?
 `
 
 func (q *Queries) FindTokenByUserId(ctx context.Context, userID uuid.UUID) (string, error) {
@@ -218,7 +215,7 @@ func (q *Queries) FindTokenByUserId(ctx context.Context, userID uuid.UUID) (stri
 const findUserByEmail = `-- name: FindUserByEmail :one
 select id, email, password, salt, is_admin
 from users
-where email = $1
+where email = ?
 `
 
 type FindUserByEmailRow struct {
@@ -245,7 +242,7 @@ func (q *Queries) FindUserByEmail(ctx context.Context, email string) (FindUserBy
 const findUserById = `-- name: FindUserById :one
 select id, email, is_admin
 from users
-where id = $1
+where id = ?
 `
 
 type FindUserByIdRow struct {
@@ -263,7 +260,7 @@ func (q *Queries) FindUserById(ctx context.Context, id uuid.UUID) (FindUserByIdR
 
 const insertRestaurant = `-- name: InsertRestaurant :exec
 insert into restaurants (id, name, lat, lng, postal_code, address, closed, google_place_id)
-values ($1, $2, $3, $4, $5, $6, $7, $8)
+values (?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type InsertRestaurantParams struct {
@@ -294,7 +291,7 @@ func (q *Queries) InsertRestaurant(ctx context.Context, arg InsertRestaurantPara
 const insertRestaurantCategory = `-- name: InsertRestaurantCategory :exec
 insert
 into restaurants_categories(id, restaurant_id, category_id)
-values ($1, $2, $3)
+values (?, ?, ?)
 `
 
 type InsertRestaurantCategoryParams struct {
@@ -310,7 +307,7 @@ func (q *Queries) InsertRestaurantCategory(ctx context.Context, arg InsertRestau
 
 const insertToken = `-- name: InsertToken :exec
 insert into user_tokens(id, user_id, token)
-values ($1, $2, $3)
+values (?, ?, ?)
 `
 
 type InsertTokenParams struct {
@@ -326,7 +323,7 @@ func (q *Queries) InsertToken(ctx context.Context, arg InsertTokenParams) error 
 
 const insertUser = `-- name: InsertUser :exec
 insert into users(id, email, password, salt, is_admin)
-values ($1, $2, $3, $4, $5)
+values (?, ?, ?, ?, ?)
 `
 
 type InsertUserParams struct {
@@ -350,14 +347,14 @@ func (q *Queries) InsertUser(ctx context.Context, arg InsertUserParams) error {
 
 const updateRestaurant = `-- name: UpdateRestaurant :exec
 update restaurants
-set name            = $2,
-    lat             = $3,
-    lng             = $4,
-    postal_code     = $5,
-    address         = $6,
-    closed          = $7,
-    google_place_id = $8
-where id = $1
+set name            = ?,
+    lat             = ?,
+    lng             = ?,
+    postal_code     = ?,
+    address         = ?,
+    closed          = ?,
+    google_place_id = ?
+where id = ?
 `
 
 type UpdateRestaurantParams struct {
@@ -373,7 +370,6 @@ type UpdateRestaurantParams struct {
 
 func (q *Queries) UpdateRestaurant(ctx context.Context, arg UpdateRestaurantParams) error {
 	_, err := q.db.ExecContext(ctx, updateRestaurant,
-		arg.ID,
 		arg.Name,
 		arg.Lat,
 		arg.Lng,
@@ -381,13 +377,14 @@ func (q *Queries) UpdateRestaurant(ctx context.Context, arg UpdateRestaurantPara
 		arg.Address,
 		arg.Closed,
 		arg.GooglePlaceID,
+		arg.ID,
 	)
 	return err
 }
 
 const upsertVisitedRestaurant = `-- name: UpsertVisitedRestaurant :exec
 insert into visited_restaurants(id, restaurant_id, rate, favorite)
-values ($1, $2, $3, $4)
+values (?, ?, ?, ?)
 on conflict(restaurant_id)
     do update set rate     = excluded.rate,
                   favorite = excluded.favorite
@@ -396,7 +393,7 @@ on conflict(restaurant_id)
 type UpsertVisitedRestaurantParams struct {
 	ID           uuid.UUID `json:"id"`
 	RestaurantID uuid.UUID `json:"restaurantId"`
-	Rate         string    `json:"rate"`
+	Rate         float64   `json:"rate"`
 	Favorite     bool      `json:"favorite"`
 }
 

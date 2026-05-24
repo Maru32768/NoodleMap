@@ -1,3 +1,4 @@
+# TODO: remove databases section after PostgreSQL → SQLite data migration is complete
 databases:
   - name: noodle-map-db
     databaseName: noodle_map
@@ -21,33 +22,27 @@ services:
     autoDeploy: true
     healthCheckPath: /health
     pullRequestPreviewsEnabled: false
+    disk:
+      name: noodle-map-data
+      mountPath: /work/db-data
+      sizeGB: 1
     envVars:
-      - key: DB_HOST
-        fromDatabase:
-          name: noodle-map-db
-          property: host
-      - key: DB_PORT
-        fromDatabase:
-          name: noodle-map-db
-          property: port
-      - key: DB_USER
-        fromDatabase:
-          name: noodle-map-db
-          property: user
-      - key: DB_PASSWORD
-        fromDatabase:
-          name: noodle-map-db
-          property: password
-      - key: DB_NAME
-        fromDatabase:
-          name: noodle-map-db
-          property: database
-      - key: DB_SSL_MODE
-        value: require
+      - key: DB_PATH
+        value: /work/db-data/noodle_map.db
       - key: SERVER_PORT
         value: "80"
       - key: TOKEN_SECRET
         sync: false
+      - key: AWS_REGION
+        value: ap-northeast-1
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: S3_BUCKET
+        value: noodle-map-bucket
+      - key: S3_PREFIX
+        value: db-backup
 
   - type: web
     runtime: static
@@ -99,47 +94,3 @@ services:
     envVars:
       - key: VITE_GOOGLE_API_KEY
         sync: false
-
-  - type: cron
-    name: backup-db
-    runtime: docker
-    rootDir: batch/backup-db
-    dockerfilePath: ./Dockerfile
-    branch: master
-    region: oregon
-    plan: starter
-    schedule: "0 15 * * *"
-    autoDeploy: true
-    envVars:
-      - key: DB_HOST
-        fromDatabase:
-          name: noodle-map-db
-          property: host
-      - key: DB_PORT
-        fromDatabase:
-          name: noodle-map-db
-          property: port
-      - key: DB_USER
-        fromDatabase:
-          name: noodle-map-db
-          property: user
-      - key: DB_PASSWORD
-        fromDatabase:
-          name: noodle-map-db
-          property: password
-      - key: DB_NAME
-        fromDatabase:
-          name: noodle-map-db
-          property: database
-      - key: DB_SSL_MODE
-        value: require
-      - key: AWS_REGION
-        value: ap-northeast-1
-      - key: AWS_ACCESS_KEY_ID
-        sync: false
-      - key: AWS_SECRET_ACCESS_KEY
-        sync: false
-      - key: S3_BUCKET
-        value: noodle-map-bucket
-      - key: S3_PREFIX
-        value: db-backup

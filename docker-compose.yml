@@ -1,36 +1,16 @@
 services:
-  db:
-    build:
-      context: ./
-      dockerfile: ./db/Dockerfile
-    platform: linux/x86_64
-    volumes:
-      - ./db:/docker-entrypoint-initdb.d
-      - ./server/data/sql/migrations:/migrations
-    ports:
-      - "5432:5432"
-    hostname: db
-    healthcheck:
-      test: psql -U postgres -c 'select 1;' 2>&1 > /dev/null
-      interval: 30s
-      start_period: 30s
-      start_interval: 1s
-    environment:
-      - POSTGRES_PASSWORD=password
-      - POSTGRES_HOST_AUTH_METHOD=trust
-
   server:
     image: noodle-map-server
     build:
       context: ./server
       dockerfile: Dockerfile
+      target: builder
+    entrypoint: ["/bin/sh", "/db/entrypoint.sh"]
+    volumes:
+      - ./db-data:/work/db-data
+      - ./db:/db
     environment:
-      - DB_HOST=db
-      - DB_PORT=5432
-      - DB_USER=postgres
-      - DB_PASSWORD=password
-      - DB_NAME=noodle_map
-      - DB_SSL_MODE=disable
+      - DB_PATH=/work/db-data/noodle_map.db
       - SERVER_PORT=8888
       - TOKEN_SECRET=test-secret
     ports:
@@ -40,9 +20,6 @@ services:
       interval: 30s
       start_period: 30s
       start_interval: 1s
-    depends_on:
-      db:
-        condition: service_healthy
 
   front:
     image: noodle-map-front
@@ -58,3 +35,4 @@ services:
     depends_on:
       server:
         condition: service_healthy
+
