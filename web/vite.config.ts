@@ -35,6 +35,11 @@ export default defineConfig(({ command }) => ({
       }),
     VitePWA({
       registerType: "autoUpdate",
+      workbox: {
+        cleanupOutdatedCaches: true,
+        globPatterns: ["**/*.{js,wasm,css,png,svg,ico,webp,woff,woff2}"],
+        navigateFallback: null,
+      },
       includeAssets: [
         "favicon.png",
         "manifest.webmanifest",
