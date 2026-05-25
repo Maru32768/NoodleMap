@@ -23,36 +23,27 @@ import {
   RestaurantEditModal,
 } from "@/features/restaurants/restaurant-edit-modal.tsx";
 import { RestaurantFilters, Sidebar } from "@/features/restaurants/sidebar.tsx";
-import { useSearchStateParams } from "@/features/search/use-search-state-params.ts";
+import { useSearchState } from "@/features/search/use-search-state.ts";
 import { filterRestaurants, sortRestaurants } from "@/features/search/utils.ts";
 import { Box, Input } from "@chakra-ui/react";
 import {
   useCallback,
   useDeferredValue,
-  useEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
 import { CiFilter } from "react-icons/ci";
-import { useNavigationType } from "react-router";
 
 function MobileSearchBar({
-  syncedQuery,
+  query,
   onQueryChange,
   onFilterClick,
 }: {
-  syncedQuery: string;
+  query: string;
   onQueryChange: (q: string) => void;
   onFilterClick: () => void;
 }) {
-  const [localQuery, setLocalQuery] = useState(syncedQuery);
-  const [prevSyncedQuery, setPrevSyncedQuery] = useState(syncedQuery);
-  if (prevSyncedQuery !== syncedQuery) {
-    setLocalQuery(syncedQuery);
-    setPrevSyncedQuery(syncedQuery);
-  }
-
   return (
     <Box
       position="absolute"
@@ -93,9 +84,8 @@ function MobileSearchBar({
         outline="none"
         fontSize="14px"
         placeholder="店名・エリアで検索..."
-        value={localQuery}
+        value={query}
         onChange={(e) => {
-          setLocalQuery(e.target.value);
           onQueryChange(e.target.value);
         }}
       />
@@ -124,18 +114,17 @@ function formatMapCoordinate(n: number) {
 }
 
 export default function SearchPage() {
-  const navigationType = useNavigationType();
   const {
     filters,
     handleFilterChange,
+    handleMapCenterChange,
     handleQueryChange,
     initialCenter,
-    keywordParam,
-    latParam,
-    lngParam,
-    setMapCenterParams,
-  } = useSearchStateParams();
+    mapCenter,
+    query,
+  } = useSearchState();
 
+  const deferredQuery = useDeferredValue(query);
   const deferredFilters = useDeferredValue(filters);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -143,30 +132,6 @@ export default function SearchPage() {
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   const mapRef = useRef<MapHandle>(null);
-
-  useEffect(() => {
-    if (navigationType !== "POP") {
-      return;
-    }
-    if (latParam === null || lngParam === null) {
-      return;
-    }
-
-    const center = mapRef.current?.getCenter();
-    const lat = parseFloat(latParam);
-    const lng = parseFloat(lngParam);
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-      return;
-    }
-
-    if (
-      center &&
-      (Math.abs(center.lat - lat) > 0.000001 ||
-        Math.abs(center.lng - lng) > 0.000001)
-    ) {
-      mapRef.current?.flyTo([lat, lng]);
-    }
-  }, [latParam, lngParam, navigationType]);
 
   const handleMoveEnd: MapEventHandler = useCallback(
     (map, source) => {
@@ -177,9 +142,9 @@ export default function SearchPage() {
       const center = map.getCenter();
       const lat = formatMapCoordinate(center.lat);
       const lng = formatMapCoordinate(center.lng);
-      setMapCenterParams(lat, lng);
+      handleMapCenterChange([Number(lat), Number(lng)]);
     },
-    [setMapCenterParams],
+    [handleMapCenterChange],
   );
 
   const { restaurants, updateRestaurant } = useRestaurants();
@@ -190,20 +155,17 @@ export default function SearchPage() {
       return [];
     }
     return filterRestaurants(restaurants, categories ?? [], {
-      query: keywordParam,
+      query: deferredQuery,
       filters: deferredFilters,
     });
-  }, [restaurants, categories, keywordParam, deferredFilters]);
+  }, [restaurants, categories, deferredQuery, deferredFilters]);
 
   const sortedRestaurants = useMemo(() => {
-    const lat = parseFloat(latParam ?? "");
-    const lng = parseFloat(lngParam ?? "");
-    const mapCenter =
-      Number.isFinite(lat) && Number.isFinite(lng)
-        ? { lat, lng }
-        : { lat: 35.6895315, lng: 139.700492 };
-    return sortRestaurants(filteredRestaurants, mapCenter);
-  }, [filteredRestaurants, latParam, lngParam]);
+    const center = mapCenter
+      ? { lat: mapCenter[0], lng: mapCenter[1] }
+      : { lat: 35.6895315, lng: 139.700492 };
+    return sortRestaurants(filteredRestaurants, center);
+  }, [filteredRestaurants, mapCenter]);
 
   const selectedRestaurant = useMemo(
     () => restaurants?.find((r) => r.id === selectedId) ?? undefined,
@@ -268,7 +230,7 @@ export default function SearchPage() {
         allRestaurants={restaurants ?? []}
         sortedRestaurants={sortedRestaurants}
         allCategories={categories ?? []}
-        query={keywordParam}
+        query={query}
         onQueryChange={handleQueryChange}
         filters={filters}
         onFilterChange={handleFilterChange}
@@ -280,7 +242,7 @@ export default function SearchPage() {
       <Box position="absolute" inset="0" overflow="hidden" h="100%" w="100%">
         {/* Mobile search bar */}
         <MobileSearchBar
-          syncedQuery={keywordParam}
+          query={query}
           onQueryChange={handleQueryChange}
           onFilterClick={() => setMobileFiltersOpen(true)}
         />
