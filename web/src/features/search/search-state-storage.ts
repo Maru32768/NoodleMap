@@ -1,15 +1,25 @@
 import { SearchFilters } from "@/features/search/utils.ts";
 
 const SEARCH_STATE_STORAGE_KEY = "noodle-map:search-state:v1";
-const SAVED_SEARCH_STATE_VERSION = 1;
+const SAVED_SEARCH_STATE_VERSION = 2;
 
 export type MapCenter = [number, number];
+
+export type MapView = {
+  center: MapCenter;
+  zoom: number;
+};
+
+export const DEFAULT_MAP_VIEW: MapView = {
+  center: [35.6895315, 139.700492],
+  zoom: 13,
+};
 
 export type SavedSearchState = {
   version: typeof SAVED_SEARCH_STATE_VERSION;
   query: string;
   filters: SearchFilters;
-  mapCenter?: MapCenter;
+  mapView: MapView;
 };
 
 export const DEFAULT_FILTERS: SearchFilters = {
@@ -29,6 +39,18 @@ function isMapCenter(value: unknown): value is MapCenter {
     typeof value[1] === "number" &&
     Number.isFinite(value[0]) &&
     Number.isFinite(value[1])
+  );
+}
+
+function isMapView(value: unknown): value is MapView {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const candidate = value as Partial<MapView>;
+  return (
+    isMapCenter(candidate.center) &&
+    typeof candidate.zoom === "number" &&
+    Number.isFinite(candidate.zoom)
   );
 }
 
@@ -52,58 +74,22 @@ function normalizeSavedSearchState(value: unknown): SavedSearchState | null {
     return null;
   }
 
-  const candidate = value as Partial<SavedSearchState> & {
-    favMin?: unknown;
-    filters?: unknown;
-  };
+  const candidate = value as Partial<SavedSearchState>;
   if (
     candidate.version !== SAVED_SEARCH_STATE_VERSION ||
     typeof candidate.query !== "string" ||
-    !candidate.filters
+    !isSearchFilters(candidate.filters) ||
+    !isMapView(candidate.mapView)
   ) {
     return null;
   }
 
-  if (isSearchFilters(candidate.filters)) {
-    return {
-      version: SAVED_SEARCH_STATE_VERSION,
-      query: candidate.query,
-      filters: candidate.filters,
-      mapCenter: isMapCenter(candidate.mapCenter)
-        ? candidate.mapCenter
-        : undefined,
-    };
-  }
-
-  const legacyFilters = candidate.filters as
-    | Partial<Record<keyof SearchFilters, unknown>>
-    | undefined;
-  if (
-    typeof candidate.favMin === "number" &&
-    typeof legacyFilters?.visited === "boolean" &&
-    typeof legacyFilters.wish === "boolean" &&
-    typeof legacyFilters.closed === "boolean" &&
-    typeof legacyFilters.ramen === "boolean" &&
-    typeof legacyFilters.udon === "boolean"
-  ) {
-    return {
-      version: SAVED_SEARCH_STATE_VERSION,
-      query: candidate.query,
-      filters: {
-        visited: legacyFilters.visited,
-        wish: legacyFilters.wish,
-        closed: legacyFilters.closed,
-        ramen: legacyFilters.ramen,
-        udon: legacyFilters.udon,
-        favMin: candidate.favMin,
-      },
-      mapCenter: isMapCenter(candidate.mapCenter)
-        ? candidate.mapCenter
-        : undefined,
-    };
-  }
-
-  return null;
+  return {
+    version: SAVED_SEARCH_STATE_VERSION,
+    query: candidate.query,
+    filters: candidate.filters,
+    mapView: candidate.mapView,
+  };
 }
 
 export function readSavedSearchState(): SavedSearchState | null {
@@ -113,8 +99,13 @@ export function readSavedSearchState(): SavedSearchState | null {
       return null;
     }
     const parsed: unknown = JSON.parse(raw);
-    return normalizeSavedSearchState(parsed);
+    const state = normalizeSavedSearchState(parsed);
+    if (!state) {
+      localStorage.removeItem(SEARCH_STATE_STORAGE_KEY);
+    }
+    return state;
   } catch {
+    localStorage.removeItem(SEARCH_STATE_STORAGE_KEY);
     return null;
   }
 }

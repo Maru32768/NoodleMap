@@ -35,6 +35,8 @@ import {
 } from "react";
 import { CiFilter } from "react-icons/ci";
 
+const DEFAULT_CENTER = {lat: 35.6895315, lng: 139.700492 } as const;
+
 function MobileSearchBar({
   query,
   onQueryChange,
@@ -117,10 +119,10 @@ export default function SearchPage() {
   const {
     filters,
     handleFilterChange,
-    handleMapCenterChange,
+    handleMapViewChange,
     handleQueryChange,
-    initialCenter,
-    mapCenter,
+    initialMapView,
+    mapView,
     query,
   } = useSearchState();
 
@@ -142,9 +144,12 @@ export default function SearchPage() {
       const center = map.getCenter();
       const lat = formatMapCoordinate(center.lat);
       const lng = formatMapCoordinate(center.lng);
-      handleMapCenterChange([Number(lat), Number(lng)]);
+      handleMapViewChange({
+        center: [Number(lat), Number(lng)],
+        zoom: map.getZoom(),
+      });
     },
-    [handleMapCenterChange],
+    [handleMapViewChange],
   );
 
   const { restaurants, updateRestaurant } = useRestaurants();
@@ -161,11 +166,11 @@ export default function SearchPage() {
   }, [restaurants, categories, deferredQuery, deferredFilters]);
 
   const sortedRestaurants = useMemo(() => {
-    const center = mapCenter
-      ? { lat: mapCenter[0], lng: mapCenter[1] }
-      : { lat: 35.6895315, lng: 139.700492 };
+    const center = mapView
+      ? { lat: mapView.center[0], lng: mapView.center[1] }
+      : DEFAULT_CENTER;
     return sortRestaurants(filteredRestaurants, center);
-  }, [filteredRestaurants, mapCenter]);
+  }, [filteredRestaurants, mapView]);
 
   const selectedRestaurant = useMemo(
     () => restaurants?.find((r) => r.id === selectedId) ?? undefined,
@@ -261,7 +266,8 @@ export default function SearchPage() {
         >
           <Map
             ref={mapRef}
-            center={initialCenter}
+            initialCenter={initialMapView.center}
+            initialZoom={initialMapView.zoom}
             categories={categories ?? []}
             restaurants={filteredRestaurants}
             selectedId={selectedId}

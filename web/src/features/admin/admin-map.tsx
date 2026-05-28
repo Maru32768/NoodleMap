@@ -64,7 +64,7 @@ export function AdminMap({
     >
       <Map
         ref={mapRef}
-        center={ADMIN_INITIAL_CENTER}
+        initialCenter={ADMIN_INITIAL_CENTER}
         initialZoom={ADMIN_INITIAL_ZOOM}
         categories={categories}
         restaurants={filtered}

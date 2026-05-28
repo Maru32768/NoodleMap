@@ -14,6 +14,7 @@ import "./map.css";
 
 export interface MapHandle {
   getCenter: () => { lat: number; lng: number };
+  getZoom: () => number;
   flyTo: (center: [number, number]) => void;
   panTo: (
     center: [number, number],
@@ -26,7 +27,7 @@ export interface MapEventHandler {
 }
 
 interface Props {
-  center: [number, number] | undefined;
+  initialCenter: [number, number];
   categories: Category[];
   restaurants: Restaurant[];
   selectedId: string | null;
@@ -46,7 +47,6 @@ const RESTAURANT_SELECTED_LAYER_ID = "restaurant-selected";
 const DRAFT_SOURCE_ID = "draft-restaurant";
 const DRAFT_LAYER_ID = "draft-restaurant-pin";
 const DRAFT_IMAGE_ID = "draft-restaurant-pin-image";
-const DEFAULT_CENTER: [number, number] = [35.6895315, 139.700492];
 const PIN_IMAGE_PIXEL_RATIO = 2;
 const PIN_IMAGE_WIDTH = 38;
 const PIN_IMAGE_HEIGHT = 46;
@@ -384,6 +384,7 @@ function createMapHandle(
       const center = map.getCenter();
       return { lat: center.lat, lng: center.lng };
     },
+    getZoom: () => map.getZoom(),
     flyTo: (center) => {
       startProgrammaticMove();
       map.flyTo({ center: toLngLat(center), essential: true });
@@ -407,11 +408,9 @@ function createMapHandle(
 
 function createPendingMapHandle(
   mapRef: React.RefObject<MapLibreMap | null>,
-  fallbackCenterRef: React.RefObject<[number, number] | undefined>,
+  fallbackCenterRef: React.RefObject<[number, number]>,
   pendingProgrammaticMoveEndsRef: React.RefObject<number>,
 ): MapHandle {
-  const getFallbackCenter = () => fallbackCenterRef.current ?? DEFAULT_CENTER;
-
   return {
     getCenter: () => {
       const map = mapRef.current;
@@ -420,9 +419,10 @@ function createPendingMapHandle(
         return { lat: center.lat, lng: center.lng };
       }
 
-      const center = getFallbackCenter();
+      const center = fallbackCenterRef.current;
       return { lat: center[0], lng: center[1] };
     },
+    getZoom: () => mapRef.current?.getZoom() ?? 13,
     flyTo: (center) => {
       pendingProgrammaticMoveEndsRef.current += 1;
       mapRef.current?.flyTo({ center: toLngLat(center), essential: true });
@@ -553,7 +553,7 @@ function addDraftLayer(map: MapLibreMap) {
 export const Map = memo(
   forwardRef<MapHandle, Props>(function Map(
     {
-      center,
+      initialCenter,
       categories,
       restaurants,
       selectedId,
@@ -570,7 +570,7 @@ export const Map = memo(
     const handleRef = useRef<MapHandle | null>(null);
     const pendingHandleRef = useRef<MapHandle | null>(null);
     const pendingProgrammaticMoveEndsRef = useRef(0);
-    const initialCenterRef = useRef(center);
+    const initialCenterRef = useRef(initialCenter);
     const initialZoomRef = useRef(initialZoom);
 
     const onSelectRef = useRef(onSelect);
@@ -610,9 +610,7 @@ export const Map = memo(
 
       const map = new maplibregl.Map({
         container: containerRef.current,
-        center: toLngLat(
-          (initialCenterRef.current ?? DEFAULT_CENTER) as [number, number],
-        ),
+        center: toLngLat(initialCenterRef.current),
         zoom: initialZoomRef.current,
         maxZoom: 19,
         dragRotate: false,

@@ -1,6 +1,7 @@
 import {
   DEFAULT_FILTERS,
-  MapCenter,
+  DEFAULT_MAP_VIEW,
+  MapView,
   readSavedSearchState,
   writeSavedSearchState,
 } from "@/features/search/search-state-storage.ts";
@@ -13,17 +14,16 @@ export function useSearchState() {
   const [filters, setFilters] = useState<SearchFilters>(
     savedState?.filters ?? DEFAULT_FILTERS,
   );
-  const [mapCenter, setMapCenter] = useState<MapCenter | undefined>(
-    savedState?.mapCenter,
-  );
+  const initialMapView = savedState?.mapView ?? DEFAULT_MAP_VIEW;
+  const [mapView, setMapView] = useState<MapView>(initialMapView);
 
   useEffect(() => {
     writeSavedSearchState({
       query,
       filters,
-      mapCenter,
+      mapView,
     });
-  }, [query, filters, mapCenter]);
+  }, [query, filters, mapView]);
 
   const handleFilterChange = useCallback(
     <K extends keyof SearchFilters>(key: K, value: SearchFilters[K]) => {
@@ -32,17 +32,17 @@ export function useSearchState() {
     [],
   );
 
-  const handleMapCenterChange = useCallback((center: MapCenter) => {
-    setMapCenter(center);
+  const handleMapViewChange = useCallback((view: MapView) => {
+    setMapView(view);
   }, []);
 
   return {
     filters,
     handleFilterChange,
-    handleMapCenterChange,
+    handleMapViewChange,
     handleQueryChange: setQuery,
-    initialCenter: savedState?.mapCenter,
-    mapCenter,
+    initialMapView,
+    mapView,
     query,
   };
 }
