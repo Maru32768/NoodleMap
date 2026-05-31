@@ -1,6 +1,6 @@
 import { Category } from "@/features/categories/api/use-categories.ts";
 import { createBasemapStyle } from "@/features/map/basemap-style.ts";
-import { ensurePmTilesProtocol } from "@/features/map/pmtiles-protocol.ts";
+import { initializeMapLibreRuntime } from "@/features/map/pmtiles-protocol.ts";
 import { Restaurant } from "@/features/restaurants/api/use-restaurants.ts";
 import { getCategoryType } from "@/features/search/utils.ts";
 import maplibregl, { GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
@@ -167,7 +167,7 @@ function createPinImage(
   state: State,
   catType: string,
   highRate: boolean,
-  glyphImage: HTMLImageElement,
+  glyphImage: HTMLImageElement | null,
 ) {
   const canvas = document.createElement("canvas");
   canvas.width = PIN_IMAGE_WIDTH * PIN_IMAGE_PIXEL_RATIO;
@@ -355,14 +355,16 @@ async function ensurePinImages(map: MapLibreMap) {
     for (const catType of ["ramen", "udon"]) {
       for (const highRate of [false, true]) {
         const id = getPinImageId(state, catType, highRate);
-        if (map.hasImage(id)) {
-          continue;
-        }
         const { glyphColor } = getPinStyle(state, catType);
         const glyphImage = glyphs[`${catType}:${glyphColor}`] ?? null;
-        map.addImage(id, createPinImage(state, catType, highRate, glyphImage), {
-          pixelRatio: PIN_IMAGE_PIXEL_RATIO,
-        });
+        const image = createPinImage(state, catType, highRate, glyphImage);
+        if (map.hasImage(id)) {
+          map.updateImage(id, image);
+        } else {
+          map.addImage(id, image, {
+            pixelRatio: PIN_IMAGE_PIXEL_RATIO,
+          });
+        }
       }
     }
   }
@@ -515,7 +517,7 @@ function addRestaurantLayers(map: MapLibreMap) {
         14,
         ["get", "name"],
       ],
-      "text-font": ["Klokantech Noto Sans Regular"],
+      "text-font": ["Noto Sans Regular"],
       "text-size": 12,
       "text-anchor": "right",
       "text-offset": [-1.5, -2],
@@ -612,7 +614,7 @@ export const Map = memo(
         return;
       }
 
-      ensurePmTilesProtocol();
+      initializeMapLibreRuntime();
 
       const map = new maplibregl.Map({
         container: containerRef.current,
@@ -690,10 +692,14 @@ export const Map = memo(
           map.on("mouseleave", RESTAURANT_PINS_LAYER_ID, resetPointer);
         });
       });
+
       map.on("moveend", handleMoveEnd);
       map.on("click", handleMapClick);
 
       return () => {
+        map.off("click", RESTAURANT_PINS_LAYER_ID, handleRestaurantClick);
+        map.off("mouseenter", RESTAURANT_PINS_LAYER_ID, setPointer);
+        map.off("mouseleave", RESTAURANT_PINS_LAYER_ID, resetPointer);
         map.off("moveend", handleMoveEnd);
         map.off("click", handleMapClick);
         map.remove();
