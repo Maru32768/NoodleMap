@@ -16,6 +16,7 @@ import {
   forwardRef,
   memo,
   useEffect,
+  useEffectEvent,
   useImperativeHandle,
   useMemo,
   useRef,
@@ -588,12 +589,19 @@ export const Map = memo(
     const dragGlideStateRef = useRef<DragGlideState>({ type: "idle" });
     const interruptedGlideMoveEndTimerRef = useRef<number | null>(null);
 
-    const onSelectRef = useRef(onSelect);
-    onSelectRef.current = onSelect;
-    const onMoveEndRef = useRef(onMoveEnd);
-    onMoveEndRef.current = onMoveEnd;
-    const onMapClickRef = useRef(onMapClick);
-    onMapClickRef.current = onMapClick;
+    const onSelectEvent = useEffectEvent((id: string) => {
+      onSelect(id);
+    });
+    const onMoveEndEvent = useEffectEvent(
+      (map: MapHandle, source: "user" | "programmatic") => {
+        onMoveEnd(map, source);
+      },
+    );
+    const onMapClickEvent = useEffectEvent(
+      (latlng: { lat: number; lng: number }) => {
+        onMapClick?.(latlng);
+      },
+    );
     const geoJsonData = useMemo(() => {
       return toGeoJson(restaurants, categories);
     }, [categories, restaurants]);
@@ -673,7 +681,7 @@ export const Map = memo(
           }
 
           dragGlideStateRef.current = { type: "idle" };
-          onMoveEndRef.current(handleRef.current, "user");
+          onMoveEndEvent(handleRef.current, "user");
         }, INTERRUPTED_GLIDE_MOVEEND_DELAY_MS);
       };
 
@@ -684,7 +692,7 @@ export const Map = memo(
 
         if (pendingProgrammaticMoveEndsRef.current > 0) {
           pendingProgrammaticMoveEndsRef.current -= 1;
-          onMoveEndRef.current(handleRef.current, "programmatic");
+          onMoveEndEvent(handleRef.current, "programmatic");
           return;
         }
 
@@ -706,22 +714,18 @@ export const Map = memo(
           return;
         }
 
-        onMoveEndRef.current(handleRef.current, "user");
+        onMoveEndEvent(handleRef.current, "user");
       };
 
       const handleRestaurantClick = (e: maplibregl.MapLayerMouseEvent) => {
         const id = e.features?.[0]?.properties?.id;
         if (typeof id === "string") {
-          onSelectRef.current(id);
+          onSelectEvent(id);
         }
       };
 
       const handleMapClick = (e: maplibregl.MapMouseEvent) => {
-        const handler = onMapClickRef.current;
-        if (!handler) {
-          return;
-        }
-        handler({ lat: e.lngLat.lat, lng: e.lngLat.lng });
+        onMapClickEvent({ lat: e.lngLat.lat, lng: e.lngLat.lng });
       };
 
       const setPointer = () => {
@@ -813,16 +817,16 @@ export const Map = memo(
     useEffect(() => {
       const source = mapRef.current?.getSource(RESTAURANTS_SOURCE_ID);
       if (source instanceof GeoJSONSource) {
-        source.setData(dataRef.current);
+        source.setData(geoJsonData);
       }
-    }, [categories, restaurants]);
+    }, [geoJsonData]);
 
     useEffect(() => {
       const source = mapRef.current?.getSource(DRAFT_SOURCE_ID);
       if (source instanceof GeoJSONSource) {
-        source.setData(draftDataRef.current);
+        source.setData(draftGeoJsonData);
       }
-    }, [draftLatLng]);
+    }, [draftGeoJsonData]);
 
     useEffect(() => {
       const map = mapRef.current;

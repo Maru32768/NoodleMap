@@ -12,7 +12,7 @@ import {
 } from "@/features/restaurants/restaurant-actions.tsx";
 import { getCategoryType } from "@/features/search/utils.ts";
 import { Box } from "@chakra-ui/react";
-import { useEffect } from "react";
+import { useEffect, useEffectEvent } from "react";
 
 const HERO_BG: Record<string, string> = {
   ramen:
@@ -39,6 +39,9 @@ export function DetailPanel({
   const catType = getCategoryType(r, allCategories);
   const mapsUrl = buildGoogleMapsUrl(r);
   const heroBg = HERO_BG[catType] ?? HERO_BG.ramen;
+  const onCloseEvent = useEffectEvent(() => {
+    onClose();
+  });
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -46,12 +49,12 @@ export function DetailPanel({
         return;
       }
 
-      onClose();
+      onCloseEvent();
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+  }, []);
 
   const statusTag = r.closed
     ? { label: "閉店", bg: "nm.ink", color: "nm.paper" }

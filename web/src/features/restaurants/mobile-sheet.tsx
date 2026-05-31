@@ -122,11 +122,12 @@ export function MobileSheet({
   const sheetRef = useRef<SheetRef>(null);
   const catType = shop ? getCategoryType(shop, allCategories) : "ramen";
   const mapsUrl = shop ? buildGoogleMapsUrl(shop) : "";
+  const isDetailMode = Boolean(shop);
   const [level, setLevel] = useState<MobileSheetLevel>("peek");
   const [viewportHeight, setViewportHeight] = useState(() =>
     typeof window === "undefined" ? 0 : window.innerHeight,
   );
-  const detailsVisible = level !== "peek";
+  const detailsVisible = isDetailMode && level !== "peek";
 
   useEffect(() => {
     const handleResize = () => {
@@ -141,13 +142,6 @@ export function MobileSheet({
     setLevel("peek");
     onClose();
   };
-
-  // Snap back to peek whenever switching between list ↔ detail mode.
-  const isDetailMode = Boolean(shop);
-  useEffect(() => {
-    setLevel("peek");
-    sheetRef.current?.snapTo(LEVEL_TO_SNAP.peek);
-  }, [isDetailMode]);
 
   const snapPoints = shop
     ? [0, getPeekRatio(viewportHeight, DETAIL_PEEK), 0.88, 1]

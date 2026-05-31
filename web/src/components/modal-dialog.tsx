@@ -24,7 +24,7 @@ interface Props
     ComponentProps<typeof DialogContent>,
     "width" | "height" | "maxWidth" | "maxHeight"
   > {
-  children: ReactNode | ((ctx: ModalDialogContextProps) => ReactNode);
+  children: ReactNode;
   buttons?: ModalFooterButton[];
   bodyProps?: ComponentProps<typeof DialogBody>;
   contentProps?: Omit<ComponentProps<typeof DialogContent>, "children">;
@@ -208,7 +208,7 @@ export function ModalDialog({
             minH="0"
             {...bodyProps}
           >
-            {typeof children === "function" ? children(context) : children}
+            {children}
           </DialogBody>
           {buttons && buttons.length > 0 && (
             <DialogFooter
