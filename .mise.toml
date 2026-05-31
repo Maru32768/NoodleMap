@@ -1,0 +1,7 @@
+[tools]
+terraform = "1.15.5"
+
+[env]
+AWS_REQUEST_CHECKSUM_CALCULATION = "when_required"
+AWS_RESPONSE_CHECKSUM_VALIDATION = "when_required"
+_.file = ".env"

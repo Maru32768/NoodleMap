@@ -6,6 +6,7 @@ import checker from "vite-plugin-checker";
 import { VitePWA } from "vite-plugin-pwa";
 
 const rootDir = dirname(fileURLToPath(import.meta.url));
+const basemapOrigin = "https://tiles.noodle-map.marulabs.dev";
 
 // https://vite.dev/config/
 export default defineConfig(({ command }) => ({
@@ -59,6 +60,10 @@ export default defineConfig(({ command }) => ({
     proxy: {
       "/api": {
         target: "http://localhost:8888",
+        changeOrigin: true,
+      },
+      "/maps": {
+        target: basemapOrigin,
         changeOrigin: true,
       },
     },

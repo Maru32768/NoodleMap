@@ -67,6 +67,9 @@ services:
       - path: /admin-manifest.webmanifest
         name: Cache-Control
         value: no-cache
+      - path: /maps/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
     routes:
       - type: rewrite
         source: /api/*
@@ -83,3 +86,5 @@ services:
     envVars:
       - key: VITE_GOOGLE_API_KEY
         sync: false
+      - key: VITE_BASEMAP_PMTILES_URL
+        value: https://tiles.noodle-map.marulabs.dev/maps/japan-light-20251201-v1.pmtiles

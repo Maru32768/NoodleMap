@@ -28,3 +28,6 @@ dist-ssr
 
 # React Router generated types
 .react-router/
+
+# Locally generated basemap archives
+public/maps/*.pmtiles

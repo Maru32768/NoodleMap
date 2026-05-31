@@ -1,5 +1,7 @@
 .idea
 .env
+mise.local.toml
+mise.*.local.toml
 node_modules
 *.exe
 server/server-app

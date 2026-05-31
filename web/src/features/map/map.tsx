@@ -1,4 +1,6 @@
 import { Category } from "@/features/categories/api/use-categories.ts";
+import { createBasemapStyle } from "@/features/map/basemap-style.ts";
+import { ensurePmTilesProtocol } from "@/features/map/pmtiles-protocol.ts";
 import { Restaurant } from "@/features/restaurants/api/use-restaurants.ts";
 import { getCategoryType } from "@/features/search/utils.ts";
 import maplibregl, { GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
@@ -11,6 +13,7 @@ import {
   useRef,
 } from "react";
 import "./map.css";
+import {useIsPc} from "@/utils/use-is-pc.ts";
 
 export interface MapHandle {
   getCenter: () => { lat: number; lng: number };
@@ -565,6 +568,7 @@ export const Map = memo(
     },
     ref,
   ) {
+    const isPc = useIsPc();
     const containerRef = useRef<HTMLDivElement>(null);
     const mapRef = useRef<MapLibreMap | null>(null);
     const handleRef = useRef<MapHandle | null>(null);
@@ -608,6 +612,8 @@ export const Map = memo(
         return;
       }
 
+      ensurePmTilesProtocol();
+
       const map = new maplibregl.Map({
         container: containerRef.current,
         center: toLngLat(initialCenterRef.current),
@@ -618,28 +624,7 @@ export const Map = memo(
         attributionControl: false,
         maxTileCacheSize: 1024,
         fadeDuration: 0,
-        style: {
-          version: 8,
-          sources: {
-            osm: {
-              type: "raster",
-              tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
-              tileSize: 256,
-              attribution:
-                '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>',
-            },
-          },
-          layers: [
-            {
-              id: "osm",
-              type: "raster",
-              source: "osm",
-              minzoom: 0,
-              maxzoom: 24,
-            },
-          ],
-          glyphs: "https://fonts.openmaptiles.org/{fontstack}/{range}.pbf",
-        },
+        style: createBasemapStyle(),
       });
 
       map.touchZoomRotate.disableRotation();
@@ -648,7 +633,7 @@ export const Map = memo(
 
       map.addControl(
         new maplibregl.AttributionControl({ compact: true }),
-        "bottom-left",
+        isPc ? "bottom-right" : "bottom-left",
       );
       containerRef.current
         .querySelector(".maplibregl-ctrl-attrib")
@@ -715,7 +700,7 @@ export const Map = memo(
         mapRef.current = null;
         handleRef.current = null;
       };
-    }, []);
+    }, [isPc]);
 
     useEffect(() => {
       const source = mapRef.current?.getSource(RESTAURANTS_SOURCE_ID);
