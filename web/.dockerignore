@@ -4,3 +4,7 @@ dist
 node_modules
 
 *.log
+
+# Basemap PMTiles files are served from the external tile host in production.
+# Keeping them out of the Docker build context prevents large image layers.
+public/maps/*.pmtiles

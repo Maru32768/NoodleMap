@@ -8,4 +8,6 @@
 **/.react-router
 **/*.log
 
+web/public/maps/*.pmtiles
+
 img.png
