@@ -4,7 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --host",
+    "dev": "vite --host --mode https",
+    "dev:http": "vite --host",
     "build": "npm run check:mojibake && npm run lint && tsc -b && vite build",
     "basemap:extract": "node scripts/extract-basemap.mjs",
     "basemap:upload": "node scripts/upload-basemap-r2.mjs",

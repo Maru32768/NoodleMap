@@ -25,6 +25,7 @@ dist-ssr
 *.sw?
 
 .env
+certs/
 
 # React Router generated types
 .react-router/
