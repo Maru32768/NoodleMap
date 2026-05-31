@@ -1,6 +1,6 @@
+import { spawn } from "node:child_process";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
-import { spawn } from "node:child_process";
 
 const DEFAULT_SOURCE = "https://build.protomaps.com/20251201.pmtiles";
 const DEFAULT_BBOX = "122.0,20.0,154.0,46.5";
@@ -27,9 +27,11 @@ function parseArgs(argv) {
 }
 
 const argsByName = parseArgs(process.argv.slice(2));
-const source = argsByName.source ?? process.env.BASEMAP_SOURCE ?? DEFAULT_SOURCE;
+const source =
+  argsByName.source ?? process.env.BASEMAP_SOURCE ?? DEFAULT_SOURCE;
 const bbox = argsByName.bbox ?? process.env.BASEMAP_BBOX ?? DEFAULT_BBOX;
-const version = argsByName.version ?? process.env.BASEMAP_VERSION ?? DEFAULT_VERSION;
+const version =
+  argsByName.version ?? process.env.BASEMAP_VERSION ?? DEFAULT_VERSION;
 const sourceDate = source.match(/\/(\d{8})\.pmtiles$/u)?.[1] ?? "custom";
 const defaultOutput = `public/maps/japan-light-${sourceDate}-${version}.pmtiles`;
 const output = argsByName.output ?? process.env.BASEMAP_OUTPUT ?? defaultOutput;

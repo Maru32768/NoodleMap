@@ -1,8 +1,16 @@
 import { Category } from "@/features/categories/api/use-categories.ts";
 import { createBasemapStyle } from "@/features/map/basemap-style.ts";
+import {
+  appendDragInertiaSample,
+  DRAG_PAN_INERTIA_OPTIONS,
+  DragGlideState,
+  glideAfterDrag,
+  INTERRUPTED_GLIDE_MOVEEND_DELAY_MS,
+} from "@/features/map/drag-inertia.ts";
 import { initializeMapLibreRuntime } from "@/features/map/pmtiles-protocol.ts";
 import { Restaurant } from "@/features/restaurants/api/use-restaurants.ts";
 import { getCategoryType } from "@/features/search/utils.ts";
+import { useIsPc } from "@/utils/use-is-pc.ts";
 import maplibregl, { GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
 import {
   forwardRef,
@@ -13,7 +21,6 @@ import {
   useRef,
 } from "react";
 import "./map.css";
-import {useIsPc} from "@/utils/use-is-pc.ts";
 
 export interface MapHandle {
   getCenter: () => { lat: number; lng: number };
@@ -578,6 +585,8 @@ export const Map = memo(
     const pendingProgrammaticMoveEndsRef = useRef(0);
     const initialCenterRef = useRef(initialCenter);
     const initialZoomRef = useRef(initialZoom);
+    const dragGlideStateRef = useRef<DragGlideState>({ type: "idle" });
+    const interruptedGlideMoveEndTimerRef = useRef<number | null>(null);
 
     const onSelectRef = useRef(onSelect);
     onSelectRef.current = onSelect;
@@ -621,6 +630,7 @@ export const Map = memo(
         center: toLngLat(initialCenterRef.current),
         zoom: initialZoomRef.current,
         maxZoom: 19,
+        dragPan: DRAG_PAN_INERTIA_OPTIONS,
         dragRotate: false,
         refreshExpiredTiles: false,
         attributionControl: false,
@@ -629,6 +639,7 @@ export const Map = memo(
         style: createBasemapStyle(),
       });
 
+      map.dragPan.enable(DRAG_PAN_INERTIA_OPTIONS);
       map.touchZoomRotate.disableRotation();
       mapRef.current = map;
       handleRef.current = createMapHandle(map, pendingProgrammaticMoveEndsRef);
@@ -641,16 +652,61 @@ export const Map = memo(
         .querySelector(".maplibregl-ctrl-attrib")
         ?.classList.remove("maplibregl-compact-show");
 
-      const handleMoveEnd = () => {
-        if (handleRef.current) {
-          if (pendingProgrammaticMoveEndsRef.current > 0) {
-            pendingProgrammaticMoveEndsRef.current -= 1;
-            onMoveEndRef.current(handleRef.current, "programmatic");
+      const clearInterruptedGlideMoveEndTimer = () => {
+        if (interruptedGlideMoveEndTimerRef.current === null) {
+          return;
+        }
+
+        window.clearTimeout(interruptedGlideMoveEndTimerRef.current);
+        interruptedGlideMoveEndTimerRef.current = null;
+      };
+
+      const scheduleInterruptedGlideMoveEnd = () => {
+        clearInterruptedGlideMoveEndTimer();
+        interruptedGlideMoveEndTimerRef.current = window.setTimeout(() => {
+          interruptedGlideMoveEndTimerRef.current = null;
+          if (
+            !handleRef.current ||
+            dragGlideStateRef.current.type !== "interrupted-glide"
+          ) {
             return;
           }
 
+          dragGlideStateRef.current = { type: "idle" };
           onMoveEndRef.current(handleRef.current, "user");
+        }, INTERRUPTED_GLIDE_MOVEEND_DELAY_MS);
+      };
+
+      const handleMoveEnd = () => {
+        if (!handleRef.current) {
+          return;
         }
+
+        if (pendingProgrammaticMoveEndsRef.current > 0) {
+          pendingProgrammaticMoveEndsRef.current -= 1;
+          onMoveEndRef.current(handleRef.current, "programmatic");
+          return;
+        }
+
+        const dragGlideState = dragGlideStateRef.current;
+        if (dragGlideState.type === "pending-glide") {
+          const startedGlide = glideAfterDrag(map, dragGlideState.samples);
+          if (startedGlide) {
+            dragGlideStateRef.current = { type: "gliding" };
+            return;
+          }
+
+          dragGlideStateRef.current = { type: "idle" };
+        }
+
+        if (dragGlideState.type === "gliding") {
+          dragGlideStateRef.current = { type: "idle" };
+        } else if (dragGlideState.type === "interrupted-glide") {
+          scheduleInterruptedGlideMoveEnd();
+          return;
+        }
+
+        onMoveEndRef.current(handleRef.current, "user");
       };
 
       const handleRestaurantClick = (e: maplibregl.MapLayerMouseEvent) => {
@@ -674,6 +730,41 @@ export const Map = memo(
       const resetPointer = () => {
         map.getCanvas().style.cursor = "";
       };
+      const handlePointerDown = () => {
+        clearInterruptedGlideMoveEndTimer();
+        if (dragGlideStateRef.current.type === "gliding") {
+          dragGlideStateRef.current = { type: "interrupted-glide" };
+        }
+      };
+      const handleDragStart = () => {
+        clearInterruptedGlideMoveEndTimer();
+        dragGlideStateRef.current = {
+          type: "dragging",
+          samples: appendDragInertiaSample(map, []),
+        };
+      };
+      const handleDrag = () => {
+        const dragGlideState = dragGlideStateRef.current;
+        if (dragGlideState.type !== "dragging") {
+          return;
+        }
+
+        dragGlideStateRef.current = {
+          type: "dragging",
+          samples: appendDragInertiaSample(map, dragGlideState.samples),
+        };
+      };
+      const handleDragEnd = () => {
+        const dragGlideState = dragGlideStateRef.current;
+        if (dragGlideState.type !== "dragging") {
+          return;
+        }
+
+        dragGlideStateRef.current = {
+          type: "pending-glide",
+          samples: appendDragInertiaSample(map, dragGlideState.samples),
+        };
+      };
 
       map.on("load", () => {
         void ensurePinImages(map).then(() => {
@@ -695,13 +786,24 @@ export const Map = memo(
 
       map.on("moveend", handleMoveEnd);
       map.on("click", handleMapClick);
+      map.on("dragstart", handleDragStart);
+      map.on("drag", handleDrag);
+      map.on("dragend", handleDragEnd);
+      map.getCanvas().addEventListener("pointerdown", handlePointerDown, {
+        passive: true,
+      });
 
       return () => {
+        clearInterruptedGlideMoveEndTimer();
         map.off("click", RESTAURANT_PINS_LAYER_ID, handleRestaurantClick);
         map.off("mouseenter", RESTAURANT_PINS_LAYER_ID, setPointer);
         map.off("mouseleave", RESTAURANT_PINS_LAYER_ID, resetPointer);
         map.off("moveend", handleMoveEnd);
         map.off("click", handleMapClick);
+        map.off("dragstart", handleDragStart);
+        map.off("drag", handleDrag);
+        map.off("dragend", handleDragEnd);
+        map.getCanvas().removeEventListener("pointerdown", handlePointerDown);
         map.remove();
         mapRef.current = null;
         handleRef.current = null;

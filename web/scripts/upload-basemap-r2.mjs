@@ -29,8 +29,10 @@ function parseArgs(argv) {
 
 const argsByName = parseArgs(process.argv.slice(2));
 const bucket = argsByName.bucket ?? process.env.R2_BUCKET ?? DEFAULT_BUCKET;
-const source = argsByName.source ?? process.env.BASEMAP_SOURCE ?? DEFAULT_SOURCE;
-const version = argsByName.version ?? process.env.BASEMAP_VERSION ?? DEFAULT_VERSION;
+const source =
+  argsByName.source ?? process.env.BASEMAP_SOURCE ?? DEFAULT_SOURCE;
+const version =
+  argsByName.version ?? process.env.BASEMAP_VERSION ?? DEFAULT_VERSION;
 const sourceDate = source.match(/\/(\d{8})\.pmtiles$/u)?.[1] ?? "custom";
 const defaultKey = `maps/japan-light-${sourceDate}-${version}.pmtiles`;
 const defaultFile = `public/maps/japan-light-${sourceDate}-${version}.pmtiles`;

@@ -35,7 +35,7 @@ import {
 } from "react";
 import { CiFilter } from "react-icons/ci";
 
-const DEFAULT_CENTER = {lat: 35.6895315, lng: 139.700492 } as const;
+const DEFAULT_CENTER = { lat: 35.6895315, lng: 139.700492 } as const;
 
 function MobileSearchBar({
   query,
