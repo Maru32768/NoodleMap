@@ -13,14 +13,18 @@ import { getCategoryType } from "@/features/search/utils.ts";
 import { useIsPc } from "@/utils/use-is-pc.ts";
 import maplibregl, { GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
 import {
+  Dispatch,
   forwardRef,
   memo,
+  SetStateAction,
   useEffect,
   useEffectEvent,
   useImperativeHandle,
   useMemo,
   useRef,
+  useState,
 } from "react";
+import { useGeolocated } from "react-geolocated";
 import "./map.css";
 
 export interface MapHandle {
@@ -31,7 +35,19 @@ export interface MapHandle {
     center: [number, number],
     options?: { animate?: boolean; duration?: number },
   ) => void;
+  syncToUserLocation: (
+    location: UserLocation,
+    options?: { animate?: boolean; duration?: number },
+  ) => void;
+  requestUserLocationTracking: () => boolean;
 }
+
+export interface UserLocation {
+  lat: number;
+  lng: number;
+}
+
+export type LocationTrackingMode = "off" | "follow";
 
 export interface MapEventHandler {
   (map: MapHandle, source: "user" | "programmatic"): void;
@@ -47,6 +63,7 @@ interface Props {
   initialZoom?: number;
   onMapClick?: (latlng: { lat: number; lng: number }) => void;
   draftLatLng?: { lat: number; lng: number } | null;
+  onLocationTrackingModeChange?: (mode: LocationTrackingMode) => void;
 }
 
 type State = "visited" | "wish" | "closed";
@@ -58,6 +75,9 @@ const RESTAURANT_SELECTED_LAYER_ID = "restaurant-selected";
 const DRAFT_SOURCE_ID = "draft-restaurant";
 const DRAFT_LAYER_ID = "draft-restaurant-pin";
 const DRAFT_IMAGE_ID = "draft-restaurant-pin-image";
+const USER_LOCATION_SOURCE_ID = "user-location";
+const USER_LOCATION_HALO_LAYER_ID = "user-location-halo";
+const USER_LOCATION_DOT_LAYER_ID = "user-location-dot";
 const PIN_IMAGE_PIXEL_RATIO = 2;
 const PIN_IMAGE_WIDTH = 38;
 const PIN_IMAGE_HEIGHT = 46;
@@ -134,6 +154,24 @@ function toDraftGeoJson(draftLatLng: { lat: number; lng: number } | null) {
             geometry: {
               type: "Point" as const,
               coordinates: [draftLatLng.lng, draftLatLng.lat],
+            },
+          },
+        ]
+      : [],
+  };
+}
+
+function toUserLocationGeoJson(userLocation: UserLocation | null) {
+  return {
+    type: "FeatureCollection" as const,
+    features: userLocation
+      ? [
+          {
+            type: "Feature" as const,
+            properties: {},
+            geometry: {
+              type: "Point" as const,
+              coordinates: [userLocation.lng, userLocation.lat],
             },
           },
         ]
@@ -387,6 +425,8 @@ async function ensurePinImages(map: MapLibreMap) {
 function createMapHandle(
   map: MapLibreMap,
   pendingProgrammaticMoveEndsRef: React.RefObject<number>,
+  userLocationRef: React.RefObject<UserLocation | null>,
+  setLocationTrackingMode: Dispatch<SetStateAction<LocationTrackingMode>>,
 ): MapHandle {
   const startProgrammaticMove = () => {
     pendingProgrammaticMoveEndsRef.current += 1;
@@ -416,6 +456,37 @@ function createMapHandle(
         essential: true,
       });
     },
+    syncToUserLocation: (location, options) => {
+      startProgrammaticMove();
+      const center = toLngLat([location.lat, location.lng]);
+      if (options?.animate === false) {
+        map.jumpTo({ center });
+        return;
+      }
+
+      map.easeTo({
+        center,
+        duration: options?.duration ?? DEFAULT_PAN_DURATION_MS,
+        easing: (t) => 1 - Math.pow(1 - t, 3),
+        essential: true,
+      });
+    },
+    requestUserLocationTracking: () => {
+      const location = userLocationRef.current;
+      if (!location) {
+        return false;
+      }
+
+      setLocationTrackingMode("follow");
+      startProgrammaticMove();
+      map.easeTo({
+        center: toLngLat([location.lat, location.lng]),
+        duration: DEFAULT_PAN_DURATION_MS,
+        easing: (t) => 1 - Math.pow(1 - t, 3),
+        essential: true,
+      });
+      return true;
+    },
   };
 }
 
@@ -423,6 +494,8 @@ function createPendingMapHandle(
   mapRef: React.RefObject<MapLibreMap | null>,
   fallbackCenterRef: React.RefObject<[number, number]>,
   pendingProgrammaticMoveEndsRef: React.RefObject<number>,
+  userLocationRef: React.RefObject<UserLocation | null>,
+  setLocationTrackingMode: Dispatch<SetStateAction<LocationTrackingMode>>,
 ): MapHandle {
   return {
     getCenter: () => {
@@ -453,6 +526,38 @@ function createPendingMapHandle(
         easing: (t) => 1 - Math.pow(1 - t, 3),
         essential: true,
       });
+    },
+    syncToUserLocation: (location, options) => {
+      pendingProgrammaticMoveEndsRef.current += 1;
+      const center = toLngLat([location.lat, location.lng]);
+      if (options?.animate === false) {
+        mapRef.current?.jumpTo({ center });
+        return;
+      }
+
+      mapRef.current?.easeTo({
+        center,
+        duration: options?.duration ?? DEFAULT_PAN_DURATION_MS,
+        easing: (t) => 1 - Math.pow(1 - t, 3),
+        essential: true,
+      });
+    },
+    requestUserLocationTracking: () => {
+      const location = userLocationRef.current;
+      const map = mapRef.current;
+      if (!location || !map) {
+        return false;
+      }
+
+      setLocationTrackingMode("follow");
+      pendingProgrammaticMoveEndsRef.current += 1;
+      map.easeTo({
+        center: toLngLat([location.lat, location.lng]),
+        duration: DEFAULT_PAN_DURATION_MS,
+        easing: (t) => 1 - Math.pow(1 - t, 3),
+        essential: true,
+      });
+      return true;
     },
   };
 }
@@ -563,6 +668,32 @@ function addDraftLayer(map: MapLibreMap) {
   });
 }
 
+function addUserLocationLayers(map: MapLibreMap) {
+  map.addLayer({
+    id: USER_LOCATION_HALO_LAYER_ID,
+    type: "circle",
+    source: USER_LOCATION_SOURCE_ID,
+    paint: {
+      "circle-color": "rgba(26, 115, 232, 0.18)",
+      "circle-radius": 17,
+      "circle-stroke-color": "rgba(255,255,255,0.75)",
+      "circle-stroke-width": 1,
+    },
+  });
+
+  map.addLayer({
+    id: USER_LOCATION_DOT_LAYER_ID,
+    type: "circle",
+    source: USER_LOCATION_SOURCE_ID,
+    paint: {
+      "circle-color": "#1a73e8",
+      "circle-radius": 8,
+      "circle-stroke-color": "#fff",
+      "circle-stroke-width": 3,
+    },
+  });
+}
+
 export const Map = memo(
   forwardRef<MapHandle, Props>(function Map(
     {
@@ -575,6 +706,7 @@ export const Map = memo(
       initialZoom = 13,
       onMapClick,
       draftLatLng,
+      onLocationTrackingModeChange,
     },
     ref,
   ) {
@@ -588,6 +720,14 @@ export const Map = memo(
     const initialZoomRef = useRef(initialZoom);
     const dragGlideStateRef = useRef<DragGlideState>({ type: "idle" });
     const interruptedGlideMoveEndTimerRef = useRef<number | null>(null);
+    const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
+    const userLocationRef = useRef<UserLocation | null>(null);
+    const [locationTrackingMode, setLocationTrackingMode] =
+      useState<LocationTrackingMode>("off");
+    const { coords } = useGeolocated({
+      watchPosition: true,
+      watchLocationPermissionChange: true,
+    });
 
     const onSelectEvent = useEffectEvent((id: string) => {
       onSelect(id);
@@ -602,6 +742,11 @@ export const Map = memo(
         onMapClick?.(latlng);
       },
     );
+    const onLocationTrackingModeChangeEvent = useEffectEvent(
+      (mode: LocationTrackingMode) => {
+        onLocationTrackingModeChange?.(mode);
+      },
+    );
     const geoJsonData = useMemo(() => {
       return toGeoJson(restaurants, categories);
     }, [categories, restaurants]);
@@ -612,12 +757,19 @@ export const Map = memo(
     }, [draftLatLng]);
     const draftDataRef = useRef(draftGeoJsonData);
     draftDataRef.current = draftGeoJsonData;
+    const userLocationGeoJsonData = useMemo(() => {
+      return toUserLocationGeoJson(userLocation ?? null);
+    }, [userLocation]);
+    const userLocationDataRef = useRef(userLocationGeoJsonData);
+    userLocationDataRef.current = userLocationGeoJsonData;
 
     if (!pendingHandleRef.current) {
       pendingHandleRef.current = createPendingMapHandle(
         mapRef,
         initialCenterRef,
         pendingProgrammaticMoveEndsRef,
+        userLocationRef,
+        setLocationTrackingMode,
       );
     }
 
@@ -650,7 +802,12 @@ export const Map = memo(
       map.dragPan.enable(DRAG_PAN_INERTIA_OPTIONS);
       map.touchZoomRotate.disableRotation();
       mapRef.current = map;
-      handleRef.current = createMapHandle(map, pendingProgrammaticMoveEndsRef);
+      handleRef.current = createMapHandle(
+        map,
+        pendingProgrammaticMoveEndsRef,
+        userLocationRef,
+        setLocationTrackingMode,
+      );
 
       map.addControl(
         new maplibregl.AttributionControl({ compact: true }),
@@ -714,6 +871,7 @@ export const Map = memo(
           return;
         }
 
+        setLocationTrackingMode("off");
         onMoveEndEvent(handleRef.current, "user");
       };
 
@@ -780,8 +938,13 @@ export const Map = memo(
             type: "geojson",
             data: draftDataRef.current,
           });
+          map.addSource(USER_LOCATION_SOURCE_ID, {
+            type: "geojson",
+            data: userLocationDataRef.current,
+          });
           addRestaurantLayers(map);
           addDraftLayer(map);
+          addUserLocationLayers(map);
           map.on("click", RESTAURANT_PINS_LAYER_ID, handleRestaurantClick);
           map.on("mouseenter", RESTAURANT_PINS_LAYER_ID, setPointer);
           map.on("mouseleave", RESTAURANT_PINS_LAYER_ID, resetPointer);
@@ -815,6 +978,17 @@ export const Map = memo(
     }, [isPc]);
 
     useEffect(() => {
+      if (!coords) {
+        return;
+      }
+
+      setUserLocation({
+        lat: coords.latitude,
+        lng: coords.longitude,
+      });
+    }, [coords]);
+
+    useEffect(() => {
       const source = mapRef.current?.getSource(RESTAURANTS_SOURCE_ID);
       if (source instanceof GeoJSONSource) {
         source.setData(geoJsonData);
@@ -827,6 +1001,28 @@ export const Map = memo(
         source.setData(draftGeoJsonData);
       }
     }, [draftGeoJsonData]);
+
+    useEffect(() => {
+      const source = mapRef.current?.getSource(USER_LOCATION_SOURCE_ID);
+      if (source instanceof GeoJSONSource) {
+        source.setData(userLocationGeoJsonData);
+      }
+    }, [userLocationGeoJsonData]);
+
+    useEffect(() => {
+      userLocationRef.current = userLocation;
+      if (locationTrackingMode === "off" || !userLocation) {
+        return;
+      }
+
+      handleRef.current?.syncToUserLocation(userLocation, {
+        animate: false,
+      });
+    }, [locationTrackingMode, userLocation]);
+
+    useEffect(() => {
+      onLocationTrackingModeChangeEvent(locationTrackingMode);
+    }, [locationTrackingMode]);
 
     useEffect(() => {
       const map = mapRef.current;

@@ -11,7 +11,12 @@ import {
 import { toaster } from "@/components/ui/toaster.tsx";
 import { useCategories } from "@/features/categories/api/use-categories.ts";
 import { FlyToLocationButton } from "@/features/map/fly-to-location-button.tsx";
-import { Map, MapEventHandler, MapHandle } from "@/features/map/map.tsx";
+import {
+  LocationTrackingMode,
+  Map,
+  MapEventHandler,
+  MapHandle,
+} from "@/features/map/map.tsx";
 import {
   UpdateRestaurantCommand,
   useRestaurants,
@@ -132,6 +137,8 @@ export default function SearchPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [locationTrackingMode, setLocationTrackingMode] =
+    useState<LocationTrackingMode>("off");
 
   const mapRef = useRef<MapHandle>(null);
 
@@ -273,6 +280,7 @@ export default function SearchPage() {
             selectedId={selectedId}
             onSelect={handleSelect}
             onMoveEnd={handleMoveEnd}
+            onLocationTrackingModeChange={setLocationTrackingMode}
           />
 
           {/* Map legend */}
@@ -327,8 +335,9 @@ export default function SearchPage() {
             lg={{ bottom: 20, right: 5 }}
           >
             <FlyToLocationButton
-              onFly={(to) => {
-                mapRef.current?.flyTo(to);
+              trackingMode={locationTrackingMode}
+              onClick={() => {
+                mapRef.current?.requestUserLocationTracking();
               }}
             />
           </Box>

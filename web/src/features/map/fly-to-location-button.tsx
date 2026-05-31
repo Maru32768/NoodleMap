@@ -1,31 +1,23 @@
 import { Button } from "@/components/ui/button.tsx";
 import { Icon } from "@chakra-ui/react";
-import { useGeolocated } from "react-geolocated";
 import { FaLocationCrosshairs } from "react-icons/fa6";
+import type { LocationTrackingMode } from "./map.tsx";
 
 interface Props {
-  onFly: (to: [number, number]) => void;
+  trackingMode: LocationTrackingMode;
+  onClick: () => void;
 }
 
-export function FlyToLocationButton({ onFly }: Props) {
-  const { coords } = useGeolocated({
-    watchPosition: true,
-    watchLocationPermissionChange: true,
-  });
-
-  if (!coords) {
-    return null;
-  }
-
+export function FlyToLocationButton({ trackingMode, onClick }: Props) {
   return (
     <Button
       variant="ghost"
       boxSize="3rem"
       padding={0}
       borderRadius="full"
-      onClick={() => {
-        onFly([coords.latitude, coords.longitude]);
-      }}
+      color={trackingMode === "off" ? "nm.ink" : "#1a73e8"}
+      aria-label="Current location"
+      onClick={onClick}
     >
       <Icon boxSize="1.5rem">
         <FaLocationCrosshairs />
