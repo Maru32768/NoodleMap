@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -65,9 +66,21 @@ func run() error {
 	if serverPort == "" {
 		return errors.New(fmt.Sprintf("%s is missing.", ServerPortEnv))
 	}
-	tokenSecret := os.Getenv(TokenSecretEnv)
-	if tokenSecret == "" {
-		return errors.New(fmt.Sprintf("%s is missing.", TokenSecretEnv))
+	googleOAuthClientID := os.Getenv(GoogleOAuthClientIdEnv)
+	if googleOAuthClientID == "" {
+		return errors.New(fmt.Sprintf("%s is missing.", GoogleOAuthClientIdEnv))
+	}
+	adminEmail := os.Getenv(AdminEmailEnv)
+	if adminEmail == "" {
+		log.Printf("warning: %s is empty; no users will be granted admin privileges", AdminEmailEnv)
+	}
+	authCookieSecure := false
+	if raw := os.Getenv(AuthCookieSecureEnv); raw != "" {
+		parsed, err := strconv.ParseBool(raw)
+		if err != nil {
+			return fmt.Errorf("%s must be a boolean: %w", AuthCookieSecureEnv, err)
+		}
+		authCookieSecure = parsed
 	}
 
 	db, err := sql.Open("sqlite", dbPath)
@@ -96,11 +109,16 @@ func run() error {
 
 	store := infraDB.NewStore(db)
 
+	startSessionCleanup(store)
+
 	engine := gin.Default()
 	engine.RedirectTrailingSlash = false
 	engine.RedirectFixedPath = false
 	engine.HandleMethodNotAllowed = false
-	if err := engine.SetTrustedProxies([]string{"0.0.0.0/0", "::/0"}); err != nil {
+	// Trust no proxies: X-Forwarded-For is ignored so it cannot be spoofed. The
+	// client IP is not recorded anywhere, so there is no need to resolve it through
+	// the proxy chain.
+	if err := engine.SetTrustedProxies(nil); err != nil {
 		return err
 	}
 	engine.Use(middleware.NoCache())
@@ -111,7 +129,12 @@ func run() error {
 
 	restaurantHandler := restaurants.NewHandler(store)
 	categoryHandler := categories.NewHandler(store)
-	authHandler := auth.NewHandler(store, tokenSecret)
+	authHandler := auth.NewHandler(store, auth.Config{
+		GoogleOAuthClientID: googleOAuthClientID,
+		AdminEmail:          adminEmail,
+		CookieSecure:        authCookieSecure,
+	})
+	engine.Use(authHandler.Middleware())
 	api.RegisterHandlers(engine, api.NewHandler(authHandler, categoryHandler, restaurantHandler))
 
 	if err := engine.Run(":" + serverPort); err != nil {
@@ -119,6 +142,22 @@ func run() error {
 	}
 
 	return nil
+}
+
+// startSessionCleanup periodically deletes expired sessions so the table does not
+// grow unbounded (only the active session is removed at logout otherwise).
+func startSessionCleanup(store *infraDB.Store) {
+	const interval = 6 * time.Hour
+	go func() {
+		for {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+			if err := store.DeleteExpiredSessions(ctx, time.Now().UTC()); err != nil {
+				log.Printf("session cleanup: %v", err)
+			}
+			cancel()
+			time.Sleep(interval)
+		}
+	}()
 }
 
 func backupConfig(dbPath string) backup.Config {

@@ -8,18 +8,6 @@ set -e
 DB_PATH="${DB_PATH:-/work/data/noodle_map.db}"
 DATA_DIR="$(cd "$(dirname "$0")/data" && pwd)"
 
-sqlite3 "$DB_PATH" <<SQL
--- Admin user
-INSERT OR IGNORE INTO users (id, email, password, salt, is_admin)
-VALUES (
-    '0db3f068-b86b-4ae3-875a-868b6108b087',
-    'admin@example.com',
-    '\$2a\$10\$Nl82/aKPd8Pd/l8Ol93Qde2GmbWz3QAap.xibUog3ygKm9hCUNGWS',
-    'aa92d84c-c770-4bb1-8e9f-ce1e4066f42f',
-    1
-);
-SQL
-
 # categories: CSV columns (ID, LABEL, ICON) exclude timestamp columns
 sqlite3 "$DB_PATH" <<SQL
 .mode csv

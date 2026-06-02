@@ -1,14 +1,6 @@
 package auth
 
-import (
-	"errors"
-
-	"github.com/google/uuid"
-)
-
-var (
-	ErrInvalidPassword = errors.New("invalid password")
-)
+import "github.com/google/uuid"
 
 type User struct {
 	ID      uuid.UUID `json:"id"`

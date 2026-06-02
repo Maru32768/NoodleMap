@@ -70,6 +70,14 @@ docker compose up --build
 
 The Compose setup starts the API server on `http://localhost:8888` and the frontend on `http://localhost:8080`.
 
+### Required environment variables for local development
+
+The backend now authenticates exclusively via Google Sign-In, so the following variables must be set in `.env` / `web/.env` before `go run` or `docker compose up` will work:
+
+- `GOOGLE_OAUTH_CLIENT_ID` (server) — OAuth 2.0 Client ID from Google Cloud Console.
+- `VITE_GOOGLE_OAUTH_CLIENT_ID` (frontend) — same value as above; the Sign-In button does not render without it.
+- `ADMIN_EMAIL` (server) — Google account email that should receive admin rights. Without it, **no user can access `/admin`**. The first Google login from this address provisions the admin account.
+
 ## API Contract Flow
 
 ```mermaid
@@ -121,7 +129,7 @@ Render service configuration is defined in `render.yaml`.
 - Public domains: `noodle-map.marulab.jp` and `noodle-map.marulabs.dev`.
 - API traffic from the frontend is rewritten to the Render backend.
 
-Secrets such as `TOKEN_SECRET`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `VITE_GOOGLE_API_KEY` are configured outside the repository.
+Secrets such as `GOOGLE_OAUTH_CLIENT_ID`, `ADMIN_EMAIL`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `VITE_GOOGLE_API_KEY`, and `VITE_GOOGLE_OAUTH_CLIENT_ID` are configured outside the repository.
 
 ## Editing Notes
 

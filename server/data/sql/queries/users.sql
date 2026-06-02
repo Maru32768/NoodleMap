@@ -1,27 +1,13 @@
 -- name: FindUserById :one
-select id, email, is_admin
+select id, email
 from users
 where id = ?;
 
--- name: FindUserByEmail :one
-select id, email, password, salt, is_admin
+-- name: FindUserByGoogleSub :one
+select id, email
 from users
-where email = ?;
+where google_sub = ?;
 
 -- name: InsertUser :exec
-insert into users(id, email, password, salt, is_admin)
-values (?, ?, ?, ?, ?);
-
--- name: FindTokenByUserId :one
-select token
-from user_tokens
-where user_id = ?;
-
--- name: InsertToken :exec
-insert into user_tokens(id, user_id, token)
+insert into users(id, email, google_sub)
 values (?, ?, ?);
-
--- name: DeleteTokenByUserId :exec
-delete
-from user_tokens
-where user_id = ?;

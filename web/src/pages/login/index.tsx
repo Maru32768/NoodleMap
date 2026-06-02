@@ -1,10 +1,79 @@
-import { LoadableButton } from "@/components/loadable-button.tsx";
-import { Field } from "@/components/ui/field.tsx";
 import { useAuth } from "@/features/auth/use-auth.ts";
 import { SEARCH_PATH } from "@/utils/path.ts";
-import { Flex, Input, VStack } from "@chakra-ui/react";
-import { useForm } from "react-hook-form";
+import { Box, Flex, VStack } from "@chakra-ui/react";
+import { useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router";
+
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        id: {
+          initialize: (config: {
+            client_id: string;
+            callback: (response: { credential?: string }) => void;
+          }) => void;
+          renderButton: (
+            parent: HTMLElement,
+            options: {
+              theme: "outline" | "filled_blue" | "filled_black";
+              size: "large" | "medium" | "small";
+              width?: number;
+            },
+          ) => void;
+        };
+      };
+    };
+  }
+}
+
+const googleIdentityScript = "https://accounts.google.com/gsi/client";
+let googleIdentityScriptPromise: Promise<void> | undefined;
+
+function loadGoogleIdentityScript() {
+  if (window.google?.accounts.id) {
+    return Promise.resolve();
+  }
+
+  googleIdentityScriptPromise ??= new Promise<void>((resolve, reject) => {
+    const existing = document.querySelector<HTMLScriptElement>(
+      `script[src="${googleIdentityScript}"]`,
+    );
+    const script = existing ?? document.createElement("script");
+
+    script.addEventListener("load", () => resolve(), { once: true });
+    script.addEventListener(
+      "error",
+      (event) => {
+        // Remove the failed element so a later retry inserts a fresh one
+        // instead of attaching to a script that has already errored.
+        script.remove();
+        reject(event);
+      },
+      { once: true },
+    );
+
+    if (existing) {
+      // The script may have finished loading before our listener attached, in
+      // which case the "load" event will never fire again. Resolve directly.
+      if (window.google?.accounts.id) {
+        resolve();
+      }
+      return;
+    }
+
+    script.src = googleIdentityScript;
+    script.async = true;
+    script.defer = true;
+    document.head.append(script);
+  }).catch((err) => {
+    // Drop the cached rejected promise so future mounts can retry.
+    googleIdentityScriptPromise = undefined;
+    throw err;
+  });
+
+  return googleIdentityScriptPromise;
+}
 
 function getSafeRedirectTo(searchParams: URLSearchParams) {
   const redirectTo = searchParams.get("redirectTo");
@@ -21,45 +90,70 @@ function getSafeRedirectTo(searchParams: URLSearchParams) {
 }
 
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { loginWithGoogle } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const buttonRef = useRef<HTMLDivElement>(null);
+  const redirectTo = getSafeRedirectTo(searchParams);
 
-  const form = useForm<{
-    email: string;
-    password: string;
-  }>();
+  useEffect(() => {
+    const clientId = import.meta.env.VITE_GOOGLE_OAUTH_CLIENT_ID;
+    if (!clientId) {
+      console.error("VITE_GOOGLE_OAUTH_CLIENT_ID is not configured.");
+      return;
+    }
+
+    let cancelled = false;
+
+    loadGoogleIdentityScript()
+      .then(() => {
+        if (cancelled || !buttonRef.current || !window.google?.accounts.id) {
+          return;
+        }
+
+        buttonRef.current.replaceChildren();
+        window.google.accounts.id.initialize({
+          client_id: clientId,
+          callback: (response) => {
+            if (!response.credential) {
+              return;
+            }
+
+            void loginWithGoogle(response.credential)
+              .then(() => {
+                navigate(redirectTo, { replace: true });
+              })
+              .catch(() => {
+                // Error already surfaced via toastApiError inside loginWithGoogle.
+              });
+          },
+        });
+        window.google.accounts.id.renderButton(buttonRef.current, {
+          theme: "outline",
+          size: "large",
+          width: 320,
+        });
+      })
+      .catch((err) => {
+        console.error("failed to load Google Identity Services", err);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loginWithGoogle, navigate, redirectTo]);
 
   return (
     <Flex boxSize="full" justifyContent="center" paddingTop={10}>
       <VStack
         height="fit-content"
         width="30rem"
+        maxWidth="calc(100vw - 2rem)"
         bg="gray.100"
         padding={10}
         borderRadius="md"
       >
-        <Field label="メール">
-          <Input bg="white" {...form.register("email", { required: true })} />
-        </Field>
-        <Field label="パスワード">
-          <Input
-            bg="white"
-            type="password"
-            {...form.register("password", { required: true })}
-          />
-        </Field>
-        <LoadableButton
-          disabled={!form.formState.isValid}
-          onClick={() => {
-            const values = form.getValues();
-            return login(values.email, values.password).then(() => {
-              navigate(getSafeRedirectTo(searchParams), { replace: true });
-            });
-          }}
-        >
-          ログイン
-        </LoadableButton>
+        <Box ref={buttonRef} minHeight="44px" />
       </VStack>
     </Flex>
   );

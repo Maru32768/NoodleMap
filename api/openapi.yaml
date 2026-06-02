@@ -4,6 +4,35 @@ info:
   version: 0.0.0
 tags: []
 paths:
+  /api/v1/auth/google:
+    post:
+      operationId: googleAuth
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GoogleAuthRequest'
   /api/v1/auth/logout:
     post:
       operationId: logout
@@ -29,8 +58,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorBody'
-      security:
-        - BearerAuth: []
   /api/v1/auth/me:
     get:
       operationId: me
@@ -60,8 +87,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorBody'
-      security:
-        - BearerAuth: []
   /api/v1/auth/restaurants:
     post:
       operationId: addRestaurant
@@ -97,8 +122,6 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/AddRestaurantRequest'
-      security:
-        - BearerAuth: []
   /api/v1/auth/restaurants/{id}:
     put:
       operationId: updateRestaurant
@@ -135,8 +158,6 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/UpdateRestaurantRequest'
-      security:
-        - BearerAuth: []
   /api/v1/categories:
     get:
       operationId: listCategories
@@ -154,52 +175,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorBody'
-  /api/v1/login:
-    post:
-      operationId: login
-      parameters: []
-      responses:
-        '200':
-          description: The request has succeeded.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthResponse'
-        '400':
-          description: The server could not understand the request due to invalid syntax.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorBody'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AuthRequest'
-  /api/v1/register:
-    post:
-      operationId: register
-      parameters: []
-      responses:
-        '200':
-          description: The request has succeeded.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthResponse'
-        '400':
-          description: The server could not understand the request due to invalid syntax.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorBody'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AuthRequest'
   /api/v1/restaurants:
     get:
       operationId: listRestaurants
@@ -251,26 +226,13 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/uuid'
-    AuthRequest:
-      type: object
-      required:
-        - email
-        - password
-      properties:
-        email:
-          type: string
-        password:
-          type: string
     AuthResponse:
       type: object
       required:
         - user
-        - token
       properties:
         user:
           $ref: '#/components/schemas/User'
-        token:
-          type: string
     CategoriesResponse:
       type: object
       required:
@@ -299,6 +261,13 @@ components:
         - error
       properties:
         error:
+          type: string
+    GoogleAuthRequest:
+      type: object
+      required:
+        - credential
+      properties:
+        credential:
           type: string
     Restaurant:
       type: object
@@ -407,10 +376,6 @@ components:
     uuid:
       type: string
       description: UUID serialized as a string.
-  securitySchemes:
-    BearerAuth:
-      type: http
-      scheme: Bearer
 servers:
   - url: /
     description: Current origin

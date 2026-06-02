@@ -5,6 +5,7 @@
 package db
 
 import (
+	"database/sql"
 	"time"
 
 	"github.com/google/uuid"
@@ -47,29 +48,21 @@ type RestaurantsCategory struct {
 	UpdatedAt    time.Time `json:"updatedAt"`
 }
 
-type TemporaryUser struct {
-	ID        uuid.UUID `json:"id"`
-	Email     string    `json:"email"`
-	Token     string    `json:"token"`
-	CreatedAt time.Time `json:"createdAt"`
+type Session struct {
+	ID        uuid.UUID      `json:"id"`
+	UserID    uuid.UUID      `json:"userId"`
+	TokenHash string         `json:"tokenHash"`
+	UserAgent sql.NullString `json:"userAgent"`
+	CreatedAt time.Time      `json:"createdAt"`
+	ExpiresAt time.Time      `json:"expiresAt"`
 }
 
 type User struct {
-	ID        uuid.UUID `json:"id"`
-	Email     string    `json:"email"`
-	Password  string    `json:"password"`
-	Salt      string    `json:"salt"`
-	IsAdmin   bool      `json:"isAdmin"`
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
-}
-
-type UserToken struct {
-	ID        uuid.UUID `json:"id"`
-	UserID    uuid.UUID `json:"userId"`
-	Token     string    `json:"token"`
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
+	ID        uuid.UUID      `json:"id"`
+	Email     string         `json:"email"`
+	CreatedAt time.Time      `json:"createdAt"`
+	UpdatedAt time.Time      `json:"updatedAt"`
+	GoogleSub sql.NullString `json:"googleSub"`
 }
 
 type VisitedRestaurant struct {

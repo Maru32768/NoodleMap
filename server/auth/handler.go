@@ -3,195 +3,224 @@ package auth
 import (
 	"database/sql"
 	"errors"
+	"log"
+	"net/http"
+	"strings"
+	"time"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"net/http"
-	"net/mail"
+
 	"server/infra/db"
-	"strings"
 )
 
+const (
+	cookieName = "noodle_map_session"
+	sessionTTL = 30 * 24 * time.Hour
+	// sessionRefreshInterval bounds how often a sliding session is actually
+	// re-persisted. ExtendSession only writes when the session was last extended
+	// more than this long ago, so most authenticated requests perform no write.
+	// It must stay well below sessionTTL so an active session never lapses.
+	sessionRefreshInterval = 12 * time.Hour
+)
+
+type Config struct {
+	GoogleOAuthClientID string
+	AdminEmail          string
+	CookieSecure        bool
+}
+
 type Handler struct {
-	store  *db.Store
-	secret string
+	store          *db.Store
+	googleClientID string
+	adminEmail     string
+	cookieSecure   bool
+	googleVerifier *GoogleVerifier
 }
 
-func NewHandler(store *db.Store, secret string) *Handler {
+func NewHandler(store *db.Store, config Config) *Handler {
 	return &Handler{
-		store:  store,
-		secret: secret,
+		store:          store,
+		googleClientID: config.GoogleOAuthClientID,
+		adminEmail:     strings.ToLower(config.AdminEmail),
+		cookieSecure:   config.CookieSecure,
+		googleVerifier: NewGoogleVerifier(),
 	}
 }
 
-func (h *Handler) Authenticate(ctx *gin.Context) {
-	authorization := ctx.GetHeader("Authorization")
-	if authorization == "" {
-		ctx.AbortWithError(http.StatusUnauthorized, errors.New("no Authorization header"))
-		return
-	}
-	if !strings.HasPrefix(authorization, "Bearer ") {
-		ctx.AbortWithError(http.StatusUnauthorized, errors.New("not supported token type"))
-		return
-	}
-	token := strings.TrimPrefix(authorization, "Bearer ")
+func (h *Handler) Middleware() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		if !requiresAuthentication(ctx.Request.URL.Path) {
+			ctx.Next()
+			return
+		}
 
-	user, err := h.authenticate(ctx, token)
+		h.authenticateRequest(ctx)
+		if ctx.IsAborted() {
+			return
+		}
+
+		ctx.Next()
+	}
+}
+
+func (h *Handler) authenticateRequest(ctx *gin.Context) {
+	token, err := ctx.Cookie(cookieName)
 	if err != nil {
-		ctx.AbortWithError(http.StatusUnauthorized, err)
+		ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
 		return
+	}
+
+	user, extended, err := h.authenticate(ctx, token)
+	if err != nil {
+		ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+	// Refresh the cookie only when the session was actually re-persisted, so the
+	// cookie and the stored session share the same sliding expiry.
+	if extended {
+		h.setSessionCookie(ctx, token, int(sessionTTL.Seconds()))
 	}
 
 	ctx.Set("user", user)
 }
 
+func requiresAuthentication(path string) bool {
+	if !strings.HasPrefix(path, "/api/v1/auth/") {
+		return false
+	}
+	switch path {
+	case "/api/v1/auth/google", "/api/v1/auth/logout":
+		return false
+	}
+	return true
+}
+
 func (h *Handler) Me(ctx *gin.Context) {
 	user, err := GetContextUser(ctx)
 	if err != nil {
-		ctx.AbortWithError(http.StatusInternalServerError, err)
+		ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "failed to get current user"})
 		return
 	}
 
 	ctx.JSON(http.StatusOK, user)
 }
 
-func (h *Handler) Register(ctx *gin.Context) {
+func (h *Handler) GoogleAuth(ctx *gin.Context) {
 	type request struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
+		Credential string `json:"credential"`
 	}
 	var req request
 	if err := ctx.BindJSON(&req); err != nil {
-		ctx.AbortWithError(http.StatusBadRequest, err)
+		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
 		return
 	}
 
-	user, token, err := h.register(ctx, req.Email, req.Password)
+	user, err := h.googleAuth(ctx, req.Credential)
 	if err != nil {
-		ctx.AbortWithError(http.StatusBadRequest, err)
+		log.Printf("google auth error: %v", err)
+		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "failed to authenticate with Google"})
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"user":  user,
-		"token": token,
-	})
-}
-
-func (h *Handler) Login(ctx *gin.Context) {
-	type request struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
-	}
-	var req request
-	ctx.BindJSON(&req)
-
-	user, token, err := h.login(ctx, req.Email, req.Password)
+	token, err := newSessionToken()
 	if err != nil {
-		ctx.AbortWithError(http.StatusBadRequest, err)
+		log.Printf("new session token error: %v", err)
+		ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "failed to create session"})
 		return
 	}
+	if err := h.store.InsertSession(ctx, db.InsertSessionParams{
+		ID:        uuid.New(),
+		UserID:    user.ID,
+		TokenHash: sessionTokenHash(token),
+		UserAgent: sql.NullString{String: ctx.GetHeader("User-Agent"), Valid: ctx.GetHeader("User-Agent") != ""},
+		ExpiresAt: time.Now().UTC().Add(sessionTTL),
+	}); err != nil {
+		log.Printf("insert session error: %v", err)
+		ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "failed to create session"})
+		return
+	}
+	h.setSessionCookie(ctx, token, int(sessionTTL.Seconds()))
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"user":  user,
-		"token": token,
-	})
+	ctx.JSON(http.StatusOK, gin.H{"user": user})
 }
 
 func (h *Handler) Logout(ctx *gin.Context) {
-	user, err := GetContextUser(ctx)
-	if err != nil {
-		ctx.AbortWithError(http.StatusBadRequest, err)
-		return
+	if cookie, err := ctx.Cookie(cookieName); err == nil {
+		if err := h.store.DeleteSessionByTokenHash(ctx, sessionTokenHash(cookie)); err != nil {
+			log.Printf("logout: delete session: %v", err)
+		}
 	}
-
-	if err := h.store.DeleteTokenByUserId(ctx, user.ID); err != nil {
-		ctx.AbortWithError(http.StatusInternalServerError, err)
-		return
-	}
-
+	h.setSessionCookie(ctx, "", -1)
 	ctx.Status(http.StatusOK)
 }
 
-func (h *Handler) authenticate(ctx *gin.Context, token string) (*User, error) {
-	parsedToken, err := parseToken(token, h.secret)
+// authenticate validates the session token and slides its expiry. The returned
+// bool reports whether the session was actually re-persisted this call (throttled
+// by sessionRefreshInterval), so the caller can refresh the cookie in lockstep.
+func (h *Handler) authenticate(ctx *gin.Context, token string) (*User, bool, error) {
+	now := time.Now().UTC()
+	session, err := h.store.FindValidSessionByTokenHash(ctx, db.FindValidSessionByTokenHashParams{
+		TokenHash: sessionTokenHash(token),
+		Now:       now,
+	})
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
-
-	user, err := h.store.FindUserById(ctx, parsedToken.claims.userId)
-	if err != nil {
-		return nil, err
-	}
-
-	return &User{ID: user.ID, Email: user.Email, IsAdmin: user.IsAdmin}, nil
-}
-
-func (h *Handler) login(ctx *gin.Context, email string, password string) (*User, string, error) {
-	user, err := h.store.FindUserByEmail(ctx, email)
-	if err != nil {
-		return nil, "", err
-	}
-
-	if !verifyPassword(user.Password, password, user.Salt) {
-		return nil, "", ErrInvalidPassword
-	}
-
-	storedToken, err := h.store.FindTokenByUserId(ctx, user.ID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			issuedToken, err := issueToken(user.ID, h.secret)
-			if err != nil {
-				return nil, "", err
-			}
-
-			if err := h.store.InsertToken(ctx, db.InsertTokenParams{ID: uuid.New(), UserID: user.ID, Token: issuedToken}); err != nil {
-				return nil, "", err
-			}
-			return &User{ID: user.ID, Email: user.Email, IsAdmin: user.IsAdmin}, issuedToken, nil
-		}
-
-		return nil, "", err
-	}
-	return &User{ID: user.ID, Email: user.Email, IsAdmin: user.IsAdmin}, storedToken, nil
-}
-
-func (h *Handler) register(ctx *gin.Context, emailRaw string, password string) (*User, string, error) {
-	address, err := mail.ParseAddress(emailRaw)
-	if err != nil {
-		return nil, "", errors.New("invalid email format")
-	}
-	email := address.Address
-
-	salt := uuid.New().String()
-	hash, err := hashPassword(password, salt)
-	if err != nil {
-		return nil, "", err
-	}
-
-	userId := uuid.New()
-	tokenString, err := issueToken(userId, h.secret)
-	if err != nil {
-		return nil, "", err
-	}
-	isAdmin := false
-
-	if err := h.store.Tx(ctx, func(store *db.Store) error {
-		if err := store.InsertUser(ctx, db.InsertUserParams{ID: userId, Email: email, Password: hash, Salt: salt, IsAdmin: isAdmin}); err != nil {
-			return err
-		}
-
-		if err := store.InsertToken(ctx, db.InsertTokenParams{
-			ID:     uuid.New(),
-			UserID: userId,
-			Token:  tokenString,
-		}); err != nil {
-			return err
-		}
-
-		return nil
+	extended := false
+	if rows, err := h.store.ExtendSession(ctx, db.ExtendSessionParams{
+		ID:          session.ID,
+		ExpiresAt:   now.Add(sessionTTL),
+		StaleBefore: now.Add(sessionTTL - sessionRefreshInterval),
 	}); err != nil {
-		return nil, "", err
+		log.Printf("extend session: %v", err)
+	} else {
+		extended = rows > 0
 	}
 
-	return &User{ID: userId, Email: email, IsAdmin: isAdmin}, tokenString, nil
+	return h.authUser(session.UserID, session.Email), extended, nil
+}
+
+func (h *Handler) googleAuth(ctx *gin.Context, credential string) (*User, error) {
+	googleUser, err := h.googleVerifier.Verify(ctx, credential, h.googleClientID)
+	if err != nil {
+		return nil, err
+	}
+
+	user, err := h.store.FindUserByGoogleSub(ctx, sql.NullString{String: googleUser.Sub, Valid: true})
+	if err == nil {
+		return h.authUser(user.ID, user.Email), nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+
+	userID := uuid.New()
+	if err := h.store.InsertUser(ctx, db.InsertUserParams{
+		ID:        userID,
+		Email:     googleUser.Email,
+		GoogleSub: sql.NullString{String: googleUser.Sub, Valid: true},
+	}); err != nil {
+		// A concurrent first-time login for the same google_sub may have
+		// inserted the row already; fall back to the existing record.
+		if existing, lookupErr := h.store.FindUserByGoogleSub(ctx, sql.NullString{String: googleUser.Sub, Valid: true}); lookupErr == nil {
+			return h.authUser(existing.ID, existing.Email), nil
+		}
+		return nil, err
+	}
+
+	return h.authUser(userID, googleUser.Email), nil
+}
+
+func (h *Handler) isAdminEmail(email string) bool {
+	return h.adminEmail != "" && strings.ToLower(email) == h.adminEmail
+}
+
+func (h *Handler) authUser(id uuid.UUID, email string) *User {
+	return &User{ID: id, Email: email, IsAdmin: h.isAdminEmail(email)}
+}
+
+func (h *Handler) setSessionCookie(ctx *gin.Context, token string, maxAge int) {
+	ctx.SetSameSite(http.SameSiteLaxMode)
+	ctx.SetCookie(cookieName, token, maxAge, "/", "", h.cookieSecure, true)
 }

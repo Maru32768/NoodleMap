@@ -6,7 +6,6 @@ import { CurrentUserProvider } from "@/features/auth/use-current-user.ts";
 import {
   ADMIN_PATH,
   LOGIN_PATH,
-  REGISTER_PATH,
   SEARCH_PATH,
 } from "@/utils/path.ts";
 import { AbsoluteCenter, Box } from "@chakra-ui/react";
@@ -89,7 +88,6 @@ function App() {
           {!currentUser && (
             <Route path={LOGIN_PATH} element={<LazyLoginPage />} />
           )}
-          <Route path={REGISTER_PATH} element={<LazyRegisterPage />} />
           <Route path="*" element={<Navigate to={SEARCH_PATH} replace />} />
         </Route>
       </Routes>
@@ -100,6 +98,5 @@ function App() {
 const LazySearchPage = React.lazy(() => import("./pages/search"));
 const LazyAdminPage = React.lazy(() => import("./pages/admin"));
 const LazyLoginPage = React.lazy(() => import("./pages/login"));
-const LazyRegisterPage = React.lazy(() => import("./pages/register"));
 
 export default App;

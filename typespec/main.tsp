@@ -44,14 +44,12 @@ model User {
   isAdmin: boolean;
 }
 
-model AuthRequest {
-  email: string;
-  password: string;
+model GoogleAuthRequest {
+  credential: string;
 }
 
 model AuthResponse {
   user: User;
-  token: string;
 }
 
 model Category {
@@ -116,33 +114,25 @@ op listRestaurants(): OkResponse<RestaurantsResponse> | InternalServerErrorRespo
 op listCategories(): OkResponse<CategoriesResponse> | InternalServerErrorResponse;
 
 @post
-@route("/register")
-op register(@body body: AuthRequest): OkResponse<AuthResponse> | BadRequestResponse;
-
-@post
-@route("/login")
-op login(@body body: AuthRequest): OkResponse<AuthResponse> | BadRequestResponse;
+@route("/auth/google")
+op googleAuth(@body body: GoogleAuthRequest): OkResponse<AuthResponse> | BadRequestResponse | InternalServerErrorResponse;
 
 @get
 @route("/auth/me")
-@useAuth(BearerAuth)
 op me(): OkResponse<User> | BadRequestResponse | UnauthorizedResponse | InternalServerErrorResponse;
 
 @post
 @route("/auth/logout")
-@useAuth(BearerAuth)
 op logout(): OkEmptyResponse | BadRequestResponse | UnauthorizedResponse | InternalServerErrorResponse;
 
 @post
 @route("/auth/restaurants")
-@useAuth(BearerAuth)
 op addRestaurant(
   @body body: AddRestaurantRequest,
 ): OkResponse<Restaurant> | BadRequestResponse | UnauthorizedResponse | InternalServerErrorResponse;
 
 @put
 @route("/auth/restaurants/{id}")
-@useAuth(BearerAuth)
 op updateRestaurant(
   @path id: uuid,
   @body body: UpdateRestaurantRequest,

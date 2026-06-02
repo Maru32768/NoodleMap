@@ -4,34 +4,23 @@ import { toastApiError } from "@/utils/toast.ts";
 import { useCallback } from "react";
 import useSWR from "swr";
 
-const TOKEN_KEY = "token";
-
-export let token: string | undefined =
-  localStorage.getItem(TOKEN_KEY) ?? undefined;
+// Best-effort cleanup of the pre-Google-auth token that older clients persisted
+// in localStorage. Safe to remove once all active sessions have rotated.
+localStorage.removeItem("token");
 
 export type User = components["schemas"]["User"];
 type AuthResponse = components["schemas"]["AuthResponse"];
 
-function clearToken() {
-  token = undefined;
-  localStorage.removeItem(TOKEN_KEY);
-}
-
 export function useAuth() {
   const resp = useSWR(
-    ["useLogin-currentUser", token],
+    "useAuth-currentUser",
     () => {
-      if (!token) {
-        return undefined;
-      }
-
       return get<User>("/api/v1/auth/me")
         .then((res) => {
           return res.body;
         })
         .catch((err: ApiError) => {
           if (err.status === 401) {
-            clearToken();
             return undefined;
           }
           throw err;
@@ -48,14 +37,12 @@ export function useAuth() {
   );
   const mutate = resp.mutate;
 
-  const login = useCallback(
-    (email: string, password: string) => {
-      return post<AuthResponse>("/api/v1/login", {
-        body: JSON.stringify({ email, password }),
+  const loginWithGoogle = useCallback(
+    (credential: string) => {
+      return post<AuthResponse>("/api/v1/auth/google", {
+        body: JSON.stringify({ credential }),
       })
         .then((res) => {
-          token = res.body.token;
-          localStorage.setItem(TOKEN_KEY, token);
           return mutate(res.body.user, false);
         })
         .catch((err: ApiError) => {
@@ -69,7 +56,6 @@ export function useAuth() {
   const logout = useCallback(() => {
     return post("/api/v1/auth/logout")
       .then(() => {
-        clearToken();
         return mutate(undefined, false);
       })
       .catch((err: ApiError) => {
@@ -78,24 +64,6 @@ export function useAuth() {
       });
   }, [mutate]);
 
-  const register = useCallback(
-    (email: string, password: string) => {
-      return post<AuthResponse>("/api/v1/register", {
-        body: JSON.stringify({ email, password }),
-      })
-        .then((res) => {
-          token = res.body.token;
-          localStorage.setItem(TOKEN_KEY, token);
-          return mutate(res.body.user, false);
-        })
-        .catch((err: ApiError) => {
-          toastApiError(err);
-          throw err;
-        });
-    },
-    [mutate],
-  );
-
   return {
     get currentUser() {
       return resp.data;
@@ -103,8 +71,7 @@ export function useAuth() {
     get isLoading() {
       return resp.isLoading;
     },
-    login,
+    loginWithGoogle,
     logout,
-    register,
   };
 }

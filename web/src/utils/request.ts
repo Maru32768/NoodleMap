@@ -1,5 +1,3 @@
-import { token } from "@/features/auth/use-auth.ts";
-
 export interface ApiResult<T> {
   readonly url: RequestInfo | URL;
   readonly ok: boolean;
@@ -61,13 +59,9 @@ export async function request<T>(
 ): Promise<ApiResult<T>> {
   const res = await fetch(input, {
     ...init,
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
-      ...(token
-        ? {
-            Authorization: `Bearer ${token}`,
-          }
-        : {}),
       ...init?.headers,
     },
   });

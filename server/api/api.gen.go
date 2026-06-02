@@ -14,10 +14,6 @@ import (
 	strictgin "github.com/oapi-codegen/runtime/strictmiddleware/gin"
 )
 
-const (
-	BearerAuthScopes = "BearerAuth.Scopes"
-)
-
 // AddRestaurantRequest defines model for AddRestaurantRequest.
 type AddRestaurantRequest struct {
 	Address       string  `json:"address"`
@@ -30,16 +26,9 @@ type AddRestaurantRequest struct {
 	PostalCode    string  `json:"postalCode"`
 }
 
-// AuthRequest defines model for AuthRequest.
-type AuthRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
-}
-
 // AuthResponse defines model for AuthResponse.
 type AuthResponse struct {
-	Token string `json:"token"`
-	User  User   `json:"user"`
+	User User `json:"user"`
 }
 
 // CategoriesResponse defines model for CategoriesResponse.
@@ -59,6 +48,11 @@ type Category struct {
 // ErrorBody defines model for ErrorBody.
 type ErrorBody struct {
 	Error string `json:"error"`
+}
+
+// GoogleAuthRequest defines model for GoogleAuthRequest.
+type GoogleAuthRequest struct {
+	Credential string `json:"credential"`
 }
 
 // Restaurant defines model for Restaurant.
@@ -110,20 +104,20 @@ type User struct {
 // Uuid UUID serialized as a string.
 type Uuid = string
 
+// GoogleAuthJSONRequestBody defines body for GoogleAuth for application/json ContentType.
+type GoogleAuthJSONRequestBody = GoogleAuthRequest
+
 // AddRestaurantJSONRequestBody defines body for AddRestaurant for application/json ContentType.
 type AddRestaurantJSONRequestBody = AddRestaurantRequest
 
 // UpdateRestaurantJSONRequestBody defines body for UpdateRestaurant for application/json ContentType.
 type UpdateRestaurantJSONRequestBody = UpdateRestaurantRequest
 
-// LoginJSONRequestBody defines body for Login for application/json ContentType.
-type LoginJSONRequestBody = AuthRequest
-
-// RegisterJSONRequestBody defines body for Register for application/json ContentType.
-type RegisterJSONRequestBody = AuthRequest
-
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+
+	// (POST /api/v1/auth/google)
+	GoogleAuth(c *gin.Context)
 
 	// (POST /api/v1/auth/logout)
 	Logout(c *gin.Context)
@@ -140,12 +134,6 @@ type ServerInterface interface {
 	// (GET /api/v1/categories)
 	ListCategories(c *gin.Context)
 
-	// (POST /api/v1/login)
-	Login(c *gin.Context)
-
-	// (POST /api/v1/register)
-	Register(c *gin.Context)
-
 	// (GET /api/v1/restaurants)
 	ListRestaurants(c *gin.Context)
 }
@@ -159,10 +147,21 @@ type ServerInterfaceWrapper struct {
 
 type MiddlewareFunc func(c *gin.Context)
 
+// GoogleAuth operation middleware
+func (siw *ServerInterfaceWrapper) GoogleAuth(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GoogleAuth(c)
+}
+
 // Logout operation middleware
 func (siw *ServerInterfaceWrapper) Logout(c *gin.Context) {
-
-	c.Set(BearerAuthScopes, []string{})
 
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
@@ -177,8 +176,6 @@ func (siw *ServerInterfaceWrapper) Logout(c *gin.Context) {
 // Me operation middleware
 func (siw *ServerInterfaceWrapper) Me(c *gin.Context) {
 
-	c.Set(BearerAuthScopes, []string{})
-
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -191,8 +188,6 @@ func (siw *ServerInterfaceWrapper) Me(c *gin.Context) {
 
 // AddRestaurant operation middleware
 func (siw *ServerInterfaceWrapper) AddRestaurant(c *gin.Context) {
-
-	c.Set(BearerAuthScopes, []string{})
 
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
@@ -218,8 +213,6 @@ func (siw *ServerInterfaceWrapper) UpdateRestaurant(c *gin.Context) {
 		return
 	}
 
-	c.Set(BearerAuthScopes, []string{})
-
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -241,32 +234,6 @@ func (siw *ServerInterfaceWrapper) ListCategories(c *gin.Context) {
 	}
 
 	siw.Handler.ListCategories(c)
-}
-
-// Login operation middleware
-func (siw *ServerInterfaceWrapper) Login(c *gin.Context) {
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		middleware(c)
-		if c.IsAborted() {
-			return
-		}
-	}
-
-	siw.Handler.Login(c)
-}
-
-// Register operation middleware
-func (siw *ServerInterfaceWrapper) Register(c *gin.Context) {
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		middleware(c)
-		if c.IsAborted() {
-			return
-		}
-	}
-
-	siw.Handler.Register(c)
 }
 
 // ListRestaurants operation middleware
@@ -309,14 +276,48 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 		ErrorHandler:       errorHandler,
 	}
 
+	router.POST(options.BaseURL+"/api/v1/auth/google", wrapper.GoogleAuth)
 	router.POST(options.BaseURL+"/api/v1/auth/logout", wrapper.Logout)
 	router.GET(options.BaseURL+"/api/v1/auth/me", wrapper.Me)
 	router.POST(options.BaseURL+"/api/v1/auth/restaurants", wrapper.AddRestaurant)
 	router.PUT(options.BaseURL+"/api/v1/auth/restaurants/:id", wrapper.UpdateRestaurant)
 	router.GET(options.BaseURL+"/api/v1/categories", wrapper.ListCategories)
-	router.POST(options.BaseURL+"/api/v1/login", wrapper.Login)
-	router.POST(options.BaseURL+"/api/v1/register", wrapper.Register)
 	router.GET(options.BaseURL+"/api/v1/restaurants", wrapper.ListRestaurants)
+}
+
+type GoogleAuthRequestObject struct {
+	Body *GoogleAuthJSONRequestBody
+}
+
+type GoogleAuthResponseObject interface {
+	VisitGoogleAuthResponse(w http.ResponseWriter) error
+}
+
+type GoogleAuth200JSONResponse AuthResponse
+
+func (response GoogleAuth200JSONResponse) VisitGoogleAuthResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GoogleAuth400JSONResponse ErrorBody
+
+func (response GoogleAuth400JSONResponse) VisitGoogleAuthResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GoogleAuth500JSONResponse ErrorBody
+
+func (response GoogleAuth500JSONResponse) VisitGoogleAuthResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
 }
 
 type LogoutRequestObject struct {
@@ -517,58 +518,6 @@ func (response ListCategories500JSONResponse) VisitListCategoriesResponse(w http
 	return json.NewEncoder(w).Encode(response)
 }
 
-type LoginRequestObject struct {
-	Body *LoginJSONRequestBody
-}
-
-type LoginResponseObject interface {
-	VisitLoginResponse(w http.ResponseWriter) error
-}
-
-type Login200JSONResponse AuthResponse
-
-func (response Login200JSONResponse) VisitLoginResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type Login400JSONResponse ErrorBody
-
-func (response Login400JSONResponse) VisitLoginResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(400)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type RegisterRequestObject struct {
-	Body *RegisterJSONRequestBody
-}
-
-type RegisterResponseObject interface {
-	VisitRegisterResponse(w http.ResponseWriter) error
-}
-
-type Register200JSONResponse AuthResponse
-
-func (response Register200JSONResponse) VisitRegisterResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type Register400JSONResponse ErrorBody
-
-func (response Register400JSONResponse) VisitRegisterResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(400)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
 type ListRestaurantsRequestObject struct {
 }
 
@@ -597,6 +546,9 @@ func (response ListRestaurants500JSONResponse) VisitListRestaurantsResponse(w ht
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 
+	// (POST /api/v1/auth/google)
+	GoogleAuth(ctx context.Context, request GoogleAuthRequestObject) (GoogleAuthResponseObject, error)
+
 	// (POST /api/v1/auth/logout)
 	Logout(ctx context.Context, request LogoutRequestObject) (LogoutResponseObject, error)
 
@@ -612,12 +564,6 @@ type StrictServerInterface interface {
 	// (GET /api/v1/categories)
 	ListCategories(ctx context.Context, request ListCategoriesRequestObject) (ListCategoriesResponseObject, error)
 
-	// (POST /api/v1/login)
-	Login(ctx context.Context, request LoginRequestObject) (LoginResponseObject, error)
-
-	// (POST /api/v1/register)
-	Register(ctx context.Context, request RegisterRequestObject) (RegisterResponseObject, error)
-
 	// (GET /api/v1/restaurants)
 	ListRestaurants(ctx context.Context, request ListRestaurantsRequestObject) (ListRestaurantsResponseObject, error)
 }
@@ -632,6 +578,39 @@ func NewStrictHandler(ssi StrictServerInterface, middlewares []StrictMiddlewareF
 type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
+}
+
+// GoogleAuth operation middleware
+func (sh *strictHandler) GoogleAuth(ctx *gin.Context) {
+	var request GoogleAuthRequestObject
+
+	var body GoogleAuthJSONRequestBody
+	if err := ctx.ShouldBindJSON(&body); err != nil {
+		ctx.Status(http.StatusBadRequest)
+		ctx.Error(err)
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GoogleAuth(ctx, request.(GoogleAuthRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GoogleAuth")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(GoogleAuthResponseObject); ok {
+		if err := validResponse.VisitGoogleAuthResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
 }
 
 // Logout operation middleware
@@ -770,72 +749,6 @@ func (sh *strictHandler) ListCategories(ctx *gin.Context) {
 		ctx.Status(http.StatusInternalServerError)
 	} else if validResponse, ok := response.(ListCategoriesResponseObject); ok {
 		if err := validResponse.VisitListCategoriesResponse(ctx.Writer); err != nil {
-			ctx.Error(err)
-		}
-	} else if response != nil {
-		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// Login operation middleware
-func (sh *strictHandler) Login(ctx *gin.Context) {
-	var request LoginRequestObject
-
-	var body LoginJSONRequestBody
-	if err := ctx.ShouldBindJSON(&body); err != nil {
-		ctx.Status(http.StatusBadRequest)
-		ctx.Error(err)
-		return
-	}
-	request.Body = &body
-
-	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
-		return sh.ssi.Login(ctx, request.(LoginRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "Login")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		ctx.Error(err)
-		ctx.Status(http.StatusInternalServerError)
-	} else if validResponse, ok := response.(LoginResponseObject); ok {
-		if err := validResponse.VisitLoginResponse(ctx.Writer); err != nil {
-			ctx.Error(err)
-		}
-	} else if response != nil {
-		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// Register operation middleware
-func (sh *strictHandler) Register(ctx *gin.Context) {
-	var request RegisterRequestObject
-
-	var body RegisterJSONRequestBody
-	if err := ctx.ShouldBindJSON(&body); err != nil {
-		ctx.Status(http.StatusBadRequest)
-		ctx.Error(err)
-		return
-	}
-	request.Body = &body
-
-	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
-		return sh.ssi.Register(ctx, request.(RegisterRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "Register")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		ctx.Error(err)
-		ctx.Status(http.StatusInternalServerError)
-	} else if validResponse, ok := response.(RegisterResponseObject); ok {
-		if err := validResponse.VisitRegisterResponse(ctx.Writer); err != nil {
 			ctx.Error(err)
 		}
 	} else if response != nil {
