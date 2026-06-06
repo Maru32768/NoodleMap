@@ -1,6 +1,11 @@
 import { Button } from "@/components/ui/button.tsx";
 import { Category } from "@/features/categories/api/use-categories.ts";
-import { Map, MapEventHandler, MapHandle } from "@/features/map/map.tsx";
+import {
+  Map,
+  MapEventHandler,
+  MapHandle,
+  MapSelectDetails,
+} from "@/features/map/map.tsx";
 import { Restaurant } from "@/features/restaurants/api/use-restaurants.ts";
 import { Box, BoxProps } from "@chakra-ui/react";
 import { useCallback, useEffect, useRef } from "react";
@@ -54,6 +59,17 @@ export function AdminMap({
     }
   }, [selectedId, shops]);
 
+  const handleSelect = useCallback(
+    (id: string, details: MapSelectDetails) => {
+      if (details.source === "map" && details.latlng) {
+        mapRef.current?.panTo(details.latlng, { animate: true });
+      }
+
+      onSelect(id);
+    },
+    [onSelect],
+  );
+
   return (
     <Box
       position="relative"
@@ -69,7 +85,7 @@ export function AdminMap({
         categories={categories}
         restaurants={filtered}
         selectedId={selectedId}
-        onSelect={onSelect}
+        onSelect={handleSelect}
         onMoveEnd={noopMoveEnd}
         onMapClick={handleMapClick}
         draftLatLng={draftLatLng}

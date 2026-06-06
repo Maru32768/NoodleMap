@@ -53,12 +53,19 @@ export interface MapEventHandler {
   (map: MapHandle, source: "user" | "programmatic"): void;
 }
 
+export type MapSelectSource = "map" | "external";
+
+export interface MapSelectDetails {
+  source: MapSelectSource;
+  latlng?: [number, number];
+}
+
 interface Props {
   initialCenter: [number, number];
   categories: Category[];
   restaurants: Restaurant[];
   selectedId: string | null;
-  onSelect: (id: string) => void;
+  onSelect: (id: string, details: MapSelectDetails) => void;
   onMoveEnd: MapEventHandler;
   initialZoom?: number;
   onMapClick?: (latlng: { lat: number; lng: number }) => void;
@@ -729,9 +736,11 @@ export const Map = memo(
       watchLocationPermissionChange: true,
     });
 
-    const onSelectEvent = useEffectEvent((id: string) => {
-      onSelect(id);
-    });
+    const onSelectEvent = useEffectEvent(
+      (id: string, details: MapSelectDetails) => {
+        onSelect(id, details);
+      },
+    );
     const onMoveEndEvent = useEffectEvent(
       (map: MapHandle, source: "user" | "programmatic") => {
         onMoveEnd(map, source);
@@ -876,9 +885,16 @@ export const Map = memo(
       };
 
       const handleRestaurantClick = (e: maplibregl.MapLayerMouseEvent) => {
-        const id = e.features?.[0]?.properties?.id;
+        const feature = e.features?.[0];
+        const id = feature?.properties?.id;
         if (typeof id === "string") {
-          onSelectEvent(id);
+          let latlng: [number, number] | undefined;
+          if (feature?.geometry.type === "Point") {
+            const [lng, lat] = feature.geometry.coordinates;
+            latlng = [lat, lng];
+          }
+
+          onSelectEvent(id, { source: "map", latlng });
         }
       };
 

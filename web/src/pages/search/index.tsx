@@ -16,6 +16,7 @@ import {
   Map,
   MapEventHandler,
   MapHandle,
+  MapSelectDetails,
 } from "@/features/map/map.tsx";
 import {
   UpdateRestaurantCommand,
@@ -190,8 +191,13 @@ export default function SearchPage() {
   );
 
   const handleSelect = useCallback(
-    (id: string) => {
+    (id: string, details: MapSelectDetails = { source: "external" }) => {
       setSelectedId(id);
+      if (details.source === "map" && details.latlng) {
+        mapRef.current?.panTo(details.latlng, { animate: true });
+        return;
+      }
+
       const r = restaurants?.find((x) => x.id === id);
       if (r && mapRef.current) {
         const map = mapRef.current;
