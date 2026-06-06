@@ -1,3 +1,8 @@
+import type { components } from "@/generated/api.ts";
+
+type ErrorBody = components["schemas"]["ErrorBody"];
+type ErrorType = components["schemas"]["ErrorType"];
+
 export interface ApiResult<T> {
   readonly url: RequestInfo | URL;
   readonly ok: boolean;
@@ -12,6 +17,7 @@ export class ApiError extends Error {
   public readonly status: number;
   public readonly statusText: string;
   public readonly body: unknown;
+  public readonly type: ErrorType | undefined;
 
   constructor(response: ApiResult<unknown>, message: string) {
     super(message);
@@ -20,6 +26,7 @@ export class ApiError extends Error {
     this.status = response.status;
     this.statusText = response.statusText;
     this.body = response.body;
+    this.type = getErrorType(response.body);
   }
 }
 
@@ -115,6 +122,35 @@ const errors: Readonly<Record<number, string>> = {
   502: "Bad Gateway",
   503: "Service Unavailable",
 };
+
+const errorTypes = new Set<ErrorType>([
+  "invalid_request",
+  "authentication_required",
+  "permission_denied",
+  "google_auth_failed",
+  "session_creation_failed",
+  "internal_error",
+]);
+
+function getErrorType(body: unknown): ErrorType | undefined {
+  if (!isErrorBody(body)) {
+    return undefined;
+  }
+
+  return body.type;
+}
+
+function isErrorBody(body: unknown): body is ErrorBody {
+  if (!body || typeof body !== "object" || !("type" in body)) {
+    return false;
+  }
+
+  return isErrorType(body.type);
+}
+
+function isErrorType(type: unknown): type is ErrorType {
+  return typeof type === "string" && errorTypes.has(type as ErrorType);
+}
 
 function catchError(result: ApiResult<unknown>): void {
   const error = errors[result.status];

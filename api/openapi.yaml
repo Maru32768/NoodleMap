@@ -110,6 +110,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorBody'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
         '500':
           description: Server error
           content:
@@ -142,6 +148,12 @@ paths:
                 $ref: '#/components/schemas/ErrorBody'
         '401':
           description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '403':
+          description: Access is forbidden.
           content:
             application/json:
               schema:
@@ -258,10 +270,21 @@ components:
     ErrorBody:
       type: object
       required:
-        - error
+        - type
       properties:
-        error:
+        type:
+          $ref: '#/components/schemas/ErrorType'
+        message:
           type: string
+    ErrorType:
+      type: string
+      enum:
+        - invalid_request
+        - authentication_required
+        - permission_denied
+        - google_auth_failed
+        - session_creation_failed
+        - internal_error
     GoogleAuthRequest:
       type: object
       required:

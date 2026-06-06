@@ -15,7 +15,9 @@ export function useCategories(config?: SWRConfiguration<Category[]>) {
           return res.body.categories;
         })
         .catch((err: ApiError) => {
-          toastApiError(err);
+          toastApiError(err, {
+            fallbackTitle: "カテゴリ一覧を読み込めませんでした",
+          });
           throw err;
         });
     },

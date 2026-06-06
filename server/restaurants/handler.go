@@ -2,16 +2,20 @@ package restaurants
 
 import (
 	"errors"
-	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"net/http"
 	"server/auth"
+	"server/httperrors"
 	"server/infra/db"
+
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type Handler struct {
 	store *db.Store
 }
+
+var errPermissionDenied = errors.New("permission denied")
 
 func NewHandler(store *db.Store) *Handler {
 	return &Handler{
@@ -22,7 +26,8 @@ func NewHandler(store *db.Store) *Handler {
 func (h *Handler) GetRestaurants(ctx *gin.Context) {
 	rs, err := h.findRegisteredRestaurants(ctx)
 	if err != nil {
-		ctx.AbortWithError(http.StatusInternalServerError, err)
+		ctx.Error(err)
+		httperrors.InternalServerError(ctx)
 		return
 	}
 
@@ -34,13 +39,18 @@ func (h *Handler) GetRestaurants(ctx *gin.Context) {
 func (h *Handler) AddRestaurant(ctx *gin.Context) {
 	var command AddRestaurantCommand
 	if err := ctx.BindJSON(&command); err != nil {
-		ctx.AbortWithError(http.StatusBadRequest, err)
+		httperrors.BadRequest(ctx, "invalid request")
 		return
 	}
 
 	r, err := h.addRestaurant(ctx, command)
 	if err != nil {
-		ctx.AbortWithError(http.StatusInternalServerError, err)
+		if errors.Is(err, errPermissionDenied) {
+			httperrors.Abort(ctx, http.StatusForbidden, httperrors.PermissionDenied, "permission denied")
+			return
+		}
+		ctx.Error(err)
+		httperrors.InternalServerError(ctx)
 		return
 	}
 
@@ -50,18 +60,23 @@ func (h *Handler) AddRestaurant(ctx *gin.Context) {
 func (h *Handler) UpdateRestaurant(ctx *gin.Context) {
 	id, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
-		ctx.AbortWithError(http.StatusBadRequest, err)
+		httperrors.BadRequest(ctx, "invalid id")
 		return
 	}
 
 	var command UpdateRestaurantCommand
 	if err := ctx.BindJSON(&command); err != nil {
-		ctx.AbortWithError(http.StatusBadRequest, err)
+		httperrors.BadRequest(ctx, "invalid request")
 		return
 	}
 
 	if err := h.updateRestaurant(ctx, id, command); err != nil {
-		ctx.AbortWithError(http.StatusInternalServerError, err)
+		if errors.Is(err, errPermissionDenied) {
+			httperrors.Abort(ctx, http.StatusForbidden, httperrors.PermissionDenied, "permission denied")
+			return
+		}
+		ctx.Error(err)
+		httperrors.InternalServerError(ctx)
 		return
 	}
 
@@ -121,7 +136,7 @@ func (h *Handler) addRestaurant(ctx *gin.Context, command AddRestaurantCommand) 
 	}
 
 	if !user.IsAdmin {
-		return nil, errors.New("permission denied")
+		return nil, errPermissionDenied
 	}
 
 	params := db.InsertRestaurantParams{
@@ -174,7 +189,7 @@ func (h *Handler) updateRestaurant(ctx *gin.Context, id uuid.UUID, command Updat
 	}
 
 	if !user.IsAdmin {
-		return errors.New("permission denied")
+		return errPermissionDenied
 	}
 
 	params := db.UpdateRestaurantParams{

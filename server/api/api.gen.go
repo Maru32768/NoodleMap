@@ -14,6 +14,16 @@ import (
 	strictgin "github.com/oapi-codegen/runtime/strictmiddleware/gin"
 )
 
+// Defines values for ErrorType.
+const (
+	AuthenticationRequired ErrorType = "authentication_required"
+	GoogleAuthFailed       ErrorType = "google_auth_failed"
+	InternalError          ErrorType = "internal_error"
+	InvalidRequest         ErrorType = "invalid_request"
+	PermissionDenied       ErrorType = "permission_denied"
+	SessionCreationFailed  ErrorType = "session_creation_failed"
+)
+
 // AddRestaurantRequest defines model for AddRestaurantRequest.
 type AddRestaurantRequest struct {
 	Address       string  `json:"address"`
@@ -47,8 +57,12 @@ type Category struct {
 
 // ErrorBody defines model for ErrorBody.
 type ErrorBody struct {
-	Error string `json:"error"`
+	Message *string   `json:"message,omitempty"`
+	Type    ErrorType `json:"type"`
 }
+
+// ErrorType defines model for ErrorType.
+type ErrorType string
 
 // GoogleAuthRequest defines model for GoogleAuthRequest.
 type GoogleAuthRequest struct {
@@ -440,6 +454,15 @@ func (response AddRestaurant401JSONResponse) VisitAddRestaurantResponse(w http.R
 	return json.NewEncoder(w).Encode(response)
 }
 
+type AddRestaurant403JSONResponse ErrorBody
+
+func (response AddRestaurant403JSONResponse) VisitAddRestaurantResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type AddRestaurant500JSONResponse ErrorBody
 
 func (response AddRestaurant500JSONResponse) VisitAddRestaurantResponse(w http.ResponseWriter) error {
@@ -480,6 +503,15 @@ type UpdateRestaurant401JSONResponse ErrorBody
 func (response UpdateRestaurant401JSONResponse) VisitUpdateRestaurantResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateRestaurant403JSONResponse ErrorBody
+
+func (response UpdateRestaurant403JSONResponse) VisitUpdateRestaurantResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
 
 	return json.NewEncoder(w).Encode(response)
 }

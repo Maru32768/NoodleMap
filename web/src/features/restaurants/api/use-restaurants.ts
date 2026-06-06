@@ -20,7 +20,9 @@ export function useRestaurants(config?: SWRConfiguration<Restaurant[]>) {
           return res.body.restaurants;
         })
         .catch((err: ApiError) => {
-          toastApiError(err);
+          toastApiError(err, {
+            fallbackTitle: "店舗一覧を読み込めませんでした",
+          });
           throw err;
         });
     },
@@ -50,7 +52,9 @@ export function useRestaurants(config?: SWRConfiguration<Restaurant[]>) {
           return res.body;
         })
         .catch((err: ApiError) => {
-          toastApiError(err);
+          toastApiError(err, {
+            fallbackTitle: "店舗を追加できませんでした",
+          });
           throw err;
         });
     },
@@ -84,7 +88,9 @@ export function useRestaurants(config?: SWRConfiguration<Restaurant[]>) {
           return res.body;
         })
         .catch((err: ApiError) => {
-          toastApiError(err);
+          toastApiError(err, {
+            fallbackTitle: "店舗を更新できませんでした",
+          });
           throw err;
         });
     },

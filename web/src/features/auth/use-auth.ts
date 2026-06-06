@@ -46,7 +46,9 @@ export function useAuth() {
           return mutate(res.body.user, false);
         })
         .catch((err: ApiError) => {
-          toastApiError(err);
+          toastApiError(err, {
+            fallbackTitle: "Googleログインに失敗しました",
+          });
           throw err;
         });
     },
@@ -59,7 +61,9 @@ export function useAuth() {
         return mutate(undefined, false);
       })
       .catch((err: ApiError) => {
-        toastApiError(err);
+        toastApiError(err, {
+          fallbackTitle: "ログアウトできませんでした",
+        });
         throw err;
       });
   }, [mutate]);

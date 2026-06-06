@@ -144,8 +144,11 @@ export interface components {
             icon: string;
         };
         ErrorBody: {
-            error: string;
+            type: components["schemas"]["ErrorType"];
+            message?: string;
         };
+        /** @enum {string} */
+        ErrorType: "invalid_request" | "authentication_required" | "permission_denied" | "google_auth_failed" | "session_creation_failed" | "internal_error";
         GoogleAuthRequest: {
             credential: string;
         };
@@ -374,6 +377,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
             /** @description Server error */
             500: {
                 headers: {
@@ -418,6 +430,15 @@ export interface operations {
             };
             /** @description Access is unauthorized. */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

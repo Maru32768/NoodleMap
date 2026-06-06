@@ -1,9 +1,11 @@
 package categories
 
 import (
-	"github.com/gin-gonic/gin"
 	"net/http"
+	"server/httperrors"
 	"server/infra/db"
+
+	"github.com/gin-gonic/gin"
 )
 
 type Handler struct {
@@ -19,7 +21,8 @@ func NewHandler(store *db.Store) *Handler {
 func (h *Handler) GetCategories(ctx *gin.Context) {
 	cs, err := h.store.FindAllCategories(ctx)
 	if err != nil {
-		ctx.AbortWithError(http.StatusInternalServerError, err)
+		ctx.Error(err)
+		httperrors.InternalServerError(ctx)
 		return
 	}
 

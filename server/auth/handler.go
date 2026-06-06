@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	"server/httperrors"
 	"server/infra/db"
 )
 
@@ -67,13 +68,13 @@ func (h *Handler) Middleware() gin.HandlerFunc {
 func (h *Handler) authenticateRequest(ctx *gin.Context) {
 	token, err := ctx.Cookie(cookieName)
 	if err != nil {
-		ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		httperrors.Abort(ctx, http.StatusUnauthorized, httperrors.AuthenticationRequired, "authentication required")
 		return
 	}
 
 	user, extended, err := h.authenticate(ctx, token)
 	if err != nil {
-		ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		httperrors.Abort(ctx, http.StatusUnauthorized, httperrors.AuthenticationRequired, "authentication required")
 		return
 	}
 	// Refresh the cookie only when the session was actually re-persisted, so the
@@ -99,7 +100,7 @@ func requiresAuthentication(path string) bool {
 func (h *Handler) Me(ctx *gin.Context) {
 	user, err := GetContextUser(ctx)
 	if err != nil {
-		ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "failed to get current user"})
+		httperrors.InternalServerError(ctx)
 		return
 	}
 
@@ -112,21 +113,21 @@ func (h *Handler) GoogleAuth(ctx *gin.Context) {
 	}
 	var req request
 	if err := ctx.BindJSON(&req); err != nil {
-		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		httperrors.BadRequest(ctx, "invalid request")
 		return
 	}
 
 	user, err := h.googleAuth(ctx, req.Credential)
 	if err != nil {
 		log.Printf("google auth error: %v", err)
-		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "failed to authenticate with Google"})
+		httperrors.Abort(ctx, http.StatusBadRequest, httperrors.GoogleAuthFailed, "failed to authenticate with Google")
 		return
 	}
 
 	token, err := newSessionToken()
 	if err != nil {
 		log.Printf("new session token error: %v", err)
-		ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "failed to create session"})
+		httperrors.Abort(ctx, http.StatusInternalServerError, httperrors.SessionCreationFailed, "failed to create session")
 		return
 	}
 	if err := h.store.InsertSession(ctx, db.InsertSessionParams{
@@ -137,7 +138,7 @@ func (h *Handler) GoogleAuth(ctx *gin.Context) {
 		ExpiresAt: time.Now().UTC().Add(sessionTTL),
 	}); err != nil {
 		log.Printf("insert session error: %v", err)
-		ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "failed to create session"})
+		httperrors.Abort(ctx, http.StatusInternalServerError, httperrors.SessionCreationFailed, "failed to create session")
 		return
 	}
 	h.setSessionCookie(ctx, token, int(sessionTTL.Seconds()))

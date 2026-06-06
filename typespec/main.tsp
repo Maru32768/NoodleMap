@@ -10,8 +10,18 @@ namespace NoodleMap;
 @doc("UUID serialized as a string.")
 scalar uuid extends string;
 
+union ErrorType {
+  "invalid_request",
+  "authentication_required",
+  "permission_denied",
+  "google_auth_failed",
+  "session_creation_failed",
+  "internal_error",
+}
+
 model ErrorBody {
-  error: string;
+  type: ErrorType;
+  message?: string;
 }
 
 model BadRequestResponse {
@@ -21,6 +31,11 @@ model BadRequestResponse {
 
 model UnauthorizedResponse {
   @statusCode statusCode: 401;
+  @body body: ErrorBody;
+}
+
+model ForbiddenResponse {
+  @statusCode statusCode: 403;
   @body body: ErrorBody;
 }
 
@@ -129,11 +144,11 @@ op logout(): OkEmptyResponse | BadRequestResponse | UnauthorizedResponse | Inter
 @route("/auth/restaurants")
 op addRestaurant(
   @body body: AddRestaurantRequest,
-): OkResponse<Restaurant> | BadRequestResponse | UnauthorizedResponse | InternalServerErrorResponse;
+): OkResponse<Restaurant> | BadRequestResponse | UnauthorizedResponse | ForbiddenResponse | InternalServerErrorResponse;
 
 @put
 @route("/auth/restaurants/{id}")
 op updateRestaurant(
   @path id: uuid,
   @body body: UpdateRestaurantRequest,
-): OkEmptyResponse | BadRequestResponse | UnauthorizedResponse | InternalServerErrorResponse;
+): OkEmptyResponse | BadRequestResponse | UnauthorizedResponse | ForbiddenResponse | InternalServerErrorResponse;
