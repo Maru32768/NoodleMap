@@ -16,6 +16,7 @@ import {
 } from "@/features/restaurants/restaurant-edit-modal.tsx";
 import type { CategoryType } from "@/features/search/utils.ts";
 import { getCategoryType } from "@/features/search/utils.ts";
+import { toastApiError } from "@/utils/toast.ts";
 import { Box, Input, Span } from "@chakra-ui/react";
 import { useCallback, useDeferredValue, useState } from "react";
 import { CiLocationOn, CiSearch } from "react-icons/ci";
@@ -208,13 +209,27 @@ export default function AdminPage() {
       favorite: draft.favorite,
       rate: draft.rate,
     };
-    await updateRestaurant(draft.id, cmd);
+    const result = await updateRestaurant(draft.id, cmd);
+    if (!result.ok) {
+      toastApiError(result.error, {
+        fallbackTitle: "店舗を更新できませんでした",
+      });
+      return;
+    }
+
     setEditId(null);
     toaster.success({ description: "保存しました" });
   };
 
   const handleAdd = async (draft: AddDraft) => {
-    await addRestaurant(draft);
+    const result = await addRestaurant(draft);
+    if (!result.ok) {
+      toastApiError(result.error, {
+        fallbackTitle: "店舗を追加できませんでした",
+      });
+      return;
+    }
+
     setShowAdd(false);
     setDraftLatLng(null);
     toaster.success({ description: "店舗を追加しました" });

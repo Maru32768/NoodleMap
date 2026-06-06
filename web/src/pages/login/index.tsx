@@ -1,5 +1,6 @@
 import { useAuth } from "@/features/auth/use-auth.ts";
 import { SEARCH_PATH } from "@/utils/path.ts";
+import { toastApiError } from "@/utils/toast.ts";
 import { Box, Flex, VStack } from "@chakra-ui/react";
 import { useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router";
@@ -119,13 +120,16 @@ export default function LoginPage() {
               return;
             }
 
-            void loginWithGoogle(response.credential)
-              .then(() => {
+            loginWithGoogle(response.credential).then((result) => {
+              if (result.ok) {
                 navigate(redirectTo, { replace: true });
-              })
-              .catch(() => {
-                // Error already surfaced via toastApiError inside loginWithGoogle.
+                return;
+              }
+
+              toastApiError(result.error, {
+                fallbackTitle: "Googleログインに失敗しました",
               });
+            });
           },
         });
         window.google.accounts.id.renderButton(buttonRef.current, {

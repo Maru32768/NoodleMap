@@ -135,4 +135,4 @@ Secrets such as `GOOGLE_OAUTH_CLIENT_ID`, `ADMIN_EMAIL`, `AWS_ACCESS_KEY_ID`, `A
 
 - Japanese UI text is UTF-8. If text looks garbled, reopen the file as UTF-8 before editing.
 - Before finishing frontend text changes, run `npm run check:mojibake` from `web/`.
-- After editing `CLAUDE.md`, run `npm run sync-agents` from `web/` to update `AGENTS.md`.
+- After editing any `CLAUDE.md`, run `npm run sync-agents` from the repository root to update the matching `AGENTS.md` files.

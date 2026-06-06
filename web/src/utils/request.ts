@@ -1,119 +1,193 @@
-import type { components } from "@/generated/api.ts";
+import type { components, paths } from "@/generated/api.ts";
+import type { Result } from "@/utils/result.ts";
+import { err, ok } from "@/utils/result.ts";
+import createClient from "openapi-fetch";
 
-type ErrorBody = components["schemas"]["ErrorBody"];
+type Schema = components["schemas"];
+
+export type ApiErrorBody = Schema[Extract<keyof Schema, `${string}ErrorBody`>];
+
 type ErrorType = components["schemas"]["ErrorType"];
 
-export interface ApiResult<T> {
+type HttpMethod =
+  | "get"
+  | "put"
+  | "post"
+  | "delete"
+  | "options"
+  | "head"
+  | "patch";
+
+type OperationFor<
+  TPath extends keyof paths,
+  TMethod extends keyof paths[TPath] & HttpMethod,
+> = NonNullable<paths[TPath][TMethod]>;
+
+type ErrorResponseStatus<TStatus extends string | number> =
+  `${TStatus}` extends `2${string}` ? never : TStatus;
+
+type JsonResponseBody<TResponse> = TResponse extends {
+  content: {
+    "application/json": infer TBody;
+  };
+}
+  ? TBody
+  : never;
+
+export type ApiErrorBodyFor<
+  TPath extends keyof paths,
+  TMethod extends keyof paths[TPath] & HttpMethod,
+> = JsonResponseBody<
+  OperationFor<TPath, TMethod> extends {
+    responses: infer TResponses;
+  }
+    ? TResponses[ErrorResponseStatus<
+        Extract<keyof TResponses, string | number>
+      >]
+    : never
+> &
+  ApiErrorBody;
+
+export type ApiMutationResult<TData, TBody extends ApiErrorBody> = Result<
+  TData,
+  ApiError<TBody | undefined>
+>;
+
+type ApiErrorType<TBody> = TBody extends { type: infer TType }
+  ? TType extends ErrorType
+    ? TType
+    : undefined
+  : undefined;
+
+export const apiClient = createClient<paths>({
+  credentials: "include",
+});
+
+interface ApiErrorSource {
   readonly url: RequestInfo | URL;
   readonly ok: boolean;
   readonly status: number;
   readonly statusText: string;
   readonly headers: Headers;
-  readonly body: T;
+  readonly body: ApiErrorBody | undefined;
 }
 
-export class ApiError extends Error {
+export class ApiError<
+  TBody extends ApiErrorBody | undefined = ApiErrorBody | undefined,
+> extends Error {
   public readonly url: RequestInfo | URL;
   public readonly status: number;
   public readonly statusText: string;
-  public readonly body: unknown;
-  public readonly type: ErrorType | undefined;
+  public readonly body: TBody;
+  public readonly type: ApiErrorType<TBody>;
 
-  constructor(response: ApiResult<unknown>, message: string) {
+  constructor(response: ApiErrorSource & { body: TBody }, message: string) {
     super(message);
 
     this.url = response.url;
     this.status = response.status;
     this.statusText = response.statusText;
     this.body = response.body;
-    this.type = getErrorType(response.body);
+    this.type = getErrorType(response.body) as ApiErrorType<TBody>;
   }
 }
 
-export async function get<T>(
+export function toApiError<TBody extends ApiErrorBody>(
   input: RequestInfo | URL,
-  init?: Omit<RequestInit, "method">,
-) {
-  return request<T>(input, {
-    ...init,
-    method: "GET",
-  });
-}
-
-export async function post<T>(
-  input: RequestInfo | URL,
-  init?: Omit<RequestInit, "method">,
-) {
-  return request<T>(input, {
-    ...init,
-    method: "POST",
-  });
-}
-
-export async function put<T>(
-  input: RequestInfo | URL,
-  init?: Omit<RequestInit, "method">,
-) {
-  return request<T>(input, {
-    ...init,
-    method: "PUT",
-  });
-}
-
-export async function request<T>(
-  input: RequestInfo | URL,
-  init?: RequestInit,
-): Promise<ApiResult<T>> {
-  const res = await fetch(input, {
-    ...init,
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...init?.headers,
+  response: Response,
+  body: TBody,
+): ApiError<TBody> {
+  const message = errors[response.status] ?? "Unknown Error";
+  return new ApiError<TBody>(
+    {
+      url: input,
+      ok: response.ok,
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+      body,
     },
-  });
-  const body = await getResponseBody(res);
-  catchError({
-    url: input,
-    ok: res.ok,
-    status: res.status,
-    statusText: res.statusText,
-    headers: res.headers,
-    body,
-  });
-
-  return {
-    url: input,
-    ok: res.ok,
-    status: res.status,
-    statusText: res.statusText,
-    headers: res.headers,
-    body: body as T,
-  };
+    message,
+  );
 }
 
-async function getResponseBody(response: Response): Promise<unknown> {
-  const contentType = response.headers.get("Content-Type")?.toLowerCase();
-  if (!contentType) {
-    return undefined;
-  }
+export function toNetworkApiError(
+  input: RequestInfo | URL,
+  cause: unknown,
+): ApiError<undefined> {
+  const message = cause instanceof Error ? cause.message : "Network Error";
+  return new ApiError<undefined>(
+    {
+      url: input,
+      ok: false,
+      status: 0,
+      statusText: "Network Error",
+      headers: new Headers(),
+      body: undefined,
+    },
+    message,
+  );
+}
 
-  const isJson = contentType.startsWith("application/json");
-  if (isJson) {
-    return await response.json();
-  }
+export function isApiError(err: unknown): err is ApiError {
+  return err instanceof ApiError;
+}
 
-  const isBlob =
-    contentType.startsWith("image/") ||
-    contentType.startsWith("application/zip");
-  if (isBlob) {
-    return await response.blob();
-  }
+export function throwApiError<TBody extends ApiErrorBody>(
+  input: RequestInfo | URL,
+  response: Response,
+  body: TBody,
+): never {
+  throw toApiError(input, response, body);
+}
 
-  return await response.text();
+export function apiOk<TData>(data: TData): Result<TData, never> {
+  return ok(data);
+}
+
+export function apiError<TBody extends ApiErrorBody>(
+  input: RequestInfo | URL,
+  response: Response,
+  body: TBody,
+): Result<never, ApiError<TBody>> {
+  return err(toApiError(input, response, body));
+}
+
+export async function withApiResult<TData, TBody extends ApiErrorBody>(
+  input: RequestInfo | URL,
+  task: () => Promise<ApiMutationResult<TData, TBody>>,
+): Promise<ApiMutationResult<TData, TBody>> {
+  try {
+    return await task();
+  } catch (err) {
+    return apiErrorFromUnknown(input, err);
+  }
+}
+
+function apiErrorFromUnknown(
+  input: RequestInfo | URL,
+  cause: unknown,
+): Result<never, ApiError<undefined>> {
+  return err(toNetworkApiError(input, cause));
+}
+
+export async function withApiError<T>(
+  input: RequestInfo | URL,
+  task: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await task();
+  } catch (err) {
+    if (isApiError(err)) {
+      throw err;
+    }
+
+    throw toNetworkApiError(input, err);
+  }
 }
 
 const errors: Readonly<Record<number, string>> = {
+  0: "Network Error",
   400: "Bad Request",
   401: "Unauthorized",
   403: "Forbidden",
@@ -132,7 +206,7 @@ const errorTypes = new Set<ErrorType>([
   "internal_error",
 ]);
 
-function getErrorType(body: unknown): ErrorType | undefined {
+function getErrorType(body: ApiErrorBody | undefined): ErrorType | undefined {
   if (!isErrorBody(body)) {
     return undefined;
   }
@@ -140,7 +214,7 @@ function getErrorType(body: unknown): ErrorType | undefined {
   return body.type;
 }
 
-function isErrorBody(body: unknown): body is ErrorBody {
+function isErrorBody(body: unknown): body is ApiErrorBody {
   if (!body || typeof body !== "object" || !("type" in body)) {
     return false;
   }
@@ -150,15 +224,4 @@ function isErrorBody(body: unknown): body is ErrorBody {
 
 function isErrorType(type: unknown): type is ErrorType {
   return typeof type === "string" && errorTypes.has(type as ErrorType);
-}
-
-function catchError(result: ApiResult<unknown>): void {
-  const error = errors[result.status];
-  if (error) {
-    throw new ApiError(result, error);
-  }
-
-  if (!result.ok) {
-    throw new ApiError(result, "Unknown Error");
-  }
 }

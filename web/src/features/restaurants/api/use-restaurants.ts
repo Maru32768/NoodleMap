@@ -1,5 +1,14 @@
 import type { components } from "@/generated/api.ts";
-import { ApiError, get, post, put } from "@/utils/request.ts";
+import {
+  ApiError,
+  ApiErrorBodyFor,
+  apiClient,
+  apiError,
+  apiOk,
+  throwApiError,
+  withApiError,
+  withApiResult,
+} from "@/utils/request.ts";
 import { toastApiError } from "@/utils/toast.ts";
 import { useCallback } from "react";
 import useSWR, { SWRConfiguration } from "swr";
@@ -9,22 +18,32 @@ export type AddRestaurantCommand =
   components["schemas"]["AddRestaurantRequest"];
 export type UpdateRestaurantCommand =
   components["schemas"]["UpdateRestaurantRequest"];
-type RestaurantsResponse = components["schemas"]["RestaurantsResponse"];
+type AddRestaurantErrorBody = ApiErrorBodyFor<
+  "/api/v1/auth/restaurants",
+  "post"
+>;
+type UpdateRestaurantErrorBody = ApiErrorBodyFor<
+  "/api/v1/auth/restaurants/{id}",
+  "put"
+>;
 
 export function useRestaurants(config?: SWRConfiguration<Restaurant[]>) {
   const resp = useSWR(
     ["/api/v1/restaurants"],
     () => {
-      return get<RestaurantsResponse>("/api/v1/restaurants")
-        .then((res) => {
-          return res.body.restaurants;
-        })
-        .catch((err: ApiError) => {
-          toastApiError(err, {
-            fallbackTitle: "店舗一覧を読み込めませんでした",
-          });
-          throw err;
+      return withApiError("/api/v1/restaurants", async () => {
+        const res = await apiClient.GET("/api/v1/restaurants");
+        if (res.error) {
+          throwApiError("/api/v1/restaurants", res.response, res.error);
+        }
+
+        return res.data.restaurants;
+      }).catch((err: ApiError) => {
+        toastApiError(err, {
+          fallbackTitle: "店舗一覧を読み込めませんでした",
         });
+        throw err;
+      });
     },
     {
       revalidateIfStale: false,
@@ -37,36 +56,54 @@ export function useRestaurants(config?: SWRConfiguration<Restaurant[]>) {
 
   const addRestaurant = useCallback(
     (command: AddRestaurantCommand) => {
-      return post<Restaurant>("/api/v1/auth/restaurants", {
-        body: JSON.stringify(command),
-      })
-        .then((res) => {
+      return withApiResult<Restaurant, AddRestaurantErrorBody>(
+        "/api/v1/auth/restaurants",
+        async () => {
+          const res = await apiClient.POST("/api/v1/auth/restaurants", {
+            body: command,
+          });
+          if (res.error) {
+            return apiError(
+              "/api/v1/auth/restaurants",
+              res.response,
+              res.error,
+            );
+          }
+
           mutate((current) => {
             if (!current) {
               return current;
             }
 
-            return [...current, res.body];
+            return [...current, res.data];
           }, false);
 
-          return res.body;
-        })
-        .catch((err: ApiError) => {
-          toastApiError(err, {
-            fallbackTitle: "店舗を追加できませんでした",
-          });
-          throw err;
-        });
+          return apiOk(res.data);
+        },
+      );
     },
     [mutate],
   );
 
   const updateRestaurant = useCallback(
     (id: string, command: UpdateRestaurantCommand) => {
-      return put<Restaurant>(`/api/v1/auth/restaurants/${id}`, {
-        body: JSON.stringify(command),
-      })
-        .then((res) => {
+      return withApiResult<void, UpdateRestaurantErrorBody>(
+        "/api/v1/auth/restaurants/{id}",
+        async () => {
+          const res = await apiClient.PUT("/api/v1/auth/restaurants/{id}", {
+            params: {
+              path: { id },
+            },
+            body: command,
+          });
+          if (res.error) {
+            return apiError(
+              "/api/v1/auth/restaurants/{id}",
+              res.response,
+              res.error,
+            );
+          }
+
           mutate((current) => {
             if (!current) {
               return current;
@@ -85,14 +122,9 @@ export function useRestaurants(config?: SWRConfiguration<Restaurant[]>) {
             return copy;
           }, false);
 
-          return res.body;
-        })
-        .catch((err: ApiError) => {
-          toastApiError(err, {
-            fallbackTitle: "店舗を更新できませんでした",
-          });
-          throw err;
-        });
+          return apiOk(undefined);
+        },
+      );
     },
     [mutate],
   );

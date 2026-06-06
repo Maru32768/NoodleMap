@@ -19,29 +19,131 @@ union ErrorType {
   "internal_error",
 }
 
-model ErrorBody {
-  type: ErrorType;
+union FieldErrorType {
+  "required",
+  "invalid_format",
+  "out_of_range",
+  "too_long",
+  "unknown",
+}
+
+union GoogleAuthField {
+  "credential",
+}
+
+union AddRestaurantField {
+  "name",
+  "lat",
+  "lng",
+  "postalCode",
+  "address",
+  "closed",
+  "googlePlaceId",
+  "categories",
+}
+
+union UpdateRestaurantField {
+  "name",
+  "lat",
+  "lng",
+  "postalCode",
+  "address",
+  "closed",
+  "googlePlaceId",
+  "visited",
+  "rate",
+  "favorite",
+}
+
+model GoogleAuthFieldError {
+  field: GoogleAuthField;
+  type: FieldErrorType;
   message?: string;
 }
 
-model BadRequestResponse {
+model AddRestaurantFieldError {
+  field: AddRestaurantField;
+  type: FieldErrorType;
+  message?: string;
+}
+
+model UpdateRestaurantFieldError {
+  field: UpdateRestaurantField;
+  type: FieldErrorType;
+  message?: string;
+}
+
+model InvalidRequestErrorBody {
+  type: "invalid_request";
+  message?: string;
+}
+
+model GoogleAuthBadRequestErrorBody {
+  type: "invalid_request" | "google_auth_failed";
+  message?: string;
+  fieldErrors?: GoogleAuthFieldError[];
+}
+
+model AddRestaurantBadRequestErrorBody {
+  type: "invalid_request";
+  message?: string;
+  fieldErrors?: AddRestaurantFieldError[];
+}
+
+model UpdateRestaurantBadRequestErrorBody {
+  type: "invalid_request";
+  message?: string;
+  fieldErrors?: UpdateRestaurantFieldError[];
+}
+
+model AuthenticationRequiredErrorBody {
+  type: "authentication_required";
+  message?: string;
+}
+
+model PermissionDeniedErrorBody {
+  type: "permission_denied";
+  message?: string;
+}
+
+model SessionCreationFailedErrorBody {
+  type: "session_creation_failed";
+  message?: string;
+}
+
+model InternalErrorBody {
+  type: "internal_error";
+  message?: string;
+}
+
+alias ErrorBody =
+  InvalidRequestErrorBody |
+  GoogleAuthBadRequestErrorBody |
+  AddRestaurantBadRequestErrorBody |
+  UpdateRestaurantBadRequestErrorBody |
+  AuthenticationRequiredErrorBody |
+  PermissionDeniedErrorBody |
+  SessionCreationFailedErrorBody |
+  InternalErrorBody;
+
+model BadRequestResponse<TError> {
   @statusCode statusCode: 400;
-  @body body: ErrorBody;
+  @body body: TError;
 }
 
-model UnauthorizedResponse {
+model UnauthorizedResponse<TError> {
   @statusCode statusCode: 401;
-  @body body: ErrorBody;
+  @body body: TError;
 }
 
-model ForbiddenResponse {
+model ForbiddenResponse<TError> {
   @statusCode statusCode: 403;
-  @body body: ErrorBody;
+  @body body: TError;
 }
 
-model InternalServerErrorResponse {
+model InternalServerErrorResponse<TError> {
   @statusCode statusCode: 500;
-  @body body: ErrorBody;
+  @body body: TError;
 }
 
 model OkResponse<T> {
@@ -122,33 +224,33 @@ model UpdateRestaurantRequest {
 
 @get
 @route("/restaurants")
-op listRestaurants(): OkResponse<RestaurantsResponse> | InternalServerErrorResponse;
+op listRestaurants(): OkResponse<RestaurantsResponse> | InternalServerErrorResponse<InternalErrorBody>;
 
 @get
 @route("/categories")
-op listCategories(): OkResponse<CategoriesResponse> | InternalServerErrorResponse;
+op listCategories(): OkResponse<CategoriesResponse> | InternalServerErrorResponse<InternalErrorBody>;
 
 @post
 @route("/auth/google")
-op googleAuth(@body body: GoogleAuthRequest): OkResponse<AuthResponse> | BadRequestResponse | InternalServerErrorResponse;
+op googleAuth(@body body: GoogleAuthRequest): OkResponse<AuthResponse> | BadRequestResponse<GoogleAuthBadRequestErrorBody> | InternalServerErrorResponse<SessionCreationFailedErrorBody>;
 
 @get
 @route("/auth/me")
-op me(): OkResponse<User> | BadRequestResponse | UnauthorizedResponse | InternalServerErrorResponse;
+op me(): OkResponse<User> | BadRequestResponse<InvalidRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
 
 @post
 @route("/auth/logout")
-op logout(): OkEmptyResponse | BadRequestResponse | UnauthorizedResponse | InternalServerErrorResponse;
+op logout(): OkEmptyResponse | BadRequestResponse<InvalidRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
 
 @post
 @route("/auth/restaurants")
 op addRestaurant(
   @body body: AddRestaurantRequest,
-): OkResponse<Restaurant> | BadRequestResponse | UnauthorizedResponse | ForbiddenResponse | InternalServerErrorResponse;
+): OkResponse<Restaurant> | BadRequestResponse<AddRestaurantBadRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
 
 @put
 @route("/auth/restaurants/{id}")
 op updateRestaurant(
   @path id: uuid,
   @body body: UpdateRestaurantRequest,
-): OkEmptyResponse | BadRequestResponse | UnauthorizedResponse | ForbiddenResponse | InternalServerErrorResponse;
+): OkEmptyResponse | BadRequestResponse<UpdateRestaurantBadRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | InternalServerErrorResponse<InternalErrorBody>;

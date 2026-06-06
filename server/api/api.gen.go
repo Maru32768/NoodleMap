@@ -14,15 +14,106 @@ import (
 	strictgin "github.com/oapi-codegen/runtime/strictmiddleware/gin"
 )
 
-// Defines values for ErrorType.
+// Defines values for AddRestaurantBadRequestErrorBodyType.
 const (
-	AuthenticationRequired ErrorType = "authentication_required"
-	GoogleAuthFailed       ErrorType = "google_auth_failed"
-	InternalError          ErrorType = "internal_error"
-	InvalidRequest         ErrorType = "invalid_request"
-	PermissionDenied       ErrorType = "permission_denied"
-	SessionCreationFailed  ErrorType = "session_creation_failed"
+	AddRestaurantBadRequestErrorBodyTypeInvalidRequest AddRestaurantBadRequestErrorBodyType = "invalid_request"
 )
+
+// Defines values for AddRestaurantField.
+const (
+	AddRestaurantFieldAddress       AddRestaurantField = "address"
+	AddRestaurantFieldCategories    AddRestaurantField = "categories"
+	AddRestaurantFieldClosed        AddRestaurantField = "closed"
+	AddRestaurantFieldGooglePlaceId AddRestaurantField = "googlePlaceId"
+	AddRestaurantFieldLat           AddRestaurantField = "lat"
+	AddRestaurantFieldLng           AddRestaurantField = "lng"
+	AddRestaurantFieldName          AddRestaurantField = "name"
+	AddRestaurantFieldPostalCode    AddRestaurantField = "postalCode"
+)
+
+// Defines values for AuthenticationRequiredErrorBodyType.
+const (
+	AuthenticationRequired AuthenticationRequiredErrorBodyType = "authentication_required"
+)
+
+// Defines values for FieldErrorType.
+const (
+	InvalidFormat FieldErrorType = "invalid_format"
+	OutOfRange    FieldErrorType = "out_of_range"
+	Required      FieldErrorType = "required"
+	TooLong       FieldErrorType = "too_long"
+	Unknown       FieldErrorType = "unknown"
+)
+
+// Defines values for GoogleAuthBadRequestErrorBodyType.
+const (
+	GoogleAuthBadRequestErrorBodyTypeGoogleAuthFailed GoogleAuthBadRequestErrorBodyType = "google_auth_failed"
+	GoogleAuthBadRequestErrorBodyTypeInvalidRequest   GoogleAuthBadRequestErrorBodyType = "invalid_request"
+)
+
+// Defines values for GoogleAuthField.
+const (
+	Credential GoogleAuthField = "credential"
+)
+
+// Defines values for InternalErrorBodyType.
+const (
+	InternalError InternalErrorBodyType = "internal_error"
+)
+
+// Defines values for InvalidRequestErrorBodyType.
+const (
+	InvalidRequestErrorBodyTypeInvalidRequest InvalidRequestErrorBodyType = "invalid_request"
+)
+
+// Defines values for PermissionDeniedErrorBodyType.
+const (
+	PermissionDenied PermissionDeniedErrorBodyType = "permission_denied"
+)
+
+// Defines values for SessionCreationFailedErrorBodyType.
+const (
+	SessionCreationFailed SessionCreationFailedErrorBodyType = "session_creation_failed"
+)
+
+// Defines values for UpdateRestaurantBadRequestErrorBodyType.
+const (
+	UpdateRestaurantBadRequestErrorBodyTypeInvalidRequest UpdateRestaurantBadRequestErrorBodyType = "invalid_request"
+)
+
+// Defines values for UpdateRestaurantField.
+const (
+	UpdateRestaurantFieldAddress       UpdateRestaurantField = "address"
+	UpdateRestaurantFieldClosed        UpdateRestaurantField = "closed"
+	UpdateRestaurantFieldFavorite      UpdateRestaurantField = "favorite"
+	UpdateRestaurantFieldGooglePlaceId UpdateRestaurantField = "googlePlaceId"
+	UpdateRestaurantFieldLat           UpdateRestaurantField = "lat"
+	UpdateRestaurantFieldLng           UpdateRestaurantField = "lng"
+	UpdateRestaurantFieldName          UpdateRestaurantField = "name"
+	UpdateRestaurantFieldPostalCode    UpdateRestaurantField = "postalCode"
+	UpdateRestaurantFieldRate          UpdateRestaurantField = "rate"
+	UpdateRestaurantFieldVisited       UpdateRestaurantField = "visited"
+)
+
+// AddRestaurantBadRequestErrorBody defines model for AddRestaurantBadRequestErrorBody.
+type AddRestaurantBadRequestErrorBody struct {
+	FieldErrors *[]AddRestaurantFieldError           `json:"fieldErrors,omitempty"`
+	Message     *string                              `json:"message,omitempty"`
+	Type        AddRestaurantBadRequestErrorBodyType `json:"type"`
+}
+
+// AddRestaurantBadRequestErrorBodyType defines model for AddRestaurantBadRequestErrorBody.Type.
+type AddRestaurantBadRequestErrorBodyType string
+
+// AddRestaurantField defines model for AddRestaurantField.
+type AddRestaurantField string
+
+// AddRestaurantFieldError defines model for AddRestaurantFieldError.
+type AddRestaurantFieldError struct {
+	Field   AddRestaurantField `json:"field"`
+	Message *string            `json:"message,omitempty"`
+	Type    FieldErrorType     `json:"type"`
+}
 
 // AddRestaurantRequest defines model for AddRestaurantRequest.
 type AddRestaurantRequest struct {
@@ -41,6 +132,15 @@ type AuthResponse struct {
 	User User `json:"user"`
 }
 
+// AuthenticationRequiredErrorBody defines model for AuthenticationRequiredErrorBody.
+type AuthenticationRequiredErrorBody struct {
+	Message *string                             `json:"message,omitempty"`
+	Type    AuthenticationRequiredErrorBodyType `json:"type"`
+}
+
+// AuthenticationRequiredErrorBodyType defines model for AuthenticationRequiredErrorBody.Type.
+type AuthenticationRequiredErrorBodyType string
+
 // CategoriesResponse defines model for CategoriesResponse.
 type CategoriesResponse struct {
 	Categories []Category `json:"categories"`
@@ -55,19 +155,60 @@ type Category struct {
 	Label string `json:"label"`
 }
 
-// ErrorBody defines model for ErrorBody.
-type ErrorBody struct {
-	Message *string   `json:"message,omitempty"`
-	Type    ErrorType `json:"type"`
+// FieldErrorType defines model for FieldErrorType.
+type FieldErrorType string
+
+// GoogleAuthBadRequestErrorBody defines model for GoogleAuthBadRequestErrorBody.
+type GoogleAuthBadRequestErrorBody struct {
+	FieldErrors *[]GoogleAuthFieldError           `json:"fieldErrors,omitempty"`
+	Message     *string                           `json:"message,omitempty"`
+	Type        GoogleAuthBadRequestErrorBodyType `json:"type"`
 }
 
-// ErrorType defines model for ErrorType.
-type ErrorType string
+// GoogleAuthBadRequestErrorBodyType defines model for GoogleAuthBadRequestErrorBody.Type.
+type GoogleAuthBadRequestErrorBodyType string
+
+// GoogleAuthField defines model for GoogleAuthField.
+type GoogleAuthField string
+
+// GoogleAuthFieldError defines model for GoogleAuthFieldError.
+type GoogleAuthFieldError struct {
+	Field   GoogleAuthField `json:"field"`
+	Message *string         `json:"message,omitempty"`
+	Type    FieldErrorType  `json:"type"`
+}
 
 // GoogleAuthRequest defines model for GoogleAuthRequest.
 type GoogleAuthRequest struct {
 	Credential string `json:"credential"`
 }
+
+// InternalErrorBody defines model for InternalErrorBody.
+type InternalErrorBody struct {
+	Message *string               `json:"message,omitempty"`
+	Type    InternalErrorBodyType `json:"type"`
+}
+
+// InternalErrorBodyType defines model for InternalErrorBody.Type.
+type InternalErrorBodyType string
+
+// InvalidRequestErrorBody defines model for InvalidRequestErrorBody.
+type InvalidRequestErrorBody struct {
+	Message *string                     `json:"message,omitempty"`
+	Type    InvalidRequestErrorBodyType `json:"type"`
+}
+
+// InvalidRequestErrorBodyType defines model for InvalidRequestErrorBody.Type.
+type InvalidRequestErrorBodyType string
+
+// PermissionDeniedErrorBody defines model for PermissionDeniedErrorBody.
+type PermissionDeniedErrorBody struct {
+	Message *string                       `json:"message,omitempty"`
+	Type    PermissionDeniedErrorBodyType `json:"type"`
+}
+
+// PermissionDeniedErrorBodyType defines model for PermissionDeniedErrorBody.Type.
+type PermissionDeniedErrorBodyType string
 
 // Restaurant defines model for Restaurant.
 type Restaurant struct {
@@ -90,6 +231,35 @@ type Restaurant struct {
 // RestaurantsResponse defines model for RestaurantsResponse.
 type RestaurantsResponse struct {
 	Restaurants []Restaurant `json:"restaurants"`
+}
+
+// SessionCreationFailedErrorBody defines model for SessionCreationFailedErrorBody.
+type SessionCreationFailedErrorBody struct {
+	Message *string                            `json:"message,omitempty"`
+	Type    SessionCreationFailedErrorBodyType `json:"type"`
+}
+
+// SessionCreationFailedErrorBodyType defines model for SessionCreationFailedErrorBody.Type.
+type SessionCreationFailedErrorBodyType string
+
+// UpdateRestaurantBadRequestErrorBody defines model for UpdateRestaurantBadRequestErrorBody.
+type UpdateRestaurantBadRequestErrorBody struct {
+	FieldErrors *[]UpdateRestaurantFieldError           `json:"fieldErrors,omitempty"`
+	Message     *string                                 `json:"message,omitempty"`
+	Type        UpdateRestaurantBadRequestErrorBodyType `json:"type"`
+}
+
+// UpdateRestaurantBadRequestErrorBodyType defines model for UpdateRestaurantBadRequestErrorBody.Type.
+type UpdateRestaurantBadRequestErrorBodyType string
+
+// UpdateRestaurantField defines model for UpdateRestaurantField.
+type UpdateRestaurantField string
+
+// UpdateRestaurantFieldError defines model for UpdateRestaurantFieldError.
+type UpdateRestaurantFieldError struct {
+	Field   UpdateRestaurantField `json:"field"`
+	Message *string               `json:"message,omitempty"`
+	Type    FieldErrorType        `json:"type"`
 }
 
 // UpdateRestaurantRequest defines model for UpdateRestaurantRequest.
@@ -316,7 +486,7 @@ func (response GoogleAuth200JSONResponse) VisitGoogleAuthResponse(w http.Respons
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GoogleAuth400JSONResponse ErrorBody
+type GoogleAuth400JSONResponse GoogleAuthBadRequestErrorBody
 
 func (response GoogleAuth400JSONResponse) VisitGoogleAuthResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -325,7 +495,7 @@ func (response GoogleAuth400JSONResponse) VisitGoogleAuthResponse(w http.Respons
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GoogleAuth500JSONResponse ErrorBody
+type GoogleAuth500JSONResponse SessionCreationFailedErrorBody
 
 func (response GoogleAuth500JSONResponse) VisitGoogleAuthResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -349,7 +519,7 @@ func (response Logout200Response) VisitLogoutResponse(w http.ResponseWriter) err
 	return nil
 }
 
-type Logout400JSONResponse ErrorBody
+type Logout400JSONResponse InvalidRequestErrorBody
 
 func (response Logout400JSONResponse) VisitLogoutResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -358,7 +528,7 @@ func (response Logout400JSONResponse) VisitLogoutResponse(w http.ResponseWriter)
 	return json.NewEncoder(w).Encode(response)
 }
 
-type Logout401JSONResponse ErrorBody
+type Logout401JSONResponse AuthenticationRequiredErrorBody
 
 func (response Logout401JSONResponse) VisitLogoutResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -367,7 +537,7 @@ func (response Logout401JSONResponse) VisitLogoutResponse(w http.ResponseWriter)
 	return json.NewEncoder(w).Encode(response)
 }
 
-type Logout500JSONResponse ErrorBody
+type Logout500JSONResponse InternalErrorBody
 
 func (response Logout500JSONResponse) VisitLogoutResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -392,7 +562,7 @@ func (response Me200JSONResponse) VisitMeResponse(w http.ResponseWriter) error {
 	return json.NewEncoder(w).Encode(response)
 }
 
-type Me400JSONResponse ErrorBody
+type Me400JSONResponse InvalidRequestErrorBody
 
 func (response Me400JSONResponse) VisitMeResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -401,7 +571,7 @@ func (response Me400JSONResponse) VisitMeResponse(w http.ResponseWriter) error {
 	return json.NewEncoder(w).Encode(response)
 }
 
-type Me401JSONResponse ErrorBody
+type Me401JSONResponse AuthenticationRequiredErrorBody
 
 func (response Me401JSONResponse) VisitMeResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -410,7 +580,7 @@ func (response Me401JSONResponse) VisitMeResponse(w http.ResponseWriter) error {
 	return json.NewEncoder(w).Encode(response)
 }
 
-type Me500JSONResponse ErrorBody
+type Me500JSONResponse InternalErrorBody
 
 func (response Me500JSONResponse) VisitMeResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -436,7 +606,7 @@ func (response AddRestaurant200JSONResponse) VisitAddRestaurantResponse(w http.R
 	return json.NewEncoder(w).Encode(response)
 }
 
-type AddRestaurant400JSONResponse ErrorBody
+type AddRestaurant400JSONResponse AddRestaurantBadRequestErrorBody
 
 func (response AddRestaurant400JSONResponse) VisitAddRestaurantResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -445,7 +615,7 @@ func (response AddRestaurant400JSONResponse) VisitAddRestaurantResponse(w http.R
 	return json.NewEncoder(w).Encode(response)
 }
 
-type AddRestaurant401JSONResponse ErrorBody
+type AddRestaurant401JSONResponse AuthenticationRequiredErrorBody
 
 func (response AddRestaurant401JSONResponse) VisitAddRestaurantResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -454,7 +624,7 @@ func (response AddRestaurant401JSONResponse) VisitAddRestaurantResponse(w http.R
 	return json.NewEncoder(w).Encode(response)
 }
 
-type AddRestaurant403JSONResponse ErrorBody
+type AddRestaurant403JSONResponse PermissionDeniedErrorBody
 
 func (response AddRestaurant403JSONResponse) VisitAddRestaurantResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -463,7 +633,7 @@ func (response AddRestaurant403JSONResponse) VisitAddRestaurantResponse(w http.R
 	return json.NewEncoder(w).Encode(response)
 }
 
-type AddRestaurant500JSONResponse ErrorBody
+type AddRestaurant500JSONResponse InternalErrorBody
 
 func (response AddRestaurant500JSONResponse) VisitAddRestaurantResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -489,7 +659,7 @@ func (response UpdateRestaurant200Response) VisitUpdateRestaurantResponse(w http
 	return nil
 }
 
-type UpdateRestaurant400JSONResponse ErrorBody
+type UpdateRestaurant400JSONResponse UpdateRestaurantBadRequestErrorBody
 
 func (response UpdateRestaurant400JSONResponse) VisitUpdateRestaurantResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -498,7 +668,7 @@ func (response UpdateRestaurant400JSONResponse) VisitUpdateRestaurantResponse(w 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type UpdateRestaurant401JSONResponse ErrorBody
+type UpdateRestaurant401JSONResponse AuthenticationRequiredErrorBody
 
 func (response UpdateRestaurant401JSONResponse) VisitUpdateRestaurantResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -507,7 +677,7 @@ func (response UpdateRestaurant401JSONResponse) VisitUpdateRestaurantResponse(w 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type UpdateRestaurant403JSONResponse ErrorBody
+type UpdateRestaurant403JSONResponse PermissionDeniedErrorBody
 
 func (response UpdateRestaurant403JSONResponse) VisitUpdateRestaurantResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -516,7 +686,7 @@ func (response UpdateRestaurant403JSONResponse) VisitUpdateRestaurantResponse(w 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type UpdateRestaurant500JSONResponse ErrorBody
+type UpdateRestaurant500JSONResponse InternalErrorBody
 
 func (response UpdateRestaurant500JSONResponse) VisitUpdateRestaurantResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -541,7 +711,7 @@ func (response ListCategories200JSONResponse) VisitListCategoriesResponse(w http
 	return json.NewEncoder(w).Encode(response)
 }
 
-type ListCategories500JSONResponse ErrorBody
+type ListCategories500JSONResponse InternalErrorBody
 
 func (response ListCategories500JSONResponse) VisitListCategoriesResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -566,7 +736,7 @@ func (response ListRestaurants200JSONResponse) VisitListRestaurantsResponse(w ht
 	return json.NewEncoder(w).Encode(response)
 }
 
-type ListRestaurants500JSONResponse ErrorBody
+type ListRestaurants500JSONResponse InternalErrorBody
 
 func (response ListRestaurants500JSONResponse) VisitListRestaurantsResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")

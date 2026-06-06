@@ -120,6 +120,19 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AddRestaurantBadRequestErrorBody: {
+            /** @enum {string} */
+            type: "invalid_request";
+            message?: string;
+            fieldErrors?: components["schemas"]["AddRestaurantFieldError"][];
+        };
+        /** @enum {string} */
+        AddRestaurantField: "name" | "lat" | "lng" | "postalCode" | "address" | "closed" | "googlePlaceId" | "categories";
+        AddRestaurantFieldError: {
+            field: components["schemas"]["AddRestaurantField"];
+            type: components["schemas"]["FieldErrorType"];
+            message?: string;
+        };
         AddRestaurantRequest: {
             name: string;
             /** Format: double */
@@ -135,6 +148,11 @@ export interface components {
         AuthResponse: {
             user: components["schemas"]["User"];
         };
+        AuthenticationRequiredErrorBody: {
+            /** @enum {string} */
+            type: "authentication_required";
+            message?: string;
+        };
         CategoriesResponse: {
             categories: components["schemas"]["Category"][];
         };
@@ -143,14 +161,40 @@ export interface components {
             label: string;
             icon: string;
         };
-        ErrorBody: {
-            type: components["schemas"]["ErrorType"];
-            message?: string;
-        };
         /** @enum {string} */
         ErrorType: "invalid_request" | "authentication_required" | "permission_denied" | "google_auth_failed" | "session_creation_failed" | "internal_error";
+        /** @enum {string} */
+        FieldErrorType: "required" | "invalid_format" | "out_of_range" | "too_long" | "unknown";
+        GoogleAuthBadRequestErrorBody: {
+            /** @enum {string} */
+            type: "invalid_request" | "google_auth_failed";
+            message?: string;
+            fieldErrors?: components["schemas"]["GoogleAuthFieldError"][];
+        };
+        /** @enum {string} */
+        GoogleAuthField: "credential";
+        GoogleAuthFieldError: {
+            field: components["schemas"]["GoogleAuthField"];
+            type: components["schemas"]["FieldErrorType"];
+            message?: string;
+        };
         GoogleAuthRequest: {
             credential: string;
+        };
+        InternalErrorBody: {
+            /** @enum {string} */
+            type: "internal_error";
+            message?: string;
+        };
+        InvalidRequestErrorBody: {
+            /** @enum {string} */
+            type: "invalid_request";
+            message?: string;
+        };
+        PermissionDeniedErrorBody: {
+            /** @enum {string} */
+            type: "permission_denied";
+            message?: string;
         };
         Restaurant: {
             id: components["schemas"]["uuid"];
@@ -171,6 +215,24 @@ export interface components {
         };
         RestaurantsResponse: {
             restaurants: components["schemas"]["Restaurant"][];
+        };
+        SessionCreationFailedErrorBody: {
+            /** @enum {string} */
+            type: "session_creation_failed";
+            message?: string;
+        };
+        UpdateRestaurantBadRequestErrorBody: {
+            /** @enum {string} */
+            type: "invalid_request";
+            message?: string;
+            fieldErrors?: components["schemas"]["UpdateRestaurantFieldError"][];
+        };
+        /** @enum {string} */
+        UpdateRestaurantField: "name" | "lat" | "lng" | "postalCode" | "address" | "closed" | "googlePlaceId" | "visited" | "rate" | "favorite";
+        UpdateRestaurantFieldError: {
+            field: components["schemas"]["UpdateRestaurantField"];
+            type: components["schemas"]["FieldErrorType"];
+            message?: string;
         };
         UpdateRestaurantRequest: {
             name: string;
@@ -231,7 +293,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorBody"];
+                    "application/json": components["schemas"]["GoogleAuthBadRequestErrorBody"];
                 };
             };
             /** @description Server error */
@@ -240,7 +302,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorBody"];
+                    "application/json": components["schemas"]["SessionCreationFailedErrorBody"];
                 };
             };
         };
@@ -267,7 +329,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorBody"];
+                    "application/json": components["schemas"]["InvalidRequestErrorBody"];
                 };
             };
             /** @description Access is unauthorized. */
@@ -276,7 +338,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorBody"];
+                    "application/json": components["schemas"]["AuthenticationRequiredErrorBody"];
                 };
             };
             /** @description Server error */
@@ -285,7 +347,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorBody"];
+                    "application/json": components["schemas"]["InternalErrorBody"];
                 };
             };
         };
@@ -314,7 +376,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorBody"];
+                    "application/json": components["schemas"]["InvalidRequestErrorBody"];
                 };
             };
             /** @description Access is unauthorized. */
@@ -323,7 +385,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorBody"];
+                    "application/json": components["schemas"]["AuthenticationRequiredErrorBody"];
                 };
             };
             /** @description Server error */
@@ -332,7 +394,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorBody"];
+                    "application/json": components["schemas"]["InternalErrorBody"];
                 };
             };
         };
@@ -365,7 +427,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorBody"];
+                    "application/json": components["schemas"]["AddRestaurantBadRequestErrorBody"];
                 };
             };
             /** @description Access is unauthorized. */
@@ -374,7 +436,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorBody"];
+                    "application/json": components["schemas"]["AuthenticationRequiredErrorBody"];
                 };
             };
             /** @description Access is forbidden. */
@@ -383,7 +445,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorBody"];
+                    "application/json": components["schemas"]["PermissionDeniedErrorBody"];
                 };
             };
             /** @description Server error */
@@ -392,7 +454,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorBody"];
+                    "application/json": components["schemas"]["InternalErrorBody"];
                 };
             };
         };
@@ -425,7 +487,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorBody"];
+                    "application/json": components["schemas"]["UpdateRestaurantBadRequestErrorBody"];
                 };
             };
             /** @description Access is unauthorized. */
@@ -434,7 +496,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorBody"];
+                    "application/json": components["schemas"]["AuthenticationRequiredErrorBody"];
                 };
             };
             /** @description Access is forbidden. */
@@ -443,7 +505,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorBody"];
+                    "application/json": components["schemas"]["PermissionDeniedErrorBody"];
                 };
             };
             /** @description Server error */
@@ -452,7 +514,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorBody"];
+                    "application/json": components["schemas"]["InternalErrorBody"];
                 };
             };
         };
@@ -481,7 +543,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorBody"];
+                    "application/json": components["schemas"]["InternalErrorBody"];
                 };
             };
         };
@@ -510,7 +572,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorBody"];
+                    "application/json": components["schemas"]["InternalErrorBody"];
                 };
             };
         };

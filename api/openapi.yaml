@@ -20,13 +20,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorBody'
+                $ref: '#/components/schemas/GoogleAuthBadRequestErrorBody'
         '500':
           description: Server error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorBody'
+                $ref: '#/components/schemas/SessionCreationFailedErrorBody'
       requestBody:
         required: true
         content:
@@ -45,19 +45,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorBody'
+                $ref: '#/components/schemas/InvalidRequestErrorBody'
         '401':
           description: Access is unauthorized.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorBody'
+                $ref: '#/components/schemas/AuthenticationRequiredErrorBody'
         '500':
           description: Server error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorBody'
+                $ref: '#/components/schemas/InternalErrorBody'
   /api/v1/auth/me:
     get:
       operationId: me
@@ -74,19 +74,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorBody'
+                $ref: '#/components/schemas/InvalidRequestErrorBody'
         '401':
           description: Access is unauthorized.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorBody'
+                $ref: '#/components/schemas/AuthenticationRequiredErrorBody'
         '500':
           description: Server error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorBody'
+                $ref: '#/components/schemas/InternalErrorBody'
   /api/v1/auth/restaurants:
     post:
       operationId: addRestaurant
@@ -103,25 +103,25 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorBody'
+                $ref: '#/components/schemas/AddRestaurantBadRequestErrorBody'
         '401':
           description: Access is unauthorized.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorBody'
+                $ref: '#/components/schemas/AuthenticationRequiredErrorBody'
         '403':
           description: Access is forbidden.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorBody'
+                $ref: '#/components/schemas/PermissionDeniedErrorBody'
         '500':
           description: Server error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorBody'
+                $ref: '#/components/schemas/InternalErrorBody'
       requestBody:
         required: true
         content:
@@ -145,25 +145,25 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorBody'
+                $ref: '#/components/schemas/UpdateRestaurantBadRequestErrorBody'
         '401':
           description: Access is unauthorized.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorBody'
+                $ref: '#/components/schemas/AuthenticationRequiredErrorBody'
         '403':
           description: Access is forbidden.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorBody'
+                $ref: '#/components/schemas/PermissionDeniedErrorBody'
         '500':
           description: Server error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorBody'
+                $ref: '#/components/schemas/InternalErrorBody'
       requestBody:
         required: true
         content:
@@ -186,7 +186,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorBody'
+                $ref: '#/components/schemas/InternalErrorBody'
   /api/v1/restaurants:
     get:
       operationId: listRestaurants
@@ -203,9 +203,47 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorBody'
+                $ref: '#/components/schemas/InternalErrorBody'
 components:
   schemas:
+    AddRestaurantBadRequestErrorBody:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum:
+            - invalid_request
+        message:
+          type: string
+        fieldErrors:
+          type: array
+          items:
+            $ref: '#/components/schemas/AddRestaurantFieldError'
+    AddRestaurantField:
+      type: string
+      enum:
+        - name
+        - lat
+        - lng
+        - postalCode
+        - address
+        - closed
+        - googlePlaceId
+        - categories
+    AddRestaurantFieldError:
+      type: object
+      required:
+        - field
+        - type
+      properties:
+        field:
+          $ref: '#/components/schemas/AddRestaurantField'
+        type:
+          $ref: '#/components/schemas/FieldErrorType'
+        message:
+          type: string
     AddRestaurantRequest:
       type: object
       required:
@@ -245,6 +283,17 @@ components:
       properties:
         user:
           $ref: '#/components/schemas/User'
+    AuthenticationRequiredErrorBody:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum:
+            - authentication_required
+        message:
+          type: string
     CategoriesResponse:
       type: object
       required:
@@ -267,15 +316,6 @@ components:
           type: string
         icon:
           type: string
-    ErrorBody:
-      type: object
-      required:
-        - type
-      properties:
-        type:
-          $ref: '#/components/schemas/ErrorType'
-        message:
-          type: string
     ErrorType:
       type: string
       enum:
@@ -285,12 +325,85 @@ components:
         - google_auth_failed
         - session_creation_failed
         - internal_error
+    FieldErrorType:
+      type: string
+      enum:
+        - required
+        - invalid_format
+        - out_of_range
+        - too_long
+        - unknown
+    GoogleAuthBadRequestErrorBody:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum:
+            - invalid_request
+            - google_auth_failed
+        message:
+          type: string
+        fieldErrors:
+          type: array
+          items:
+            $ref: '#/components/schemas/GoogleAuthFieldError'
+    GoogleAuthField:
+      type: string
+      enum:
+        - credential
+    GoogleAuthFieldError:
+      type: object
+      required:
+        - field
+        - type
+      properties:
+        field:
+          $ref: '#/components/schemas/GoogleAuthField'
+        type:
+          $ref: '#/components/schemas/FieldErrorType'
+        message:
+          type: string
     GoogleAuthRequest:
       type: object
       required:
         - credential
       properties:
         credential:
+          type: string
+    InternalErrorBody:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum:
+            - internal_error
+        message:
+          type: string
+    InvalidRequestErrorBody:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum:
+            - invalid_request
+        message:
+          type: string
+    PermissionDeniedErrorBody:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum:
+            - permission_denied
+        message:
           type: string
     Restaurant:
       type: object
@@ -346,6 +459,57 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Restaurant'
+    SessionCreationFailedErrorBody:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum:
+            - session_creation_failed
+        message:
+          type: string
+    UpdateRestaurantBadRequestErrorBody:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum:
+            - invalid_request
+        message:
+          type: string
+        fieldErrors:
+          type: array
+          items:
+            $ref: '#/components/schemas/UpdateRestaurantFieldError'
+    UpdateRestaurantField:
+      type: string
+      enum:
+        - name
+        - lat
+        - lng
+        - postalCode
+        - address
+        - closed
+        - googlePlaceId
+        - visited
+        - rate
+        - favorite
+    UpdateRestaurantFieldError:
+      type: object
+      required:
+        - field
+        - type
+      properties:
+        field:
+          $ref: '#/components/schemas/UpdateRestaurantField'
+        type:
+          $ref: '#/components/schemas/FieldErrorType'
+        message:
+          type: string
     UpdateRestaurantRequest:
       type: object
       required:

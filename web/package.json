@@ -13,8 +13,7 @@
     "lint": "eslint .",
     "lint-fix": "eslint --fix .",
     "format": "prettier --write .",
-    "preview": "vite preview",
-    "sync-agents": "node -e \"require('fs').copyFileSync('../CLAUDE.md', '../AGENTS.md')\""
+    "preview": "vite preview"
   },
   "dependencies": {
     "@chakra-ui/react": "^3.2.3",
@@ -30,6 +29,7 @@
     "maplibre-gl": "^5.24.0",
     "motion": "^12.39.0",
     "next-themes": "^0.4.4",
+    "openapi-fetch": "^0.17.0",
     "pmtiles": "^4.4.1",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",

@@ -1,6 +1,14 @@
 import type { components } from "@/generated/api.ts";
-import { ApiError, get, post } from "@/utils/request.ts";
-import { toastApiError } from "@/utils/toast.ts";
+import {
+  ApiError,
+  ApiErrorBodyFor,
+  apiClient,
+  apiError,
+  apiOk,
+  throwApiError,
+  withApiError,
+  withApiResult,
+} from "@/utils/request.ts";
 import { useCallback } from "react";
 import useSWR from "swr";
 
@@ -9,22 +17,26 @@ import useSWR from "swr";
 localStorage.removeItem("token");
 
 export type User = components["schemas"]["User"];
-type AuthResponse = components["schemas"]["AuthResponse"];
+type GoogleAuthErrorBody = ApiErrorBodyFor<"/api/v1/auth/google", "post">;
+type LogoutErrorBody = ApiErrorBodyFor<"/api/v1/auth/logout", "post">;
 
 export function useAuth() {
   const resp = useSWR(
     "useAuth-currentUser",
     () => {
-      return get<User>("/api/v1/auth/me")
-        .then((res) => {
-          return res.body;
-        })
-        .catch((err: ApiError) => {
-          if (err.status === 401) {
-            return undefined;
-          }
-          throw err;
-        });
+      return withApiError("/api/v1/auth/me", async () => {
+        const res = await apiClient.GET("/api/v1/auth/me");
+        if (res.error) {
+          throwApiError("/api/v1/auth/me", res.response, res.error);
+        }
+
+        return res.data;
+      }).catch((err: ApiError) => {
+        if (err.status === 401) {
+          return undefined;
+        }
+        throw err;
+      });
     },
     {
       revalidateIfStale: false,
@@ -39,33 +51,37 @@ export function useAuth() {
 
   const loginWithGoogle = useCallback(
     (credential: string) => {
-      return post<AuthResponse>("/api/v1/auth/google", {
-        body: JSON.stringify({ credential }),
-      })
-        .then((res) => {
-          return mutate(res.body.user, false);
-        })
-        .catch((err: ApiError) => {
-          toastApiError(err, {
-            fallbackTitle: "Googleログインに失敗しました",
+      return withApiResult<User, GoogleAuthErrorBody>(
+        "/api/v1/auth/google",
+        async () => {
+          const res = await apiClient.POST("/api/v1/auth/google", {
+            body: { credential },
           });
-          throw err;
-        });
+          if (res.error) {
+            return apiError("/api/v1/auth/google", res.response, res.error);
+          }
+
+          await mutate(res.data.user, false);
+          return apiOk(res.data.user);
+        },
+      );
     },
     [mutate],
   );
 
   const logout = useCallback(() => {
-    return post("/api/v1/auth/logout")
-      .then(() => {
-        return mutate(undefined, false);
-      })
-      .catch((err: ApiError) => {
-        toastApiError(err, {
-          fallbackTitle: "ログアウトできませんでした",
-        });
-        throw err;
-      });
+    return withApiResult<void, LogoutErrorBody>(
+      "/api/v1/auth/logout",
+      async () => {
+        const res = await apiClient.POST("/api/v1/auth/logout");
+        if (res.error) {
+          return apiError("/api/v1/auth/logout", res.response, res.error);
+        }
+
+        await mutate(undefined, false);
+        return apiOk(undefined);
+      },
+    );
   }, [mutate]);
 
   return {

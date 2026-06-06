@@ -5,6 +5,7 @@
   "scripts": {
     "api:generate": "npm run tsp:compile && openapi-typescript api/openapi.yaml -o web/src/generated/api.ts && cd server && go generate ./api",
     "api:check": "npm run tsp:check && openapi-typescript api/openapi.yaml -o web/src/generated/api.ts --check",
+    "sync-agents": "node scripts/sync-agents.mjs",
     "tsp:compile": "tsp compile typespec",
     "tsp:check": "tsp compile typespec --no-emit"
   },

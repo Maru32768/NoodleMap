@@ -30,6 +30,7 @@ import {
 import { RestaurantFilters, Sidebar } from "@/features/restaurants/sidebar.tsx";
 import { useSearchState } from "@/features/search/use-search-state.ts";
 import { filterRestaurants, sortRestaurants } from "@/features/search/utils.ts";
+import { toastApiError } from "@/utils/toast.ts";
 import { Box, Input } from "@chakra-ui/react";
 import {
   useCallback,
@@ -222,7 +223,14 @@ export default function SearchPage() {
         favorite: draft.favorite,
         rate: draft.rate,
       };
-      await updateRestaurant(draft.id, cmd);
+      const result = await updateRestaurant(draft.id, cmd);
+      if (!result.ok) {
+        toastApiError(result.error, {
+          fallbackTitle: "店舗を更新できませんでした",
+        });
+        return;
+      }
+
       setEditId(null);
       toaster.success({ description: "保存しました" });
     },
