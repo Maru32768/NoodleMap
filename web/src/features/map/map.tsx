@@ -7,7 +7,7 @@ import {
   INTERRUPTED_GLIDE_MOVEEND_DELAY_MS,
 } from "@/features/map/drag-inertia.ts";
 import { initializeMapLibreRuntime } from "@/features/map/pmtiles-protocol.ts";
-import { Restaurant } from "@/features/restaurants/api/use-restaurants.ts";
+import { Shop } from "@/features/shops/api/use-shops.ts";
 import { useIsPc } from "@/utils/use-is-pc.ts";
 import maplibregl, { GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
 import {
@@ -60,7 +60,7 @@ export interface MapSelectDetails {
 
 interface Props {
   initialCenter: [number, number];
-  restaurants: Restaurant[];
+  shops: Shop[];
   selectedId: string | null;
   onSelect: (id: string, details: MapSelectDetails) => void;
   onMoveEnd: MapEventHandler;
@@ -72,13 +72,13 @@ interface Props {
 
 type State = "visited" | "wish" | "closed";
 
-const RESTAURANTS_SOURCE_ID = "restaurants";
-const RESTAURANT_PINS_LAYER_ID = "restaurant-pins";
-const RESTAURANT_LABELS_LAYER_ID = "restaurant-labels";
-const RESTAURANT_SELECTED_LAYER_ID = "restaurant-selected";
-const DRAFT_SOURCE_ID = "draft-restaurant";
-const DRAFT_LAYER_ID = "draft-restaurant-pin";
-const DRAFT_IMAGE_ID = "draft-restaurant-pin-image";
+const SHOPS_SOURCE_ID = "shops";
+const SHOP_PINS_LAYER_ID = "shop-pins";
+const SHOP_LABELS_LAYER_ID = "shop-labels";
+const SHOP_SELECTED_LAYER_ID = "shop-selected";
+const DRAFT_SOURCE_ID = "draft-shop";
+const DRAFT_LAYER_ID = "draft-shop-pin";
+const DRAFT_IMAGE_ID = "draft-shop-pin-image";
 const USER_LOCATION_SOURCE_ID = "user-location";
 const USER_LOCATION_HALO_LAYER_ID = "user-location-halo";
 const USER_LOCATION_DOT_LAYER_ID = "user-location-dot";
@@ -91,11 +91,11 @@ function toLngLat(center: [number, number]): [number, number] {
   return [center[1], center[0]];
 }
 
-function buildNearestKmMap(restaurants: Restaurant[]): Map<string, number> {
+function buildNearestKmMap(shops: Shop[]): Map<string, number> {
   const result = new globalThis.Map<string, number>();
-  for (const r of restaurants) {
+  for (const r of shops) {
     let minSq = Infinity;
-    for (const o of restaurants) {
+    for (const o of shops) {
       if (o.id === r.id) {
         continue;
       }
@@ -111,11 +111,11 @@ function buildNearestKmMap(restaurants: Restaurant[]): Map<string, number> {
   return result;
 }
 
-function toGeoJson(restaurants: Restaurant[]) {
-  const nearestKmMap = buildNearestKmMap(restaurants);
+function toGeoJson(shops: Shop[]) {
+  const nearestKmMap = buildNearestKmMap(shops);
   return {
     type: "FeatureCollection" as const,
-    features: restaurants.map((r) => {
+    features: shops.map((r) => {
       const isVisited = r.visited;
       const isClosed = r.closed;
       const highRate = isVisited && (r.rate ?? 0) >= 80;
@@ -183,7 +183,7 @@ function toUserLocationGeoJson(userLocation: UserLocation | null) {
 }
 
 function getPinImageId(state: State, catType: string, highRate: boolean) {
-  return `restaurant-pin-${state}-${catType}-${highRate ? "high" : "normal"}`;
+  return `shop-pin-${state}-${catType}-${highRate ? "high" : "normal"}`;
 }
 
 function getPinStyle(state: State, catType: string) {
@@ -565,11 +565,11 @@ function createPendingMapHandle(
   };
 }
 
-function addRestaurantLayers(map: MapLibreMap) {
+function addShopLayers(map: MapLibreMap) {
   map.addLayer({
-    id: RESTAURANT_SELECTED_LAYER_ID,
+    id: SHOP_SELECTED_LAYER_ID,
     type: "circle",
-    source: RESTAURANTS_SOURCE_ID,
+    source: SHOPS_SOURCE_ID,
     filter: ["==", ["get", "id"], ""],
     paint: {
       "circle-color": "rgba(181,74,60,0.18)",
@@ -581,9 +581,9 @@ function addRestaurantLayers(map: MapLibreMap) {
   });
 
   map.addLayer({
-    id: RESTAURANT_PINS_LAYER_ID,
+    id: SHOP_PINS_LAYER_ID,
     type: "symbol",
-    source: RESTAURANTS_SOURCE_ID,
+    source: SHOPS_SOURCE_ID,
     layout: {
       "icon-image": ["get", "icon"],
       "icon-anchor": "bottom",
@@ -594,9 +594,9 @@ function addRestaurantLayers(map: MapLibreMap) {
   });
 
   map.addLayer({
-    id: RESTAURANT_LABELS_LAYER_ID,
+    id: SHOP_LABELS_LAYER_ID,
     type: "symbol",
-    source: RESTAURANTS_SOURCE_ID,
+    source: SHOPS_SOURCE_ID,
     layout: {
       "text-field": [
         "step",
@@ -701,7 +701,7 @@ export const Map = memo(
   forwardRef<MapHandle, Props>(function Map(
     {
       initialCenter,
-      restaurants,
+      shops,
       selectedId,
       onSelect,
       onMoveEnd,
@@ -752,8 +752,8 @@ export const Map = memo(
       },
     );
     const geoJsonData = useMemo(() => {
-      return toGeoJson(restaurants);
-    }, [restaurants]);
+      return toGeoJson(shops);
+    }, [shops]);
     const dataRef = useRef(geoJsonData);
     dataRef.current = geoJsonData;
     const draftGeoJsonData = useMemo(() => {
@@ -879,7 +879,7 @@ export const Map = memo(
         onMoveEndEvent(handleRef.current, "user");
       };
 
-      const handleRestaurantClick = (e: maplibregl.MapLayerMouseEvent) => {
+      const handleShopClick = (e: maplibregl.MapLayerMouseEvent) => {
         const feature = e.features?.[0];
         const id = feature?.properties?.id;
         if (typeof id === "string") {
@@ -941,7 +941,7 @@ export const Map = memo(
 
       map.on("load", () => {
         void ensurePinImages(map).then(() => {
-          map.addSource(RESTAURANTS_SOURCE_ID, {
+          map.addSource(SHOPS_SOURCE_ID, {
             type: "geojson",
             data: dataRef.current,
           });
@@ -953,12 +953,12 @@ export const Map = memo(
             type: "geojson",
             data: userLocationDataRef.current,
           });
-          addRestaurantLayers(map);
+          addShopLayers(map);
           addDraftLayer(map);
           addUserLocationLayers(map);
-          map.on("click", RESTAURANT_PINS_LAYER_ID, handleRestaurantClick);
-          map.on("mouseenter", RESTAURANT_PINS_LAYER_ID, setPointer);
-          map.on("mouseleave", RESTAURANT_PINS_LAYER_ID, resetPointer);
+          map.on("click", SHOP_PINS_LAYER_ID, handleShopClick);
+          map.on("mouseenter", SHOP_PINS_LAYER_ID, setPointer);
+          map.on("mouseleave", SHOP_PINS_LAYER_ID, resetPointer);
         });
       });
 
@@ -973,9 +973,9 @@ export const Map = memo(
 
       return () => {
         clearInterruptedGlideMoveEndTimer();
-        map.off("click", RESTAURANT_PINS_LAYER_ID, handleRestaurantClick);
-        map.off("mouseenter", RESTAURANT_PINS_LAYER_ID, setPointer);
-        map.off("mouseleave", RESTAURANT_PINS_LAYER_ID, resetPointer);
+        map.off("click", SHOP_PINS_LAYER_ID, handleShopClick);
+        map.off("mouseenter", SHOP_PINS_LAYER_ID, setPointer);
+        map.off("mouseleave", SHOP_PINS_LAYER_ID, resetPointer);
         map.off("moveend", handleMoveEnd);
         map.off("click", handleMapClick);
         map.off("dragstart", handleDragStart);
@@ -1000,7 +1000,7 @@ export const Map = memo(
     }, [coords]);
 
     useEffect(() => {
-      const source = mapRef.current?.getSource(RESTAURANTS_SOURCE_ID);
+      const source = mapRef.current?.getSource(SHOPS_SOURCE_ID);
       if (source instanceof GeoJSONSource) {
         source.setData(geoJsonData);
       }
@@ -1037,11 +1037,11 @@ export const Map = memo(
 
     useEffect(() => {
       const map = mapRef.current;
-      if (!map?.getLayer(RESTAURANT_SELECTED_LAYER_ID)) {
+      if (!map?.getLayer(SHOP_SELECTED_LAYER_ID)) {
         return;
       }
 
-      map.setFilter(RESTAURANT_SELECTED_LAYER_ID, [
+      map.setFilter(SHOP_SELECTED_LAYER_ID, [
         "==",
         ["get", "id"],
         selectedId ?? "",

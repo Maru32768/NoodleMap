@@ -11,7 +11,16 @@ import (
 	"github.com/google/uuid"
 )
 
-type Restaurant struct {
+type Session struct {
+	ID        uuid.UUID      `json:"id"`
+	UserID    uuid.UUID      `json:"userId"`
+	TokenHash string         `json:"tokenHash"`
+	UserAgent sql.NullString `json:"userAgent"`
+	CreatedAt time.Time      `json:"createdAt"`
+	ExpiresAt time.Time      `json:"expiresAt"`
+}
+
+type Shop struct {
 	ID            uuid.UUID `json:"id"`
 	Name          string    `json:"name"`
 	Lat           float64   `json:"lat"`
@@ -25,21 +34,12 @@ type Restaurant struct {
 	Category      string    `json:"category"`
 }
 
-type RestaurantImage struct {
-	ID           uuid.UUID `json:"id"`
-	RestaurantID uuid.UUID `json:"restaurantId"`
-	Path         string    `json:"path"`
-	CreatedAt    time.Time `json:"createdAt"`
-	UpdatedAt    time.Time `json:"updatedAt"`
-}
-
-type Session struct {
-	ID        uuid.UUID      `json:"id"`
-	UserID    uuid.UUID      `json:"userId"`
-	TokenHash string         `json:"tokenHash"`
-	UserAgent sql.NullString `json:"userAgent"`
-	CreatedAt time.Time      `json:"createdAt"`
-	ExpiresAt time.Time      `json:"expiresAt"`
+type ShopImage struct {
+	ID        uuid.UUID `json:"id"`
+	ShopID    uuid.UUID `json:"shopId"`
+	Path      string    `json:"path"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }
 
 type User struct {
@@ -50,11 +50,11 @@ type User struct {
 	GoogleSub sql.NullString `json:"googleSub"`
 }
 
-type VisitedRestaurant struct {
-	ID           uuid.UUID `json:"id"`
-	RestaurantID uuid.UUID `json:"restaurantId"`
-	Rate         float64   `json:"rate"`
-	Favorite     bool      `json:"favorite"`
-	CreatedAt    time.Time `json:"createdAt"`
-	UpdatedAt    time.Time `json:"updatedAt"`
+type VisitedShop struct {
+	ID        uuid.UUID `json:"id"`
+	ShopID    uuid.UUID `json:"shopId"`
+	Rate      float64   `json:"rate"`
+	Favorite  bool      `json:"favorite"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }

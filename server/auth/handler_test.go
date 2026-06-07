@@ -8,11 +8,11 @@ func TestRequiresAuthentication(t *testing.T) {
 		want bool
 	}{
 		{"/api/v1/auth/me", true},
-		{"/api/v1/auth/restaurants", true},
-		{"/api/v1/auth/restaurants/123", true},
+		{"/api/v1/auth/shops", true},
+		{"/api/v1/auth/shops/123", true},
 		{"/api/v1/auth/google", false},
 		{"/api/v1/auth/logout", false},
-		{"/api/v1/restaurants", false},
+		{"/api/v1/shops", false},
 		{"/health", false},
 	}
 	for _, c := range cases {

@@ -1,4 +1,4 @@
-package restaurants
+package shops
 
 import (
 	"errors"
@@ -23,8 +23,8 @@ func NewHandler(store *db.Store) *Handler {
 	}
 }
 
-func (h *Handler) GetRestaurants(ctx *gin.Context) {
-	rs, err := h.findRegisteredRestaurants(ctx)
+func (h *Handler) GetShops(ctx *gin.Context) {
+	rs, err := h.findRegisteredShops(ctx)
 	if err != nil {
 		ctx.Error(err)
 		httperrors.InternalServerError(ctx)
@@ -32,18 +32,18 @@ func (h *Handler) GetRestaurants(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{
-		"restaurants": rs,
+		"shops": rs,
 	})
 }
 
-func (h *Handler) AddRestaurant(ctx *gin.Context) {
-	var command AddRestaurantCommand
+func (h *Handler) AddShop(ctx *gin.Context) {
+	var command AddShopCommand
 	if err := ctx.BindJSON(&command); err != nil {
 		httperrors.BadRequest(ctx, "invalid request")
 		return
 	}
 
-	r, err := h.addRestaurant(ctx, command)
+	r, err := h.addShop(ctx, command)
 	if err != nil {
 		if errors.Is(err, errPermissionDenied) {
 			httperrors.Abort(ctx, http.StatusForbidden, httperrors.PermissionDenied, "permission denied")
@@ -57,20 +57,20 @@ func (h *Handler) AddRestaurant(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, r)
 }
 
-func (h *Handler) UpdateRestaurant(ctx *gin.Context) {
+func (h *Handler) UpdateShop(ctx *gin.Context) {
 	id, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
 		httperrors.BadRequest(ctx, "invalid id")
 		return
 	}
 
-	var command UpdateRestaurantCommand
+	var command UpdateShopCommand
 	if err := ctx.BindJSON(&command); err != nil {
 		httperrors.BadRequest(ctx, "invalid request")
 		return
 	}
 
-	if err := h.updateRestaurant(ctx, id, command); err != nil {
+	if err := h.updateShop(ctx, id, command); err != nil {
 		if errors.Is(err, errPermissionDenied) {
 			httperrors.Abort(ctx, http.StatusForbidden, httperrors.PermissionDenied, "permission denied")
 			return
@@ -83,15 +83,15 @@ func (h *Handler) UpdateRestaurant(ctx *gin.Context) {
 	ctx.Status(http.StatusOK)
 }
 
-func (h *Handler) findRegisteredRestaurants(ctx *gin.Context) ([]RegisteredRestaurant, error) {
-	rs, err := h.store.FindAllRestaurants(ctx)
+func (h *Handler) findRegisteredShops(ctx *gin.Context) ([]RegisteredShop, error) {
+	rs, err := h.store.FindAllShops(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	res := make([]RegisteredRestaurant, 0)
+	res := make([]RegisteredShop, 0)
 	for _, r := range rs {
-		res = append(res, RegisteredRestaurant{
+		res = append(res, RegisteredShop{
 			ID:            r.ID,
 			Name:          r.Name,
 			Lat:           r.Lat,
@@ -110,7 +110,7 @@ func (h *Handler) findRegisteredRestaurants(ctx *gin.Context) ([]RegisteredResta
 	return res, nil
 }
 
-func (h *Handler) addRestaurant(ctx *gin.Context, command AddRestaurantCommand) (*RegisteredRestaurant, error) {
+func (h *Handler) addShop(ctx *gin.Context, command AddShopCommand) (*RegisteredShop, error) {
 	user, err := auth.GetContextUser(ctx)
 	if err != nil {
 		return nil, err
@@ -120,7 +120,7 @@ func (h *Handler) addRestaurant(ctx *gin.Context, command AddRestaurantCommand) 
 		return nil, errPermissionDenied
 	}
 
-	params := db.InsertRestaurantParams{
+	params := db.InsertShopParams{
 		ID:            uuid.New(),
 		Name:          command.Name,
 		Lat:           command.Lat,
@@ -132,11 +132,11 @@ func (h *Handler) addRestaurant(ctx *gin.Context, command AddRestaurantCommand) 
 		Category:      command.Category,
 	}
 
-	if err := h.store.InsertRestaurant(ctx, params); err != nil {
+	if err := h.store.InsertShop(ctx, params); err != nil {
 		return nil, err
 	}
 
-	return &RegisteredRestaurant{
+	return &RegisteredShop{
 		ID:            params.ID,
 		Name:          params.Name,
 		Lat:           params.Lat,
@@ -152,7 +152,7 @@ func (h *Handler) addRestaurant(ctx *gin.Context, command AddRestaurantCommand) 
 	}, nil
 }
 
-func (h *Handler) updateRestaurant(ctx *gin.Context, id uuid.UUID, command UpdateRestaurantCommand) error {
+func (h *Handler) updateShop(ctx *gin.Context, id uuid.UUID, command UpdateShopCommand) error {
 	user, err := auth.GetContextUser(ctx)
 	if err != nil {
 		return err
@@ -162,7 +162,7 @@ func (h *Handler) updateRestaurant(ctx *gin.Context, id uuid.UUID, command Updat
 		return errPermissionDenied
 	}
 
-	params := db.UpdateRestaurantParams{
+	params := db.UpdateShopParams{
 		ID:            id,
 		Name:          command.Name,
 		Lat:           command.Lat,
@@ -175,21 +175,21 @@ func (h *Handler) updateRestaurant(ctx *gin.Context, id uuid.UUID, command Updat
 	}
 
 	if err := h.store.Tx(ctx, func(store *db.Store) error {
-		if err := store.UpdateRestaurant(ctx, params); err != nil {
+		if err := store.UpdateShop(ctx, params); err != nil {
 			return err
 		}
 
 		if command.Visited {
-			if err := store.UpsertVisitedRestaurant(ctx, db.UpsertVisitedRestaurantParams{
-				ID:           uuid.New(),
-				RestaurantID: id,
-				Rate:         command.Rate,
-				Favorite:     command.Favorite,
+			if err := store.UpsertVisitedShop(ctx, db.UpsertVisitedShopParams{
+				ID:       uuid.New(),
+				ShopID:   id,
+				Rate:     command.Rate,
+				Favorite: command.Favorite,
 			}); err != nil {
 				return err
 			}
 		} else {
-			if err := store.DeleteVisitedRestaurantByRestaurantId(ctx, id); err != nil {
+			if err := store.DeleteVisitedShopByShopId(ctx, id); err != nil {
 				return err
 			}
 		}

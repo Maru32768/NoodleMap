@@ -50,7 +50,7 @@ For form-capable endpoints:
 
 - If `error.type === "invalid_request"` and `fieldErrors` exists, map `fieldErrors[].field` to the matching input component.
 - Otherwise surface the error through `toastApiError`.
-- Field names must come from generated unions such as `AddRestaurantField` and `UpdateRestaurantField`.
+- Field names must come from generated unions such as `AddShopField` and `UpdateShopField`.
 
 User-facing error messages are managed in `src/utils/toast.ts`. Do not display backend English messages or raw `JSON.stringify(err)` output to users.
 

@@ -6,13 +6,13 @@ import { AdminMap } from "@/features/admin/admin-map.tsx";
 import { AdminTable } from "@/features/admin/admin-table.tsx";
 import { MobileShopList } from "@/features/admin/mobile-shop-list.tsx";
 import {
-  UpdateRestaurantCommand,
-  useRestaurants,
-} from "@/features/restaurants/api/use-restaurants.ts";
+  UpdateShopCommand,
+  useShops,
+} from "@/features/shops/api/use-shops.ts";
 import {
-  RestaurantEditDraft,
-  RestaurantEditModal,
-} from "@/features/restaurants/restaurant-edit-modal.tsx";
+  ShopEditDraft,
+  ShopEditModal,
+} from "@/features/shops/shop-edit-modal.tsx";
 import type { CategoryType } from "@/features/search/utils.ts";
 import { toastApiError } from "@/utils/toast.ts";
 import { Box, Input, Span } from "@chakra-ui/react";
@@ -125,7 +125,7 @@ function AdminSearchBox({
 }
 
 export default function AdminPage() {
-  const { restaurants, addRestaurant, updateRestaurant } = useRestaurants();
+  const { shops, addShop, updateShop } = useShops();
 
   const [keyword, setKeyword] = useState("");
   const deferredKeyword = useDeferredValue(keyword);
@@ -146,7 +146,7 @@ export default function AdminPage() {
   } | null>(null);
 
   const filtered =
-    restaurants?.filter((shop) => {
+    shops?.filter((shop) => {
       if (deferredKeyword) {
         const kw = deferredKeyword.toLowerCase();
         if (
@@ -173,11 +173,11 @@ export default function AdminPage() {
       return true;
     }) ?? [];
 
-  const total = restaurants?.length ?? 0;
-  const visitedCount = restaurants?.filter((r) => r.visited).length ?? 0;
+  const total = shops?.length ?? 0;
+  const visitedCount = shops?.filter((r) => r.visited).length ?? 0;
   const wishCount =
-    restaurants?.filter((r) => !r.visited && !r.closed).length ?? 0;
-  const editShop = restaurants?.find((r) => r.id === editId);
+    shops?.filter((r) => !r.visited && !r.closed).length ?? 0;
+  const editShop = shops?.find((r) => r.id === editId);
 
   const handleEdit = (id: string, tab?: "images") => {
     setEditId(id);
@@ -189,8 +189,8 @@ export default function AdminPage() {
     setMobileView("list");
   }, []);
 
-  const handleSave = async (draft: RestaurantEditDraft) => {
-    const cmd: UpdateRestaurantCommand = {
+  const handleSave = async (draft: ShopEditDraft) => {
+    const cmd: UpdateShopCommand = {
       name: draft.name,
       lat: draft.lat,
       lng: draft.lng,
@@ -203,7 +203,7 @@ export default function AdminPage() {
       favorite: draft.favorite,
       rate: draft.rate,
     };
-    const result = await updateRestaurant(draft.id, cmd);
+    const result = await updateShop(draft.id, cmd);
     if (!result.ok) {
       toastApiError(result.error, {
         fallbackTitle: "店舗を更新できませんでした",
@@ -216,7 +216,7 @@ export default function AdminPage() {
   };
 
   const handleAdd = async (draft: AddDraft) => {
-    const result = await addRestaurant(draft);
+    const result = await addShop(draft);
     if (!result.ok) {
       toastApiError(result.error, {
         fallbackTitle: "店舗を追加できませんでした",
@@ -474,9 +474,9 @@ export default function AdminPage() {
         overflow="hidden"
       >
         {/* Map pane */}
-        {restaurants && (
+        {shops && (
           <AdminMap
-            shops={restaurants}
+            shops={shops}
             filtered={filtered}
             selectedId={selectedId}
             onSelect={handleSelect}
@@ -520,7 +520,7 @@ export default function AdminPage() {
               setVisitFilter("all");
             }}
           />
-          {restaurants && (
+          {shops && (
             <Box h="100%" minH="0" overflow="hidden">
               <Box
                 display={{ base: "none", md: "block" }}
@@ -660,7 +660,7 @@ export default function AdminPage() {
 
       {/* Edit modal */}
       {editShop && (
-        <RestaurantEditModal
+        <ShopEditModal
           shop={editShop}
           open={!!editId}
           initialTab={editTab}

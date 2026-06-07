@@ -3,13 +3,13 @@ import { CloseButton } from "@/components/ui/close-button.tsx";
 import { useCurrentUser } from "@/features/auth/use-current-user.ts";
 import { CategorySlug } from "@/features/categories/categories.ts";
 import { CategoryIcon } from "@/features/map/category-icon.tsx";
-import { Restaurant } from "@/features/restaurants/api/use-restaurants.ts";
-import { FavoriteRating } from "@/features/restaurants/rating-hearts.tsx";
+import { Shop } from "@/features/shops/api/use-shops.ts";
+import { FavoriteRating } from "@/features/shops/rating-hearts.tsx";
 import {
-  RestaurantActions,
-  RestaurantAddressLink,
+  ShopActions,
+  ShopAddressLink,
   buildGoogleMapsUrl,
-} from "@/features/restaurants/restaurant-actions.tsx";
+} from "@/features/shops/shop-actions.tsx";
 import { Box } from "@chakra-ui/react";
 import { useEffect, useEffectEvent } from "react";
 
@@ -20,19 +20,15 @@ const HERO_BG: Record<CategorySlug, string> = {
 };
 
 export interface DetailPanelProps {
-  restaurant: Restaurant;
+  shop: Shop;
   onAdminEdit: (id: string) => void;
   onClose: () => void;
 }
 
-export function DetailPanel({
-  restaurant: r,
-  onAdminEdit,
-  onClose,
-}: DetailPanelProps) {
+export function DetailPanel({ shop, onAdminEdit, onClose }: DetailPanelProps) {
   const currentUser = useCurrentUser();
-  const mapsUrl = buildGoogleMapsUrl(r);
-  const heroBg = HERO_BG[r.category];
+  const mapsUrl = buildGoogleMapsUrl(shop);
+  const heroBg = HERO_BG[shop.category];
   const onCloseEvent = useEffectEvent(() => {
     onClose();
   });
@@ -50,19 +46,19 @@ export function DetailPanel({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  const statusTag = r.closed
+  const statusTag = shop.closed
     ? { label: "閉店", bg: "nm.ink", color: "nm.paper" }
-    : r.visited
+    : shop.visited
       ? { label: "食べた", bg: "nm.matcha", color: "white" }
       : { label: "気になる", bg: "nm.shu", color: "white" };
 
-  const noteBlock = r.closed
+  const noteBlock = shop.closed
     ? {
         color: "nm.ink",
         label: "閉店",
         text: "残念ながら現在は営業を終了しています。",
       }
-    : !r.visited
+    : !shop.visited
       ? {
           color: "nm.kincha",
           label: "気になる",
@@ -136,8 +132,8 @@ export function DetailPanel({
             opacity={0.85}
           >
             <CategoryIcon
-              category={r.category}
-              closed={r.closed}
+              category={shop.category}
+              closed={shop.closed}
               size={64}
               color="var(--chakra-colors-nm-paper)"
               strokeWidth={1.4}
@@ -181,7 +177,7 @@ export function DetailPanel({
           letterSpacing="0.01em"
           mb="0.75rem"
         >
-          {r.name}
+          {shop.name}
         </Box>
 
         <Box
@@ -192,10 +188,10 @@ export function DetailPanel({
           color="nm.inkMuted"
           mb="1.125rem"
         >
-          <CategoryBadge catType={r.category} />
+          <CategoryBadge catType={shop.category} />
         </Box>
 
-        {r.visited && (
+        {shop.visited && (
           <Box
             bg="nm.bg"
             borderRadius="nmMd"
@@ -213,7 +209,7 @@ export function DetailPanel({
             >
               お気に入り度 - Favorite
             </Box>
-            <FavoriteRating rate={r.rate} />
+            <FavoriteRating rate={shop.rate} />
           </Box>
         )}
 
@@ -222,12 +218,16 @@ export function DetailPanel({
             {
               label: "Address",
               value: (
-                <RestaurantAddressLink address={r.address} mapsUrl={mapsUrl} />
+                <ShopAddressLink address={shop.address} mapsUrl={mapsUrl} />
               ),
             },
             {
               label: "Status",
-              value: r.closed ? "閉店" : r.visited ? "食べた" : "気になる",
+              value: shop.closed
+                ? "閉店"
+                : shop.visited
+                  ? "食べた"
+                  : "気になる",
             },
           ].map(({ label, value }) => (
             <Box
@@ -298,11 +298,11 @@ export function DetailPanel({
         display="flex"
         gap="0.625rem"
       >
-        <RestaurantActions
+        <ShopActions
           mapsUrl={mapsUrl}
           mapsLabel="Google Maps"
           onAdminClick={
-            currentUser?.isAdmin ? () => onAdminEdit(r.id) : undefined
+            currentUser?.isAdmin ? () => onAdminEdit(shop.id) : undefined
           }
         />
       </Box>

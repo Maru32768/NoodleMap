@@ -4,7 +4,7 @@
 
 `server/` is a Go API server using Gin.
 
-- Domain packages live directly under `server/`, such as `restaurants`, `auth`, `middleware`, and `infra`.
+- Domain packages live directly under `server/`, such as `shops`, `auth`, `middleware`, and `infra`.
 - Generated API bindings live in `server/api/api.gen.go`.
 - Hand-written adapters in `server/api` delegate to domain packages.
 

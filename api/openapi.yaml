@@ -87,9 +87,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/InternalErrorBody'
-  /api/v1/auth/restaurants:
+  /api/v1/auth/shops:
     post:
-      operationId: addRestaurant
+      operationId: addShop
       parameters: []
       responses:
         '200':
@@ -97,13 +97,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Restaurant'
+                $ref: '#/components/schemas/Shop'
         '400':
           description: The server could not understand the request due to invalid syntax.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AddRestaurantBadRequestErrorBody'
+                $ref: '#/components/schemas/AddShopBadRequestErrorBody'
         '401':
           description: Access is unauthorized.
           content:
@@ -127,10 +127,10 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AddRestaurantRequest'
-  /api/v1/auth/restaurants/{id}:
+              $ref: '#/components/schemas/AddShopRequest'
+  /api/v1/auth/shops/{id}:
     put:
-      operationId: updateRestaurant
+      operationId: updateShop
       parameters:
         - name: id
           in: path
@@ -145,7 +145,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UpdateRestaurantBadRequestErrorBody'
+                $ref: '#/components/schemas/UpdateShopBadRequestErrorBody'
         '401':
           description: Access is unauthorized.
           content:
@@ -169,10 +169,10 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateRestaurantRequest'
-  /api/v1/restaurants:
+              $ref: '#/components/schemas/UpdateShopRequest'
+  /api/v1/shops:
     get:
-      operationId: listRestaurants
+      operationId: listShops
       parameters: []
       responses:
         '200':
@@ -180,7 +180,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RestaurantsResponse'
+                $ref: '#/components/schemas/ShopsResponse'
         '500':
           description: Server error
           content:
@@ -189,7 +189,7 @@ paths:
                 $ref: '#/components/schemas/InternalErrorBody'
 components:
   schemas:
-    AddRestaurantBadRequestErrorBody:
+    AddShopBadRequestErrorBody:
       type: object
       required:
         - type
@@ -203,8 +203,8 @@ components:
         fieldErrors:
           type: array
           items:
-            $ref: '#/components/schemas/AddRestaurantFieldError'
-    AddRestaurantField:
+            $ref: '#/components/schemas/AddShopFieldError'
+    AddShopField:
       type: string
       enum:
         - name
@@ -215,19 +215,19 @@ components:
         - closed
         - googlePlaceId
         - category
-    AddRestaurantFieldError:
+    AddShopFieldError:
       type: object
       required:
         - field
         - type
       properties:
         field:
-          $ref: '#/components/schemas/AddRestaurantField'
+          $ref: '#/components/schemas/AddShopField'
         type:
           $ref: '#/components/schemas/FieldErrorType'
         message:
           type: string
-    AddRestaurantRequest:
+    AddShopRequest:
       type: object
       required:
         - name
@@ -369,7 +369,18 @@ components:
             - permission_denied
         message:
           type: string
-    Restaurant:
+    SessionCreationFailedErrorBody:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum:
+            - session_creation_failed
+        message:
+          type: string
+    Shop:
       type: object
       required:
         - id
@@ -412,27 +423,16 @@ components:
           type: boolean
         category:
           $ref: '#/components/schemas/CategorySlug'
-    RestaurantsResponse:
+    ShopsResponse:
       type: object
       required:
-        - restaurants
+        - shops
       properties:
-        restaurants:
+        shops:
           type: array
           items:
-            $ref: '#/components/schemas/Restaurant'
-    SessionCreationFailedErrorBody:
-      type: object
-      required:
-        - type
-      properties:
-        type:
-          type: string
-          enum:
-            - session_creation_failed
-        message:
-          type: string
-    UpdateRestaurantBadRequestErrorBody:
+            $ref: '#/components/schemas/Shop'
+    UpdateShopBadRequestErrorBody:
       type: object
       required:
         - type
@@ -446,8 +446,8 @@ components:
         fieldErrors:
           type: array
           items:
-            $ref: '#/components/schemas/UpdateRestaurantFieldError'
-    UpdateRestaurantField:
+            $ref: '#/components/schemas/UpdateShopFieldError'
+    UpdateShopField:
       type: string
       enum:
         - name
@@ -461,19 +461,19 @@ components:
         - visited
         - rate
         - favorite
-    UpdateRestaurantFieldError:
+    UpdateShopFieldError:
       type: object
       required:
         - field
         - type
       properties:
         field:
-          $ref: '#/components/schemas/UpdateRestaurantField'
+          $ref: '#/components/schemas/UpdateShopField'
         type:
           $ref: '#/components/schemas/FieldErrorType'
         message:
           type: string
-    UpdateRestaurantRequest:
+    UpdateShopRequest:
       type: object
       required:
         - name

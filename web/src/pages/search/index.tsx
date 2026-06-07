@@ -18,18 +18,18 @@ import {
   MapSelectDetails,
 } from "@/features/map/map.tsx";
 import {
-  UpdateRestaurantCommand,
-  useRestaurants,
-} from "@/features/restaurants/api/use-restaurants.ts";
-import { DetailPanel } from "@/features/restaurants/detail-panel.tsx";
-import { MobileSheet } from "@/features/restaurants/mobile-sheet.tsx";
+  UpdateShopCommand,
+  useShops,
+} from "@/features/shops/api/use-shops.ts";
+import { DetailPanel } from "@/features/shops/detail-panel.tsx";
+import { MobileSheet } from "@/features/shops/mobile-sheet.tsx";
 import {
-  RestaurantEditDraft,
-  RestaurantEditModal,
-} from "@/features/restaurants/restaurant-edit-modal.tsx";
-import { RestaurantFilters, Sidebar } from "@/features/restaurants/sidebar.tsx";
+  ShopEditDraft,
+  ShopEditModal,
+} from "@/features/shops/shop-edit-modal.tsx";
+import { ShopFilters, Sidebar } from "@/features/shops/sidebar.tsx";
 import { useSearchState } from "@/features/search/use-search-state.ts";
-import { filterRestaurants, sortRestaurants } from "@/features/search/utils.ts";
+import { filterShops, sortShops } from "@/features/search/utils.ts";
 import { toastApiError } from "@/utils/toast.ts";
 import { Box, Input } from "@chakra-ui/react";
 import {
@@ -160,32 +160,32 @@ export default function SearchPage() {
     [handleMapViewChange],
   );
 
-  const { restaurants, updateRestaurant } = useRestaurants();
+  const { shops, updateShop } = useShops();
 
-  const filteredRestaurants = useMemo(() => {
-    if (!restaurants) {
+  const filteredShops = useMemo(() => {
+    if (!shops) {
       return [];
     }
-    return filterRestaurants(restaurants, {
+    return filterShops(shops, {
       query: deferredQuery,
       filters: deferredFilters,
     });
-  }, [restaurants, deferredQuery, deferredFilters]);
+  }, [shops, deferredQuery, deferredFilters]);
 
-  const sortedRestaurants = useMemo(() => {
+  const sortedShops = useMemo(() => {
     const center = mapView
       ? { lat: mapView.center[0], lng: mapView.center[1] }
       : DEFAULT_CENTER;
-    return sortRestaurants(filteredRestaurants, center);
-  }, [filteredRestaurants, mapView]);
+    return sortShops(filteredShops, center);
+  }, [filteredShops, mapView]);
 
-  const selectedRestaurant = useMemo(
-    () => restaurants?.find((r) => r.id === selectedId) ?? undefined,
-    [restaurants, selectedId],
+  const selectedShop = useMemo(
+    () => shops?.find((r) => r.id === selectedId) ?? undefined,
+    [shops, selectedId],
   );
-  const editRestaurant = useMemo(
-    () => restaurants?.find((r) => r.id === editId) ?? undefined,
-    [restaurants, editId],
+  const editShop = useMemo(
+    () => shops?.find((r) => r.id === editId) ?? undefined,
+    [shops, editId],
   );
 
   const handleSelect = useCallback(
@@ -196,13 +196,13 @@ export default function SearchPage() {
         return;
       }
 
-      const r = restaurants?.find((x) => x.id === id);
+      const r = shops?.find((x) => x.id === id);
       if (r && mapRef.current) {
         const map = mapRef.current;
         map.panTo([r.lat, r.lng], { animate: true });
       }
     },
-    [restaurants],
+    [shops],
   );
 
   const handleClose = useCallback(() => {
@@ -214,8 +214,8 @@ export default function SearchPage() {
   }, []);
 
   const handleEditSave = useCallback(
-    async (draft: RestaurantEditDraft) => {
-      const cmd: UpdateRestaurantCommand = {
+    async (draft: ShopEditDraft) => {
+      const cmd: UpdateShopCommand = {
         name: draft.name,
         lat: draft.lat,
         lng: draft.lng,
@@ -228,7 +228,7 @@ export default function SearchPage() {
         favorite: draft.favorite,
         rate: draft.rate,
       };
-      const result = await updateRestaurant(draft.id, cmd);
+      const result = await updateShop(draft.id, cmd);
       if (!result.ok) {
         toastApiError(result.error, {
           fallbackTitle: "店舗を更新できませんでした",
@@ -239,7 +239,7 @@ export default function SearchPage() {
       setEditId(null);
       toaster.success({ description: "保存しました" });
     },
-    [updateRestaurant],
+    [updateShop],
   );
 
   return (
@@ -252,8 +252,8 @@ export default function SearchPage() {
     >
       {/* Sidebar (desktop) */}
       <Sidebar
-        allRestaurants={restaurants ?? []}
-        sortedRestaurants={sortedRestaurants}
+        allShops={shops ?? []}
+        sortedShops={sortedShops}
         query={query}
         onQueryChange={handleQueryChange}
         filters={filters}
@@ -273,7 +273,7 @@ export default function SearchPage() {
 
         <Box
           className={
-            selectedRestaurant
+            selectedShop
               ? "nm-map-shell nm-map-shell--detail"
               : "nm-map-shell"
           }
@@ -287,7 +287,7 @@ export default function SearchPage() {
             ref={mapRef}
             initialCenter={initialMapView.center}
             initialZoom={initialMapView.zoom}
-            restaurants={filteredRestaurants}
+            shops={filteredShops}
             selectedId={selectedId}
             onSelect={handleSelect}
             onMoveEnd={handleMoveEnd}
@@ -355,9 +355,9 @@ export default function SearchPage() {
         </Box>
 
         {/* Desktop detail panel */}
-        {selectedRestaurant && (
+        {selectedShop && (
           <DetailPanel
-            restaurant={selectedRestaurant}
+            shop={selectedShop}
             onAdminEdit={handleEditOpen}
             onClose={handleClose}
           />
@@ -366,8 +366,8 @@ export default function SearchPage() {
 
       {/* Mobile bottom sheet */}
       <MobileSheet
-        shop={selectedRestaurant}
-        sortedRestaurants={sortedRestaurants}
+        shop={selectedShop}
+        sortedShops={sortedShops}
         onAdminEdit={handleEditOpen}
         onSelect={handleSelect}
         onClose={handleClose}
@@ -385,7 +385,7 @@ export default function SearchPage() {
           </DrawerHeader>
           <DrawerCloseTrigger />
           <DrawerBody px="0">
-            <RestaurantFilters
+            <ShopFilters
               filters={filters}
               onFilterChange={handleFilterChange}
             />
@@ -393,9 +393,9 @@ export default function SearchPage() {
         </DrawerContent>
       </DrawerRoot>
 
-      {editRestaurant && (
-        <RestaurantEditModal
-          shop={editRestaurant}
+      {editShop && (
+        <ShopEditModal
+          shop={editShop}
           open={!!editId}
           initialTab="info"
           onClose={() => setEditId(null)}

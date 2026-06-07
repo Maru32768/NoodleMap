@@ -2,16 +2,16 @@ import { CategoryBadge } from "@/components/category-badge.tsx";
 import { ShopThumb } from "@/components/shop-thumb.tsx";
 import { CloseButton } from "@/components/ui/close-button.tsx";
 import { useCurrentUser } from "@/features/auth/use-current-user.ts";
-import { Restaurant } from "@/features/restaurants/api/use-restaurants.ts";
+import { Shop } from "@/features/shops/api/use-shops.ts";
 import {
   FavoriteRating,
   MiniHearts,
-} from "@/features/restaurants/rating-hearts.tsx";
+} from "@/features/shops/rating-hearts.tsx";
 import {
-  RestaurantActions,
-  RestaurantAddressLink,
+  ShopActions,
+  ShopAddressLink,
   buildGoogleMapsUrl,
-} from "@/features/restaurants/restaurant-actions.tsx";
+} from "@/features/shops/shop-actions.tsx";
 import { useIsPc } from "@/utils/use-is-pc.ts";
 import { Box } from "@chakra-ui/react";
 import { useEffect, useRef, useState } from "react";
@@ -21,8 +21,8 @@ import { Virtuoso } from "react-virtuoso";
 type MobileSheetLevel = "peek" | "full";
 
 export interface MobileSheetProps {
-  shop: Restaurant | undefined;
-  sortedRestaurants: Restaurant[];
+  shop: Shop | undefined;
+  sortedShops: Shop[];
   onAdminEdit: (id: string) => void;
   onSelect: (id: string) => void;
   onClose: () => void;
@@ -57,10 +57,10 @@ function getPeekRatio(
 }
 
 function MobileListItem({
-  restaurant,
+  shop,
   onClick,
 }: {
-  restaurant: Restaurant;
+  shop: Shop;
   onClick: () => void;
 }) {
   return (
@@ -71,14 +71,14 @@ function MobileListItem({
       py="0.75rem"
       borderBottom="1px solid"
       borderBottomColor="nm.lineFaint"
-      opacity={restaurant.closed ? 0.55 : 1}
+      opacity={shop.closed ? 0.55 : 1}
       cursor="pointer"
       _active={{ bg: "nm.bg" }}
       onClick={onClick}
     >
       <ShopThumb
-        catType={restaurant.category}
-        closed={restaurant.closed}
+        catType={shop.category}
+        closed={shop.closed}
         size="md"
       />
       <Box flex="1" minWidth="0">
@@ -90,15 +90,15 @@ function MobileListItem({
           overflow="hidden"
           textOverflow="ellipsis"
         >
-          {restaurant.name}
+          {shop.name}
         </Box>
         <Box fontSize="0.6875rem" color="nm.inkMuted" mt="0.125rem">
-          {restaurant.category === "udon" ? "うどん" : "ラーメン"} ·{" "}
-          {restaurant.address.slice(0, 14)}...
+          {shop.category === "udon" ? "うどん" : "ラーメン"} ·{" "}
+          {shop.address.slice(0, 14)}...
         </Box>
-        {restaurant.visited && !restaurant.closed && (
+        {shop.visited && !shop.closed && (
           <Box mt="0.1875rem">
-            <MiniHearts rate={restaurant.rate} />
+            <MiniHearts rate={shop.rate} />
           </Box>
         )}
       </Box>
@@ -108,7 +108,7 @@ function MobileListItem({
 
 export function MobileSheet({
   shop,
-  sortedRestaurants,
+  sortedShops,
   onAdminEdit,
   onSelect,
   onClose,
@@ -230,7 +230,7 @@ export function MobileSheet({
                   <Box fontSize="0.6875rem" color="nm.inkMuted" mt="0.25rem">
                     <CategoryBadge catType={shop.category} />
                     <Box as="span" ml="0.5rem">
-                      <RestaurantAddressLink
+                      <ShopAddressLink
                         address={shop.address}
                         mapsUrl={mapsUrl}
                       />
@@ -288,7 +288,7 @@ export function MobileSheet({
                       {
                         label: "ADDRESS",
                         value: (
-                          <RestaurantAddressLink
+                          <ShopAddressLink
                             address={shop.address}
                             mapsUrl={mapsUrl}
                           />
@@ -325,7 +325,7 @@ export function MobileSheet({
                   </Box>
 
                   <Box display="flex" gap="0.5rem" mt="1rem">
-                    <RestaurantActions
+                    <ShopActions
                       mapsUrl={mapsUrl}
                       mapsLabel="Google Maps"
                       onAdminClick={
@@ -356,7 +356,7 @@ export function MobileSheet({
                   color="nm.ink"
                   lineHeight="1"
                 >
-                  {sortedRestaurants.length}
+                  {sortedShops.length}
                 </Box>
                 <Box
                   fontSize="0.6875rem"
@@ -368,11 +368,11 @@ export function MobileSheet({
               </Box>
               <Virtuoso
                 style={{ height: "calc(88svh - 100px)" }}
-                data={sortedRestaurants}
+                data={sortedShops}
                 itemContent={(_, r) => (
                   <MobileListItem
                     key={r.id}
-                    restaurant={r}
+                    shop={r}
                     onClick={() => onSelect(r.id)}
                   />
                 )}

@@ -1,4 +1,4 @@
-import { Restaurant } from "@/features/restaurants/api/use-restaurants.ts";
+import { Shop } from "@/features/shops/api/use-shops.ts";
 
 export type CategoryType = "all" | "ramen" | "udon";
 
@@ -30,17 +30,17 @@ function distanceKm(
   return Math.sqrt(dLat * dLat + dLng * dLng);
 }
 
-export function filterRestaurants(
-  restaurants: Restaurant[],
+export function filterShops(
+  shops: Shop[],
   opts: {
     query: string;
     filters: SearchFilters;
   },
-): Restaurant[] {
+): Shop[] {
   const { query, filters } = opts;
   const q = query.trim().toLowerCase();
 
-  return restaurants.filter((r) => {
+  return shops.filter((r) => {
     const isClosed = r.closed;
     const isVisited = r.visited && !r.closed;
     const isWish = !r.visited && !r.closed;
@@ -74,11 +74,11 @@ export function filterRestaurants(
   });
 }
 
-export function sortRestaurants(
-  restaurants: Restaurant[],
+export function sortShops(
+  shops: Shop[],
   mapCenter: { lat: number; lng: number },
-): Restaurant[] {
-  return [...restaurants].sort((a, b) => {
+): Shop[] {
+  return [...shops].sort((a, b) => {
     const dA = distanceKm(a, mapCenter);
     const dB = distanceKm(b, mapCenter);
     if (Math.abs(dA - dB) > 1.0) {

@@ -31,7 +31,7 @@ union GoogleAuthField {
   "credential",
 }
 
-union AddRestaurantField {
+union AddShopField {
   "name",
   "lat",
   "lng",
@@ -47,7 +47,7 @@ union CategorySlug {
   "udon",
 }
 
-union UpdateRestaurantField {
+union UpdateShopField {
   "name",
   "lat",
   "lng",
@@ -67,14 +67,14 @@ model GoogleAuthFieldError {
   message?: string;
 }
 
-model AddRestaurantFieldError {
-  field: AddRestaurantField;
+model AddShopFieldError {
+  field: AddShopField;
   type: FieldErrorType;
   message?: string;
 }
 
-model UpdateRestaurantFieldError {
-  field: UpdateRestaurantField;
+model UpdateShopFieldError {
+  field: UpdateShopField;
   type: FieldErrorType;
   message?: string;
 }
@@ -90,16 +90,16 @@ model GoogleAuthBadRequestErrorBody {
   fieldErrors?: GoogleAuthFieldError[];
 }
 
-model AddRestaurantBadRequestErrorBody {
+model AddShopBadRequestErrorBody {
   type: "invalid_request";
   message?: string;
-  fieldErrors?: AddRestaurantFieldError[];
+  fieldErrors?: AddShopFieldError[];
 }
 
-model UpdateRestaurantBadRequestErrorBody {
+model UpdateShopBadRequestErrorBody {
   type: "invalid_request";
   message?: string;
-  fieldErrors?: UpdateRestaurantFieldError[];
+  fieldErrors?: UpdateShopFieldError[];
 }
 
 model AuthenticationRequiredErrorBody {
@@ -125,8 +125,8 @@ model InternalErrorBody {
 alias ErrorBody =
   InvalidRequestErrorBody |
   GoogleAuthBadRequestErrorBody |
-  AddRestaurantBadRequestErrorBody |
-  UpdateRestaurantBadRequestErrorBody |
+  AddShopBadRequestErrorBody |
+  UpdateShopBadRequestErrorBody |
   AuthenticationRequiredErrorBody |
   PermissionDeniedErrorBody |
   SessionCreationFailedErrorBody |
@@ -175,7 +175,7 @@ model AuthResponse {
   user: User;
 }
 
-model Restaurant {
+model Shop {
   id: uuid;
   name: string;
   lat: float64;
@@ -190,11 +190,11 @@ model Restaurant {
   category: CategorySlug;
 }
 
-model RestaurantsResponse {
-  restaurants: Restaurant[];
+model ShopsResponse {
+  shops: Shop[];
 }
 
-model AddRestaurantRequest {
+model AddShopRequest {
   name: string;
   lat: float64;
   lng: float64;
@@ -205,7 +205,7 @@ model AddRestaurantRequest {
   category: CategorySlug;
 }
 
-model UpdateRestaurantRequest {
+model UpdateShopRequest {
   name: string;
   lat: float64;
   lng: float64;
@@ -220,8 +220,8 @@ model UpdateRestaurantRequest {
 }
 
 @get
-@route("/restaurants")
-op listRestaurants(): OkResponse<RestaurantsResponse> | InternalServerErrorResponse<InternalErrorBody>;
+@route("/shops")
+op listShops(): OkResponse<ShopsResponse> | InternalServerErrorResponse<InternalErrorBody>;
 
 @post
 @route("/auth/google")
@@ -236,14 +236,14 @@ op me(): OkResponse<User> | BadRequestResponse<InvalidRequestErrorBody> | Unauth
 op logout(): OkEmptyResponse | BadRequestResponse<InvalidRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
 
 @post
-@route("/auth/restaurants")
-op addRestaurant(
-  @body body: AddRestaurantRequest,
-): OkResponse<Restaurant> | BadRequestResponse<AddRestaurantBadRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
+@route("/auth/shops")
+op addShop(
+  @body body: AddShopRequest,
+): OkResponse<Shop> | BadRequestResponse<AddShopBadRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
 
 @put
-@route("/auth/restaurants/{id}")
-op updateRestaurant(
+@route("/auth/shops/{id}")
+op updateShop(
   @path id: uuid,
-  @body body: UpdateRestaurantRequest,
-): OkEmptyResponse | BadRequestResponse<UpdateRestaurantBadRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
+  @body body: UpdateShopRequest,
+): OkEmptyResponse | BadRequestResponse<UpdateShopBadRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | InternalServerErrorResponse<InternalErrorBody>;

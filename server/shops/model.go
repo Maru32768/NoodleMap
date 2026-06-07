@@ -1,8 +1,8 @@
-package restaurants
+package shops
 
 import "github.com/google/uuid"
 
-type RegisteredRestaurant struct {
+type RegisteredShop struct {
 	ID            uuid.UUID `json:"id"`
 	Name          string    `json:"name"`
 	Lat           float64   `json:"lat"`
@@ -17,7 +17,7 @@ type RegisteredRestaurant struct {
 	Category      string    `json:"category"`
 }
 
-type AddRestaurantCommand struct {
+type AddShopCommand struct {
 	Name          string  `json:"name"`
 	Lat           float64 `json:"lat"`
 	Lng           float64 `json:"lng"`
@@ -28,7 +28,7 @@ type AddRestaurantCommand struct {
 	Category      string  `json:"category"`
 }
 
-type UpdateRestaurantCommand struct {
+type UpdateShopCommand struct {
 	Name          string  `json:"name"`
 	Lat           float64 `json:"lat"`
 	Lng           float64 `json:"lng"`

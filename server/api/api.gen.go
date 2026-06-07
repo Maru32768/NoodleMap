@@ -14,21 +14,21 @@ import (
 	strictgin "github.com/oapi-codegen/runtime/strictmiddleware/gin"
 )
 
-// Defines values for AddRestaurantBadRequestErrorBodyType.
+// Defines values for AddShopBadRequestErrorBodyType.
 const (
-	AddRestaurantBadRequestErrorBodyTypeInvalidRequest AddRestaurantBadRequestErrorBodyType = "invalid_request"
+	AddShopBadRequestErrorBodyTypeInvalidRequest AddShopBadRequestErrorBodyType = "invalid_request"
 )
 
-// Defines values for AddRestaurantField.
+// Defines values for AddShopField.
 const (
-	AddRestaurantFieldAddress       AddRestaurantField = "address"
-	AddRestaurantFieldCategory      AddRestaurantField = "category"
-	AddRestaurantFieldClosed        AddRestaurantField = "closed"
-	AddRestaurantFieldGooglePlaceId AddRestaurantField = "googlePlaceId"
-	AddRestaurantFieldLat           AddRestaurantField = "lat"
-	AddRestaurantFieldLng           AddRestaurantField = "lng"
-	AddRestaurantFieldName          AddRestaurantField = "name"
-	AddRestaurantFieldPostalCode    AddRestaurantField = "postalCode"
+	AddShopFieldAddress       AddShopField = "address"
+	AddShopFieldCategory      AddShopField = "category"
+	AddShopFieldClosed        AddShopField = "closed"
+	AddShopFieldGooglePlaceId AddShopField = "googlePlaceId"
+	AddShopFieldLat           AddShopField = "lat"
+	AddShopFieldLng           AddShopField = "lng"
+	AddShopFieldName          AddShopField = "name"
+	AddShopFieldPostalCode    AddShopField = "postalCode"
 )
 
 // Defines values for AuthenticationRequiredErrorBodyType.
@@ -82,48 +82,48 @@ const (
 	SessionCreationFailed SessionCreationFailedErrorBodyType = "session_creation_failed"
 )
 
-// Defines values for UpdateRestaurantBadRequestErrorBodyType.
+// Defines values for UpdateShopBadRequestErrorBodyType.
 const (
-	UpdateRestaurantBadRequestErrorBodyTypeInvalidRequest UpdateRestaurantBadRequestErrorBodyType = "invalid_request"
+	UpdateShopBadRequestErrorBodyTypeInvalidRequest UpdateShopBadRequestErrorBodyType = "invalid_request"
 )
 
-// Defines values for UpdateRestaurantField.
+// Defines values for UpdateShopField.
 const (
-	UpdateRestaurantFieldAddress       UpdateRestaurantField = "address"
-	UpdateRestaurantFieldCategory      UpdateRestaurantField = "category"
-	UpdateRestaurantFieldClosed        UpdateRestaurantField = "closed"
-	UpdateRestaurantFieldFavorite      UpdateRestaurantField = "favorite"
-	UpdateRestaurantFieldGooglePlaceId UpdateRestaurantField = "googlePlaceId"
-	UpdateRestaurantFieldLat           UpdateRestaurantField = "lat"
-	UpdateRestaurantFieldLng           UpdateRestaurantField = "lng"
-	UpdateRestaurantFieldName          UpdateRestaurantField = "name"
-	UpdateRestaurantFieldPostalCode    UpdateRestaurantField = "postalCode"
-	UpdateRestaurantFieldRate          UpdateRestaurantField = "rate"
-	UpdateRestaurantFieldVisited       UpdateRestaurantField = "visited"
+	UpdateShopFieldAddress       UpdateShopField = "address"
+	UpdateShopFieldCategory      UpdateShopField = "category"
+	UpdateShopFieldClosed        UpdateShopField = "closed"
+	UpdateShopFieldFavorite      UpdateShopField = "favorite"
+	UpdateShopFieldGooglePlaceId UpdateShopField = "googlePlaceId"
+	UpdateShopFieldLat           UpdateShopField = "lat"
+	UpdateShopFieldLng           UpdateShopField = "lng"
+	UpdateShopFieldName          UpdateShopField = "name"
+	UpdateShopFieldPostalCode    UpdateShopField = "postalCode"
+	UpdateShopFieldRate          UpdateShopField = "rate"
+	UpdateShopFieldVisited       UpdateShopField = "visited"
 )
 
-// AddRestaurantBadRequestErrorBody defines model for AddRestaurantBadRequestErrorBody.
-type AddRestaurantBadRequestErrorBody struct {
-	FieldErrors *[]AddRestaurantFieldError           `json:"fieldErrors,omitempty"`
-	Message     *string                              `json:"message,omitempty"`
-	Type        AddRestaurantBadRequestErrorBodyType `json:"type"`
+// AddShopBadRequestErrorBody defines model for AddShopBadRequestErrorBody.
+type AddShopBadRequestErrorBody struct {
+	FieldErrors *[]AddShopFieldError           `json:"fieldErrors,omitempty"`
+	Message     *string                        `json:"message,omitempty"`
+	Type        AddShopBadRequestErrorBodyType `json:"type"`
 }
 
-// AddRestaurantBadRequestErrorBodyType defines model for AddRestaurantBadRequestErrorBody.Type.
-type AddRestaurantBadRequestErrorBodyType string
+// AddShopBadRequestErrorBodyType defines model for AddShopBadRequestErrorBody.Type.
+type AddShopBadRequestErrorBodyType string
 
-// AddRestaurantField defines model for AddRestaurantField.
-type AddRestaurantField string
+// AddShopField defines model for AddShopField.
+type AddShopField string
 
-// AddRestaurantFieldError defines model for AddRestaurantFieldError.
-type AddRestaurantFieldError struct {
-	Field   AddRestaurantField `json:"field"`
-	Message *string            `json:"message,omitempty"`
-	Type    FieldErrorType     `json:"type"`
+// AddShopFieldError defines model for AddShopFieldError.
+type AddShopFieldError struct {
+	Field   AddShopField   `json:"field"`
+	Message *string        `json:"message,omitempty"`
+	Type    FieldErrorType `json:"type"`
 }
 
-// AddRestaurantRequest defines model for AddRestaurantRequest.
-type AddRestaurantRequest struct {
+// AddShopRequest defines model for AddShopRequest.
+type AddShopRequest struct {
 	Address       string       `json:"address"`
 	Category      CategorySlug `json:"category"`
 	Closed        bool         `json:"closed"`
@@ -206,8 +206,17 @@ type PermissionDeniedErrorBody struct {
 // PermissionDeniedErrorBodyType defines model for PermissionDeniedErrorBody.Type.
 type PermissionDeniedErrorBodyType string
 
-// Restaurant defines model for Restaurant.
-type Restaurant struct {
+// SessionCreationFailedErrorBody defines model for SessionCreationFailedErrorBody.
+type SessionCreationFailedErrorBody struct {
+	Message *string                            `json:"message,omitempty"`
+	Type    SessionCreationFailedErrorBodyType `json:"type"`
+}
+
+// SessionCreationFailedErrorBodyType defines model for SessionCreationFailedErrorBody.Type.
+type SessionCreationFailedErrorBodyType string
+
+// Shop defines model for Shop.
+type Shop struct {
 	Address       string       `json:"address"`
 	Category      CategorySlug `json:"category"`
 	Closed        bool         `json:"closed"`
@@ -224,42 +233,33 @@ type Restaurant struct {
 	Visited    bool    `json:"visited"`
 }
 
-// RestaurantsResponse defines model for RestaurantsResponse.
-type RestaurantsResponse struct {
-	Restaurants []Restaurant `json:"restaurants"`
+// ShopsResponse defines model for ShopsResponse.
+type ShopsResponse struct {
+	Shops []Shop `json:"shops"`
 }
 
-// SessionCreationFailedErrorBody defines model for SessionCreationFailedErrorBody.
-type SessionCreationFailedErrorBody struct {
-	Message *string                            `json:"message,omitempty"`
-	Type    SessionCreationFailedErrorBodyType `json:"type"`
+// UpdateShopBadRequestErrorBody defines model for UpdateShopBadRequestErrorBody.
+type UpdateShopBadRequestErrorBody struct {
+	FieldErrors *[]UpdateShopFieldError           `json:"fieldErrors,omitempty"`
+	Message     *string                           `json:"message,omitempty"`
+	Type        UpdateShopBadRequestErrorBodyType `json:"type"`
 }
 
-// SessionCreationFailedErrorBodyType defines model for SessionCreationFailedErrorBody.Type.
-type SessionCreationFailedErrorBodyType string
+// UpdateShopBadRequestErrorBodyType defines model for UpdateShopBadRequestErrorBody.Type.
+type UpdateShopBadRequestErrorBodyType string
 
-// UpdateRestaurantBadRequestErrorBody defines model for UpdateRestaurantBadRequestErrorBody.
-type UpdateRestaurantBadRequestErrorBody struct {
-	FieldErrors *[]UpdateRestaurantFieldError           `json:"fieldErrors,omitempty"`
-	Message     *string                                 `json:"message,omitempty"`
-	Type        UpdateRestaurantBadRequestErrorBodyType `json:"type"`
+// UpdateShopField defines model for UpdateShopField.
+type UpdateShopField string
+
+// UpdateShopFieldError defines model for UpdateShopFieldError.
+type UpdateShopFieldError struct {
+	Field   UpdateShopField `json:"field"`
+	Message *string         `json:"message,omitempty"`
+	Type    FieldErrorType  `json:"type"`
 }
 
-// UpdateRestaurantBadRequestErrorBodyType defines model for UpdateRestaurantBadRequestErrorBody.Type.
-type UpdateRestaurantBadRequestErrorBodyType string
-
-// UpdateRestaurantField defines model for UpdateRestaurantField.
-type UpdateRestaurantField string
-
-// UpdateRestaurantFieldError defines model for UpdateRestaurantFieldError.
-type UpdateRestaurantFieldError struct {
-	Field   UpdateRestaurantField `json:"field"`
-	Message *string               `json:"message,omitempty"`
-	Type    FieldErrorType        `json:"type"`
-}
-
-// UpdateRestaurantRequest defines model for UpdateRestaurantRequest.
-type UpdateRestaurantRequest struct {
+// UpdateShopRequest defines model for UpdateShopRequest.
+type UpdateShopRequest struct {
 	Address       string       `json:"address"`
 	Category      CategorySlug `json:"category"`
 	Closed        bool         `json:"closed"`
@@ -288,11 +288,11 @@ type Uuid = string
 // GoogleAuthJSONRequestBody defines body for GoogleAuth for application/json ContentType.
 type GoogleAuthJSONRequestBody = GoogleAuthRequest
 
-// AddRestaurantJSONRequestBody defines body for AddRestaurant for application/json ContentType.
-type AddRestaurantJSONRequestBody = AddRestaurantRequest
+// AddShopJSONRequestBody defines body for AddShop for application/json ContentType.
+type AddShopJSONRequestBody = AddShopRequest
 
-// UpdateRestaurantJSONRequestBody defines body for UpdateRestaurant for application/json ContentType.
-type UpdateRestaurantJSONRequestBody = UpdateRestaurantRequest
+// UpdateShopJSONRequestBody defines body for UpdateShop for application/json ContentType.
+type UpdateShopJSONRequestBody = UpdateShopRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -306,14 +306,14 @@ type ServerInterface interface {
 	// (GET /api/v1/auth/me)
 	Me(c *gin.Context)
 
-	// (POST /api/v1/auth/restaurants)
-	AddRestaurant(c *gin.Context)
+	// (POST /api/v1/auth/shops)
+	AddShop(c *gin.Context)
 
-	// (PUT /api/v1/auth/restaurants/{id})
-	UpdateRestaurant(c *gin.Context, id Uuid)
+	// (PUT /api/v1/auth/shops/{id})
+	UpdateShop(c *gin.Context, id Uuid)
 
-	// (GET /api/v1/restaurants)
-	ListRestaurants(c *gin.Context)
+	// (GET /api/v1/shops)
+	ListShops(c *gin.Context)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -364,8 +364,8 @@ func (siw *ServerInterfaceWrapper) Me(c *gin.Context) {
 	siw.Handler.Me(c)
 }
 
-// AddRestaurant operation middleware
-func (siw *ServerInterfaceWrapper) AddRestaurant(c *gin.Context) {
+// AddShop operation middleware
+func (siw *ServerInterfaceWrapper) AddShop(c *gin.Context) {
 
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
@@ -374,11 +374,11 @@ func (siw *ServerInterfaceWrapper) AddRestaurant(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.AddRestaurant(c)
+	siw.Handler.AddShop(c)
 }
 
-// UpdateRestaurant operation middleware
-func (siw *ServerInterfaceWrapper) UpdateRestaurant(c *gin.Context) {
+// UpdateShop operation middleware
+func (siw *ServerInterfaceWrapper) UpdateShop(c *gin.Context) {
 
 	var err error
 
@@ -398,11 +398,11 @@ func (siw *ServerInterfaceWrapper) UpdateRestaurant(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.UpdateRestaurant(c, id)
+	siw.Handler.UpdateShop(c, id)
 }
 
-// ListRestaurants operation middleware
-func (siw *ServerInterfaceWrapper) ListRestaurants(c *gin.Context) {
+// ListShops operation middleware
+func (siw *ServerInterfaceWrapper) ListShops(c *gin.Context) {
 
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
@@ -411,7 +411,7 @@ func (siw *ServerInterfaceWrapper) ListRestaurants(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.ListRestaurants(c)
+	siw.Handler.ListShops(c)
 }
 
 // GinServerOptions provides options for the Gin server.
@@ -444,9 +444,9 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/api/v1/auth/google", wrapper.GoogleAuth)
 	router.POST(options.BaseURL+"/api/v1/auth/logout", wrapper.Logout)
 	router.GET(options.BaseURL+"/api/v1/auth/me", wrapper.Me)
-	router.POST(options.BaseURL+"/api/v1/auth/restaurants", wrapper.AddRestaurant)
-	router.PUT(options.BaseURL+"/api/v1/auth/restaurants/:id", wrapper.UpdateRestaurant)
-	router.GET(options.BaseURL+"/api/v1/restaurants", wrapper.ListRestaurants)
+	router.POST(options.BaseURL+"/api/v1/auth/shops", wrapper.AddShop)
+	router.PUT(options.BaseURL+"/api/v1/auth/shops/:id", wrapper.UpdateShop)
+	router.GET(options.BaseURL+"/api/v1/shops", wrapper.ListShops)
 }
 
 type GoogleAuthRequestObject struct {
@@ -569,131 +569,131 @@ func (response Me500JSONResponse) VisitMeResponse(w http.ResponseWriter) error {
 	return json.NewEncoder(w).Encode(response)
 }
 
-type AddRestaurantRequestObject struct {
-	Body *AddRestaurantJSONRequestBody
+type AddShopRequestObject struct {
+	Body *AddShopJSONRequestBody
 }
 
-type AddRestaurantResponseObject interface {
-	VisitAddRestaurantResponse(w http.ResponseWriter) error
+type AddShopResponseObject interface {
+	VisitAddShopResponse(w http.ResponseWriter) error
 }
 
-type AddRestaurant200JSONResponse Restaurant
+type AddShop200JSONResponse Shop
 
-func (response AddRestaurant200JSONResponse) VisitAddRestaurantResponse(w http.ResponseWriter) error {
+func (response AddShop200JSONResponse) VisitAddShopResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type AddRestaurant400JSONResponse AddRestaurantBadRequestErrorBody
+type AddShop400JSONResponse AddShopBadRequestErrorBody
 
-func (response AddRestaurant400JSONResponse) VisitAddRestaurantResponse(w http.ResponseWriter) error {
+func (response AddShop400JSONResponse) VisitAddShopResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(400)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type AddRestaurant401JSONResponse AuthenticationRequiredErrorBody
+type AddShop401JSONResponse AuthenticationRequiredErrorBody
 
-func (response AddRestaurant401JSONResponse) VisitAddRestaurantResponse(w http.ResponseWriter) error {
+func (response AddShop401JSONResponse) VisitAddShopResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(401)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type AddRestaurant403JSONResponse PermissionDeniedErrorBody
+type AddShop403JSONResponse PermissionDeniedErrorBody
 
-func (response AddRestaurant403JSONResponse) VisitAddRestaurantResponse(w http.ResponseWriter) error {
+func (response AddShop403JSONResponse) VisitAddShopResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(403)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type AddRestaurant500JSONResponse InternalErrorBody
+type AddShop500JSONResponse InternalErrorBody
 
-func (response AddRestaurant500JSONResponse) VisitAddRestaurantResponse(w http.ResponseWriter) error {
+func (response AddShop500JSONResponse) VisitAddShopResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type UpdateRestaurantRequestObject struct {
+type UpdateShopRequestObject struct {
 	Id   Uuid `json:"id"`
-	Body *UpdateRestaurantJSONRequestBody
+	Body *UpdateShopJSONRequestBody
 }
 
-type UpdateRestaurantResponseObject interface {
-	VisitUpdateRestaurantResponse(w http.ResponseWriter) error
+type UpdateShopResponseObject interface {
+	VisitUpdateShopResponse(w http.ResponseWriter) error
 }
 
-type UpdateRestaurant200Response struct {
+type UpdateShop200Response struct {
 }
 
-func (response UpdateRestaurant200Response) VisitUpdateRestaurantResponse(w http.ResponseWriter) error {
+func (response UpdateShop200Response) VisitUpdateShopResponse(w http.ResponseWriter) error {
 	w.WriteHeader(200)
 	return nil
 }
 
-type UpdateRestaurant400JSONResponse UpdateRestaurantBadRequestErrorBody
+type UpdateShop400JSONResponse UpdateShopBadRequestErrorBody
 
-func (response UpdateRestaurant400JSONResponse) VisitUpdateRestaurantResponse(w http.ResponseWriter) error {
+func (response UpdateShop400JSONResponse) VisitUpdateShopResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(400)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type UpdateRestaurant401JSONResponse AuthenticationRequiredErrorBody
+type UpdateShop401JSONResponse AuthenticationRequiredErrorBody
 
-func (response UpdateRestaurant401JSONResponse) VisitUpdateRestaurantResponse(w http.ResponseWriter) error {
+func (response UpdateShop401JSONResponse) VisitUpdateShopResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(401)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type UpdateRestaurant403JSONResponse PermissionDeniedErrorBody
+type UpdateShop403JSONResponse PermissionDeniedErrorBody
 
-func (response UpdateRestaurant403JSONResponse) VisitUpdateRestaurantResponse(w http.ResponseWriter) error {
+func (response UpdateShop403JSONResponse) VisitUpdateShopResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(403)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type UpdateRestaurant500JSONResponse InternalErrorBody
+type UpdateShop500JSONResponse InternalErrorBody
 
-func (response UpdateRestaurant500JSONResponse) VisitUpdateRestaurantResponse(w http.ResponseWriter) error {
+func (response UpdateShop500JSONResponse) VisitUpdateShopResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type ListRestaurantsRequestObject struct {
+type ListShopsRequestObject struct {
 }
 
-type ListRestaurantsResponseObject interface {
-	VisitListRestaurantsResponse(w http.ResponseWriter) error
+type ListShopsResponseObject interface {
+	VisitListShopsResponse(w http.ResponseWriter) error
 }
 
-type ListRestaurants200JSONResponse RestaurantsResponse
+type ListShops200JSONResponse ShopsResponse
 
-func (response ListRestaurants200JSONResponse) VisitListRestaurantsResponse(w http.ResponseWriter) error {
+func (response ListShops200JSONResponse) VisitListShopsResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type ListRestaurants500JSONResponse InternalErrorBody
+type ListShops500JSONResponse InternalErrorBody
 
-func (response ListRestaurants500JSONResponse) VisitListRestaurantsResponse(w http.ResponseWriter) error {
+func (response ListShops500JSONResponse) VisitListShopsResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
 
@@ -712,14 +712,14 @@ type StrictServerInterface interface {
 	// (GET /api/v1/auth/me)
 	Me(ctx context.Context, request MeRequestObject) (MeResponseObject, error)
 
-	// (POST /api/v1/auth/restaurants)
-	AddRestaurant(ctx context.Context, request AddRestaurantRequestObject) (AddRestaurantResponseObject, error)
+	// (POST /api/v1/auth/shops)
+	AddShop(ctx context.Context, request AddShopRequestObject) (AddShopResponseObject, error)
 
-	// (PUT /api/v1/auth/restaurants/{id})
-	UpdateRestaurant(ctx context.Context, request UpdateRestaurantRequestObject) (UpdateRestaurantResponseObject, error)
+	// (PUT /api/v1/auth/shops/{id})
+	UpdateShop(ctx context.Context, request UpdateShopRequestObject) (UpdateShopResponseObject, error)
 
-	// (GET /api/v1/restaurants)
-	ListRestaurants(ctx context.Context, request ListRestaurantsRequestObject) (ListRestaurantsResponseObject, error)
+	// (GET /api/v1/shops)
+	ListShops(ctx context.Context, request ListShopsRequestObject) (ListShopsResponseObject, error)
 }
 
 type StrictHandlerFunc = strictgin.StrictGinHandlerFunc
@@ -817,11 +817,11 @@ func (sh *strictHandler) Me(ctx *gin.Context) {
 	}
 }
 
-// AddRestaurant operation middleware
-func (sh *strictHandler) AddRestaurant(ctx *gin.Context) {
-	var request AddRestaurantRequestObject
+// AddShop operation middleware
+func (sh *strictHandler) AddShop(ctx *gin.Context) {
+	var request AddShopRequestObject
 
-	var body AddRestaurantJSONRequestBody
+	var body AddShopJSONRequestBody
 	if err := ctx.ShouldBindJSON(&body); err != nil {
 		ctx.Status(http.StatusBadRequest)
 		ctx.Error(err)
@@ -830,10 +830,10 @@ func (sh *strictHandler) AddRestaurant(ctx *gin.Context) {
 	request.Body = &body
 
 	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
-		return sh.ssi.AddRestaurant(ctx, request.(AddRestaurantRequestObject))
+		return sh.ssi.AddShop(ctx, request.(AddShopRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "AddRestaurant")
+		handler = middleware(handler, "AddShop")
 	}
 
 	response, err := handler(ctx, request)
@@ -841,8 +841,8 @@ func (sh *strictHandler) AddRestaurant(ctx *gin.Context) {
 	if err != nil {
 		ctx.Error(err)
 		ctx.Status(http.StatusInternalServerError)
-	} else if validResponse, ok := response.(AddRestaurantResponseObject); ok {
-		if err := validResponse.VisitAddRestaurantResponse(ctx.Writer); err != nil {
+	} else if validResponse, ok := response.(AddShopResponseObject); ok {
+		if err := validResponse.VisitAddShopResponse(ctx.Writer); err != nil {
 			ctx.Error(err)
 		}
 	} else if response != nil {
@@ -850,13 +850,13 @@ func (sh *strictHandler) AddRestaurant(ctx *gin.Context) {
 	}
 }
 
-// UpdateRestaurant operation middleware
-func (sh *strictHandler) UpdateRestaurant(ctx *gin.Context, id Uuid) {
-	var request UpdateRestaurantRequestObject
+// UpdateShop operation middleware
+func (sh *strictHandler) UpdateShop(ctx *gin.Context, id Uuid) {
+	var request UpdateShopRequestObject
 
 	request.Id = id
 
-	var body UpdateRestaurantJSONRequestBody
+	var body UpdateShopJSONRequestBody
 	if err := ctx.ShouldBindJSON(&body); err != nil {
 		ctx.Status(http.StatusBadRequest)
 		ctx.Error(err)
@@ -865,10 +865,10 @@ func (sh *strictHandler) UpdateRestaurant(ctx *gin.Context, id Uuid) {
 	request.Body = &body
 
 	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
-		return sh.ssi.UpdateRestaurant(ctx, request.(UpdateRestaurantRequestObject))
+		return sh.ssi.UpdateShop(ctx, request.(UpdateShopRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "UpdateRestaurant")
+		handler = middleware(handler, "UpdateShop")
 	}
 
 	response, err := handler(ctx, request)
@@ -876,8 +876,8 @@ func (sh *strictHandler) UpdateRestaurant(ctx *gin.Context, id Uuid) {
 	if err != nil {
 		ctx.Error(err)
 		ctx.Status(http.StatusInternalServerError)
-	} else if validResponse, ok := response.(UpdateRestaurantResponseObject); ok {
-		if err := validResponse.VisitUpdateRestaurantResponse(ctx.Writer); err != nil {
+	} else if validResponse, ok := response.(UpdateShopResponseObject); ok {
+		if err := validResponse.VisitUpdateShopResponse(ctx.Writer); err != nil {
 			ctx.Error(err)
 		}
 	} else if response != nil {
@@ -885,15 +885,15 @@ func (sh *strictHandler) UpdateRestaurant(ctx *gin.Context, id Uuid) {
 	}
 }
 
-// ListRestaurants operation middleware
-func (sh *strictHandler) ListRestaurants(ctx *gin.Context) {
-	var request ListRestaurantsRequestObject
+// ListShops operation middleware
+func (sh *strictHandler) ListShops(ctx *gin.Context) {
+	var request ListShopsRequestObject
 
 	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
-		return sh.ssi.ListRestaurants(ctx, request.(ListRestaurantsRequestObject))
+		return sh.ssi.ListShops(ctx, request.(ListShopsRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ListRestaurants")
+		handler = middleware(handler, "ListShops")
 	}
 
 	response, err := handler(ctx, request)
@@ -901,8 +901,8 @@ func (sh *strictHandler) ListRestaurants(ctx *gin.Context) {
 	if err != nil {
 		ctx.Error(err)
 		ctx.Status(http.StatusInternalServerError)
-	} else if validResponse, ok := response.(ListRestaurantsResponseObject); ok {
-		if err := validResponse.VisitListRestaurantsResponse(ctx.Writer); err != nil {
+	} else if validResponse, ok := response.(ListShopsResponseObject); ok {
+		if err := validResponse.VisitListShopsResponse(ctx.Writer); err != nil {
 			ctx.Error(err)
 		}
 	} else if response != nil {

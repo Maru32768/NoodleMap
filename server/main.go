@@ -21,7 +21,7 @@ import (
 	"server/backup"
 	infraDB "server/infra/db"
 	"server/middleware"
-	"server/restaurants"
+	"server/shops"
 )
 
 //go:embed data/sql/migrations
@@ -126,14 +126,14 @@ func run() error {
 		ctx.String(http.StatusOK, "ok")
 	})
 
-	restaurantHandler := restaurants.NewHandler(store)
+	shopHandler := shops.NewHandler(store)
 	authHandler := auth.NewHandler(store, auth.Config{
 		GoogleOAuthClientID: googleOAuthClientID,
 		AdminEmail:          adminEmail,
 		CookieSecure:        authCookieSecure,
 	})
 	engine.Use(authHandler.Middleware())
-	api.RegisterHandlers(engine, api.NewHandler(authHandler, restaurantHandler))
+	api.RegisterHandlers(engine, api.NewHandler(authHandler, shopHandler))
 
 	if err := engine.Run(":" + serverPort); err != nil {
 		return err

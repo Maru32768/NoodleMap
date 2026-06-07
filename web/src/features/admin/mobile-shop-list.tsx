@@ -1,11 +1,11 @@
-import { Restaurant } from "@/features/restaurants/api/use-restaurants.ts";
+import { Shop } from "@/features/shops/api/use-shops.ts";
 import { favToHearts } from "@/features/search/utils.ts";
 import { Box } from "@chakra-ui/react";
 import { useEffect, useRef } from "react";
 import { Virtuoso, VirtuosoHandle } from "react-virtuoso";
 
 interface MobileShopListProps {
-  shops: Restaurant[];
+  shops: Shop[];
   selectedId: string | null;
   onEdit: (id: string) => void;
 }
@@ -36,7 +36,7 @@ function MiniHearts({ rate }: { rate: number | undefined }) {
   );
 }
 
-const THUMB_BG: Record<Restaurant["category"], string> = {
+const THUMB_BG: Record<Shop["category"], string> = {
   ramen: "linear-gradient(135deg, #d4946d, #8c4a2e)",
   udon: "linear-gradient(135deg, #ddc99c, #8c7341)",
 };
@@ -52,7 +52,7 @@ function MobileShopListItem({
   selected,
   onEdit,
 }: {
-  shop: Restaurant;
+  shop: Shop;
   selected: boolean;
   onEdit: (id: string) => void;
 }) {

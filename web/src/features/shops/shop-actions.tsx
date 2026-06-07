@@ -1,9 +1,9 @@
 import { Button } from "@/components/ui/button.tsx";
-import { Restaurant } from "@/features/restaurants/api/use-restaurants.ts";
+import { Shop } from "@/features/shops/api/use-shops.ts";
 import { Link } from "@chakra-ui/react";
 import { LuExternalLink, LuSettings } from "react-icons/lu";
 
-export function buildGoogleMapsUrl(r: Restaurant) {
+export function buildGoogleMapsUrl(r: Shop) {
   const url = new URL("https://www.google.com/maps/search/");
   url.searchParams.set("api", "1");
   url.searchParams.set("query", `${r.name} ${r.address}`);
@@ -29,7 +29,7 @@ const actionBtnBase = {
   transition: "all 0.15s",
 } as const;
 
-export function RestaurantActions({
+export function ShopActions({
   mapsUrl,
   mapsLabel,
   onAdminClick,
@@ -72,7 +72,7 @@ export function RestaurantActions({
   );
 }
 
-export function RestaurantAddressLink({
+export function ShopAddressLink({
   address,
   mapsUrl,
 }: {

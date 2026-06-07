@@ -5,11 +5,11 @@ import {
   FindResult,
   GooglePlaceFinder,
 } from "@/features/map/google-place-finder.tsx";
-import { AddRestaurantCommand } from "@/features/restaurants/api/use-restaurants.ts";
+import { AddShopCommand } from "@/features/shops/api/use-shops.ts";
 import { Box, Input } from "@chakra-ui/react";
 import { useState } from "react";
 
-export type AddDraft = AddRestaurantCommand;
+export type AddDraft = AddShopCommand;
 
 interface AddModalProps {
   open: boolean;
@@ -159,7 +159,7 @@ export function AddModal({
       width="100%"
       maxWidth="1040px"
       title="新しい店舗を追加"
-      subtitle="ADD NEW RESTAURANT"
+      subtitle="ADD NEW SHOP"
       icon={
         <svg
           viewBox="0 0 24 24"

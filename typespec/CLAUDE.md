@@ -22,7 +22,7 @@ Endpoint-specific errors should be represented by endpoint-specific body models.
 
 For form-capable endpoints, model field errors explicitly:
 
-- Define a field-name union for the request model, such as `AddRestaurantField`.
+- Define a field-name union for the request model, such as `AddShopField`.
 - Define a field error model using that field union and `FieldErrorType`.
 - Use that endpoint-specific bad request body in the `400` response.
 

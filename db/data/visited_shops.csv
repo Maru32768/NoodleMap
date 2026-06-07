@@ -1,4 +1,4 @@
-id,restaurant_id,rate,favorite
+id,shop_id,rate,favorite
 b76570b1-77bb-4e77-9779-2731b5d8f99b,372cfe74-be8c-83b1-e390-54afa4f6cf71,5,false
 d667b4bb-9f84-4984-a3e2-af30fa06a4e9,801fb867-74b1-1dac-3567-2fcf91ca9806,5,false
 04de9b10-c1e3-4496-b36e-199fc49d9ace,ae756756-9b8a-2449-1b46-443761803d80,5,false

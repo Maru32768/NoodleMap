@@ -52,7 +52,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/auth/restaurants": {
+    "/api/v1/auth/shops": {
         parameters: {
             query?: never;
             header?: never;
@@ -61,14 +61,14 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["addRestaurant"];
+        post: operations["addShop"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/auth/restaurants/{id}": {
+    "/api/v1/auth/shops/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -76,7 +76,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put: operations["updateRestaurant"];
+        put: operations["updateShop"];
         post?: never;
         delete?: never;
         options?: never;
@@ -84,14 +84,14 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/restaurants": {
+    "/api/v1/shops": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["listRestaurants"];
+        get: operations["listShops"];
         put?: never;
         post?: never;
         delete?: never;
@@ -104,20 +104,20 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        AddRestaurantBadRequestErrorBody: {
+        AddShopBadRequestErrorBody: {
             /** @enum {string} */
             type: "invalid_request";
             message?: string;
-            fieldErrors?: components["schemas"]["AddRestaurantFieldError"][];
+            fieldErrors?: components["schemas"]["AddShopFieldError"][];
         };
         /** @enum {string} */
-        AddRestaurantField: "name" | "lat" | "lng" | "postalCode" | "address" | "closed" | "googlePlaceId" | "category";
-        AddRestaurantFieldError: {
-            field: components["schemas"]["AddRestaurantField"];
+        AddShopField: "name" | "lat" | "lng" | "postalCode" | "address" | "closed" | "googlePlaceId" | "category";
+        AddShopFieldError: {
+            field: components["schemas"]["AddShopField"];
             type: components["schemas"]["FieldErrorType"];
             message?: string;
         };
-        AddRestaurantRequest: {
+        AddShopRequest: {
             name: string;
             /** Format: double */
             lat: number;
@@ -174,7 +174,12 @@ export interface components {
             type: "permission_denied";
             message?: string;
         };
-        Restaurant: {
+        SessionCreationFailedErrorBody: {
+            /** @enum {string} */
+            type: "session_creation_failed";
+            message?: string;
+        };
+        Shop: {
             id: components["schemas"]["uuid"];
             name: string;
             /** Format: double */
@@ -191,28 +196,23 @@ export interface components {
             favorite: boolean;
             category: components["schemas"]["CategorySlug"];
         };
-        RestaurantsResponse: {
-            restaurants: components["schemas"]["Restaurant"][];
+        ShopsResponse: {
+            shops: components["schemas"]["Shop"][];
         };
-        SessionCreationFailedErrorBody: {
-            /** @enum {string} */
-            type: "session_creation_failed";
-            message?: string;
-        };
-        UpdateRestaurantBadRequestErrorBody: {
+        UpdateShopBadRequestErrorBody: {
             /** @enum {string} */
             type: "invalid_request";
             message?: string;
-            fieldErrors?: components["schemas"]["UpdateRestaurantFieldError"][];
+            fieldErrors?: components["schemas"]["UpdateShopFieldError"][];
         };
         /** @enum {string} */
-        UpdateRestaurantField: "name" | "lat" | "lng" | "postalCode" | "address" | "closed" | "googlePlaceId" | "category" | "visited" | "rate" | "favorite";
-        UpdateRestaurantFieldError: {
-            field: components["schemas"]["UpdateRestaurantField"];
+        UpdateShopField: "name" | "lat" | "lng" | "postalCode" | "address" | "closed" | "googlePlaceId" | "category" | "visited" | "rate" | "favorite";
+        UpdateShopFieldError: {
+            field: components["schemas"]["UpdateShopField"];
             type: components["schemas"]["FieldErrorType"];
             message?: string;
         };
-        UpdateRestaurantRequest: {
+        UpdateShopRequest: {
             name: string;
             /** Format: double */
             lat: number;
@@ -378,7 +378,7 @@ export interface operations {
             };
         };
     };
-    addRestaurant: {
+    addShop: {
         parameters: {
             query?: never;
             header?: never;
@@ -387,7 +387,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["AddRestaurantRequest"];
+                "application/json": components["schemas"]["AddShopRequest"];
             };
         };
         responses: {
@@ -397,7 +397,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Restaurant"];
+                    "application/json": components["schemas"]["Shop"];
                 };
             };
             /** @description The server could not understand the request due to invalid syntax. */
@@ -406,7 +406,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AddRestaurantBadRequestErrorBody"];
+                    "application/json": components["schemas"]["AddShopBadRequestErrorBody"];
                 };
             };
             /** @description Access is unauthorized. */
@@ -438,7 +438,7 @@ export interface operations {
             };
         };
     };
-    updateRestaurant: {
+    updateShop: {
         parameters: {
             query?: never;
             header?: never;
@@ -449,7 +449,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UpdateRestaurantRequest"];
+                "application/json": components["schemas"]["UpdateShopRequest"];
             };
         };
         responses: {
@@ -466,7 +466,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["UpdateRestaurantBadRequestErrorBody"];
+                    "application/json": components["schemas"]["UpdateShopBadRequestErrorBody"];
                 };
             };
             /** @description Access is unauthorized. */
@@ -498,7 +498,7 @@ export interface operations {
             };
         };
     };
-    listRestaurants: {
+    listShops: {
         parameters: {
             query?: never;
             header?: never;
@@ -513,7 +513,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RestaurantsResponse"];
+                    "application/json": components["schemas"]["ShopsResponse"];
                 };
             };
             /** @description Server error */

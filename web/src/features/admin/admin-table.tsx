@@ -5,21 +5,21 @@ import {
 } from "@/components/list-table.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { CategoryIcon } from "@/features/map/category-icon.tsx";
-import { Restaurant } from "@/features/restaurants/api/use-restaurants.ts";
-import { buildGoogleMapsUrl } from "@/features/restaurants/restaurant-actions.tsx";
+import { Shop } from "@/features/shops/api/use-shops.ts";
+import { buildGoogleMapsUrl } from "@/features/shops/shop-actions.tsx";
 import { favToHearts } from "@/features/search/utils.ts";
 import { Box, Link } from "@chakra-ui/react";
 import React, { useEffect } from "react";
 import { TableVirtuosoHandle } from "react-virtuoso";
 
 interface AdminTableProps {
-  shops: Restaurant[];
+  shops: Shop[];
   selectedId: string | null;
   onSelect: (id: string) => void;
   onEdit: (id: string, tab?: "images") => void;
 }
 
-type AdminTableRow = Restaurant & {
+type AdminTableRow = Shop & {
   categorySort: string;
   favoriteSort: number;
 };

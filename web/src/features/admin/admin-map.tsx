@@ -5,13 +5,13 @@ import {
   MapHandle,
   MapSelectDetails,
 } from "@/features/map/map.tsx";
-import { Restaurant } from "@/features/restaurants/api/use-restaurants.ts";
+import { Shop } from "@/features/shops/api/use-shops.ts";
 import { Box, BoxProps } from "@chakra-ui/react";
 import { useCallback, useEffect, useRef } from "react";
 
 export interface AdminMapProps {
-  shops: Restaurant[];
-  filtered: Restaurant[];
+  shops: Shop[];
+  filtered: Shop[];
   selectedId: string | null;
   onSelect: (id: string) => void;
   addingMode: boolean;
@@ -79,7 +79,7 @@ export function AdminMap({
         ref={mapRef}
         initialCenter={ADMIN_INITIAL_CENTER}
         initialZoom={ADMIN_INITIAL_ZOOM}
-        restaurants={filtered}
+        shops={filtered}
         selectedId={selectedId}
         onSelect={handleSelect}
         onMoveEnd={noopMoveEnd}

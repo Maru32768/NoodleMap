@@ -1,19 +1,19 @@
 import { ShopThumb } from "@/components/shop-thumb.tsx";
 import { Button } from "@/components/ui/button.tsx";
-import { Restaurant } from "@/features/restaurants/api/use-restaurants.ts";
+import { Shop } from "@/features/shops/api/use-shops.ts";
 import {
   HeartIcon,
   MiniHearts,
-} from "@/features/restaurants/rating-hearts.tsx";
+} from "@/features/shops/rating-hearts.tsx";
 import { favToHearts, SearchFilters } from "@/features/search/utils.ts";
 import { Box, Input } from "@chakra-ui/react";
 import { useState } from "react";
 import { Virtuoso } from "react-virtuoso";
 
-function StatusPill({ restaurant }: { restaurant: Restaurant }) {
-  const props = restaurant.closed
+function StatusPill({ shop }: { shop: Shop }) {
+  const props = shop.closed
     ? { bg: "nm.ink", color: "nm.paper", label: "閉店", border: undefined }
-    : restaurant.visited
+    : shop.visited
       ? { bg: "nm.matcha", color: "white", label: "食べた", border: undefined }
       : {
           bg: "nm.bgSoft",
@@ -45,11 +45,11 @@ function StatusPill({ restaurant }: { restaurant: Restaurant }) {
 }
 
 function ShopCard({
-  restaurant,
+  shop,
   active,
   onClick,
 }: {
-  restaurant: Restaurant;
+  shop: Shop;
   active: boolean;
   onClick: () => void;
 }) {
@@ -69,13 +69,13 @@ function ShopCard({
       boxShadow={
         active ? "inset 3px 0 0 var(--chakra-colors-nm-shu)" : undefined
       }
-      opacity={restaurant.closed ? 0.55 : 1}
+      opacity={shop.closed ? 0.55 : 1}
       _hover={{ bg: "nm.bg" }}
       onClick={onClick}
     >
       <ShopThumb
-        catType={restaurant.category}
-        closed={restaurant.closed}
+        catType={shop.category}
+        closed={shop.closed}
         size="md"
       />
 
@@ -89,7 +89,7 @@ function ShopCard({
           overflow="hidden"
           textOverflow="ellipsis"
         >
-          {restaurant.name}
+          {shop.name}
         </Box>
         <Box
           display="flex"
@@ -100,14 +100,14 @@ function ShopCard({
           mb="0.25rem"
         >
           <Box as="span">
-            {restaurant.category === "udon" ? "うどん" : "ラーメン"}
+            {shop.category === "udon" ? "うどん" : "ラーメン"}
           </Box>
           <Box as="span" w="3px" h="3px" borderRadius="full" bg="nm.inkFaint" />
-          <Box as="span">{restaurant.address.slice(0, 10)}...</Box>
+          <Box as="span">{shop.address.slice(0, 10)}...</Box>
         </Box>
-        {restaurant.visited && !restaurant.closed ? (
-          <MiniHearts rate={restaurant.rate} />
-        ) : restaurant.closed ? (
+        {shop.visited && !shop.closed ? (
+          <MiniHearts rate={shop.rate} />
+        ) : shop.closed ? (
           <Box as="span" fontSize="0.6875rem" color="nm.inkFaint">
             閉店
           </Box>
@@ -123,7 +123,7 @@ function ShopCard({
         )}
       </Box>
 
-      <StatusPill restaurant={restaurant} />
+      <StatusPill shop={shop} />
     </Box>
   );
 }
@@ -284,8 +284,8 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 }
 
 export interface SidebarProps {
-  allRestaurants: Restaurant[];
-  sortedRestaurants: Restaurant[];
+  allShops: Shop[];
+  sortedShops: Shop[];
   query: string;
   onQueryChange: (q: string) => void;
   filters: SearchFilters;
@@ -297,15 +297,15 @@ export interface SidebarProps {
   onSelect: (id: string) => void;
 }
 
-export type RestaurantFiltersProps = Pick<
+export type ShopFiltersProps = Pick<
   SidebarProps,
   "filters" | "onFilterChange"
 >;
 
-export function RestaurantFilters({
+export function ShopFilters({
   filters,
   onFilterChange,
-}: RestaurantFiltersProps) {
+}: ShopFiltersProps) {
   return (
     <Box
       px="1.25rem"
@@ -394,8 +394,8 @@ export function RestaurantFilters({
 }
 
 export function Sidebar({
-  allRestaurants,
-  sortedRestaurants,
+  allShops,
+  sortedShops,
   query,
   onQueryChange,
   filters,
@@ -583,7 +583,7 @@ export function Sidebar({
           color="nm.ink"
           lineHeight="1"
         >
-          {sortedRestaurants.length}
+          {sortedShops.length}
         </Box>
         <Box
           as="span"
@@ -600,11 +600,11 @@ export function Sidebar({
           color="nm.inkFaint"
           ml="auto"
         >
-          of {allRestaurants.length}
+          of {allShops.length}
         </Box>
       </Box>
 
-      <RestaurantFilters filters={filters} onFilterChange={onFilterChange} />
+      <ShopFilters filters={filters} onFilterChange={onFilterChange} />
 
       {/* List */}
       <Box flex="1" overflow="hidden" display="flex" flexDirection="column">
@@ -629,7 +629,7 @@ export function Sidebar({
           </Box>
         </Box>
 
-        {sortedRestaurants.length === 0 ? (
+        {sortedShops.length === 0 ? (
           <Box
             textAlign="center"
             px="1.25rem"
@@ -650,12 +650,12 @@ export function Sidebar({
         ) : (
           <Virtuoso
             style={{ flex: 1 }}
-            data={sortedRestaurants}
+            data={sortedShops}
             itemContent={(_index, r) => (
               <Box px="0.75rem" pb="0">
                 <ShopCard
                   key={r.id}
-                  restaurant={r}
+                  shop={r}
                   active={r.id === selectedId}
                   onClick={() => onSelect(r.id)}
                 />

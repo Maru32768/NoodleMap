@@ -13,31 +13,31 @@ import { toastApiError } from "@/utils/toast.ts";
 import { useCallback } from "react";
 import useSWR, { SWRConfiguration } from "swr";
 
-export type Restaurant = components["schemas"]["Restaurant"];
-export type AddRestaurantCommand =
-  components["schemas"]["AddRestaurantRequest"];
-export type UpdateRestaurantCommand =
-  components["schemas"]["UpdateRestaurantRequest"];
-type AddRestaurantErrorBody = ApiErrorBodyFor<
-  "/api/v1/auth/restaurants",
+export type Shop = components["schemas"]["Shop"];
+export type AddShopCommand =
+  components["schemas"]["AddShopRequest"];
+export type UpdateShopCommand =
+  components["schemas"]["UpdateShopRequest"];
+type AddShopErrorBody = ApiErrorBodyFor<
+  "/api/v1/auth/shops",
   "post"
 >;
-type UpdateRestaurantErrorBody = ApiErrorBodyFor<
-  "/api/v1/auth/restaurants/{id}",
+type UpdateShopErrorBody = ApiErrorBodyFor<
+  "/api/v1/auth/shops/{id}",
   "put"
 >;
 
-export function useRestaurants(config?: SWRConfiguration<Restaurant[]>) {
+export function useShops(config?: SWRConfiguration<Shop[]>) {
   const resp = useSWR(
-    ["/api/v1/restaurants"],
+    ["/api/v1/shops"],
     () => {
-      return withApiError("/api/v1/restaurants", async () => {
-        const res = await apiClient.GET("/api/v1/restaurants");
+      return withApiError("/api/v1/shops", async () => {
+        const res = await apiClient.GET("/api/v1/shops");
         if (res.error) {
-          throwApiError("/api/v1/restaurants", res.response, res.error);
+          throwApiError("/api/v1/shops", res.response, res.error);
         }
 
-        return res.data.restaurants;
+        return res.data.shops;
       }).catch((err: ApiError) => {
         toastApiError(err, {
           fallbackTitle: "店舗一覧を読み込めませんでした",
@@ -54,17 +54,17 @@ export function useRestaurants(config?: SWRConfiguration<Restaurant[]>) {
   );
   const { mutate } = resp;
 
-  const addRestaurant = useCallback(
-    (command: AddRestaurantCommand) => {
-      return withApiResult<Restaurant, AddRestaurantErrorBody>(
-        "/api/v1/auth/restaurants",
+  const addShop = useCallback(
+    (command: AddShopCommand) => {
+      return withApiResult<Shop, AddShopErrorBody>(
+        "/api/v1/auth/shops",
         async () => {
-          const res = await apiClient.POST("/api/v1/auth/restaurants", {
+          const res = await apiClient.POST("/api/v1/auth/shops", {
             body: command,
           });
           if (res.error) {
             return apiError(
-              "/api/v1/auth/restaurants",
+              "/api/v1/auth/shops",
               res.response,
               res.error,
             );
@@ -85,12 +85,12 @@ export function useRestaurants(config?: SWRConfiguration<Restaurant[]>) {
     [mutate],
   );
 
-  const updateRestaurant = useCallback(
-    (id: string, command: UpdateRestaurantCommand) => {
-      return withApiResult<void, UpdateRestaurantErrorBody>(
-        "/api/v1/auth/restaurants/{id}",
+  const updateShop = useCallback(
+    (id: string, command: UpdateShopCommand) => {
+      return withApiResult<void, UpdateShopErrorBody>(
+        "/api/v1/auth/shops/{id}",
         async () => {
-          const res = await apiClient.PUT("/api/v1/auth/restaurants/{id}", {
+          const res = await apiClient.PUT("/api/v1/auth/shops/{id}", {
             params: {
               path: { id },
             },
@@ -98,7 +98,7 @@ export function useRestaurants(config?: SWRConfiguration<Restaurant[]>) {
           });
           if (res.error) {
             return apiError(
-              "/api/v1/auth/restaurants/{id}",
+              "/api/v1/auth/shops/{id}",
               res.response,
               res.error,
             );
@@ -130,10 +130,10 @@ export function useRestaurants(config?: SWRConfiguration<Restaurant[]>) {
   );
 
   return {
-    get restaurants() {
+    get shops() {
       return resp.data;
     },
-    addRestaurant,
-    updateRestaurant,
+    addShop,
+    updateShop,
   };
 }

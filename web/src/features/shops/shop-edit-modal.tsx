@@ -6,12 +6,12 @@ import {
   CategorySlug,
 } from "@/features/categories/categories.ts";
 import { CategoryIcon } from "@/features/map/category-icon.tsx";
-import { Restaurant } from "@/features/restaurants/api/use-restaurants.ts";
-import { MiniHearts } from "@/features/restaurants/rating-hearts.tsx";
+import { Shop } from "@/features/shops/api/use-shops.ts";
+import { MiniHearts } from "@/features/shops/rating-hearts.tsx";
 import { Box, Input } from "@chakra-ui/react";
 import { useState } from "react";
 
-export interface RestaurantEditDraft {
+export interface ShopEditDraft {
   id: string;
   name: string;
   address: string;
@@ -150,25 +150,25 @@ function FavPicker({
 
 type Tab = "info" | "visit" | "images";
 
-interface RestaurantEditModalProps {
-  shop: Restaurant;
+interface ShopEditModalProps {
+  shop: Shop;
   open: boolean;
   initialTab?: Tab;
   onClose: () => void;
-  onSave: (draft: RestaurantEditDraft) => Promise<void>;
+  onSave: (draft: ShopEditDraft) => Promise<void>;
   onDelete?: (id: string) => void;
 }
 
-export function RestaurantEditModal({
+export function ShopEditModal({
   shop,
   open,
   initialTab = "info",
   onClose,
   onSave,
   onDelete,
-}: RestaurantEditModalProps) {
+}: ShopEditModalProps) {
   const [tab, setTab] = useState<Tab>(initialTab);
-  const [draft, setDraft] = useState<RestaurantEditDraft>(() => ({
+  const [draft, setDraft] = useState<ShopEditDraft>(() => ({
     id: shop.id,
     name: shop.name,
     address: shop.address,
@@ -185,9 +185,9 @@ export function RestaurantEditModal({
   }));
   const [saving, setSaving] = useState(false);
 
-  const set = <K extends keyof RestaurantEditDraft>(
+  const set = <K extends keyof ShopEditDraft>(
     k: K,
-    v: RestaurantEditDraft[K],
+    v: ShopEditDraft[K],
   ) => setDraft((d) => ({ ...d, [k]: v }));
 
   const handleSave = async () => {
