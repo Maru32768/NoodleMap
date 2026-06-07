@@ -8,11 +8,11 @@ select r.id,
        r.closed,
        r.google_place_id,
        r.category,
-       vs.id IS NOT NULL        as visited,
+       vs.id IS NOT NULL        as eaten,
        COALESCE(vs.rate, 0.0)   as rate,
        COALESCE(vs.favorite, 0) as favorite
 from shops r
-         left join visited_shops vs on r.id = vs.shop_id;
+         left join eaten_shops vs on r.id = vs.shop_id;
 
 -- name: InsertShop :exec
 insert into shops (id, name, lat, lng, postal_code, address, closed, google_place_id, category)
@@ -30,14 +30,14 @@ set name            = ?,
     category        = ?
 where id = ?;
 
--- name: UpsertVisitedShop :exec
-insert into visited_shops(id, shop_id, rate, favorite)
+-- name: UpsertEatenShop :exec
+insert into eaten_shops(id, shop_id, rate, favorite)
 values (?, ?, ?, ?)
 on conflict(shop_id)
     do update set rate     = excluded.rate,
                   favorite = excluded.favorite;
 
--- name: DeleteVisitedShopByShopId :exec
+-- name: DeleteEatenShopByShopId :exec
 delete
-from visited_shops
+from eaten_shops
 where shop_id = ?;

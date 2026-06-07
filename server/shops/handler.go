@@ -100,7 +100,7 @@ func (h *Handler) findRegisteredShops(ctx *gin.Context) ([]RegisteredShop, error
 			PostalCode:    r.PostalCode,
 			Address:       r.Address,
 			GooglePlaceID: r.GooglePlaceID,
-			Visited:       r.Visited,
+			Eaten:         r.Eaten,
 			Rate:          r.Rate,
 			Favorite:      r.Favorite,
 			Category:      r.Category,
@@ -145,7 +145,7 @@ func (h *Handler) addShop(ctx *gin.Context, command AddShopCommand) (*Registered
 		Address:       params.Address,
 		GooglePlaceID: params.GooglePlaceID,
 		PostalCode:    params.PostalCode,
-		Visited:       false,
+		Eaten:         false,
 		Rate:          0,
 		Favorite:      false,
 		Category:      params.Category,
@@ -179,8 +179,8 @@ func (h *Handler) updateShop(ctx *gin.Context, id uuid.UUID, command UpdateShopC
 			return err
 		}
 
-		if command.Visited {
-			if err := store.UpsertVisitedShop(ctx, db.UpsertVisitedShopParams{
+		if command.Eaten {
+			if err := store.UpsertEatenShop(ctx, db.UpsertEatenShopParams{
 				ID:       uuid.New(),
 				ShopID:   id,
 				Rate:     command.Rate,
@@ -189,7 +189,7 @@ func (h *Handler) updateShop(ctx *gin.Context, id uuid.UUID, command UpdateShopC
 				return err
 			}
 		} else {
-			if err := store.DeleteVisitedShopByShopId(ctx, id); err != nil {
+			if err := store.DeleteEatenShopByShopId(ctx, id); err != nil {
 				return err
 			}
 		}

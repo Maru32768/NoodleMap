@@ -48,7 +48,7 @@ export function DetailPanel({ shop, onAdminEdit, onClose }: DetailPanelProps) {
 
   const statusTag = shop.closed
     ? { label: "閉店", bg: "nm.ink", color: "nm.paper" }
-    : shop.visited
+    : shop.eaten
       ? { label: "食べた", bg: "nm.matcha", color: "white" }
       : { label: "気になる", bg: "nm.shu", color: "white" };
 
@@ -58,7 +58,7 @@ export function DetailPanel({ shop, onAdminEdit, onClose }: DetailPanelProps) {
         label: "閉店",
         text: "残念ながら現在は営業を終了しています。",
       }
-    : !shop.visited
+    : !shop.eaten
       ? {
           color: "nm.kincha",
           label: "気になる",
@@ -191,7 +191,7 @@ export function DetailPanel({ shop, onAdminEdit, onClose }: DetailPanelProps) {
           <CategoryBadge catType={shop.category} />
         </Box>
 
-        {shop.visited && (
+        {shop.eaten && (
           <Box
             bg="nm.bg"
             borderRadius="nmMd"
@@ -225,7 +225,7 @@ export function DetailPanel({ shop, onAdminEdit, onClose }: DetailPanelProps) {
               label: "Status",
               value: shop.closed
                 ? "閉店"
-                : shop.visited
+                : shop.eaten
                   ? "食べた"
                   : "気になる",
             },

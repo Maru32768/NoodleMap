@@ -51,9 +51,9 @@ function CheckDot({
   variant,
 }: {
   on: boolean;
-  variant: "visited" | "closed";
+  variant: "eaten" | "closed";
 }) {
-  const activeColor = variant === "visited" ? "nm.matcha" : "nm.ink";
+  const activeColor = variant === "eaten" ? "nm.matcha" : "nm.ink";
   return (
     <Box
       boxSize="20px"
@@ -231,10 +231,10 @@ export function AdminTable({
       render: (address) => <Box>{address}</Box>,
     }),
     createSortableColumn({
-      property: "visited",
+      property: "eaten",
       header: "食べた",
       width: "70px",
-      render: (visited) => <CheckDot on={visited} variant="visited" />,
+      render: (eaten) => <CheckDot on={eaten} variant="eaten" />,
     }),
     createSortableColumn({
       property: "favoriteSort",

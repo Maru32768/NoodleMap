@@ -43,8 +43,8 @@ const THUMB_BG: Record<Shop["category"], string> = {
 
 const PILL: Record<string, { bg: string; color: string; label: string }> = {
   closed: { bg: "nm.ink", color: "nm.paper", label: "閉店" },
-  visited: { bg: "nm.matcha", color: "white", label: "食べた" },
-  unvisited: { bg: "nm.bg", color: "nm.inkMuted", label: "気になる" },
+  eaten: { bg: "nm.matcha", color: "white", label: "食べた" },
+  uneaten: { bg: "nm.bg", color: "nm.inkMuted", label: "気になる" },
 };
 
 function MobileShopListItem({
@@ -59,9 +59,9 @@ function MobileShopListItem({
   const catLabel = shop.category === "udon" ? "うどん" : "ラーメン";
   const pillKey = shop.closed
     ? "closed"
-    : shop.visited
-      ? "visited"
-      : "unvisited";
+    : shop.eaten
+      ? "eaten"
+      : "uneaten";
   const pill = PILL[pillKey];
 
   return (
@@ -126,7 +126,7 @@ function MobileShopListItem({
             bg="nm.inkFaint"
             flexShrink={0}
           />
-          {shop.visited ? (
+          {shop.eaten ? (
             <MiniHearts rate={shop.rate} />
           ) : (
             <Box as="span" color="nm.inkFaint">

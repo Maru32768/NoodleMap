@@ -3,7 +3,7 @@ import { Shop } from "@/features/shops/api/use-shops.ts";
 export type CategoryType = "all" | "ramen" | "udon";
 
 export type FilterToggles = {
-  visited: boolean;
+  eaten: boolean;
   wish: boolean;
   closed: boolean;
   ramen: boolean;
@@ -42,11 +42,11 @@ export function filterShops(
 
   return shops.filter((r) => {
     const isClosed = r.closed;
-    const isVisited = r.visited && !r.closed;
-    const isWish = !r.visited && !r.closed;
+    const isEaten = r.eaten && !r.closed;
+    const isWish = !r.eaten && !r.closed;
     const statusMatch =
       (isClosed && filters.closed) ||
-      (isVisited && filters.visited) ||
+      (isEaten && filters.eaten) ||
       (isWish && filters.wish);
     if (!statusMatch) {
       return false;

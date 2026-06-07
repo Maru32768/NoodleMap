@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button.tsx";
 import { CategoryType } from "@/features/search/utils.ts";
 import { Box } from "@chakra-ui/react";
 
-type VisitFilter = "all" | "visited" | "wish" | "closed";
+type VisitFilter = "all" | "eaten" | "wish" | "closed";
 
 interface AdminFiltersProps {
   categoryFilter: CategoryType;
@@ -147,8 +147,8 @@ export function AdminFilters({
             全て
           </SegBtn>
           <SegBtn
-            active={visitFilter === "visited"}
-            onClick={() => setVisitFilter("visited")}
+            active={visitFilter === "eaten"}
+            onClick={() => setVisitFilter("eaten")}
           >
             食べた
           </SegBtn>

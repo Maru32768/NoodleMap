@@ -11,14 +11,14 @@ import (
 	"github.com/google/uuid"
 )
 
-const deleteVisitedShopByShopId = `-- name: DeleteVisitedShopByShopId :exec
+const deleteEatenShopByShopId = `-- name: DeleteEatenShopByShopId :exec
 delete
-from visited_shops
+from eaten_shops
 where shop_id = ?
 `
 
-func (q *Queries) DeleteVisitedShopByShopId(ctx context.Context, shopID uuid.UUID) error {
-	_, err := q.db.ExecContext(ctx, deleteVisitedShopByShopId, shopID)
+func (q *Queries) DeleteEatenShopByShopId(ctx context.Context, shopID uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, deleteEatenShopByShopId, shopID)
 	return err
 }
 
@@ -32,11 +32,11 @@ select r.id,
        r.closed,
        r.google_place_id,
        r.category,
-       vs.id IS NOT NULL        as visited,
+       vs.id IS NOT NULL        as eaten,
        COALESCE(vs.rate, 0.0)   as rate,
        COALESCE(vs.favorite, 0) as favorite
 from shops r
-         left join visited_shops vs on r.id = vs.shop_id
+         left join eaten_shops vs on r.id = vs.shop_id
 `
 
 type FindAllShopsRow struct {
@@ -49,7 +49,7 @@ type FindAllShopsRow struct {
 	Closed        bool      `json:"closed"`
 	GooglePlaceID string    `json:"googlePlaceId"`
 	Category      string    `json:"category"`
-	Visited       bool      `json:"visited"`
+	Eaten         bool      `json:"eaten"`
 	Rate          float64   `json:"rate"`
 	Favorite      bool      `json:"favorite"`
 }
@@ -73,7 +73,7 @@ func (q *Queries) FindAllShops(ctx context.Context) ([]FindAllShopsRow, error) {
 			&i.Closed,
 			&i.GooglePlaceID,
 			&i.Category,
-			&i.Visited,
+			&i.Eaten,
 			&i.Rate,
 			&i.Favorite,
 		); err != nil {
@@ -162,23 +162,23 @@ func (q *Queries) UpdateShop(ctx context.Context, arg UpdateShopParams) error {
 	return err
 }
 
-const upsertVisitedShop = `-- name: UpsertVisitedShop :exec
-insert into visited_shops(id, shop_id, rate, favorite)
+const upsertEatenShop = `-- name: UpsertEatenShop :exec
+insert into eaten_shops(id, shop_id, rate, favorite)
 values (?, ?, ?, ?)
 on conflict(shop_id)
     do update set rate     = excluded.rate,
                   favorite = excluded.favorite
 `
 
-type UpsertVisitedShopParams struct {
+type UpsertEatenShopParams struct {
 	ID       uuid.UUID `json:"id"`
 	ShopID   uuid.UUID `json:"shopId"`
 	Rate     float64   `json:"rate"`
 	Favorite bool      `json:"favorite"`
 }
 
-func (q *Queries) UpsertVisitedShop(ctx context.Context, arg UpsertVisitedShopParams) error {
-	_, err := q.db.ExecContext(ctx, upsertVisitedShop,
+func (q *Queries) UpsertEatenShop(ctx context.Context, arg UpsertEatenShopParams) error {
+	_, err := q.db.ExecContext(ctx, upsertEatenShop,
 		arg.ID,
 		arg.ShopID,
 		arg.Rate,

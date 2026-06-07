@@ -13,7 +13,7 @@ import { Virtuoso } from "react-virtuoso";
 function StatusPill({ shop }: { shop: Shop }) {
   const props = shop.closed
     ? { bg: "nm.ink", color: "nm.paper", label: "閉店", border: undefined }
-    : shop.visited
+    : shop.eaten
       ? { bg: "nm.matcha", color: "white", label: "食べた", border: undefined }
       : {
           bg: "nm.bgSoft",
@@ -105,7 +105,7 @@ function ShopCard({
           <Box as="span" w="3px" h="3px" borderRadius="full" bg="nm.inkFaint" />
           <Box as="span">{shop.address.slice(0, 10)}...</Box>
         </Box>
-        {shop.visited && !shop.closed ? (
+        {shop.eaten && !shop.closed ? (
           <MiniHearts rate={shop.rate} />
         ) : shop.closed ? (
           <Box as="span" fontSize="0.6875rem" color="nm.inkFaint">
@@ -346,8 +346,8 @@ export function ShopFilters({
           <Chip
             color="matcha"
             dot
-            active={filters.visited}
-            onClick={() => onFilterChange("visited", !filters.visited)}
+            active={filters.eaten}
+            onClick={() => onFilterChange("eaten", !filters.eaten)}
           >
             食べた
           </Chip>

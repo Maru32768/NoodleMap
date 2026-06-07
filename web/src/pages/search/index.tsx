@@ -224,7 +224,7 @@ export default function SearchPage() {
         closed: draft.closed,
         googlePlaceId: draft.googlePlaceId,
         category: draft.category,
-        visited: draft.visited,
+        eaten: draft.eaten,
         favorite: draft.favorite,
         rate: draft.rate,
       };

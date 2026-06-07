@@ -11,6 +11,15 @@ import (
 	"github.com/google/uuid"
 )
 
+type EatenShop struct {
+	ID        uuid.UUID `json:"id"`
+	ShopID    uuid.UUID `json:"shopId"`
+	Rate      float64   `json:"rate"`
+	Favorite  bool      `json:"favorite"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
 type Session struct {
 	ID        uuid.UUID      `json:"id"`
 	UserID    uuid.UUID      `json:"userId"`
@@ -48,13 +57,4 @@ type User struct {
 	CreatedAt time.Time      `json:"createdAt"`
 	UpdatedAt time.Time      `json:"updatedAt"`
 	GoogleSub sql.NullString `json:"googleSub"`
-}
-
-type VisitedShop struct {
-	ID        uuid.UUID `json:"id"`
-	ShopID    uuid.UUID `json:"shopId"`
-	Rate      float64   `json:"rate"`
-	Favorite  bool      `json:"favorite"`
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
 }

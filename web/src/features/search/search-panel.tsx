@@ -19,10 +19,10 @@ export interface SearchPanelProps {
   onChangeKeyword: (keyword: string) => Promise<unknown>;
   favoriteOnly: boolean;
   onChangeFavoriteOnly: (favoriteOnly: boolean) => void;
-  visited: boolean;
-  onChangeVisited: (visited: boolean) => void;
-  unvisited: boolean;
-  onChangeUnvisited: (unvisited: boolean) => void;
+  eaten: boolean;
+  onChangeEaten: (eaten: boolean) => void;
+  uneaten: boolean;
+  onChangeUneaten: (uneaten: boolean) => void;
 }
 
 export function SearchPanel({
@@ -33,10 +33,10 @@ export function SearchPanel({
   onChangeCategory,
   favoriteOnly,
   onChangeFavoriteOnly,
-  visited,
-  onChangeVisited,
-  unvisited,
-  onChangeUnvisited,
+  eaten,
+  onChangeEaten,
+  uneaten,
+  onChangeUneaten,
 }: SearchPanelProps) {
   const [isPending, setIsPending] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -112,22 +112,22 @@ export function SearchPanel({
             <VStack alignItems="start">
               <HStack>
                 <Checkbox
-                  htmlFor="visited"
-                  checked={visited}
+                  htmlFor="eaten"
+                  checked={eaten}
                   onCheckedChange={({ checked }) => {
                     if (typeof checked === "boolean") {
-                      onChangeVisited(checked);
+                      onChangeEaten(checked);
                     }
                   }}
                 >
                   食べた店
                 </Checkbox>
                 <Checkbox
-                  htmlFor="unvisited"
-                  checked={unvisited}
+                  htmlFor="uneaten"
+                  checked={uneaten}
                   onCheckedChange={({ checked }) => {
                     if (typeof checked === "boolean") {
-                      onChangeUnvisited(checked);
+                      onChangeUneaten(checked);
                     }
                   }}
                 >

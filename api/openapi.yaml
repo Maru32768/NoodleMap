@@ -391,7 +391,7 @@ components:
         - postalCode
         - address
         - googlePlaceId
-        - visited
+        - eaten
         - rate
         - favorite
         - category
@@ -414,7 +414,7 @@ components:
           type: string
         googlePlaceId:
           type: string
-        visited:
+        eaten:
           type: boolean
         rate:
           type: number
@@ -458,7 +458,7 @@ components:
         - closed
         - googlePlaceId
         - category
-        - visited
+        - eaten
         - rate
         - favorite
     UpdateShopFieldError:
@@ -484,7 +484,7 @@ components:
         - closed
         - googlePlaceId
         - category
-        - visited
+        - eaten
         - rate
         - favorite
       properties:
@@ -506,7 +506,7 @@ components:
           type: string
         category:
           $ref: '#/components/schemas/CategorySlug'
-        visited:
+        eaten:
           type: boolean
         rate:
           type: number

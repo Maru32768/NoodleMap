@@ -56,7 +56,7 @@ union UpdateShopField {
   "closed",
   "googlePlaceId",
   "category",
-  "visited",
+  "eaten",
   "rate",
   "favorite",
 }
@@ -184,7 +184,7 @@ model Shop {
   postalCode: string;
   address: string;
   googlePlaceId: string;
-  visited: boolean;
+  eaten: boolean;
   rate: float64;
   favorite: boolean;
   category: CategorySlug;
@@ -214,7 +214,7 @@ model UpdateShopRequest {
   closed: boolean;
   googlePlaceId: string;
   category: CategorySlug;
-  visited: boolean;
+  eaten: boolean;
   rate: float64;
   favorite: boolean;
 }

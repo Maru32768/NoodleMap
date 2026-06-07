@@ -161,11 +161,11 @@ export default function AdminPage() {
           return false;
         }
       }
-      if (visitFilter === "visited") {
-        return shop.visited && !shop.closed;
+      if (visitFilter === "eaten") {
+        return shop.eaten && !shop.closed;
       }
       if (visitFilter === "wish") {
-        return !shop.visited && !shop.closed;
+        return !shop.eaten && !shop.closed;
       }
       if (visitFilter === "closed") {
         return shop.closed;
@@ -174,9 +174,9 @@ export default function AdminPage() {
     }) ?? [];
 
   const total = shops?.length ?? 0;
-  const visitedCount = shops?.filter((r) => r.visited).length ?? 0;
+  const eatenCount = shops?.filter((r) => r.eaten).length ?? 0;
   const wishCount =
-    shops?.filter((r) => !r.visited && !r.closed).length ?? 0;
+    shops?.filter((r) => !r.eaten && !r.closed).length ?? 0;
   const editShop = shops?.find((r) => r.id === editId);
 
   const handleEdit = (id: string, tab?: "images") => {
@@ -199,7 +199,7 @@ export default function AdminPage() {
       closed: draft.closed,
       googlePlaceId: draft.googlePlaceId,
       category: draft.category,
-      visited: draft.visited,
+      eaten: draft.eaten,
       favorite: draft.favorite,
       rate: draft.rate,
     };
@@ -321,7 +321,7 @@ export default function AdminPage() {
           alignItems="baseline"
         >
           <AdminStat value={total} label="店舗" />
-          <AdminStat value={visitedCount} label="食べた" />
+          <AdminStat value={eatenCount} label="食べた" />
           <AdminStat value={wishCount} label="気になる" tone="warning" />
         </Box>
 

@@ -190,7 +190,7 @@ export interface components {
             postalCode: string;
             address: string;
             googlePlaceId: string;
-            visited: boolean;
+            eaten: boolean;
             /** Format: double */
             rate: number;
             favorite: boolean;
@@ -206,7 +206,7 @@ export interface components {
             fieldErrors?: components["schemas"]["UpdateShopFieldError"][];
         };
         /** @enum {string} */
-        UpdateShopField: "name" | "lat" | "lng" | "postalCode" | "address" | "closed" | "googlePlaceId" | "category" | "visited" | "rate" | "favorite";
+        UpdateShopField: "name" | "lat" | "lng" | "postalCode" | "address" | "closed" | "googlePlaceId" | "category" | "eaten" | "rate" | "favorite";
         UpdateShopFieldError: {
             field: components["schemas"]["UpdateShopField"];
             type: components["schemas"]["FieldErrorType"];
@@ -223,7 +223,7 @@ export interface components {
             closed: boolean;
             googlePlaceId: string;
             category: components["schemas"]["CategorySlug"];
-            visited: boolean;
+            eaten: boolean;
             /** Format: double */
             rate: number;
             favorite: boolean;

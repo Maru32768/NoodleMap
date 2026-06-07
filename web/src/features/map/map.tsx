@@ -70,7 +70,7 @@ interface Props {
   onLocationTrackingModeChange?: (mode: LocationTrackingMode) => void;
 }
 
-type State = "visited" | "wish" | "closed";
+type State = "eaten" | "wish" | "closed";
 
 const SHOPS_SOURCE_ID = "shops";
 const SHOP_PINS_LAYER_ID = "shop-pins";
@@ -116,9 +116,9 @@ function toGeoJson(shops: Shop[]) {
   return {
     type: "FeatureCollection" as const,
     features: shops.map((r) => {
-      const isVisited = r.visited;
+      const isEaten = r.eaten;
       const isClosed = r.closed;
-      const highRate = isVisited && (r.rate ?? 0) >= 80;
+      const highRate = isEaten && (r.rate ?? 0) >= 80;
       const nearestKm = nearestKmMap.get(r.id) ?? 99;
 
       return {
@@ -129,10 +129,10 @@ function toGeoJson(shops: Shop[]) {
           name: r.name,
           nearestKm,
           catType: r.category,
-          state: isClosed ? "closed" : isVisited ? "visited" : "wish",
+          state: isClosed ? "closed" : isEaten ? "eaten" : "wish",
           highRate,
           icon: getPinImageId(
-            isClosed ? "closed" : isVisited ? "visited" : "wish",
+            isClosed ? "closed" : isEaten ? "eaten" : "wish",
             r.category,
             highRate,
           ),
@@ -195,7 +195,7 @@ function getPinStyle(state: State, catType: string) {
         glyphColor: "rgba(255,255,255,0.85)",
       };
     }
-    case "visited": {
+    case "eaten": {
       return {
         bodyColor: catType === "udon" ? "#b88947" : "#b54a3c",
         ringColor: "rgba(255,255,255,0.85)",
@@ -333,7 +333,7 @@ function drawPinImage(
     );
   }
 
-  if (state === "visited" && highRate) {
+  if (state === "eaten" && highRate) {
     ctx.beginPath();
     ctx.arc(x + 10, top + 8, 5, 0, Math.PI * 2);
     ctx.fillStyle = "#f6b552";
@@ -388,7 +388,7 @@ async function ensurePinImages(map: MapLibreMap) {
   const glyphs: Record<string, HTMLImageElement> = {};
 
   await Promise.all(
-    (["visited", "wish"] as const).flatMap((state) =>
+    (["eaten", "wish"] as const).flatMap((state) =>
       (["ramen", "udon"] as const).map(async (catType) => {
         const { glyphColor } = getPinStyle(state, catType);
         const key = `${catType}:${glyphColor}`;
@@ -400,7 +400,7 @@ async function ensurePinImages(map: MapLibreMap) {
     ),
   );
 
-  for (const state of ["closed", "visited", "wish"] as const) {
+  for (const state of ["closed", "eaten", "wish"] as const) {
     for (const catType of ["ramen", "udon"]) {
       for (const highRate of [false, true]) {
         const id = getPinImageId(state, catType, highRate);

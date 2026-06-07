@@ -51,7 +51,7 @@ LLM を入れる場合でも、LLM に検索や判定を丸投げせず、アプ
 | 完了 | バックエンドのソフトウェアーキテクチャ再考 | 薄い vertical slice 方針にし、usecase/domain レイヤーは必要になった時だけ追加する |
 | 完了 | ID体系の再考               | UUID を継続する。SQLite では `TEXT` 保存、Go/API では UUID 型として扱い、Google Place ID は外部参照 ID に留める |
 | 完了 | RestaurantをShopにリネーム   | API・Go パッケージ・フロント feature・DB テーブルを Shop / shops 命名へ統一する |
-| 未着手 | `visited` を `eaten` にリネーム | DB カラム・API フィールド・Go 構造体の `Visited` を `Eaten` に統一する（フロントは「食べた」表記に変更済み） |
+| 完了 | `visited` を `eaten` にリネーム | DB テーブル・API フィールド・Go 構造体・フロント状態名を `eaten` に統一する |
 | 完了 | カテゴリをコード固定化 | `categories` テーブルを廃止しラーメン/うどんをアプリ定数に移す |
 
 ### Phase 2. DB 基盤
@@ -798,7 +798,7 @@ create table shops_tags
 
 ### 15. 訪問ログ
 
-現在は店舗単位の `visited / rate / favorite` しかないため、同じ店に複数回行った記録や、食べたメニューが残せない。
+現在は店舗単位の `eaten / rate / favorite` しかないため、同じ店に複数回行った記録や、食べたメニューが残せない。
 
 **追加したい情報:**
 
@@ -826,8 +826,8 @@ create table visit_logs
 );
 ```
 
-既存の `visited_shops` は「最新または集計値」として残すか、`visit_logs` から導出する形に寄せる。実装を単純にするなら、最初は
-`visited_shops` を残して `visit_logs` を追加するのが安全。
+既存の `eaten_shops` は「最新または集計値」として残すか、`visit_logs` から導出する形に寄せる。実装を単純にするなら、最初は
+`eaten_shops` を残して `visit_logs` を追加するのが安全。
 
 ### 16. 店舗リンク / SNS URL
 

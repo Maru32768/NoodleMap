@@ -1,7 +1,7 @@
 import { SearchFilters } from "@/features/search/utils.ts";
 
 const SEARCH_STATE_STORAGE_KEY = "noodle-map:search-state:v1";
-const SAVED_SEARCH_STATE_VERSION = 2;
+const SAVED_SEARCH_STATE_VERSION = 3;
 
 export type MapCenter = [number, number];
 
@@ -23,7 +23,7 @@ export type SavedSearchState = {
 };
 
 export const DEFAULT_FILTERS: SearchFilters = {
-  visited: true,
+  eaten: true,
   wish: true,
   closed: false,
   ramen: true,
@@ -60,7 +60,7 @@ function isSearchFilters(value: unknown): value is SearchFilters {
   }
   const candidate = value as Partial<SearchFilters>;
   return (
-    typeof candidate.visited === "boolean" &&
+    typeof candidate.eaten === "boolean" &&
     typeof candidate.wish === "boolean" &&
     typeof candidate.closed === "boolean" &&
     typeof candidate.ramen === "boolean" &&

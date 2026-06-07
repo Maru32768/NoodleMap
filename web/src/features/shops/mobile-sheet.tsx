@@ -96,7 +96,7 @@ function MobileListItem({
           {shop.category === "udon" ? "うどん" : "ラーメン"} ·{" "}
           {shop.address.slice(0, 14)}...
         </Box>
-        {shop.visited && !shop.closed && (
+        {shop.eaten && !shop.closed && (
           <Box mt="0.1875rem">
             <MiniHearts rate={shop.rate} />
           </Box>
@@ -236,7 +236,7 @@ export function MobileSheet({
                       />
                     </Box>
                   </Box>
-                  {shop.visited && (
+                  {shop.eaten && (
                     <Box mt="0.375rem">
                       <MiniHearts rate={shop.rate} />
                     </Box>
@@ -261,7 +261,7 @@ export function MobileSheet({
 
               {detailsVisible && (
                 <>
-                  {shop.visited && (
+                  {shop.eaten && (
                     <Box
                       bg="nm.bg"
                       borderRadius="nmMd"
@@ -298,7 +298,7 @@ export function MobileSheet({
                         label: "STATUS",
                         value: shop.closed
                           ? "閉店"
-                          : shop.visited
+                          : shop.eaten
                             ? "食べた"
                             : "気になる",
                       },

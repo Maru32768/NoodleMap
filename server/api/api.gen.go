@@ -92,6 +92,7 @@ const (
 	UpdateShopFieldAddress       UpdateShopField = "address"
 	UpdateShopFieldCategory      UpdateShopField = "category"
 	UpdateShopFieldClosed        UpdateShopField = "closed"
+	UpdateShopFieldEaten         UpdateShopField = "eaten"
 	UpdateShopFieldFavorite      UpdateShopField = "favorite"
 	UpdateShopFieldGooglePlaceId UpdateShopField = "googlePlaceId"
 	UpdateShopFieldLat           UpdateShopField = "lat"
@@ -99,7 +100,6 @@ const (
 	UpdateShopFieldName          UpdateShopField = "name"
 	UpdateShopFieldPostalCode    UpdateShopField = "postalCode"
 	UpdateShopFieldRate          UpdateShopField = "rate"
-	UpdateShopFieldVisited       UpdateShopField = "visited"
 )
 
 // AddShopBadRequestErrorBody defines model for AddShopBadRequestErrorBody.
@@ -220,6 +220,7 @@ type Shop struct {
 	Address       string       `json:"address"`
 	Category      CategorySlug `json:"category"`
 	Closed        bool         `json:"closed"`
+	Eaten         bool         `json:"eaten"`
 	Favorite      bool         `json:"favorite"`
 	GooglePlaceId string       `json:"googlePlaceId"`
 
@@ -230,7 +231,6 @@ type Shop struct {
 	Name       string  `json:"name"`
 	PostalCode string  `json:"postalCode"`
 	Rate       float64 `json:"rate"`
-	Visited    bool    `json:"visited"`
 }
 
 // ShopsResponse defines model for ShopsResponse.
@@ -263,6 +263,7 @@ type UpdateShopRequest struct {
 	Address       string       `json:"address"`
 	Category      CategorySlug `json:"category"`
 	Closed        bool         `json:"closed"`
+	Eaten         bool         `json:"eaten"`
 	Favorite      bool         `json:"favorite"`
 	GooglePlaceId string       `json:"googlePlaceId"`
 	Lat           float64      `json:"lat"`
@@ -270,7 +271,6 @@ type UpdateShopRequest struct {
 	Name          string       `json:"name"`
 	PostalCode    string       `json:"postalCode"`
 	Rate          float64      `json:"rate"`
-	Visited       bool         `json:"visited"`
 }
 
 // User defines model for User.

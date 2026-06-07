@@ -21,7 +21,7 @@ export interface ShopEditDraft {
   googlePlaceId: string;
   category: CategorySlug;
   closed: boolean;
-  visited: boolean;
+  eaten: boolean;
   favorite: boolean;
   rate: number;
   images: AdminImage[];
@@ -178,7 +178,7 @@ export function ShopEditModal({
     googlePlaceId: shop.googlePlaceId,
     category: shop.category,
     closed: shop.closed,
-    visited: shop.visited,
+    eaten: shop.eaten,
     favorite: shop.favorite ?? false,
     rate: shop.rate ?? 0,
     images: [],
@@ -428,13 +428,13 @@ export function ShopEditModal({
                   </Box>
                 </Box>
                 <Toggle
-                  on={draft.visited}
+                  on={draft.eaten}
                   color="shu"
-                  onClick={() => set("visited", !draft.visited)}
+                  onClick={() => set("eaten", !draft.eaten)}
                 />
               </Box>
 
-              {draft.visited && (
+              {draft.eaten && (
                 <Box
                   bg="nm.bg"
                   borderRadius="nmMd"

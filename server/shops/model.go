@@ -11,7 +11,7 @@ type RegisteredShop struct {
 	PostalCode    string    `json:"postalCode"`
 	Address       string    `json:"address"`
 	GooglePlaceID string    `json:"googlePlaceId"`
-	Visited       bool      `json:"visited"`
+	Eaten         bool      `json:"eaten"`
 	Rate          float64   `json:"rate"`
 	Favorite      bool      `json:"favorite"`
 	Category      string    `json:"category"`
@@ -37,7 +37,7 @@ type UpdateShopCommand struct {
 	Closed        bool    `json:"closed"`
 	GooglePlaceID string  `json:"googlePlaceId"`
 	Category      string  `json:"category"`
-	Visited       bool    `json:"visited"`
+	Eaten         bool    `json:"eaten"`
 	Rate          float64 `json:"rate"`
 	Favorite      bool    `json:"favorite"`
 }
