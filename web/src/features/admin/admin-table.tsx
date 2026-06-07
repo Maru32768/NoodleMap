@@ -4,18 +4,16 @@ import {
   useSortableListTableHeader,
 } from "@/components/list-table.tsx";
 import { Button } from "@/components/ui/button.tsx";
-import { Category } from "@/features/categories/api/use-categories.ts";
 import { CategoryIcon } from "@/features/map/category-icon.tsx";
 import { Restaurant } from "@/features/restaurants/api/use-restaurants.ts";
 import { buildGoogleMapsUrl } from "@/features/restaurants/restaurant-actions.tsx";
-import { favToHearts, getCategoryType } from "@/features/search/utils.ts";
+import { favToHearts } from "@/features/search/utils.ts";
 import { Box, Link } from "@chakra-ui/react";
 import React, { useEffect } from "react";
 import { TableVirtuosoHandle } from "react-virtuoso";
 
 interface AdminTableProps {
   shops: Restaurant[];
-  categories: Category[];
   selectedId: string | null;
   onSelect: (id: string) => void;
   onEdit: (id: string, tab?: "images") => void;
@@ -153,7 +151,6 @@ function RowActionLink({
 
 export function AdminTable({
   shops,
-  categories,
   selectedId,
   onSelect,
   onEdit,
@@ -161,7 +158,7 @@ export function AdminTable({
   const tableRef = React.useRef<TableVirtuosoHandle>(null);
   const rows = shops.map((shop) => ({
     ...shop,
-    categorySort: getCategoryType(shop, categories),
+    categorySort: shop.category,
     favoriteSort: shop.rate ?? 0,
   }));
 
@@ -193,20 +190,8 @@ export function AdminTable({
       header: "カテゴリ",
       width: "82px",
       render: (_categorySort, shop) => {
-        const catType = getCategoryType(shop, categories);
-        const catLabel =
-          catType === "udon"
-            ? "うどん"
-            : catType === "ramen"
-              ? "ラーメン"
-              : "その他";
-        const bg =
-          catType === "ramen"
-            ? "nm.shu"
-            : catType === "udon"
-              ? "nm.kincha"
-              : "nm.bgSoft";
-        const color = catType === "other" ? "nm.inkMuted" : "white";
+        const catLabel = shop.category === "udon" ? "うどん" : "ラーメン";
+        const bg = shop.category === "udon" ? "nm.kincha" : "nm.shu";
         return (
           <Box
             as="span"
@@ -216,14 +201,18 @@ export function AdminTable({
             px="6px"
             py="2px"
             bg={bg}
-            color={color}
+            color="white"
             borderRadius="nmSm"
             fontSize="10px"
             fontFamily="mono"
             letterSpacing="0.1em"
             whiteSpace="nowrap"
           >
-            <CategoryIcon category={catType} size={10} strokeWidth={1.8} />
+            <CategoryIcon
+              category={shop.category}
+              size={10}
+              strokeWidth={1.8}
+            />
             {catLabel}
           </Box>
         );

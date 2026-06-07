@@ -1,7 +1,7 @@
 import { CategoryBadge } from "@/components/category-badge.tsx";
 import { CloseButton } from "@/components/ui/close-button.tsx";
 import { useCurrentUser } from "@/features/auth/use-current-user.ts";
-import { Category } from "@/features/categories/api/use-categories.ts";
+import { CategorySlug } from "@/features/categories/categories.ts";
 import { CategoryIcon } from "@/features/map/category-icon.tsx";
 import { Restaurant } from "@/features/restaurants/api/use-restaurants.ts";
 import { FavoriteRating } from "@/features/restaurants/rating-hearts.tsx";
@@ -10,35 +10,29 @@ import {
   RestaurantAddressLink,
   buildGoogleMapsUrl,
 } from "@/features/restaurants/restaurant-actions.tsx";
-import { getCategoryType } from "@/features/search/utils.ts";
 import { Box } from "@chakra-ui/react";
 import { useEffect, useEffectEvent } from "react";
 
-const HERO_BG: Record<string, string> = {
+const HERO_BG: Record<CategorySlug, string> = {
   ramen:
     "repeating-linear-gradient(45deg, transparent 0 14px, rgba(0,0,0,0.04) 14px 15px), linear-gradient(135deg, #d4946d, #8c4a2e)",
   udon: "repeating-linear-gradient(45deg, transparent 0 14px, rgba(0,0,0,0.04) 14px 15px), linear-gradient(135deg, #ddc99c, #8c7341)",
-  other:
-    "repeating-linear-gradient(45deg, transparent 0 14px, rgba(0,0,0,0.04) 14px 15px), linear-gradient(135deg, #d8c5a0, #b88947)",
 };
 
 export interface DetailPanelProps {
   restaurant: Restaurant;
-  allCategories: Category[];
   onAdminEdit: (id: string) => void;
   onClose: () => void;
 }
 
 export function DetailPanel({
   restaurant: r,
-  allCategories,
   onAdminEdit,
   onClose,
 }: DetailPanelProps) {
   const currentUser = useCurrentUser();
-  const catType = getCategoryType(r, allCategories);
   const mapsUrl = buildGoogleMapsUrl(r);
-  const heroBg = HERO_BG[catType] ?? HERO_BG.ramen;
+  const heroBg = HERO_BG[r.category];
   const onCloseEvent = useEffectEvent(() => {
     onClose();
   });
@@ -142,7 +136,7 @@ export function DetailPanel({
             opacity={0.85}
           >
             <CategoryIcon
-              category={catType}
+              category={r.category}
               closed={r.closed}
               size={64}
               color="var(--chakra-colors-nm-paper)"
@@ -198,7 +192,7 @@ export function DetailPanel({
           color="nm.inkMuted"
           mb="1.125rem"
         >
-          <CategoryBadge catType={catType} />
+          <CategoryBadge catType={r.category} />
         </Box>
 
         {r.visited && (

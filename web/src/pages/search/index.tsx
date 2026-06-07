@@ -9,7 +9,6 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer.tsx";
 import { toaster } from "@/components/ui/toaster.tsx";
-import { useCategories } from "@/features/categories/api/use-categories.ts";
 import { FlyToLocationButton } from "@/features/map/fly-to-location-button.tsx";
 import {
   LocationTrackingMode,
@@ -162,17 +161,16 @@ export default function SearchPage() {
   );
 
   const { restaurants, updateRestaurant } = useRestaurants();
-  const { categories } = useCategories();
 
   const filteredRestaurants = useMemo(() => {
     if (!restaurants) {
       return [];
     }
-    return filterRestaurants(restaurants, categories ?? [], {
+    return filterRestaurants(restaurants, {
       query: deferredQuery,
       filters: deferredFilters,
     });
-  }, [restaurants, categories, deferredQuery, deferredFilters]);
+  }, [restaurants, deferredQuery, deferredFilters]);
 
   const sortedRestaurants = useMemo(() => {
     const center = mapView
@@ -225,6 +223,7 @@ export default function SearchPage() {
         address: draft.address,
         closed: draft.closed,
         googlePlaceId: draft.googlePlaceId,
+        category: draft.category,
         visited: draft.visited,
         favorite: draft.favorite,
         rate: draft.rate,
@@ -255,7 +254,6 @@ export default function SearchPage() {
       <Sidebar
         allRestaurants={restaurants ?? []}
         sortedRestaurants={sortedRestaurants}
-        allCategories={categories ?? []}
         query={query}
         onQueryChange={handleQueryChange}
         filters={filters}
@@ -289,7 +287,6 @@ export default function SearchPage() {
             ref={mapRef}
             initialCenter={initialMapView.center}
             initialZoom={initialMapView.zoom}
-            categories={categories ?? []}
             restaurants={filteredRestaurants}
             selectedId={selectedId}
             onSelect={handleSelect}
@@ -361,7 +358,6 @@ export default function SearchPage() {
         {selectedRestaurant && (
           <DetailPanel
             restaurant={selectedRestaurant}
-            allCategories={categories ?? []}
             onAdminEdit={handleEditOpen}
             onClose={handleClose}
           />
@@ -372,7 +368,6 @@ export default function SearchPage() {
       <MobileSheet
         shop={selectedRestaurant}
         sortedRestaurants={sortedRestaurants}
-        allCategories={categories ?? []}
         onAdminEdit={handleEditOpen}
         onSelect={handleSelect}
         onClose={handleClose}
@@ -398,10 +393,9 @@ export default function SearchPage() {
         </DrawerContent>
       </DrawerRoot>
 
-      {editRestaurant && categories && (
+      {editRestaurant && (
         <RestaurantEditModal
           shop={editRestaurant}
-          categories={categories}
           open={!!editId}
           initialTab="info"
           onClose={() => setEditId(null)}

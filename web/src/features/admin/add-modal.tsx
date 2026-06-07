@@ -1,6 +1,6 @@
 import { ModalDialog } from "@/components/modal-dialog.tsx";
 import { Button } from "@/components/ui/button.tsx";
-import { Category } from "@/features/categories/api/use-categories.ts";
+import { CATEGORY_OPTIONS } from "@/features/categories/categories.ts";
 import {
   FindResult,
   GooglePlaceFinder,
@@ -12,7 +12,6 @@ import { useState } from "react";
 export type AddDraft = AddRestaurantCommand;
 
 interface AddModalProps {
-  categories: Category[];
   open: boolean;
   onClose: () => void;
   onSave: (draft: AddDraft) => Promise<void>;
@@ -106,7 +105,6 @@ function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
 }
 
 export function AddModal({
-  categories,
   open,
   onClose,
   onSave,
@@ -121,7 +119,7 @@ export function AddModal({
     lng: initialLatLng?.lng ?? 0,
     googlePlaceId: "",
     closed: false,
-    categories: [],
+    category: "ramen",
   }));
   const [saving, setSaving] = useState(false);
 
@@ -139,15 +137,6 @@ export function AddModal({
       lng: res.lng,
       googlePlaceId: res.placeId,
       closed: res.closed,
-    }));
-  };
-
-  const toggleCategory = (id: string) => {
-    setDraft((d) => ({
-      ...d,
-      categories: d.categories.includes(id)
-        ? d.categories.filter((c) => c !== id)
-        : [...d.categories, id],
     }));
   };
 
@@ -302,7 +291,7 @@ export function AddModal({
               <Box gridColumn="span 2">
                 <FieldLabel>カテゴリ</FieldLabel>
                 <Box display="flex" gap="6px" flexWrap="wrap">
-                  {categories.map((cat) => (
+                  {CATEGORY_OPTIONS.map((cat) => (
                     <Button
                       key={cat.id}
                       variant="plain"
@@ -311,22 +300,18 @@ export function AddModal({
                       h="auto"
                       minH="auto"
                       fontSize="12px"
-                      fontWeight={draft.categories.includes(cat.id) ? 600 : 400}
-                      bg={
-                        draft.categories.includes(cat.id) ? "nm.ink" : "nm.bg"
-                      }
+                      fontWeight={draft.category === cat.id ? 600 : 400}
+                      bg={draft.category === cat.id ? "nm.ink" : "nm.bg"}
                       color={
-                        draft.categories.includes(cat.id)
-                          ? "nm.paper"
-                          : "nm.inkMuted"
+                        draft.category === cat.id ? "nm.paper" : "nm.inkMuted"
                       }
                       border="1px solid"
                       borderColor={
-                        draft.categories.includes(cat.id) ? "nm.ink" : "nm.line"
+                        draft.category === cat.id ? "nm.ink" : "nm.line"
                       }
                       rounded="nmMd"
                       _hover={{ borderColor: "nm.ink" }}
-                      onClick={() => toggleCategory(cat.id)}
+                      onClick={() => set("category", cat.id)}
                     >
                       {cat.label}
                     </Button>

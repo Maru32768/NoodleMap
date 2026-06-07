@@ -22,40 +22,6 @@ func (q *Queries) DeleteVisitedRestaurantByRestaurantId(ctx context.Context, res
 	return err
 }
 
-const findAllRestaurantCategories = `-- name: FindAllRestaurantCategories :many
-select c.id, rc.restaurant_id
-from categories c
-         inner join restaurants_categories rc on c.id = rc.category_id
-`
-
-type FindAllRestaurantCategoriesRow struct {
-	ID           uuid.UUID `json:"id"`
-	RestaurantID uuid.UUID `json:"restaurantId"`
-}
-
-func (q *Queries) FindAllRestaurantCategories(ctx context.Context) ([]FindAllRestaurantCategoriesRow, error) {
-	rows, err := q.db.QueryContext(ctx, findAllRestaurantCategories)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []FindAllRestaurantCategoriesRow{}
-	for rows.Next() {
-		var i FindAllRestaurantCategoriesRow
-		if err := rows.Scan(&i.ID, &i.RestaurantID); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const findAllRestaurants = `-- name: FindAllRestaurants :many
 select r.id,
        r.name,
@@ -65,6 +31,7 @@ select r.id,
        r.address,
        r.closed,
        r.google_place_id,
+       r.category,
        vr.id IS NOT NULL        as visited,
        COALESCE(vr.rate, 0.0)   as rate,
        COALESCE(vr.favorite, 0) as favorite
@@ -81,6 +48,7 @@ type FindAllRestaurantsRow struct {
 	Address       string    `json:"address"`
 	Closed        bool      `json:"closed"`
 	GooglePlaceID string    `json:"googlePlaceId"`
+	Category      string    `json:"category"`
 	Visited       bool      `json:"visited"`
 	Rate          float64   `json:"rate"`
 	Favorite      bool      `json:"favorite"`
@@ -104,6 +72,7 @@ func (q *Queries) FindAllRestaurants(ctx context.Context) ([]FindAllRestaurantsR
 			&i.Address,
 			&i.Closed,
 			&i.GooglePlaceID,
+			&i.Category,
 			&i.Visited,
 			&i.Rate,
 			&i.Favorite,
@@ -122,8 +91,8 @@ func (q *Queries) FindAllRestaurants(ctx context.Context) ([]FindAllRestaurantsR
 }
 
 const insertRestaurant = `-- name: InsertRestaurant :exec
-insert into restaurants (id, name, lat, lng, postal_code, address, closed, google_place_id)
-values (?, ?, ?, ?, ?, ?, ?, ?)
+insert into restaurants (id, name, lat, lng, postal_code, address, closed, google_place_id, category)
+values (?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type InsertRestaurantParams struct {
@@ -135,6 +104,7 @@ type InsertRestaurantParams struct {
 	Address       string    `json:"address"`
 	Closed        bool      `json:"closed"`
 	GooglePlaceID string    `json:"googlePlaceId"`
+	Category      string    `json:"category"`
 }
 
 func (q *Queries) InsertRestaurant(ctx context.Context, arg InsertRestaurantParams) error {
@@ -147,23 +117,8 @@ func (q *Queries) InsertRestaurant(ctx context.Context, arg InsertRestaurantPara
 		arg.Address,
 		arg.Closed,
 		arg.GooglePlaceID,
+		arg.Category,
 	)
-	return err
-}
-
-const insertRestaurantCategory = `-- name: InsertRestaurantCategory :exec
-insert into restaurants_categories(id, restaurant_id, category_id)
-values (?, ?, ?)
-`
-
-type InsertRestaurantCategoryParams struct {
-	ID           uuid.UUID `json:"id"`
-	RestaurantID uuid.UUID `json:"restaurantId"`
-	CategoryID   uuid.UUID `json:"categoryId"`
-}
-
-func (q *Queries) InsertRestaurantCategory(ctx context.Context, arg InsertRestaurantCategoryParams) error {
-	_, err := q.db.ExecContext(ctx, insertRestaurantCategory, arg.ID, arg.RestaurantID, arg.CategoryID)
 	return err
 }
 
@@ -175,7 +130,8 @@ set name            = ?,
     postal_code     = ?,
     address         = ?,
     closed          = ?,
-    google_place_id = ?
+    google_place_id = ?,
+    category        = ?
 where id = ?
 `
 
@@ -187,6 +143,7 @@ type UpdateRestaurantParams struct {
 	Address       string    `json:"address"`
 	Closed        bool      `json:"closed"`
 	GooglePlaceID string    `json:"googlePlaceId"`
+	Category      string    `json:"category"`
 	ID            uuid.UUID `json:"id"`
 }
 
@@ -199,6 +156,7 @@ func (q *Queries) UpdateRestaurant(ctx context.Context, arg UpdateRestaurantPara
 		arg.Address,
 		arg.Closed,
 		arg.GooglePlaceID,
+		arg.Category,
 		arg.ID,
 	)
 	return err

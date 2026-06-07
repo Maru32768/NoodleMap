@@ -1,4 +1,3 @@
-import { Category } from "@/features/categories/api/use-categories.ts";
 import { Restaurant } from "@/features/restaurants/api/use-restaurants.ts";
 
 export type CategoryType = "all" | "ramen" | "udon";
@@ -14,25 +13,6 @@ export type FilterToggles = {
 export type SearchFilters = FilterToggles & {
   favMin: number;
 };
-
-export function getCategoryType(
-  r: Restaurant,
-  allCategories: Category[],
-): "ramen" | "udon" | "other" {
-  const matched = allCategories.filter((c) => r.categories.includes(c.id));
-  for (const c of matched) {
-    if (c.label.includes("うどん") || c.label.toLowerCase().includes("udon")) {
-      return "udon";
-    }
-    if (
-      c.label.includes("ラーメン") ||
-      c.label.toLowerCase().includes("ramen")
-    ) {
-      return "ramen";
-    }
-  }
-  return "ramen";
-}
 
 export function favToHearts(rate: number | undefined): number {
   if (!rate || rate <= 0) {
@@ -52,7 +32,6 @@ function distanceKm(
 
 export function filterRestaurants(
   restaurants: Restaurant[],
-  allCategories: Category[],
   opts: {
     query: string;
     filters: SearchFilters;
@@ -73,10 +52,9 @@ export function filterRestaurants(
       return false;
     }
 
-    const catType = getCategoryType(r, allCategories);
     const categoryMatch =
-      (catType === "ramen" && filters.ramen) ||
-      (catType === "udon" && filters.udon);
+      (r.category === "ramen" && filters.ramen) ||
+      (r.category === "udon" && filters.udon);
     if (!categoryMatch) {
       return false;
     }

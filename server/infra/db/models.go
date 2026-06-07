@@ -11,14 +11,6 @@ import (
 	"github.com/google/uuid"
 )
 
-type Category struct {
-	ID        uuid.UUID `json:"id"`
-	Label     string    `json:"label"`
-	Icon      string    `json:"icon"`
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
-}
-
 type Restaurant struct {
 	ID            uuid.UUID `json:"id"`
 	Name          string    `json:"name"`
@@ -30,20 +22,13 @@ type Restaurant struct {
 	Closed        bool      `json:"closed"`
 	CreatedAt     time.Time `json:"createdAt"`
 	UpdatedAt     time.Time `json:"updatedAt"`
+	Category      string    `json:"category"`
 }
 
 type RestaurantImage struct {
 	ID           uuid.UUID `json:"id"`
 	RestaurantID uuid.UUID `json:"restaurantId"`
 	Path         string    `json:"path"`
-	CreatedAt    time.Time `json:"createdAt"`
-	UpdatedAt    time.Time `json:"updatedAt"`
-}
-
-type RestaurantsCategory struct {
-	ID           uuid.UUID `json:"id"`
-	RestaurantID uuid.UUID `json:"restaurantId"`
-	CategoryID   uuid.UUID `json:"categoryId"`
 	CreatedAt    time.Time `json:"createdAt"`
 	UpdatedAt    time.Time `json:"updatedAt"`
 }

@@ -170,23 +170,6 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/UpdateRestaurantRequest'
-  /api/v1/categories:
-    get:
-      operationId: listCategories
-      parameters: []
-      responses:
-        '200':
-          description: The request has succeeded.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CategoriesResponse'
-        '500':
-          description: Server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/InternalErrorBody'
   /api/v1/restaurants:
     get:
       operationId: listRestaurants
@@ -231,7 +214,7 @@ components:
         - address
         - closed
         - googlePlaceId
-        - categories
+        - category
     AddRestaurantFieldError:
       type: object
       required:
@@ -254,7 +237,7 @@ components:
         - address
         - closed
         - googlePlaceId
-        - categories
+        - category
       properties:
         name:
           type: string
@@ -272,10 +255,8 @@ components:
           type: boolean
         googlePlaceId:
           type: string
-        categories:
-          type: array
-          items:
-            $ref: '#/components/schemas/uuid'
+        category:
+          $ref: '#/components/schemas/CategorySlug'
     AuthResponse:
       type: object
       required:
@@ -294,28 +275,11 @@ components:
             - authentication_required
         message:
           type: string
-    CategoriesResponse:
-      type: object
-      required:
-        - categories
-      properties:
-        categories:
-          type: array
-          items:
-            $ref: '#/components/schemas/Category'
-    Category:
-      type: object
-      required:
-        - id
-        - label
-        - icon
-      properties:
-        id:
-          $ref: '#/components/schemas/uuid'
-        label:
-          type: string
-        icon:
-          type: string
+    CategorySlug:
+      type: string
+      enum:
+        - ramen
+        - udon
     ErrorType:
       type: string
       enum:
@@ -419,7 +383,7 @@ components:
         - visited
         - rate
         - favorite
-        - categories
+        - category
       properties:
         id:
           $ref: '#/components/schemas/uuid'
@@ -446,10 +410,8 @@ components:
           format: double
         favorite:
           type: boolean
-        categories:
-          type: array
-          items:
-            $ref: '#/components/schemas/uuid'
+        category:
+          $ref: '#/components/schemas/CategorySlug'
     RestaurantsResponse:
       type: object
       required:
@@ -495,6 +457,7 @@ components:
         - address
         - closed
         - googlePlaceId
+        - category
         - visited
         - rate
         - favorite
@@ -520,6 +483,7 @@ components:
         - address
         - closed
         - googlePlaceId
+        - category
         - visited
         - rate
         - favorite
@@ -540,6 +504,8 @@ components:
           type: boolean
         googlePlaceId:
           type: string
+        category:
+          $ref: '#/components/schemas/CategorySlug'
         visited:
           type: boolean
         rate:

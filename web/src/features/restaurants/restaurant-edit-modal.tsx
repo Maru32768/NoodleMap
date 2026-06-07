@@ -1,11 +1,13 @@
 import { ModalDialog } from "@/components/modal-dialog.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { AdminImage, ImageUploader } from "@/features/admin/image-uploader.tsx";
-import { Category } from "@/features/categories/api/use-categories.ts";
+import {
+  CATEGORY_OPTIONS,
+  CategorySlug,
+} from "@/features/categories/categories.ts";
 import { CategoryIcon } from "@/features/map/category-icon.tsx";
 import { Restaurant } from "@/features/restaurants/api/use-restaurants.ts";
 import { MiniHearts } from "@/features/restaurants/rating-hearts.tsx";
-import { getCategoryType } from "@/features/search/utils.ts";
 import { Box, Input } from "@chakra-ui/react";
 import { useState } from "react";
 
@@ -17,6 +19,7 @@ export interface RestaurantEditDraft {
   lat: number;
   lng: number;
   googlePlaceId: string;
+  category: CategorySlug;
   closed: boolean;
   visited: boolean;
   favorite: boolean;
@@ -149,7 +152,6 @@ type Tab = "info" | "visit" | "images";
 
 interface RestaurantEditModalProps {
   shop: Restaurant;
-  categories: Category[];
   open: boolean;
   initialTab?: Tab;
   onClose: () => void;
@@ -159,7 +161,6 @@ interface RestaurantEditModalProps {
 
 export function RestaurantEditModal({
   shop,
-  categories,
   open,
   initialTab = "info",
   onClose,
@@ -175,6 +176,7 @@ export function RestaurantEditModal({
     lat: shop.lat,
     lng: shop.lng,
     googlePlaceId: shop.googlePlaceId,
+    category: shop.category,
     closed: shop.closed,
     visited: shop.visited,
     favorite: shop.favorite ?? false,
@@ -187,8 +189,6 @@ export function RestaurantEditModal({
     k: K,
     v: RestaurantEditDraft[K],
   ) => setDraft((d) => ({ ...d, [k]: v }));
-
-  const catType = getCategoryType(shop, categories);
 
   const handleSave = async () => {
     setSaving(true);
@@ -216,13 +216,13 @@ export function RestaurantEditModal({
       subtitle={`EDIT · ${shop.id}`}
       icon={
         <CategoryIcon
-          category={catType}
+          category={shop.category}
           size={18}
           strokeWidth={1.4}
           color="white"
         />
       }
-      iconBg={catType !== "udon" ? "nm.shu" : "nm.kincha"}
+      iconBg={shop.category === "udon" ? "nm.kincha" : "nm.shu"}
       bodyProps={{
         p: 0,
         overflow: "visible",
@@ -296,6 +296,36 @@ export function RestaurantEditModal({
         <Box px="22px" py="20px" flex="1" minH="0" overflowY="auto">
           {tab === "info" && (
             <Box display="grid" gridTemplateColumns="1fr 1fr" gap="16px">
+              <Box gridColumn="span 2">
+                <FieldLabel>カテゴリ</FieldLabel>
+                <Box display="flex" gap="6px" flexWrap="wrap">
+                  {CATEGORY_OPTIONS.map((cat) => (
+                    <Button
+                      key={cat.id}
+                      variant="plain"
+                      px="10px"
+                      py="5px"
+                      h="auto"
+                      minH="auto"
+                      fontSize="12px"
+                      fontWeight={draft.category === cat.id ? 600 : 400}
+                      bg={draft.category === cat.id ? "nm.ink" : "nm.bg"}
+                      color={
+                        draft.category === cat.id ? "nm.paper" : "nm.inkMuted"
+                      }
+                      border="1px solid"
+                      borderColor={
+                        draft.category === cat.id ? "nm.ink" : "nm.line"
+                      }
+                      rounded="nmMd"
+                      _hover={{ borderColor: "nm.ink" }}
+                      onClick={() => set("category", cat.id)}
+                    >
+                      {cat.label}
+                    </Button>
+                  ))}
+                </Box>
+              </Box>
               <Box gridColumn="span 2">
                 <FieldLabel>
                   店名{" "}

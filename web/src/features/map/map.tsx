@@ -1,4 +1,3 @@
-import { Category } from "@/features/categories/api/use-categories.ts";
 import { createBasemapStyle } from "@/features/map/basemap-style.ts";
 import {
   appendDragInertiaSample,
@@ -9,7 +8,6 @@ import {
 } from "@/features/map/drag-inertia.ts";
 import { initializeMapLibreRuntime } from "@/features/map/pmtiles-protocol.ts";
 import { Restaurant } from "@/features/restaurants/api/use-restaurants.ts";
-import { getCategoryType } from "@/features/search/utils.ts";
 import { useIsPc } from "@/utils/use-is-pc.ts";
 import maplibregl, { GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
 import {
@@ -62,7 +60,6 @@ export interface MapSelectDetails {
 
 interface Props {
   initialCenter: [number, number];
-  categories: Category[];
   restaurants: Restaurant[];
   selectedId: string | null;
   onSelect: (id: string, details: MapSelectDetails) => void;
@@ -114,12 +111,11 @@ function buildNearestKmMap(restaurants: Restaurant[]): Map<string, number> {
   return result;
 }
 
-function toGeoJson(restaurants: Restaurant[], categories: Category[]) {
+function toGeoJson(restaurants: Restaurant[]) {
   const nearestKmMap = buildNearestKmMap(restaurants);
   return {
     type: "FeatureCollection" as const,
     features: restaurants.map((r) => {
-      const catType = getCategoryType(r, categories);
       const isVisited = r.visited;
       const isClosed = r.closed;
       const highRate = isVisited && (r.rate ?? 0) >= 80;
@@ -132,12 +128,12 @@ function toGeoJson(restaurants: Restaurant[], categories: Category[]) {
           id: r.id,
           name: r.name,
           nearestKm,
-          catType,
+          catType: r.category,
           state: isClosed ? "closed" : isVisited ? "visited" : "wish",
           highRate,
           icon: getPinImageId(
             isClosed ? "closed" : isVisited ? "visited" : "wish",
-            catType,
+            r.category,
             highRate,
           ),
         },
@@ -705,7 +701,6 @@ export const Map = memo(
   forwardRef<MapHandle, Props>(function Map(
     {
       initialCenter,
-      categories,
       restaurants,
       selectedId,
       onSelect,
@@ -757,8 +752,8 @@ export const Map = memo(
       },
     );
     const geoJsonData = useMemo(() => {
-      return toGeoJson(restaurants, categories);
-    }, [categories, restaurants]);
+      return toGeoJson(restaurants);
+    }, [restaurants]);
     const dataRef = useRef(geoJsonData);
     dataRef.current = geoJsonData;
     const draftGeoJsonData = useMemo(() => {

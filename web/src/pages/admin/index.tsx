@@ -5,7 +5,6 @@ import { AdminFilters, VisitFilter } from "@/features/admin/admin-filters.tsx";
 import { AdminMap } from "@/features/admin/admin-map.tsx";
 import { AdminTable } from "@/features/admin/admin-table.tsx";
 import { MobileShopList } from "@/features/admin/mobile-shop-list.tsx";
-import { useCategories } from "@/features/categories/api/use-categories.ts";
 import {
   UpdateRestaurantCommand,
   useRestaurants,
@@ -15,7 +14,6 @@ import {
   RestaurantEditModal,
 } from "@/features/restaurants/restaurant-edit-modal.tsx";
 import type { CategoryType } from "@/features/search/utils.ts";
-import { getCategoryType } from "@/features/search/utils.ts";
 import { toastApiError } from "@/utils/toast.ts";
 import { Box, Input, Span } from "@chakra-ui/react";
 import { useCallback, useDeferredValue, useState } from "react";
@@ -128,7 +126,6 @@ function AdminSearchBox({
 
 export default function AdminPage() {
   const { restaurants, addRestaurant, updateRestaurant } = useRestaurants();
-  const { categories } = useCategories();
 
   const [keyword, setKeyword] = useState("");
   const deferredKeyword = useDeferredValue(keyword);
@@ -150,10 +147,6 @@ export default function AdminPage() {
 
   const filtered =
     restaurants?.filter((shop) => {
-      if (!categories) {
-        return false;
-      }
-
       if (deferredKeyword) {
         const kw = deferredKeyword.toLowerCase();
         if (
@@ -164,7 +157,7 @@ export default function AdminPage() {
         }
       }
       if (categoryFilter !== "all") {
-        if (getCategoryType(shop, categories) !== categoryFilter) {
+        if (shop.category !== categoryFilter) {
           return false;
         }
       }
@@ -205,6 +198,7 @@ export default function AdminPage() {
       address: draft.address,
       closed: draft.closed,
       googlePlaceId: draft.googlePlaceId,
+      category: draft.category,
       visited: draft.visited,
       favorite: draft.favorite,
       rate: draft.rate,
@@ -480,11 +474,10 @@ export default function AdminPage() {
         overflow="hidden"
       >
         {/* Map pane */}
-        {restaurants && categories && (
+        {restaurants && (
           <AdminMap
             shops={restaurants}
             filtered={filtered}
-            categories={categories}
             selectedId={selectedId}
             onSelect={handleSelect}
             addingMode={addingMode}
@@ -515,21 +508,19 @@ export default function AdminPage() {
             onKeywordChange={setKeyword}
             placement="mobile"
           />
-          {categories && (
-            <AdminFilters
-              categoryFilter={categoryFilter}
-              setCategoryFilter={setCategoryFilter}
-              visitFilter={visitFilter}
-              setVisitFilter={setVisitFilter}
-              filteredCount={filtered.length}
-              totalCount={total}
-              onClearAll={() => {
-                setCategoryFilter("all");
-                setVisitFilter("all");
-              }}
-            />
-          )}
-          {restaurants && categories && (
+          <AdminFilters
+            categoryFilter={categoryFilter}
+            setCategoryFilter={setCategoryFilter}
+            visitFilter={visitFilter}
+            setVisitFilter={setVisitFilter}
+            filteredCount={filtered.length}
+            totalCount={total}
+            onClearAll={() => {
+              setCategoryFilter("all");
+              setVisitFilter("all");
+            }}
+          />
+          {restaurants && (
             <Box h="100%" minH="0" overflow="hidden">
               <Box
                 display={{ base: "none", md: "block" }}
@@ -538,7 +529,6 @@ export default function AdminPage() {
               >
                 <AdminTable
                   shops={filtered}
-                  categories={categories}
                   selectedId={selectedId}
                   onSelect={setSelectedId}
                   onEdit={handleEdit}
@@ -551,7 +541,6 @@ export default function AdminPage() {
               >
                 <MobileShopList
                   shops={filtered}
-                  categories={categories}
                   selectedId={selectedId}
                   onEdit={handleEdit}
                 />
@@ -670,10 +659,9 @@ export default function AdminPage() {
       </Box>
 
       {/* Edit modal */}
-      {editShop && categories && (
+      {editShop && (
         <RestaurantEditModal
           shop={editShop}
-          categories={categories}
           open={!!editId}
           initialTab={editTab}
           onClose={() => setEditId(null)}
@@ -682,10 +670,9 @@ export default function AdminPage() {
       )}
 
       {/* Add modal — mount fresh each time so state resets */}
-      {showAdd && categories && (
+      {showAdd && (
         <AddModal
           key={draftLatLng ? `${draftLatLng.lat},${draftLatLng.lng}` : "new"}
-          categories={categories}
           open={true}
           onClose={() => {
             setShowAdd(false);

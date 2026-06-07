@@ -3,16 +3,18 @@ import { Button } from "@/components/ui/button.tsx";
 import { Checkbox } from "@/components/ui/checkbox.tsx";
 import { Field } from "@/components/ui/field.tsx";
 import { InputGroup } from "@/components/ui/input-group.tsx";
-import { Category } from "@/features/categories/api/use-categories.ts";
+import {
+  CATEGORY_OPTIONS,
+  CategorySlug,
+} from "@/features/categories/categories.ts";
 import { HStack, Icon, Input, Text, VStack } from "@chakra-ui/react";
 import { useState } from "react";
 import { CiFilter, CiSearch } from "react-icons/ci";
 
 export interface SearchPanelProps {
   count: number;
-  categories: Category[];
-  currentCategories: string[];
-  onChangeCategories: (categories: string[]) => void;
+  currentCategory: CategorySlug | "all";
+  onChangeCategory: (category: CategorySlug | "all") => void;
   defaultKeyword: string;
   onChangeKeyword: (keyword: string) => Promise<unknown>;
   favoriteOnly: boolean;
@@ -25,11 +27,10 @@ export interface SearchPanelProps {
 
 export function SearchPanel({
   count,
-  categories,
-  currentCategories,
+  currentCategory,
   defaultKeyword,
   onChangeKeyword,
-  onChangeCategories,
+  onChangeCategory,
   favoriteOnly,
   onChangeFavoriteOnly,
   visited,
@@ -85,8 +86,8 @@ export function SearchPanel({
           <Text fontSize="sm">現在の表示件数: {count}</Text>
           <Field label="カテゴリー">
             <HStack>
-              {categories.map((x) => {
-                const isChecked = currentCategories.includes(x.id);
+              {CATEGORY_OPTIONS.map((x) => {
+                const isChecked = currentCategory === x.id;
                 return (
                   <Checkbox
                     htmlFor={x.id}
@@ -95,11 +96,9 @@ export function SearchPanel({
                     checked={isChecked}
                     onCheckedChange={({ checked }) => {
                       if (checked) {
-                        onChangeCategories([...currentCategories, x.id]);
+                        onChangeCategory(x.id);
                       } else {
-                        onChangeCategories(
-                          currentCategories.filter((y) => y !== x.id),
-                        );
+                        onChangeCategory("all");
                       }
                     }}
                   >

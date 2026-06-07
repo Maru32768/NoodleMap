@@ -1,16 +1,11 @@
 import { ShopThumb } from "@/components/shop-thumb.tsx";
 import { Button } from "@/components/ui/button.tsx";
-import { Category } from "@/features/categories/api/use-categories.ts";
 import { Restaurant } from "@/features/restaurants/api/use-restaurants.ts";
 import {
   HeartIcon,
   MiniHearts,
 } from "@/features/restaurants/rating-hearts.tsx";
-import {
-  favToHearts,
-  getCategoryType,
-  SearchFilters,
-} from "@/features/search/utils.ts";
+import { favToHearts, SearchFilters } from "@/features/search/utils.ts";
 import { Box, Input } from "@chakra-ui/react";
 import { useState } from "react";
 import { Virtuoso } from "react-virtuoso";
@@ -51,17 +46,13 @@ function StatusPill({ restaurant }: { restaurant: Restaurant }) {
 
 function ShopCard({
   restaurant,
-  allCategories,
   active,
   onClick,
 }: {
   restaurant: Restaurant;
-  allCategories: Category[];
   active: boolean;
   onClick: () => void;
 }) {
-  const catType = getCategoryType(restaurant, allCategories);
-
   return (
     <Box
       display="flex"
@@ -82,7 +73,11 @@ function ShopCard({
       _hover={{ bg: "nm.bg" }}
       onClick={onClick}
     >
-      <ShopThumb catType={catType} closed={restaurant.closed} size="md" />
+      <ShopThumb
+        catType={restaurant.category}
+        closed={restaurant.closed}
+        size="md"
+      />
 
       <Box flex="1" minWidth="0">
         <Box
@@ -104,7 +99,9 @@ function ShopCard({
           color="nm.inkMuted"
           mb="0.25rem"
         >
-          <Box as="span">{catType === "udon" ? "うどん" : "ラーメン"}</Box>
+          <Box as="span">
+            {restaurant.category === "udon" ? "うどん" : "ラーメン"}
+          </Box>
           <Box as="span" w="3px" h="3px" borderRadius="full" bg="nm.inkFaint" />
           <Box as="span">{restaurant.address.slice(0, 10)}...</Box>
         </Box>
@@ -289,7 +286,6 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 export interface SidebarProps {
   allRestaurants: Restaurant[];
   sortedRestaurants: Restaurant[];
-  allCategories: Category[];
   query: string;
   onQueryChange: (q: string) => void;
   filters: SearchFilters;
@@ -400,7 +396,6 @@ export function RestaurantFilters({
 export function Sidebar({
   allRestaurants,
   sortedRestaurants,
-  allCategories,
   query,
   onQueryChange,
   filters,
@@ -661,7 +656,6 @@ export function Sidebar({
                 <ShopCard
                   key={r.id}
                   restaurant={r}
-                  allCategories={allCategories}
                   active={r.id === selectedId}
                   onClick={() => onSelect(r.id)}
                 />

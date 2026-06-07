@@ -84,22 +84,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/categories": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["listCategories"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/restaurants": {
         parameters: {
             query?: never;
@@ -127,7 +111,7 @@ export interface components {
             fieldErrors?: components["schemas"]["AddRestaurantFieldError"][];
         };
         /** @enum {string} */
-        AddRestaurantField: "name" | "lat" | "lng" | "postalCode" | "address" | "closed" | "googlePlaceId" | "categories";
+        AddRestaurantField: "name" | "lat" | "lng" | "postalCode" | "address" | "closed" | "googlePlaceId" | "category";
         AddRestaurantFieldError: {
             field: components["schemas"]["AddRestaurantField"];
             type: components["schemas"]["FieldErrorType"];
@@ -143,7 +127,7 @@ export interface components {
             address: string;
             closed: boolean;
             googlePlaceId: string;
-            categories: components["schemas"]["uuid"][];
+            category: components["schemas"]["CategorySlug"];
         };
         AuthResponse: {
             user: components["schemas"]["User"];
@@ -153,14 +137,8 @@ export interface components {
             type: "authentication_required";
             message?: string;
         };
-        CategoriesResponse: {
-            categories: components["schemas"]["Category"][];
-        };
-        Category: {
-            id: components["schemas"]["uuid"];
-            label: string;
-            icon: string;
-        };
+        /** @enum {string} */
+        CategorySlug: "ramen" | "udon";
         /** @enum {string} */
         ErrorType: "invalid_request" | "authentication_required" | "permission_denied" | "google_auth_failed" | "session_creation_failed" | "internal_error";
         /** @enum {string} */
@@ -211,7 +189,7 @@ export interface components {
             /** Format: double */
             rate: number;
             favorite: boolean;
-            categories: components["schemas"]["uuid"][];
+            category: components["schemas"]["CategorySlug"];
         };
         RestaurantsResponse: {
             restaurants: components["schemas"]["Restaurant"][];
@@ -228,7 +206,7 @@ export interface components {
             fieldErrors?: components["schemas"]["UpdateRestaurantFieldError"][];
         };
         /** @enum {string} */
-        UpdateRestaurantField: "name" | "lat" | "lng" | "postalCode" | "address" | "closed" | "googlePlaceId" | "visited" | "rate" | "favorite";
+        UpdateRestaurantField: "name" | "lat" | "lng" | "postalCode" | "address" | "closed" | "googlePlaceId" | "category" | "visited" | "rate" | "favorite";
         UpdateRestaurantFieldError: {
             field: components["schemas"]["UpdateRestaurantField"];
             type: components["schemas"]["FieldErrorType"];
@@ -244,6 +222,7 @@ export interface components {
             address: string;
             closed: boolean;
             googlePlaceId: string;
+            category: components["schemas"]["CategorySlug"];
             visited: boolean;
             /** Format: double */
             rate: number;
@@ -506,35 +485,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PermissionDeniedErrorBody"];
-                };
-            };
-            /** @description Server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InternalErrorBody"];
-                };
-            };
-        };
-    };
-    listCategories: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The request has succeeded. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CategoriesResponse"];
                 };
             };
             /** @description Server error */

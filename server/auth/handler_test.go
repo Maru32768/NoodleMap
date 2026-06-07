@@ -13,7 +13,6 @@ func TestRequiresAuthentication(t *testing.T) {
 		{"/api/v1/auth/google", false},
 		{"/api/v1/auth/logout", false},
 		{"/api/v1/restaurants", false},
-		{"/api/v1/categories", false},
 		{"/health", false},
 	}
 	for _, c := range cases {

@@ -22,7 +22,7 @@ const (
 // Defines values for AddRestaurantField.
 const (
 	AddRestaurantFieldAddress       AddRestaurantField = "address"
-	AddRestaurantFieldCategories    AddRestaurantField = "categories"
+	AddRestaurantFieldCategory      AddRestaurantField = "category"
 	AddRestaurantFieldClosed        AddRestaurantField = "closed"
 	AddRestaurantFieldGooglePlaceId AddRestaurantField = "googlePlaceId"
 	AddRestaurantFieldLat           AddRestaurantField = "lat"
@@ -34,6 +34,12 @@ const (
 // Defines values for AuthenticationRequiredErrorBodyType.
 const (
 	AuthenticationRequired AuthenticationRequiredErrorBodyType = "authentication_required"
+)
+
+// Defines values for CategorySlug.
+const (
+	Ramen CategorySlug = "ramen"
+	Udon  CategorySlug = "udon"
 )
 
 // Defines values for FieldErrorType.
@@ -84,6 +90,7 @@ const (
 // Defines values for UpdateRestaurantField.
 const (
 	UpdateRestaurantFieldAddress       UpdateRestaurantField = "address"
+	UpdateRestaurantFieldCategory      UpdateRestaurantField = "category"
 	UpdateRestaurantFieldClosed        UpdateRestaurantField = "closed"
 	UpdateRestaurantFieldFavorite      UpdateRestaurantField = "favorite"
 	UpdateRestaurantFieldGooglePlaceId UpdateRestaurantField = "googlePlaceId"
@@ -117,14 +124,14 @@ type AddRestaurantFieldError struct {
 
 // AddRestaurantRequest defines model for AddRestaurantRequest.
 type AddRestaurantRequest struct {
-	Address       string  `json:"address"`
-	Categories    []Uuid  `json:"categories"`
-	Closed        bool    `json:"closed"`
-	GooglePlaceId string  `json:"googlePlaceId"`
-	Lat           float64 `json:"lat"`
-	Lng           float64 `json:"lng"`
-	Name          string  `json:"name"`
-	PostalCode    string  `json:"postalCode"`
+	Address       string       `json:"address"`
+	Category      CategorySlug `json:"category"`
+	Closed        bool         `json:"closed"`
+	GooglePlaceId string       `json:"googlePlaceId"`
+	Lat           float64      `json:"lat"`
+	Lng           float64      `json:"lng"`
+	Name          string       `json:"name"`
+	PostalCode    string       `json:"postalCode"`
 }
 
 // AuthResponse defines model for AuthResponse.
@@ -141,19 +148,8 @@ type AuthenticationRequiredErrorBody struct {
 // AuthenticationRequiredErrorBodyType defines model for AuthenticationRequiredErrorBody.Type.
 type AuthenticationRequiredErrorBodyType string
 
-// CategoriesResponse defines model for CategoriesResponse.
-type CategoriesResponse struct {
-	Categories []Category `json:"categories"`
-}
-
-// Category defines model for Category.
-type Category struct {
-	Icon string `json:"icon"`
-
-	// Id UUID serialized as a string.
-	Id    Uuid   `json:"id"`
-	Label string `json:"label"`
-}
+// CategorySlug defines model for CategorySlug.
+type CategorySlug string
 
 // FieldErrorType defines model for FieldErrorType.
 type FieldErrorType string
@@ -212,11 +208,11 @@ type PermissionDeniedErrorBodyType string
 
 // Restaurant defines model for Restaurant.
 type Restaurant struct {
-	Address       string `json:"address"`
-	Categories    []Uuid `json:"categories"`
-	Closed        bool   `json:"closed"`
-	Favorite      bool   `json:"favorite"`
-	GooglePlaceId string `json:"googlePlaceId"`
+	Address       string       `json:"address"`
+	Category      CategorySlug `json:"category"`
+	Closed        bool         `json:"closed"`
+	Favorite      bool         `json:"favorite"`
+	GooglePlaceId string       `json:"googlePlaceId"`
 
 	// Id UUID serialized as a string.
 	Id         Uuid    `json:"id"`
@@ -264,16 +260,17 @@ type UpdateRestaurantFieldError struct {
 
 // UpdateRestaurantRequest defines model for UpdateRestaurantRequest.
 type UpdateRestaurantRequest struct {
-	Address       string  `json:"address"`
-	Closed        bool    `json:"closed"`
-	Favorite      bool    `json:"favorite"`
-	GooglePlaceId string  `json:"googlePlaceId"`
-	Lat           float64 `json:"lat"`
-	Lng           float64 `json:"lng"`
-	Name          string  `json:"name"`
-	PostalCode    string  `json:"postalCode"`
-	Rate          float64 `json:"rate"`
-	Visited       bool    `json:"visited"`
+	Address       string       `json:"address"`
+	Category      CategorySlug `json:"category"`
+	Closed        bool         `json:"closed"`
+	Favorite      bool         `json:"favorite"`
+	GooglePlaceId string       `json:"googlePlaceId"`
+	Lat           float64      `json:"lat"`
+	Lng           float64      `json:"lng"`
+	Name          string       `json:"name"`
+	PostalCode    string       `json:"postalCode"`
+	Rate          float64      `json:"rate"`
+	Visited       bool         `json:"visited"`
 }
 
 // User defines model for User.
@@ -314,9 +311,6 @@ type ServerInterface interface {
 
 	// (PUT /api/v1/auth/restaurants/{id})
 	UpdateRestaurant(c *gin.Context, id Uuid)
-
-	// (GET /api/v1/categories)
-	ListCategories(c *gin.Context)
 
 	// (GET /api/v1/restaurants)
 	ListRestaurants(c *gin.Context)
@@ -407,19 +401,6 @@ func (siw *ServerInterfaceWrapper) UpdateRestaurant(c *gin.Context) {
 	siw.Handler.UpdateRestaurant(c, id)
 }
 
-// ListCategories operation middleware
-func (siw *ServerInterfaceWrapper) ListCategories(c *gin.Context) {
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		middleware(c)
-		if c.IsAborted() {
-			return
-		}
-	}
-
-	siw.Handler.ListCategories(c)
-}
-
 // ListRestaurants operation middleware
 func (siw *ServerInterfaceWrapper) ListRestaurants(c *gin.Context) {
 
@@ -465,7 +446,6 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/api/v1/auth/me", wrapper.Me)
 	router.POST(options.BaseURL+"/api/v1/auth/restaurants", wrapper.AddRestaurant)
 	router.PUT(options.BaseURL+"/api/v1/auth/restaurants/:id", wrapper.UpdateRestaurant)
-	router.GET(options.BaseURL+"/api/v1/categories", wrapper.ListCategories)
 	router.GET(options.BaseURL+"/api/v1/restaurants", wrapper.ListRestaurants)
 }
 
@@ -695,31 +675,6 @@ func (response UpdateRestaurant500JSONResponse) VisitUpdateRestaurantResponse(w 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type ListCategoriesRequestObject struct {
-}
-
-type ListCategoriesResponseObject interface {
-	VisitListCategoriesResponse(w http.ResponseWriter) error
-}
-
-type ListCategories200JSONResponse CategoriesResponse
-
-func (response ListCategories200JSONResponse) VisitListCategoriesResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type ListCategories500JSONResponse InternalErrorBody
-
-func (response ListCategories500JSONResponse) VisitListCategoriesResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(500)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
 type ListRestaurantsRequestObject struct {
 }
 
@@ -762,9 +717,6 @@ type StrictServerInterface interface {
 
 	// (PUT /api/v1/auth/restaurants/{id})
 	UpdateRestaurant(ctx context.Context, request UpdateRestaurantRequestObject) (UpdateRestaurantResponseObject, error)
-
-	// (GET /api/v1/categories)
-	ListCategories(ctx context.Context, request ListCategoriesRequestObject) (ListCategoriesResponseObject, error)
 
 	// (GET /api/v1/restaurants)
 	ListRestaurants(ctx context.Context, request ListRestaurantsRequestObject) (ListRestaurantsResponseObject, error)
@@ -926,31 +878,6 @@ func (sh *strictHandler) UpdateRestaurant(ctx *gin.Context, id Uuid) {
 		ctx.Status(http.StatusInternalServerError)
 	} else if validResponse, ok := response.(UpdateRestaurantResponseObject); ok {
 		if err := validResponse.VisitUpdateRestaurantResponse(ctx.Writer); err != nil {
-			ctx.Error(err)
-		}
-	} else if response != nil {
-		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// ListCategories operation middleware
-func (sh *strictHandler) ListCategories(ctx *gin.Context) {
-	var request ListCategoriesRequestObject
-
-	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
-		return sh.ssi.ListCategories(ctx, request.(ListCategoriesRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ListCategories")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		ctx.Error(err)
-		ctx.Status(http.StatusInternalServerError)
-	} else if validResponse, ok := response.(ListCategoriesResponseObject); ok {
-		if err := validResponse.VisitListCategoriesResponse(ctx.Writer); err != nil {
 			ctx.Error(err)
 		}
 	} else if response != nil {

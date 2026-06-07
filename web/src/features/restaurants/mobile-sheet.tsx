@@ -2,7 +2,6 @@ import { CategoryBadge } from "@/components/category-badge.tsx";
 import { ShopThumb } from "@/components/shop-thumb.tsx";
 import { CloseButton } from "@/components/ui/close-button.tsx";
 import { useCurrentUser } from "@/features/auth/use-current-user.ts";
-import { Category } from "@/features/categories/api/use-categories.ts";
 import { Restaurant } from "@/features/restaurants/api/use-restaurants.ts";
 import {
   FavoriteRating,
@@ -13,7 +12,6 @@ import {
   RestaurantAddressLink,
   buildGoogleMapsUrl,
 } from "@/features/restaurants/restaurant-actions.tsx";
-import { getCategoryType } from "@/features/search/utils.ts";
 import { useIsPc } from "@/utils/use-is-pc.ts";
 import { Box } from "@chakra-ui/react";
 import { useEffect, useRef, useState } from "react";
@@ -25,7 +23,6 @@ type MobileSheetLevel = "peek" | "full";
 export interface MobileSheetProps {
   shop: Restaurant | undefined;
   sortedRestaurants: Restaurant[];
-  allCategories: Category[];
   onAdminEdit: (id: string) => void;
   onSelect: (id: string) => void;
   onClose: () => void;
@@ -61,15 +58,11 @@ function getPeekRatio(
 
 function MobileListItem({
   restaurant,
-  allCategories,
   onClick,
 }: {
   restaurant: Restaurant;
-  allCategories: Category[];
   onClick: () => void;
 }) {
-  const catType = getCategoryType(restaurant, allCategories);
-
   return (
     <Box
       display="flex"
@@ -83,7 +76,11 @@ function MobileListItem({
       _active={{ bg: "nm.bg" }}
       onClick={onClick}
     >
-      <ShopThumb catType={catType} closed={restaurant.closed} size="md" />
+      <ShopThumb
+        catType={restaurant.category}
+        closed={restaurant.closed}
+        size="md"
+      />
       <Box flex="1" minWidth="0">
         <Box
           fontSize="0.875rem"
@@ -96,7 +93,7 @@ function MobileListItem({
           {restaurant.name}
         </Box>
         <Box fontSize="0.6875rem" color="nm.inkMuted" mt="0.125rem">
-          {catType === "udon" ? "うどん" : "ラーメン"} ·{" "}
+          {restaurant.category === "udon" ? "うどん" : "ラーメン"} ·{" "}
           {restaurant.address.slice(0, 14)}...
         </Box>
         {restaurant.visited && !restaurant.closed && (
@@ -112,7 +109,6 @@ function MobileListItem({
 export function MobileSheet({
   shop,
   sortedRestaurants,
-  allCategories,
   onAdminEdit,
   onSelect,
   onClose,
@@ -120,7 +116,6 @@ export function MobileSheet({
   const currentUser = useCurrentUser();
   const isPc = useIsPc();
   const sheetRef = useRef<SheetRef>(null);
-  const catType = shop ? getCategoryType(shop, allCategories) : "ramen";
   const mapsUrl = shop ? buildGoogleMapsUrl(shop) : "";
   const isDetailMode = Boolean(shop);
   const [level, setLevel] = useState<MobileSheetLevel>("peek");
@@ -216,7 +211,11 @@ export function MobileSheet({
             >
               {/* Header row */}
               <Box display="flex" gap="0.75rem" alignItems="flex-start">
-                <ShopThumb catType={catType} closed={shop.closed} size="lg" />
+                <ShopThumb
+                  catType={shop.category}
+                  closed={shop.closed}
+                  size="lg"
+                />
 
                 <Box flex="1" minWidth="0">
                   <Box
@@ -229,7 +228,7 @@ export function MobileSheet({
                     {shop.name}
                   </Box>
                   <Box fontSize="0.6875rem" color="nm.inkMuted" mt="0.25rem">
-                    <CategoryBadge catType={catType} />
+                    <CategoryBadge catType={shop.category} />
                     <Box as="span" ml="0.5rem">
                       <RestaurantAddressLink
                         address={shop.address}
@@ -374,7 +373,6 @@ export function MobileSheet({
                   <MobileListItem
                     key={r.id}
                     restaurant={r}
-                    allCategories={allCategories}
                     onClick={() => onSelect(r.id)}
                   />
                 )}

@@ -1,13 +1,11 @@
-import { Category } from "@/features/categories/api/use-categories.ts";
 import { Restaurant } from "@/features/restaurants/api/use-restaurants.ts";
-import { favToHearts, getCategoryType } from "@/features/search/utils.ts";
+import { favToHearts } from "@/features/search/utils.ts";
 import { Box } from "@chakra-ui/react";
 import { useEffect, useRef } from "react";
 import { Virtuoso, VirtuosoHandle } from "react-virtuoso";
 
 interface MobileShopListProps {
   shops: Restaurant[];
-  categories: Category[];
   selectedId: string | null;
   onEdit: (id: string) => void;
 }
@@ -38,10 +36,9 @@ function MiniHearts({ rate }: { rate: number | undefined }) {
   );
 }
 
-const THUMB_BG: Record<string, string> = {
+const THUMB_BG: Record<Restaurant["category"], string> = {
   ramen: "linear-gradient(135deg, #d4946d, #8c4a2e)",
   udon: "linear-gradient(135deg, #ddc99c, #8c7341)",
-  other: "linear-gradient(135deg, #d8c5a0, #b88947)",
 };
 
 const PILL: Record<string, { bg: string; color: string; label: string }> = {
@@ -52,18 +49,14 @@ const PILL: Record<string, { bg: string; color: string; label: string }> = {
 
 function MobileShopListItem({
   shop,
-  categories,
   selected,
   onEdit,
 }: {
   shop: Restaurant;
-  categories: Category[];
   selected: boolean;
   onEdit: (id: string) => void;
 }) {
-  const catType = getCategoryType(shop, categories);
-  const catLabel =
-    catType === "udon" ? "うどん" : catType === "ramen" ? "ラーメン" : "その他";
+  const catLabel = shop.category === "udon" ? "うどん" : "ラーメン";
   const pillKey = shop.closed
     ? "closed"
     : shop.visited
@@ -94,14 +87,14 @@ function MobileShopListItem({
         h="48px"
         borderRadius="nmMd"
         flexShrink={0}
-        background={THUMB_BG[catType] ?? THUMB_BG.other}
+        background={THUMB_BG[shop.category]}
         display="grid"
         placeItems="center"
         fontFamily="display"
         fontSize="18px"
         color="rgba(255,255,255,0.9)"
       >
-        {catType === "udon" ? "饂" : "麺"}
+        {shop.category === "udon" ? "饂" : "麺"}
       </Box>
 
       {/* Info */}
@@ -174,7 +167,6 @@ function MobileShopListItem({
 
 export function MobileShopList({
   shops,
-  categories,
   selectedId,
   onEdit,
 }: MobileShopListProps) {
@@ -218,7 +210,6 @@ export function MobileShopList({
           itemContent={(_, shop) => (
             <MobileShopListItem
               shop={shop}
-              categories={categories}
               selected={shop.id === selectedId}
               onEdit={onEdit}
             />

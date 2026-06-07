@@ -1,5 +1,4 @@
 import { Button } from "@/components/ui/button.tsx";
-import { Category } from "@/features/categories/api/use-categories.ts";
 import {
   Map,
   MapEventHandler,
@@ -13,7 +12,6 @@ import { useCallback, useEffect, useRef } from "react";
 export interface AdminMapProps {
   shops: Restaurant[];
   filtered: Restaurant[];
-  categories: Category[];
   selectedId: string | null;
   onSelect: (id: string) => void;
   addingMode: boolean;
@@ -30,7 +28,6 @@ const noopMoveEnd: MapEventHandler = () => {};
 export function AdminMap({
   shops,
   filtered,
-  categories,
   selectedId,
   onSelect,
   addingMode,
@@ -82,7 +79,6 @@ export function AdminMap({
         ref={mapRef}
         initialCenter={ADMIN_INITIAL_CENTER}
         initialZoom={ADMIN_INITIAL_ZOOM}
-        categories={categories}
         restaurants={filtered}
         selectedId={selectedId}
         onSelect={handleSelect}

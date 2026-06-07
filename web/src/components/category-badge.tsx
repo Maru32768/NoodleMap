@@ -1,17 +1,8 @@
+import { CategorySlug } from "@/features/categories/categories.ts";
 import { Box } from "@chakra-ui/react";
 
-export function CategoryBadge({
-  catType,
-}: {
-  catType: "ramen" | "udon" | "other";
-}) {
-  const bg =
-    catType === "ramen"
-      ? "nm.shu"
-      : catType === "udon"
-        ? "nm.kincha"
-        : "nm.bgSoft";
-  const color = catType === "other" ? "nm.inkSoft" : "white";
+export function CategoryBadge({ catType }: { catType: CategorySlug }) {
+  const bg = catType === "udon" ? "nm.kincha" : "nm.shu";
 
   return (
     <Box
@@ -24,7 +15,7 @@ export function CategoryBadge({
       bg={bg}
       borderRadius="nmSm"
       textTransform="uppercase"
-      color={color}
+      color="white"
     >
       {catType === "udon" ? "UDON" : "RAMEN"}
     </Box>

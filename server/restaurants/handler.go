@@ -89,27 +89,8 @@ func (h *Handler) findRegisteredRestaurants(ctx *gin.Context) ([]RegisteredResta
 		return nil, err
 	}
 
-	cs, err := h.store.FindAllRestaurantCategories(ctx)
-	if err != nil {
-		return nil, err
-	}
-	restaurantCategoryIdsMap := make(map[uuid.UUID][]uuid.UUID)
-	for _, c := range cs {
-		arr, ok := restaurantCategoryIdsMap[c.RestaurantID]
-		if !ok {
-			arr = make([]uuid.UUID, 0)
-		}
-		arr = append(arr, c.ID)
-		restaurantCategoryIdsMap[c.RestaurantID] = arr
-	}
-
 	res := make([]RegisteredRestaurant, 0)
 	for _, r := range rs {
-		c, ok := restaurantCategoryIdsMap[r.ID]
-		if !ok {
-			c = make([]uuid.UUID, 0)
-		}
-
 		res = append(res, RegisteredRestaurant{
 			ID:            r.ID,
 			Name:          r.Name,
@@ -122,7 +103,7 @@ func (h *Handler) findRegisteredRestaurants(ctx *gin.Context) ([]RegisteredResta
 			Visited:       r.Visited,
 			Rate:          r.Rate,
 			Favorite:      r.Favorite,
-			Categories:    c,
+			Category:      r.Category,
 		})
 	}
 
@@ -148,22 +129,10 @@ func (h *Handler) addRestaurant(ctx *gin.Context, command AddRestaurantCommand) 
 		Address:       command.Address,
 		Closed:        command.Closed,
 		GooglePlaceID: command.GooglePlaceID,
+		Category:      command.Category,
 	}
 
-	if err := h.store.Tx(ctx, func(store *db.Store) error {
-		err := store.InsertRestaurant(ctx, params)
-		if err != nil {
-			return err
-		}
-
-		for _, category := range command.Categories {
-			if err := store.InsertRestaurantCategory(ctx, db.InsertRestaurantCategoryParams{ID: uuid.New(), RestaurantID: params.ID, CategoryID: category}); err != nil {
-				return err
-			}
-		}
-
-		return nil
-	}); err != nil {
+	if err := h.store.InsertRestaurant(ctx, params); err != nil {
 		return nil, err
 	}
 
@@ -175,10 +144,11 @@ func (h *Handler) addRestaurant(ctx *gin.Context, command AddRestaurantCommand) 
 		Closed:        params.Closed,
 		Address:       params.Address,
 		GooglePlaceID: params.GooglePlaceID,
+		PostalCode:    params.PostalCode,
 		Visited:       false,
 		Rate:          0,
 		Favorite:      false,
-		Categories:    command.Categories,
+		Category:      params.Category,
 	}, nil
 }
 
@@ -201,14 +171,13 @@ func (h *Handler) updateRestaurant(ctx *gin.Context, id uuid.UUID, command Updat
 		Address:       command.Address,
 		Closed:        command.Closed,
 		GooglePlaceID: command.GooglePlaceID,
+		Category:      command.Category,
 	}
 
 	if err := h.store.Tx(ctx, func(store *db.Store) error {
 		if err := store.UpdateRestaurant(ctx, params); err != nil {
 			return err
 		}
-
-		// TODO impl updating categories
 
 		if command.Visited {
 			if err := store.UpsertVisitedRestaurant(ctx, db.UpsertVisitedRestaurantParams{

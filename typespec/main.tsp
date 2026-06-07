@@ -39,7 +39,12 @@ union AddRestaurantField {
   "address",
   "closed",
   "googlePlaceId",
-  "categories",
+  "category",
+}
+
+union CategorySlug {
+  "ramen",
+  "udon",
 }
 
 union UpdateRestaurantField {
@@ -50,6 +55,7 @@ union UpdateRestaurantField {
   "address",
   "closed",
   "googlePlaceId",
+  "category",
   "visited",
   "rate",
   "favorite",
@@ -169,16 +175,6 @@ model AuthResponse {
   user: User;
 }
 
-model Category {
-  id: uuid;
-  label: string;
-  icon: string;
-}
-
-model CategoriesResponse {
-  categories: Category[];
-}
-
 model Restaurant {
   id: uuid;
   name: string;
@@ -191,7 +187,7 @@ model Restaurant {
   visited: boolean;
   rate: float64;
   favorite: boolean;
-  categories: uuid[];
+  category: CategorySlug;
 }
 
 model RestaurantsResponse {
@@ -206,7 +202,7 @@ model AddRestaurantRequest {
   address: string;
   closed: boolean;
   googlePlaceId: string;
-  categories: uuid[];
+  category: CategorySlug;
 }
 
 model UpdateRestaurantRequest {
@@ -217,6 +213,7 @@ model UpdateRestaurantRequest {
   address: string;
   closed: boolean;
   googlePlaceId: string;
+  category: CategorySlug;
   visited: boolean;
   rate: float64;
   favorite: boolean;
@@ -225,10 +222,6 @@ model UpdateRestaurantRequest {
 @get
 @route("/restaurants")
 op listRestaurants(): OkResponse<RestaurantsResponse> | InternalServerErrorResponse<InternalErrorBody>;
-
-@get
-@route("/categories")
-op listCategories(): OkResponse<CategoriesResponse> | InternalServerErrorResponse<InternalErrorBody>;
 
 @post
 @route("/auth/google")

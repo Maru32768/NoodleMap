@@ -1,5 +1,7 @@
+import { CategorySlug } from "@/features/categories/categories.ts";
+
 interface CategoryIconProps {
-  category: "ramen" | "udon" | "other";
+  category: CategorySlug;
   closed?: boolean;
   size?: number;
   color?: string;

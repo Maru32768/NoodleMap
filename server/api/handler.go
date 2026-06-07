@@ -3,24 +3,20 @@ package api
 import (
 	"github.com/gin-gonic/gin"
 	"server/auth"
-	"server/categories"
 	"server/restaurants"
 )
 
 type Handler struct {
 	authHandler       *auth.Handler
-	categoryHandler   *categories.Handler
 	restaurantHandler *restaurants.Handler
 }
 
 func NewHandler(
 	authHandler *auth.Handler,
-	categoryHandler *categories.Handler,
 	restaurantHandler *restaurants.Handler,
 ) *Handler {
 	return &Handler{
 		authHandler:       authHandler,
-		categoryHandler:   categoryHandler,
 		restaurantHandler: restaurantHandler,
 	}
 }
@@ -39,10 +35,6 @@ func (h *Handler) AddRestaurant(ctx *gin.Context) {
 
 func (h *Handler) UpdateRestaurant(ctx *gin.Context, _ Uuid) {
 	h.restaurantHandler.UpdateRestaurant(ctx)
-}
-
-func (h *Handler) ListCategories(ctx *gin.Context) {
-	h.categoryHandler.GetCategories(ctx)
 }
 
 func (h *Handler) GoogleAuth(ctx *gin.Context) {

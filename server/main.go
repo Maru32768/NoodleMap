@@ -19,7 +19,6 @@ import (
 	"server/api"
 	"server/auth"
 	"server/backup"
-	"server/categories"
 	infraDB "server/infra/db"
 	"server/middleware"
 	"server/restaurants"
@@ -128,14 +127,13 @@ func run() error {
 	})
 
 	restaurantHandler := restaurants.NewHandler(store)
-	categoryHandler := categories.NewHandler(store)
 	authHandler := auth.NewHandler(store, auth.Config{
 		GoogleOAuthClientID: googleOAuthClientID,
 		AdminEmail:          adminEmail,
 		CookieSecure:        authCookieSecure,
 	})
 	engine.Use(authHandler.Middleware())
-	api.RegisterHandlers(engine, api.NewHandler(authHandler, categoryHandler, restaurantHandler))
+	api.RegisterHandlers(engine, api.NewHandler(authHandler, restaurantHandler))
 
 	if err := engine.Run(":" + serverPort); err != nil {
 		return err

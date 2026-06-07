@@ -13,19 +13,11 @@ sql:
         emit_empty_slices: true
         json_tags_case_style: camel
         overrides:
-          - column: "categories.id"
-            go_type: "github.com/google/uuid.UUID"
           - column: "restaurants.id"
             go_type: "github.com/google/uuid.UUID"
           - column: "restaurant_images.id"
             go_type: "github.com/google/uuid.UUID"
           - column: "restaurant_images.restaurant_id"
-            go_type: "github.com/google/uuid.UUID"
-          - column: "restaurants_categories.id"
-            go_type: "github.com/google/uuid.UUID"
-          - column: "restaurants_categories.restaurant_id"
-            go_type: "github.com/google/uuid.UUID"
-          - column: "restaurants_categories.category_id"
             go_type: "github.com/google/uuid.UUID"
           - column: "users.id"
             go_type: "github.com/google/uuid.UUID"
