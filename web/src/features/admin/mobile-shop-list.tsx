@@ -1,4 +1,5 @@
 import { Shop } from "@/features/shops/api/use-shops.ts";
+import { TagChips } from "@/features/shops/tag-chips.tsx";
 import { favToHearts } from "@/features/search/utils.ts";
 import { Box } from "@chakra-ui/react";
 import { useEffect, useRef } from "react";
@@ -160,6 +161,11 @@ function MobileShopListItem({
             {pill.label}
           </Box>
         </Box>
+        {shop.tags.length > 0 && (
+          <Box mt="6px">
+            <TagChips tags={shop.tags} limit={3} size="xs" />
+          </Box>
+        )}
       </Box>
     </Box>
   );

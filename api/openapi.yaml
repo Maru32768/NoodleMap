@@ -170,6 +170,47 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/UpdateShopRequest'
+  /api/v1/auth/tags:
+    put:
+      operationId: saveTags
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagsResponse'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagBadRequestErrorBody'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthenticationRequiredErrorBody'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionDeniedErrorBody'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalErrorBody'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveTagsRequest'
   /api/v1/shops:
     get:
       operationId: listShops
@@ -181,6 +222,23 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ShopsResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalErrorBody'
+  /api/v1/tags:
+    get:
+      operationId: listTags
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagsResponse'
         '500':
           description: Server error
           content:
@@ -215,6 +273,7 @@ components:
         - closed
         - googlePlaceId
         - category
+        - tagIds
     AddShopFieldError:
       type: object
       required:
@@ -238,6 +297,7 @@ components:
         - closed
         - googlePlaceId
         - category
+        - tagIds
       properties:
         name:
           type: string
@@ -257,6 +317,10 @@ components:
           type: string
         category:
           $ref: '#/components/schemas/CategorySlug'
+        tagIds:
+          type: array
+          items:
+            $ref: '#/components/schemas/uuid'
     AuthResponse:
       type: object
       required:
@@ -296,6 +360,7 @@ components:
         - invalid_format
         - out_of_range
         - too_long
+        - duplicate
         - unknown
     GoogleAuthBadRequestErrorBody:
       type: object
@@ -369,6 +434,15 @@ components:
             - permission_denied
         message:
           type: string
+    SaveTagsRequest:
+      type: object
+      required:
+        - tags
+      properties:
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/TagInput'
     SessionCreationFailedErrorBody:
       type: object
       required:
@@ -395,6 +469,7 @@ components:
         - rate
         - favorite
         - category
+        - tags
       properties:
         id:
           $ref: '#/components/schemas/uuid'
@@ -423,6 +498,10 @@ components:
           type: boolean
         category:
           $ref: '#/components/schemas/CategorySlug'
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tag'
     ShopsResponse:
       type: object
       required:
@@ -432,6 +511,93 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Shop'
+    Tag:
+      type: object
+      required:
+        - id
+        - label
+        - slug
+        - color
+        - sortOrder
+      properties:
+        id:
+          $ref: '#/components/schemas/uuid'
+        category:
+          $ref: '#/components/schemas/CategorySlug'
+        label:
+          type: string
+        slug:
+          type: string
+        color:
+          type: string
+        sortOrder:
+          type: integer
+          format: int32
+    TagBadRequestErrorBody:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum:
+            - invalid_request
+        message:
+          type: string
+        fieldErrors:
+          type: array
+          items:
+            $ref: '#/components/schemas/TagFieldError'
+    TagField:
+      type: string
+      enum:
+        - category
+        - label
+        - slug
+        - color
+        - sortOrder
+    TagFieldError:
+      type: object
+      required:
+        - field
+        - type
+      properties:
+        field:
+          $ref: '#/components/schemas/TagField'
+        type:
+          $ref: '#/components/schemas/FieldErrorType'
+        message:
+          type: string
+    TagInput:
+      type: object
+      required:
+        - label
+        - slug
+        - color
+        - sortOrder
+      properties:
+        id:
+          $ref: '#/components/schemas/uuid'
+        category:
+          $ref: '#/components/schemas/CategorySlug'
+        label:
+          type: string
+        slug:
+          type: string
+        color:
+          type: string
+        sortOrder:
+          type: integer
+          format: int32
+    TagsResponse:
+      type: object
+      required:
+        - tags
+      properties:
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tag'
     UpdateShopBadRequestErrorBody:
       type: object
       required:
@@ -461,6 +627,7 @@ components:
         - eaten
         - rate
         - favorite
+        - tagIds
     UpdateShopFieldError:
       type: object
       required:
@@ -487,6 +654,7 @@ components:
         - eaten
         - rate
         - favorite
+        - tagIds
       properties:
         name:
           type: string
@@ -513,6 +681,10 @@ components:
           format: double
         favorite:
           type: boolean
+        tagIds:
+          type: array
+          items:
+            $ref: '#/components/schemas/uuid'
     User:
       type: object
       required:

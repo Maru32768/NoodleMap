@@ -5,6 +5,7 @@ import { AdminFilters, VisitFilter } from "@/features/admin/admin-filters.tsx";
 import { AdminMap } from "@/features/admin/admin-map.tsx";
 import { AdminTable } from "@/features/admin/admin-table.tsx";
 import { MobileShopList } from "@/features/admin/mobile-shop-list.tsx";
+import { TagManagementModal } from "@/features/admin/tag-management-modal.tsx";
 import {
   UpdateShopCommand,
   useShops,
@@ -18,7 +19,7 @@ import { toastApiError } from "@/utils/toast.ts";
 import { Box, Input, Span } from "@chakra-ui/react";
 import { useCallback, useDeferredValue, useState } from "react";
 import { CiLocationOn, CiSearch } from "react-icons/ci";
-import { LuPlus } from "react-icons/lu";
+import { LuPlus, LuTags } from "react-icons/lu";
 
 type MobileAdminView = "list" | "map";
 
@@ -125,7 +126,7 @@ function AdminSearchBox({
 }
 
 export default function AdminPage() {
-  const { shops, addShop, updateShop } = useShops();
+  const { shops, addShop, updateShop, mutate: mutateShops } = useShops();
 
   const [keyword, setKeyword] = useState("");
   const deferredKeyword = useDeferredValue(keyword);
@@ -138,6 +139,7 @@ export default function AdminPage() {
   const [editTab, setEditTab] = useState<"info" | "visit" | "images">("info");
   const [showAdd, setShowAdd] = useState(false);
   const [showAddMenu, setShowAddMenu] = useState(false);
+  const [showTagManagement, setShowTagManagement] = useState(false);
 
   const [addingMode, setAddingMode] = useState(false);
   const [draftLatLng, setDraftLatLng] = useState<{
@@ -202,6 +204,7 @@ export default function AdminPage() {
       eaten: draft.eaten,
       favorite: draft.favorite,
       rate: draft.rate,
+      tagIds: draft.tagIds,
     };
     const result = await updateShop(draft.id, cmd);
     if (!result.ok) {
@@ -325,7 +328,35 @@ export default function AdminPage() {
           <AdminStat value={wishCount} label="気になる" tone="warning" />
         </Box>
 
-        <Box position="relative" ml="auto">
+        <Box ml="auto" display="flex" alignItems="center" gap="8px">
+          <Button
+            variant="plain"
+            display="flex"
+            alignItems="center"
+            gap="6px"
+            px={{ base: "10px", md: "12px" }}
+            py="8px"
+            h="auto"
+            minH="auto"
+            rounded="nmMd"
+            bg="nm.bg"
+            color="nm.ink"
+            border="1px solid"
+            borderColor="nm.line"
+            fontSize="13px"
+            fontWeight={600}
+            _hover={{ borderColor: "nm.ink" }}
+            onClick={() => setShowTagManagement(true)}
+            aria-label="タグ管理"
+          >
+            <LuTags />
+            <Box as="span" display={{ base: "none", md: "inline" }}>
+              タグ管理
+            </Box>
+          </Button>
+        </Box>
+
+        <Box position="relative">
           <Button
             variant="plain"
             display="flex"
@@ -680,6 +711,16 @@ export default function AdminPage() {
           }}
           onSave={handleAdd}
           initialLatLng={draftLatLng ?? undefined}
+        />
+      )}
+
+      {showTagManagement && (
+        <TagManagementModal
+          open={true}
+          onClose={() => setShowTagManagement(false)}
+          onShopsChanged={() => {
+            void mutateShops();
+          }}
         />
       )}
     </Box>

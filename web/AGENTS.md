@@ -58,6 +58,8 @@ User-facing error messages are managed in `src/utils/toast.ts`. Do not display b
 
 Use React function components and existing local UI components before adding new abstractions. Keep callbacks stable when they are passed to child components or hooks. Use SWR for client-side API data fetching where existing code does.
 
+Use `LoadableButton` when a button action returns a `Promise`. Pass the async function directly to `onClick`; `LoadableButton` automatically enters a loading state until the promise resolves or rejects. Do not duplicate that state with local flags such as `disabled={saving}` or `disabled={savingAll}` unless there is an additional business rule beyond the pending promise.
+
 Japanese UI copy must stay UTF-8. Before finishing frontend text changes, run `npm run check:mojibake`.
 
 ## Verification

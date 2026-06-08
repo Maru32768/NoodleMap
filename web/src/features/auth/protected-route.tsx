@@ -1,6 +1,5 @@
-import { User } from "@/features/auth/use-auth.ts";
 import {
-  CurrentUserProvider,
+  AuthenticatedUser,
   useCurrentUser,
 } from "@/features/auth/use-current-user.ts";
 import { LOGIN_PATH, SEARCH_PATH } from "@/utils/path.ts";
@@ -9,13 +8,13 @@ import { Navigate, useLocation } from "react-router";
 
 interface Props {
   children: ReactNode;
-  permissionPredicate?: (user: User) => boolean;
+  permissionPredicate?: (user: AuthenticatedUser) => boolean;
 }
 
 export function ProtectedRoute({ children, permissionPredicate }: Props) {
   const currentUser = useCurrentUser();
   const location = useLocation();
-  if (!currentUser) {
+  if (currentUser.type === "guest") {
     const redirectTo = `${location.pathname}${location.search}${location.hash}`;
     return (
       <Navigate
@@ -29,7 +28,5 @@ export function ProtectedRoute({ children, permissionPredicate }: Props) {
     return <Navigate to={SEARCH_PATH} replace />;
   }
 
-  return (
-    <CurrentUserProvider value={currentUser}>{children}</CurrentUserProvider>
-  );
+  return <>{children}</>;
 }

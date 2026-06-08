@@ -12,6 +12,7 @@ export type FilterToggles = {
 
 export type SearchFilters = FilterToggles & {
   favMin: number;
+  tagIds: string[];
 };
 
 export function favToHearts(rate: number | undefined): number {
@@ -61,6 +62,13 @@ export function filterShops(
 
     if (filters.favMin > 0 && (r.rate ?? 0) < filters.favMin) {
       return false;
+    }
+
+    if (filters.tagIds.length > 0) {
+      const shopTagIds = new Set(r.tags.map((tag) => tag.id));
+      if (!filters.tagIds.some((tagId) => shopTagIds.has(tagId))) {
+        return false;
+      }
     }
 
     if (q) {

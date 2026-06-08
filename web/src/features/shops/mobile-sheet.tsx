@@ -3,15 +3,13 @@ import { ShopThumb } from "@/components/shop-thumb.tsx";
 import { CloseButton } from "@/components/ui/close-button.tsx";
 import { useCurrentUser } from "@/features/auth/use-current-user.ts";
 import { Shop } from "@/features/shops/api/use-shops.ts";
-import {
-  FavoriteRating,
-  MiniHearts,
-} from "@/features/shops/rating-hearts.tsx";
+import { FavoriteRating, MiniHearts } from "@/features/shops/rating-hearts.tsx";
 import {
   ShopActions,
   ShopAddressLink,
   buildGoogleMapsUrl,
 } from "@/features/shops/shop-actions.tsx";
+import { TagChips } from "@/features/shops/tag-chips.tsx";
 import { useIsPc } from "@/utils/use-is-pc.ts";
 import { Box } from "@chakra-ui/react";
 import { useEffect, useRef, useState } from "react";
@@ -63,6 +61,7 @@ function MobileListItem({
   shop: Shop;
   onClick: () => void;
 }) {
+  const currentUser = useCurrentUser();
   return (
     <Box
       display="flex"
@@ -76,11 +75,7 @@ function MobileListItem({
       _active={{ bg: "nm.bg" }}
       onClick={onClick}
     >
-      <ShopThumb
-        catType={shop.category}
-        closed={shop.closed}
-        size="md"
-      />
+      <ShopThumb catType={shop.category} closed={shop.closed} size="md" />
       <Box flex="1" minWidth="0">
         <Box
           fontSize="0.875rem"
@@ -99,6 +94,11 @@ function MobileListItem({
         {shop.eaten && !shop.closed && (
           <Box mt="0.1875rem">
             <MiniHearts rate={shop.rate} />
+          </Box>
+        )}
+        {currentUser.type === "admin" && shop.tags.length > 0 && (
+          <Box mt="0.375rem">
+            <TagChips tags={shop.tags} limit={3} size="xs" />
           </Box>
         )}
       </Box>
@@ -241,6 +241,11 @@ export function MobileSheet({
                       <MiniHearts rate={shop.rate} />
                     </Box>
                   )}
+                  {currentUser.type === "admin" && shop.tags.length > 0 && (
+                    <Box mt="0.5rem">
+                      <TagChips tags={shop.tags} limit={3} size="xs" />
+                    </Box>
+                  )}
                 </Box>
 
                 <CloseButton
@@ -329,7 +334,7 @@ export function MobileSheet({
                       mapsUrl={mapsUrl}
                       mapsLabel="Google Maps"
                       onAdminClick={
-                        currentUser?.isAdmin
+                        currentUser.type === "admin"
                           ? () => onAdminEdit(shop.id)
                           : undefined
                       }

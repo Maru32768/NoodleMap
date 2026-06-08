@@ -51,6 +51,25 @@ type ShopImage struct {
 	UpdatedAt time.Time `json:"updatedAt"`
 }
 
+type ShopsTag struct {
+	ID        uuid.UUID `json:"id"`
+	ShopID    uuid.UUID `json:"shopId"`
+	TagID     string    `json:"tagId"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+type Tag struct {
+	ID        uuid.UUID      `json:"id"`
+	Category  sql.NullString `json:"category"`
+	Label     string         `json:"label"`
+	Slug      string         `json:"slug"`
+	Color     string         `json:"color"`
+	SortOrder int64          `json:"sortOrder"`
+	CreatedAt time.Time      `json:"createdAt"`
+	UpdatedAt time.Time      `json:"updatedAt"`
+}
+
 type User struct {
 	ID        uuid.UUID      `json:"id"`
 	Email     string         `json:"email"`

@@ -24,6 +24,7 @@ union FieldErrorType {
   "invalid_format",
   "out_of_range",
   "too_long",
+  "duplicate",
   "unknown",
 }
 
@@ -40,6 +41,7 @@ union AddShopField {
   "closed",
   "googlePlaceId",
   "category",
+  "tagIds",
 }
 
 union CategorySlug {
@@ -59,6 +61,15 @@ union UpdateShopField {
   "eaten",
   "rate",
   "favorite",
+  "tagIds",
+}
+
+union TagField {
+  "category",
+  "label",
+  "slug",
+  "color",
+  "sortOrder",
 }
 
 model GoogleAuthFieldError {
@@ -75,6 +86,12 @@ model AddShopFieldError {
 
 model UpdateShopFieldError {
   field: UpdateShopField;
+  type: FieldErrorType;
+  message?: string;
+}
+
+model TagFieldError {
+  field: TagField;
   type: FieldErrorType;
   message?: string;
 }
@@ -102,6 +119,12 @@ model UpdateShopBadRequestErrorBody {
   fieldErrors?: UpdateShopFieldError[];
 }
 
+model TagBadRequestErrorBody {
+  type: "invalid_request";
+  message?: string;
+  fieldErrors?: TagFieldError[];
+}
+
 model AuthenticationRequiredErrorBody {
   type: "authentication_required";
   message?: string;
@@ -127,6 +150,7 @@ alias ErrorBody =
   GoogleAuthBadRequestErrorBody |
   AddShopBadRequestErrorBody |
   UpdateShopBadRequestErrorBody |
+  TagBadRequestErrorBody |
   AuthenticationRequiredErrorBody |
   PermissionDeniedErrorBody |
   SessionCreationFailedErrorBody |
@@ -188,10 +212,37 @@ model Shop {
   rate: float64;
   favorite: boolean;
   category: CategorySlug;
+  tags: Tag[];
+}
+
+model Tag {
+  id: uuid;
+  category?: CategorySlug;
+  label: string;
+  slug: string;
+  color: string;
+  sortOrder: int32;
 }
 
 model ShopsResponse {
   shops: Shop[];
+}
+
+model TagsResponse {
+  tags: Tag[];
+}
+
+model TagInput {
+  id?: uuid;
+  category?: CategorySlug;
+  label: string;
+  slug: string;
+  color: string;
+  sortOrder: int32;
+}
+
+model SaveTagsRequest {
+  tags: TagInput[];
 }
 
 model AddShopRequest {
@@ -203,6 +254,7 @@ model AddShopRequest {
   closed: boolean;
   googlePlaceId: string;
   category: CategorySlug;
+  tagIds: uuid[];
 }
 
 model UpdateShopRequest {
@@ -217,11 +269,22 @@ model UpdateShopRequest {
   eaten: boolean;
   rate: float64;
   favorite: boolean;
+  tagIds: uuid[];
 }
 
 @get
 @route("/shops")
 op listShops(): OkResponse<ShopsResponse> | InternalServerErrorResponse<InternalErrorBody>;
+
+@get
+@route("/tags")
+op listTags(): OkResponse<TagsResponse> | InternalServerErrorResponse<InternalErrorBody>;
+
+@put
+@route("/auth/tags")
+op saveTags(
+  @body body: SaveTagsRequest,
+): OkResponse<TagsResponse> | BadRequestResponse<TagBadRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
 
 @post
 @route("/auth/google")

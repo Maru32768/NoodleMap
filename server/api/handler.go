@@ -1,9 +1,10 @@
 package api
 
 import (
-	"github.com/gin-gonic/gin"
 	"server/auth"
 	"server/shops"
+
+	"github.com/gin-gonic/gin"
 )
 
 type Handler struct {
@@ -43,4 +44,12 @@ func (h *Handler) GoogleAuth(ctx *gin.Context) {
 
 func (h *Handler) ListShops(ctx *gin.Context) {
 	h.shopHandler.GetShops(ctx)
+}
+
+func (h *Handler) ListTags(ctx *gin.Context) {
+	h.shopHandler.GetTags(ctx)
+}
+
+func (h *Handler) SaveTags(ctx *gin.Context) {
+	h.shopHandler.SaveTags(ctx)
 }

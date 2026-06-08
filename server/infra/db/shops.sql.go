@@ -7,6 +7,8 @@ package db
 
 import (
 	"context"
+	"database/sql"
+	"strings"
 
 	"github.com/google/uuid"
 )
@@ -19,6 +21,28 @@ where shop_id = ?
 
 func (q *Queries) DeleteEatenShopByShopId(ctx context.Context, shopID uuid.UUID) error {
 	_, err := q.db.ExecContext(ctx, deleteEatenShopByShopId, shopID)
+	return err
+}
+
+const deleteShopTagsByShopId = `-- name: DeleteShopTagsByShopId :exec
+delete
+from shops_tags
+where shop_id = ?
+`
+
+func (q *Queries) DeleteShopTagsByShopId(ctx context.Context, shopID uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, deleteShopTagsByShopId, shopID)
+	return err
+}
+
+const deleteTag = `-- name: DeleteTag :exec
+delete
+from tags
+where id = ?
+`
+
+func (q *Queries) DeleteTag(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, deleteTag, id)
 	return err
 }
 
@@ -90,6 +114,116 @@ func (q *Queries) FindAllShops(ctx context.Context) ([]FindAllShopsRow, error) {
 	return items, nil
 }
 
+const findAllTags = `-- name: FindAllTags :many
+select id,
+       category,
+       label,
+       slug,
+       color,
+       sort_order,
+       created_at,
+       updated_at
+from tags
+order by sort_order, label
+`
+
+func (q *Queries) FindAllTags(ctx context.Context) ([]Tag, error) {
+	rows, err := q.db.QueryContext(ctx, findAllTags)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Tag{}
+	for rows.Next() {
+		var i Tag
+		if err := rows.Scan(
+			&i.ID,
+			&i.Category,
+			&i.Label,
+			&i.Slug,
+			&i.Color,
+			&i.SortOrder,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const findTagsByShopIds = `-- name: FindTagsByShopIds :many
+select st.shop_id,
+       t.id,
+       t.category,
+       t.label,
+       t.slug,
+       t.color,
+       t.sort_order
+from shops_tags st
+         join tags t on st.tag_id = t.id
+where st.shop_id in (/*SLICE:shop_ids*/?)
+order by st.shop_id, t.sort_order, t.label
+`
+
+type FindTagsByShopIdsRow struct {
+	ShopID    uuid.UUID      `json:"shopId"`
+	ID        uuid.UUID      `json:"id"`
+	Category  sql.NullString `json:"category"`
+	Label     string         `json:"label"`
+	Slug      string         `json:"slug"`
+	Color     string         `json:"color"`
+	SortOrder int64          `json:"sortOrder"`
+}
+
+func (q *Queries) FindTagsByShopIds(ctx context.Context, shopIds []uuid.UUID) ([]FindTagsByShopIdsRow, error) {
+	query := findTagsByShopIds
+	var queryParams []interface{}
+	if len(shopIds) > 0 {
+		for _, v := range shopIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:shop_ids*/?", strings.Repeat(",?", len(shopIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:shop_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []FindTagsByShopIdsRow{}
+	for rows.Next() {
+		var i FindTagsByShopIdsRow
+		if err := rows.Scan(
+			&i.ShopID,
+			&i.ID,
+			&i.Category,
+			&i.Label,
+			&i.Slug,
+			&i.Color,
+			&i.SortOrder,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const insertShop = `-- name: InsertShop :exec
 insert into shops (id, name, lat, lng, postal_code, address, closed, google_place_id, category)
 values (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -118,6 +252,48 @@ func (q *Queries) InsertShop(ctx context.Context, arg InsertShopParams) error {
 		arg.Closed,
 		arg.GooglePlaceID,
 		arg.Category,
+	)
+	return err
+}
+
+const insertShopTag = `-- name: InsertShopTag :exec
+insert into shops_tags (id, shop_id, tag_id)
+values (?, ?, ?)
+`
+
+type InsertShopTagParams struct {
+	ID     uuid.UUID `json:"id"`
+	ShopID uuid.UUID `json:"shopId"`
+	TagID  string    `json:"tagId"`
+}
+
+func (q *Queries) InsertShopTag(ctx context.Context, arg InsertShopTagParams) error {
+	_, err := q.db.ExecContext(ctx, insertShopTag, arg.ID, arg.ShopID, arg.TagID)
+	return err
+}
+
+const insertTag = `-- name: InsertTag :exec
+insert into tags (id, category, label, slug, color, sort_order)
+values (?, ?, ?, ?, ?, ?)
+`
+
+type InsertTagParams struct {
+	ID        uuid.UUID      `json:"id"`
+	Category  sql.NullString `json:"category"`
+	Label     string         `json:"label"`
+	Slug      string         `json:"slug"`
+	Color     string         `json:"color"`
+	SortOrder int64          `json:"sortOrder"`
+}
+
+func (q *Queries) InsertTag(ctx context.Context, arg InsertTagParams) error {
+	_, err := q.db.ExecContext(ctx, insertTag,
+		arg.ID,
+		arg.Category,
+		arg.Label,
+		arg.Slug,
+		arg.Color,
+		arg.SortOrder,
 	)
 	return err
 }
@@ -157,6 +333,37 @@ func (q *Queries) UpdateShop(ctx context.Context, arg UpdateShopParams) error {
 		arg.Closed,
 		arg.GooglePlaceID,
 		arg.Category,
+		arg.ID,
+	)
+	return err
+}
+
+const updateTag = `-- name: UpdateTag :exec
+update tags
+set category   = ?,
+    label      = ?,
+    slug       = ?,
+    color      = ?,
+    sort_order = ?
+where id = ?
+`
+
+type UpdateTagParams struct {
+	Category  sql.NullString `json:"category"`
+	Label     string         `json:"label"`
+	Slug      string         `json:"slug"`
+	Color     string         `json:"color"`
+	SortOrder int64          `json:"sortOrder"`
+	ID        uuid.UUID      `json:"id"`
+}
+
+func (q *Queries) UpdateTag(ctx context.Context, arg UpdateTagParams) error {
+	_, err := q.db.ExecContext(ctx, updateTag,
+		arg.Category,
+		arg.Label,
+		arg.Slug,
+		arg.Color,
+		arg.SortOrder,
 		arg.ID,
 	)
 	return err

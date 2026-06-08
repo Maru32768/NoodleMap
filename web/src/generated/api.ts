@@ -84,6 +84,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["saveTags"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/shops": {
         parameters: {
             query?: never;
@@ -92,6 +108,22 @@ export interface paths {
             cookie?: never;
         };
         get: operations["listShops"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listTags"];
         put?: never;
         post?: never;
         delete?: never;
@@ -111,7 +143,7 @@ export interface components {
             fieldErrors?: components["schemas"]["AddShopFieldError"][];
         };
         /** @enum {string} */
-        AddShopField: "name" | "lat" | "lng" | "postalCode" | "address" | "closed" | "googlePlaceId" | "category";
+        AddShopField: "name" | "lat" | "lng" | "postalCode" | "address" | "closed" | "googlePlaceId" | "category" | "tagIds";
         AddShopFieldError: {
             field: components["schemas"]["AddShopField"];
             type: components["schemas"]["FieldErrorType"];
@@ -128,6 +160,7 @@ export interface components {
             closed: boolean;
             googlePlaceId: string;
             category: components["schemas"]["CategorySlug"];
+            tagIds: components["schemas"]["uuid"][];
         };
         AuthResponse: {
             user: components["schemas"]["User"];
@@ -142,7 +175,7 @@ export interface components {
         /** @enum {string} */
         ErrorType: "invalid_request" | "authentication_required" | "permission_denied" | "google_auth_failed" | "session_creation_failed" | "internal_error";
         /** @enum {string} */
-        FieldErrorType: "required" | "invalid_format" | "out_of_range" | "too_long" | "unknown";
+        FieldErrorType: "required" | "invalid_format" | "out_of_range" | "too_long" | "duplicate" | "unknown";
         GoogleAuthBadRequestErrorBody: {
             /** @enum {string} */
             type: "invalid_request" | "google_auth_failed";
@@ -174,6 +207,9 @@ export interface components {
             type: "permission_denied";
             message?: string;
         };
+        SaveTagsRequest: {
+            tags: components["schemas"]["TagInput"][];
+        };
         SessionCreationFailedErrorBody: {
             /** @enum {string} */
             type: "session_creation_failed";
@@ -195,9 +231,44 @@ export interface components {
             rate: number;
             favorite: boolean;
             category: components["schemas"]["CategorySlug"];
+            tags: components["schemas"]["Tag"][];
         };
         ShopsResponse: {
             shops: components["schemas"]["Shop"][];
+        };
+        Tag: {
+            id: components["schemas"]["uuid"];
+            category?: components["schemas"]["CategorySlug"];
+            label: string;
+            slug: string;
+            color: string;
+            /** Format: int32 */
+            sortOrder: number;
+        };
+        TagBadRequestErrorBody: {
+            /** @enum {string} */
+            type: "invalid_request";
+            message?: string;
+            fieldErrors?: components["schemas"]["TagFieldError"][];
+        };
+        /** @enum {string} */
+        TagField: "category" | "label" | "slug" | "color" | "sortOrder";
+        TagFieldError: {
+            field: components["schemas"]["TagField"];
+            type: components["schemas"]["FieldErrorType"];
+            message?: string;
+        };
+        TagInput: {
+            id?: components["schemas"]["uuid"];
+            category?: components["schemas"]["CategorySlug"];
+            label: string;
+            slug: string;
+            color: string;
+            /** Format: int32 */
+            sortOrder: number;
+        };
+        TagsResponse: {
+            tags: components["schemas"]["Tag"][];
         };
         UpdateShopBadRequestErrorBody: {
             /** @enum {string} */
@@ -206,7 +277,7 @@ export interface components {
             fieldErrors?: components["schemas"]["UpdateShopFieldError"][];
         };
         /** @enum {string} */
-        UpdateShopField: "name" | "lat" | "lng" | "postalCode" | "address" | "closed" | "googlePlaceId" | "category" | "eaten" | "rate" | "favorite";
+        UpdateShopField: "name" | "lat" | "lng" | "postalCode" | "address" | "closed" | "googlePlaceId" | "category" | "eaten" | "rate" | "favorite" | "tagIds";
         UpdateShopFieldError: {
             field: components["schemas"]["UpdateShopField"];
             type: components["schemas"]["FieldErrorType"];
@@ -227,6 +298,7 @@ export interface components {
             /** Format: double */
             rate: number;
             favorite: boolean;
+            tagIds: components["schemas"]["uuid"][];
         };
         User: {
             id: components["schemas"]["uuid"];
@@ -498,6 +570,66 @@ export interface operations {
             };
         };
     };
+    saveTags: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveTagsRequest"];
+            };
+        };
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TagsResponse"];
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TagBadRequestErrorBody"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthenticationRequiredErrorBody"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PermissionDeniedErrorBody"];
+                };
+            };
+            /** @description Server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InternalErrorBody"];
+                };
+            };
+        };
+    };
     listShops: {
         parameters: {
             query?: never;
@@ -514,6 +646,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ShopsResponse"];
+                };
+            };
+            /** @description Server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InternalErrorBody"];
+                };
+            };
+        };
+    };
+    listTags: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TagsResponse"];
                 };
             };
             /** @description Server error */

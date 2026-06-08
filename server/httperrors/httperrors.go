@@ -24,6 +24,7 @@ const (
 	FieldInvalidFormat FieldErrorType = "invalid_format"
 	FieldOutOfRange    FieldErrorType = "out_of_range"
 	FieldTooLong       FieldErrorType = "too_long"
+	FieldDuplicate     FieldErrorType = "duplicate"
 	FieldUnknown       FieldErrorType = "unknown"
 )
 

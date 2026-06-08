@@ -1,11 +1,10 @@
 import { ShopThumb } from "@/components/shop-thumb.tsx";
 import { Button } from "@/components/ui/button.tsx";
-import { Shop } from "@/features/shops/api/use-shops.ts";
-import {
-  HeartIcon,
-  MiniHearts,
-} from "@/features/shops/rating-hearts.tsx";
+import { useCurrentUser } from "@/features/auth/use-current-user.ts";
 import { favToHearts, SearchFilters } from "@/features/search/utils.ts";
+import { Shop, Tag, useTags } from "@/features/shops/api/use-shops.ts";
+import { HeartIcon, MiniHearts } from "@/features/shops/rating-hearts.tsx";
+import { getTagTextColor, TagChips } from "@/features/shops/tag-chips.tsx";
 import { Box, Input } from "@chakra-ui/react";
 import { useState } from "react";
 import { Virtuoso } from "react-virtuoso";
@@ -53,6 +52,7 @@ function ShopCard({
   active: boolean;
   onClick: () => void;
 }) {
+  const currentUser = useCurrentUser();
   return (
     <Box
       display="flex"
@@ -73,11 +73,7 @@ function ShopCard({
       _hover={{ bg: "nm.bg" }}
       onClick={onClick}
     >
-      <ShopThumb
-        catType={shop.category}
-        closed={shop.closed}
-        size="md"
-      />
+      <ShopThumb catType={shop.category} closed={shop.closed} size="md" />
 
       <Box flex="1" minWidth="0">
         <Box
@@ -119,6 +115,11 @@ function ShopCard({
             fontWeight={600}
           >
             気になる
+          </Box>
+        )}
+        {currentUser.type === "admin" && shop.tags.length > 0 && (
+          <Box mt="0.375rem">
+            <TagChips tags={shop.tags} limit={3} size="xs" />
           </Box>
         )}
       </Box>
@@ -183,6 +184,58 @@ function Chip({
         />
       )}
       {children}
+    </Button>
+  );
+}
+
+function TagFilterChip({
+  tag,
+  active,
+  onClick,
+}: {
+  tag: Tag;
+  active: boolean;
+  onClick: () => void;
+}) {
+  const categoryColor =
+    tag.category === "ramen"
+      ? "nm.shu"
+      : tag.category === "udon"
+        ? "nm.kincha"
+        : "nm.inkMuted";
+
+  return (
+    <Button
+      variant="plain"
+      display="inline-flex"
+      alignItems="center"
+      gap="0.375rem"
+      minW="auto"
+      minH="auto"
+      px="0.75rem"
+      py="0.4375rem"
+      bg={active ? tag.color : "nm.bg"}
+      border="1px solid"
+      borderColor={active ? tag.color : "nm.line"}
+      borderRadius="999px"
+      fontSize="0.75rem"
+      fontWeight={active ? 600 : 500}
+      color={active ? getTagTextColor(tag.color) : "nm.inkMuted"}
+      transition="all 0.15s"
+      userSelect="none"
+      _hover={!active ? { borderColor: tag.color, color: "nm.ink" } : {}}
+      onClick={onClick}
+    >
+      <Box
+        as="span"
+        w="7px"
+        h="14px"
+        borderRadius="full"
+        bg={categoryColor}
+        boxShadow={active ? "0 0 0 1px currentColor" : undefined}
+        flexShrink={0}
+      />
+      {tag.label}
     </Button>
   );
 }
@@ -297,24 +350,35 @@ export interface SidebarProps {
   onSelect: (id: string) => void;
 }
 
-export type ShopFiltersProps = Pick<
-  SidebarProps,
-  "filters" | "onFilterChange"
->;
+export type ShopFiltersProps = Pick<SidebarProps, "filters" | "onFilterChange">;
 
-export function ShopFilters({
-  filters,
-  onFilterChange,
-}: ShopFiltersProps) {
+export function ShopFilters({ filters, onFilterChange }: ShopFiltersProps) {
+  const currentUser = useCurrentUser();
+  const isAdmin = currentUser.type === "admin";
+  const { tags } = useTags();
+  const visibleTags = !isAdmin
+    ? []
+    : (tags?.filter((tag) => {
+        if (filters.tagIds.includes(tag.id)) {
+          return true;
+        }
+        if (!tag.category) {
+          return true;
+        }
+        if (filters.ramen && filters.udon) {
+          return true;
+        }
+        if (filters.ramen && tag.category === "ramen") {
+          return true;
+        }
+        if (filters.udon && tag.category === "udon") {
+          return true;
+        }
+        return false;
+      }) ?? []);
+
   return (
-    <Box
-      px="1.25rem"
-      pt="0.25rem"
-      pb="1rem"
-      borderBottom="1px solid"
-      borderBottomColor="nm.line"
-      overflowY="auto"
-    >
+    <Box px="1.25rem" pt="0.25rem" pb="1rem" overflowY="auto">
       <Box pt="0.875rem" pb="0.625rem">
         <SectionLabel>カテゴリ — Category</SectionLabel>
         <Box display="flex" flexWrap="wrap" gap="0.375rem">
@@ -335,12 +399,7 @@ export function ShopFilters({
         </Box>
       </Box>
 
-      <Box
-        pt="0.875rem"
-        pb="0.625rem"
-        borderTop="1px dashed"
-        borderTopColor="nm.lineFaint"
-      >
+      <Box pt="0.875rem" pb="0.625rem">
         <SectionLabel>ステータス — Status</SectionLabel>
         <Box display="flex" flexWrap="wrap" gap="0.375rem">
           <Chip
@@ -369,12 +428,7 @@ export function ShopFilters({
         </Box>
       </Box>
 
-      <Box
-        pt="0.875rem"
-        pb="0.625rem"
-        borderTop="1px dashed"
-        borderTopColor="nm.lineFaint"
-      >
+      <Box pt="0.875rem" pb="0.625rem">
         <SectionLabel>お気に入り度 — Favorite</SectionLabel>
         <HeartFilter
           value={filters.favMin}
@@ -389,6 +443,50 @@ export function ShopFilters({
           {filters.favMin > 0 ? `${filters.favMin} 以上のみ表示` : "指定なし"}
         </Box>
       </Box>
+
+      {visibleTags.length > 0 && (
+        <Box pt="0.875rem" pb="0.625rem">
+          <SectionLabel>タグ — Tags</SectionLabel>
+          <Box display="flex" flexWrap="wrap" gap="0.375rem">
+            {visibleTags.map((tag) => {
+              const active = filters.tagIds.includes(tag.id);
+              return (
+                <TagFilterChip
+                  key={tag.id}
+                  tag={tag}
+                  active={active}
+                  onClick={() => {
+                    onFilterChange(
+                      "tagIds",
+                      active
+                        ? filters.tagIds.filter((id) => id !== tag.id)
+                        : [...filters.tagIds, tag.id],
+                    );
+                  }}
+                />
+              );
+            })}
+          </Box>
+          {filters.tagIds.length > 0 && (
+            <Button
+              variant="plain"
+              minW="auto"
+              minH="auto"
+              h="auto"
+              mt="0.625rem"
+              p="0"
+              fontSize="0.6875rem"
+              color="nm.inkFaint"
+              fontFamily="mono"
+              letterSpacing="0.05em"
+              _hover={{ color: "nm.inkMuted" }}
+              onClick={() => onFilterChange("tagIds", [])}
+            >
+              CLEAR TAGS
+            </Button>
+          )}
+        </Box>
+      )}
     </Box>
   );
 }
@@ -604,10 +702,20 @@ export function Sidebar({
         </Box>
       </Box>
 
-      <ShopFilters filters={filters} onFilterChange={onFilterChange} />
+      <Box height="full" overflow="auto">
+        <ShopFilters filters={filters} onFilterChange={onFilterChange} />
+      </Box>
 
       {/* List */}
-      <Box flex="1" overflow="hidden" display="flex" flexDirection="column">
+      <Box
+        overflow="hidden"
+        display="flex"
+        flexDirection="column"
+        minHeight="240px"
+        maxHeight="240px"
+        borderTop="1px solid"
+        borderTopColor="nm.line"
+      >
         <Box
           px="1.25rem"
           pt="0.625rem"

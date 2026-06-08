@@ -2,7 +2,10 @@ import { Layout } from "@/components/layout/layout.tsx";
 import { Loading } from "@/components/loading.tsx";
 import { ProtectedRoute } from "@/features/auth/protected-route.tsx";
 import { useAuth } from "@/features/auth/use-auth.ts";
-import { CurrentUserProvider } from "@/features/auth/use-current-user.ts";
+import {
+  CurrentUserProvider,
+  toCurrentUser,
+} from "@/features/auth/use-current-user.ts";
 import {
   ADMIN_PATH,
   LOGIN_PATH,
@@ -13,7 +16,8 @@ import React, { Suspense, useEffect } from "react";
 import { Navigate, Outlet, Route, Routes, useLocation } from "react-router";
 
 function App() {
-  const { currentUser, isLoading } = useAuth();
+  const { currentUser: authUser, isLoading } = useAuth();
+  const currentUser = toCurrentUser(authUser);
   const location = useLocation();
 
   useEffect(() => {
@@ -78,14 +82,14 @@ function App() {
             element={
               <ProtectedRoute
                 permissionPredicate={(user) => {
-                  return user.isAdmin;
+                  return user.type === "admin";
                 }}
               >
                 <LazyAdminPage />
               </ProtectedRoute>
             }
           />
-          {!currentUser && (
+          {currentUser.type === "guest" && (
             <Route path={LOGIN_PATH} element={<LazyLoginPage />} />
           )}
           <Route path="*" element={<Navigate to={SEARCH_PATH} replace />} />

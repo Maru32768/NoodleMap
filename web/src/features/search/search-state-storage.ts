@@ -1,7 +1,7 @@
 import { SearchFilters } from "@/features/search/utils.ts";
 
 const SEARCH_STATE_STORAGE_KEY = "noodle-map:search-state:v1";
-const SAVED_SEARCH_STATE_VERSION = 3;
+const SAVED_SEARCH_STATE_VERSION = 4;
 
 export type MapCenter = [number, number];
 
@@ -29,6 +29,7 @@ export const DEFAULT_FILTERS: SearchFilters = {
   ramen: true,
   udon: true,
   favMin: 0,
+  tagIds: [],
 };
 
 function isMapCenter(value: unknown): value is MapCenter {
@@ -65,7 +66,9 @@ function isSearchFilters(value: unknown): value is SearchFilters {
     typeof candidate.closed === "boolean" &&
     typeof candidate.ramen === "boolean" &&
     typeof candidate.udon === "boolean" &&
-    typeof candidate.favMin === "number"
+    typeof candidate.favMin === "number" &&
+    Array.isArray(candidate.tagIds) &&
+    candidate.tagIds.every((id) => typeof id === "string")
   );
 }
 

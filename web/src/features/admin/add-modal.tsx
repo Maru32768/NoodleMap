@@ -5,7 +5,11 @@ import {
   FindResult,
   GooglePlaceFinder,
 } from "@/features/map/google-place-finder.tsx";
-import { AddShopCommand } from "@/features/shops/api/use-shops.ts";
+import {
+  AddShopCommand,
+  useTags,
+} from "@/features/shops/api/use-shops.ts";
+import { TagSelector } from "@/features/shops/tag-chips.tsx";
 import { Box, Input } from "@chakra-ui/react";
 import { useState } from "react";
 
@@ -120,11 +124,24 @@ export function AddModal({
     googlePlaceId: "",
     closed: false,
     category: "ramen",
+    tagIds: [],
   }));
+  const { tags } = useTags();
   const [saving, setSaving] = useState(false);
 
   const set = <K extends keyof AddDraft>(k: K, v: AddDraft[K]) =>
     setDraft((d) => ({ ...d, [k]: v }));
+
+  const setCategory = (category: AddDraft["category"]) => {
+    setDraft((current) => ({
+      ...current,
+      category,
+      tagIds: (current.tagIds ?? []).filter((tagId) => {
+        const tag = tags?.find((candidate) => candidate.id === tagId);
+        return !tag?.category || tag.category === category;
+      }),
+    }));
+  };
 
   const handleSelect = (res: FindResult) => {
     setPlaceResult(res);
@@ -311,13 +328,25 @@ export function AddModal({
                       }
                       rounded="nmMd"
                       _hover={{ borderColor: "nm.ink" }}
-                      onClick={() => set("category", cat.id)}
+                      onClick={() => setCategory(cat.id)}
                     >
                       {cat.label}
                     </Button>
                   ))}
                 </Box>
               </Box>
+
+              {tags && (
+                <Box gridColumn="span 2">
+                  <FieldLabel>タグ</FieldLabel>
+                  <TagSelector
+                    tags={tags}
+                    selectedIds={draft.tagIds ?? []}
+                    category={draft.category}
+                    onChange={(ids) => set("tagIds", ids)}
+                  />
+                </Box>
+              )}
 
               <Box gridColumn="span 2">
                 <FieldLabel>

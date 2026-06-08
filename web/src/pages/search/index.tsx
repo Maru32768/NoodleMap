@@ -9,6 +9,7 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer.tsx";
 import { toaster } from "@/components/ui/toaster.tsx";
+import { useCurrentUser } from "@/features/auth/use-current-user.ts";
 import { FlyToLocationButton } from "@/features/map/fly-to-location-button.tsx";
 import {
   LocationTrackingMode,
@@ -17,10 +18,9 @@ import {
   MapHandle,
   MapSelectDetails,
 } from "@/features/map/map.tsx";
-import {
-  UpdateShopCommand,
-  useShops,
-} from "@/features/shops/api/use-shops.ts";
+import { useSearchState } from "@/features/search/use-search-state.ts";
+import { filterShops, sortShops } from "@/features/search/utils.ts";
+import { UpdateShopCommand, useShops } from "@/features/shops/api/use-shops.ts";
 import { DetailPanel } from "@/features/shops/detail-panel.tsx";
 import { MobileSheet } from "@/features/shops/mobile-sheet.tsx";
 import {
@@ -28,8 +28,6 @@ import {
   ShopEditModal,
 } from "@/features/shops/shop-edit-modal.tsx";
 import { ShopFilters, Sidebar } from "@/features/shops/sidebar.tsx";
-import { useSearchState } from "@/features/search/use-search-state.ts";
-import { filterShops, sortShops } from "@/features/search/utils.ts";
 import { toastApiError } from "@/utils/toast.ts";
 import { Box, Input } from "@chakra-ui/react";
 import {
@@ -161,6 +159,8 @@ export default function SearchPage() {
   );
 
   const { shops, updateShop } = useShops();
+  const currentUser = useCurrentUser();
+  const isAdmin = currentUser.type === "admin";
 
   const filteredShops = useMemo(() => {
     if (!shops) {
@@ -168,9 +168,11 @@ export default function SearchPage() {
     }
     return filterShops(shops, {
       query: deferredQuery,
-      filters: deferredFilters,
+      // Tags are an admin-only feature for now; ignore any persisted tag
+      // filter so non-admins never see shops silently filtered by it.
+      filters: isAdmin ? deferredFilters : { ...deferredFilters, tagIds: [] },
     });
-  }, [shops, deferredQuery, deferredFilters]);
+  }, [shops, deferredQuery, deferredFilters, isAdmin]);
 
   const sortedShops = useMemo(() => {
     const center = mapView
@@ -227,6 +229,7 @@ export default function SearchPage() {
         eaten: draft.eaten,
         favorite: draft.favorite,
         rate: draft.rate,
+        tagIds: draft.tagIds,
       };
       const result = await updateShop(draft.id, cmd);
       if (!result.ok) {
@@ -273,9 +276,7 @@ export default function SearchPage() {
 
         <Box
           className={
-            selectedShop
-              ? "nm-map-shell nm-map-shell--detail"
-              : "nm-map-shell"
+            selectedShop ? "nm-map-shell nm-map-shell--detail" : "nm-map-shell"
           }
           position="relative"
           bg="nm.bgSoft"
@@ -379,7 +380,7 @@ export default function SearchPage() {
         placement="bottom"
       >
         <DrawerBackdrop />
-        <DrawerContent borderTopRadius="nmLg" maxH="82vh">
+        <DrawerContent borderTopRadius="nmLg" height="90vh">
           <DrawerHeader>
             <DrawerTitle>フィルター</DrawerTitle>
           </DrawerHeader>

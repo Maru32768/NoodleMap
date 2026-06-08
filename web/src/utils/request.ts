@@ -37,16 +37,18 @@ type JsonResponseBody<TResponse> = TResponse extends {
 export type ApiErrorBodyFor<
   TPath extends keyof paths,
   TMethod extends keyof paths[TPath] & HttpMethod,
-> = JsonResponseBody<
-  OperationFor<TPath, TMethod> extends {
-    responses: infer TResponses;
-  }
-    ? TResponses[ErrorResponseStatus<
-        Extract<keyof TResponses, string | number>
-      >]
-    : never
-> &
-  ApiErrorBody;
+> = Extract<
+  JsonResponseBody<
+    OperationFor<TPath, TMethod> extends {
+      responses: infer TResponses;
+    }
+      ? TResponses[ErrorResponseStatus<
+          Extract<keyof TResponses, string | number>
+        >]
+      : never
+  >,
+  ApiErrorBody
+>;
 
 export type ApiMutationResult<TData, TBody extends ApiErrorBody> = Result<
   TData,

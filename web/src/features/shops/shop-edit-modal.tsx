@@ -6,8 +6,9 @@ import {
   CategorySlug,
 } from "@/features/categories/categories.ts";
 import { CategoryIcon } from "@/features/map/category-icon.tsx";
-import { Shop } from "@/features/shops/api/use-shops.ts";
+import { Shop, useTags } from "@/features/shops/api/use-shops.ts";
 import { MiniHearts } from "@/features/shops/rating-hearts.tsx";
+import { TagSelector } from "@/features/shops/tag-chips.tsx";
 import { Box, Input } from "@chakra-ui/react";
 import { useState } from "react";
 
@@ -25,6 +26,7 @@ export interface ShopEditDraft {
   favorite: boolean;
   rate: number;
   images: AdminImage[];
+  tagIds: string[];
 }
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
@@ -182,13 +184,26 @@ export function ShopEditModal({
     favorite: shop.favorite ?? false,
     rate: shop.rate ?? 0,
     images: [],
+    tagIds: shop.tags.map((tag) => tag.id),
   }));
   const [saving, setSaving] = useState(false);
+  const { tags } = useTags();
 
   const set = <K extends keyof ShopEditDraft>(
     k: K,
     v: ShopEditDraft[K],
   ) => setDraft((d) => ({ ...d, [k]: v }));
+
+  const setCategory = (category: ShopEditDraft["category"]) => {
+    setDraft((current) => ({
+      ...current,
+      category,
+      tagIds: current.tagIds.filter((tagId) => {
+        const tag = tags?.find((candidate) => candidate.id === tagId);
+        return !tag?.category || tag.category === category;
+      }),
+    }));
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -319,13 +334,24 @@ export function ShopEditModal({
                       }
                       rounded="nmMd"
                       _hover={{ borderColor: "nm.ink" }}
-                      onClick={() => set("category", cat.id)}
+                      onClick={() => setCategory(cat.id)}
                     >
                       {cat.label}
                     </Button>
                   ))}
                 </Box>
               </Box>
+              {tags && (
+                <Box gridColumn="span 2">
+                  <FieldLabel>タグ</FieldLabel>
+                  <TagSelector
+                    tags={tags}
+                    selectedIds={draft.tagIds}
+                    category={draft.category}
+                    onChange={(ids) => set("tagIds", ids)}
+                  />
+                </Box>
+              )}
               <Box gridColumn="span 2">
                 <FieldLabel>
                   店名{" "}

@@ -10,6 +10,7 @@ import {
   ShopAddressLink,
   buildGoogleMapsUrl,
 } from "@/features/shops/shop-actions.tsx";
+import { TagChips } from "@/features/shops/tag-chips.tsx";
 import { Box } from "@chakra-ui/react";
 import { useEffect, useEffectEvent } from "react";
 
@@ -27,6 +28,7 @@ export interface DetailPanelProps {
 
 export function DetailPanel({ shop, onAdminEdit, onClose }: DetailPanelProps) {
   const currentUser = useCurrentUser();
+  const showTags = currentUser.type === "admin" && shop.tags.length > 0;
   const mapsUrl = buildGoogleMapsUrl(shop);
   const heroBg = HERO_BG[shop.category];
   const onCloseEvent = useEffectEvent(() => {
@@ -186,10 +188,16 @@ export function DetailPanel({ shop, onAdminEdit, onClose }: DetailPanelProps) {
           gap="0.625rem"
           fontSize="0.75rem"
           color="nm.inkMuted"
-          mb="1.125rem"
+          mb={showTags ? "0.75rem" : "1.125rem"}
         >
           <CategoryBadge catType={shop.category} />
         </Box>
+
+        {showTags && (
+          <Box mb="1.125rem">
+            <TagChips tags={shop.tags} />
+          </Box>
+        )}
 
         {shop.eaten && (
           <Box
@@ -302,7 +310,9 @@ export function DetailPanel({ shop, onAdminEdit, onClose }: DetailPanelProps) {
           mapsUrl={mapsUrl}
           mapsLabel="Google Maps"
           onAdminClick={
-            currentUser?.isAdmin ? () => onAdminEdit(shop.id) : undefined
+            currentUser.type === "admin"
+              ? () => onAdminEdit(shop.id)
+              : undefined
           }
         />
       </Box>

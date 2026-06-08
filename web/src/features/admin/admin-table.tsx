@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button.tsx";
 import { CategoryIcon } from "@/features/map/category-icon.tsx";
 import { Shop } from "@/features/shops/api/use-shops.ts";
 import { buildGoogleMapsUrl } from "@/features/shops/shop-actions.tsx";
+import { TagChips } from "@/features/shops/tag-chips.tsx";
 import { favToHearts } from "@/features/search/utils.ts";
 import { Box, Link } from "@chakra-ui/react";
 import React, { useEffect } from "react";
@@ -224,10 +225,16 @@ export function AdminTable({
       width: "auto",
       render: (name) => <>{name}</>,
     }),
+    {
+      property: undefined,
+      header: "タグ",
+      width: "180px",
+      render: (shop) => <TagChips tags={shop.tags} limit={3} size="xs" />,
+    },
     createSortableColumn({
       property: "address",
       header: "住所",
-      width: "26%",
+      width: "22%",
       render: (address) => <Box>{address}</Box>,
     }),
     createSortableColumn({

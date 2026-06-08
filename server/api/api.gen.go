@@ -29,6 +29,7 @@ const (
 	AddShopFieldLng           AddShopField = "lng"
 	AddShopFieldName          AddShopField = "name"
 	AddShopFieldPostalCode    AddShopField = "postalCode"
+	AddShopFieldTagIds        AddShopField = "tagIds"
 )
 
 // Defines values for AuthenticationRequiredErrorBodyType.
@@ -44,6 +45,7 @@ const (
 
 // Defines values for FieldErrorType.
 const (
+	Duplicate     FieldErrorType = "duplicate"
 	InvalidFormat FieldErrorType = "invalid_format"
 	OutOfRange    FieldErrorType = "out_of_range"
 	Required      FieldErrorType = "required"
@@ -82,24 +84,39 @@ const (
 	SessionCreationFailed SessionCreationFailedErrorBodyType = "session_creation_failed"
 )
 
+// Defines values for TagBadRequestErrorBodyType.
+const (
+	TagBadRequestErrorBodyTypeInvalidRequest TagBadRequestErrorBodyType = "invalid_request"
+)
+
+// Defines values for TagField.
+const (
+	TagFieldCategory  TagField = "category"
+	TagFieldColor     TagField = "color"
+	TagFieldLabel     TagField = "label"
+	TagFieldSlug      TagField = "slug"
+	TagFieldSortOrder TagField = "sortOrder"
+)
+
 // Defines values for UpdateShopBadRequestErrorBodyType.
 const (
-	UpdateShopBadRequestErrorBodyTypeInvalidRequest UpdateShopBadRequestErrorBodyType = "invalid_request"
+	InvalidRequest UpdateShopBadRequestErrorBodyType = "invalid_request"
 )
 
 // Defines values for UpdateShopField.
 const (
-	UpdateShopFieldAddress       UpdateShopField = "address"
-	UpdateShopFieldCategory      UpdateShopField = "category"
-	UpdateShopFieldClosed        UpdateShopField = "closed"
-	UpdateShopFieldEaten         UpdateShopField = "eaten"
-	UpdateShopFieldFavorite      UpdateShopField = "favorite"
-	UpdateShopFieldGooglePlaceId UpdateShopField = "googlePlaceId"
-	UpdateShopFieldLat           UpdateShopField = "lat"
-	UpdateShopFieldLng           UpdateShopField = "lng"
-	UpdateShopFieldName          UpdateShopField = "name"
-	UpdateShopFieldPostalCode    UpdateShopField = "postalCode"
-	UpdateShopFieldRate          UpdateShopField = "rate"
+	Address       UpdateShopField = "address"
+	Category      UpdateShopField = "category"
+	Closed        UpdateShopField = "closed"
+	Eaten         UpdateShopField = "eaten"
+	Favorite      UpdateShopField = "favorite"
+	GooglePlaceId UpdateShopField = "googlePlaceId"
+	Lat           UpdateShopField = "lat"
+	Lng           UpdateShopField = "lng"
+	Name          UpdateShopField = "name"
+	PostalCode    UpdateShopField = "postalCode"
+	Rate          UpdateShopField = "rate"
+	TagIds        UpdateShopField = "tagIds"
 )
 
 // AddShopBadRequestErrorBody defines model for AddShopBadRequestErrorBody.
@@ -132,6 +149,7 @@ type AddShopRequest struct {
 	Lng           float64      `json:"lng"`
 	Name          string       `json:"name"`
 	PostalCode    string       `json:"postalCode"`
+	TagIds        []Uuid       `json:"tagIds"`
 }
 
 // AuthResponse defines model for AuthResponse.
@@ -206,6 +224,11 @@ type PermissionDeniedErrorBody struct {
 // PermissionDeniedErrorBodyType defines model for PermissionDeniedErrorBody.Type.
 type PermissionDeniedErrorBodyType string
 
+// SaveTagsRequest defines model for SaveTagsRequest.
+type SaveTagsRequest struct {
+	Tags []TagInput `json:"tags"`
+}
+
 // SessionCreationFailedErrorBody defines model for SessionCreationFailedErrorBody.
 type SessionCreationFailedErrorBody struct {
 	Message *string                            `json:"message,omitempty"`
@@ -231,11 +254,61 @@ type Shop struct {
 	Name       string  `json:"name"`
 	PostalCode string  `json:"postalCode"`
 	Rate       float64 `json:"rate"`
+	Tags       []Tag   `json:"tags"`
 }
 
 // ShopsResponse defines model for ShopsResponse.
 type ShopsResponse struct {
 	Shops []Shop `json:"shops"`
+}
+
+// Tag defines model for Tag.
+type Tag struct {
+	Category *CategorySlug `json:"category,omitempty"`
+	Color    string        `json:"color"`
+
+	// Id UUID serialized as a string.
+	Id        Uuid   `json:"id"`
+	Label     string `json:"label"`
+	Slug      string `json:"slug"`
+	SortOrder int32  `json:"sortOrder"`
+}
+
+// TagBadRequestErrorBody defines model for TagBadRequestErrorBody.
+type TagBadRequestErrorBody struct {
+	FieldErrors *[]TagFieldError           `json:"fieldErrors,omitempty"`
+	Message     *string                    `json:"message,omitempty"`
+	Type        TagBadRequestErrorBodyType `json:"type"`
+}
+
+// TagBadRequestErrorBodyType defines model for TagBadRequestErrorBody.Type.
+type TagBadRequestErrorBodyType string
+
+// TagField defines model for TagField.
+type TagField string
+
+// TagFieldError defines model for TagFieldError.
+type TagFieldError struct {
+	Field   TagField       `json:"field"`
+	Message *string        `json:"message,omitempty"`
+	Type    FieldErrorType `json:"type"`
+}
+
+// TagInput defines model for TagInput.
+type TagInput struct {
+	Category *CategorySlug `json:"category,omitempty"`
+	Color    string        `json:"color"`
+
+	// Id UUID serialized as a string.
+	Id        *Uuid  `json:"id,omitempty"`
+	Label     string `json:"label"`
+	Slug      string `json:"slug"`
+	SortOrder int32  `json:"sortOrder"`
+}
+
+// TagsResponse defines model for TagsResponse.
+type TagsResponse struct {
+	Tags []Tag `json:"tags"`
 }
 
 // UpdateShopBadRequestErrorBody defines model for UpdateShopBadRequestErrorBody.
@@ -271,6 +344,7 @@ type UpdateShopRequest struct {
 	Name          string       `json:"name"`
 	PostalCode    string       `json:"postalCode"`
 	Rate          float64      `json:"rate"`
+	TagIds        []Uuid       `json:"tagIds"`
 }
 
 // User defines model for User.
@@ -294,6 +368,9 @@ type AddShopJSONRequestBody = AddShopRequest
 // UpdateShopJSONRequestBody defines body for UpdateShop for application/json ContentType.
 type UpdateShopJSONRequestBody = UpdateShopRequest
 
+// SaveTagsJSONRequestBody defines body for SaveTags for application/json ContentType.
+type SaveTagsJSONRequestBody = SaveTagsRequest
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 
@@ -312,8 +389,14 @@ type ServerInterface interface {
 	// (PUT /api/v1/auth/shops/{id})
 	UpdateShop(c *gin.Context, id Uuid)
 
+	// (PUT /api/v1/auth/tags)
+	SaveTags(c *gin.Context)
+
 	// (GET /api/v1/shops)
 	ListShops(c *gin.Context)
+
+	// (GET /api/v1/tags)
+	ListTags(c *gin.Context)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -401,6 +484,19 @@ func (siw *ServerInterfaceWrapper) UpdateShop(c *gin.Context) {
 	siw.Handler.UpdateShop(c, id)
 }
 
+// SaveTags operation middleware
+func (siw *ServerInterfaceWrapper) SaveTags(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.SaveTags(c)
+}
+
 // ListShops operation middleware
 func (siw *ServerInterfaceWrapper) ListShops(c *gin.Context) {
 
@@ -412,6 +508,19 @@ func (siw *ServerInterfaceWrapper) ListShops(c *gin.Context) {
 	}
 
 	siw.Handler.ListShops(c)
+}
+
+// ListTags operation middleware
+func (siw *ServerInterfaceWrapper) ListTags(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListTags(c)
 }
 
 // GinServerOptions provides options for the Gin server.
@@ -446,7 +555,9 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/api/v1/auth/me", wrapper.Me)
 	router.POST(options.BaseURL+"/api/v1/auth/shops", wrapper.AddShop)
 	router.PUT(options.BaseURL+"/api/v1/auth/shops/:id", wrapper.UpdateShop)
+	router.PUT(options.BaseURL+"/api/v1/auth/tags", wrapper.SaveTags)
 	router.GET(options.BaseURL+"/api/v1/shops", wrapper.ListShops)
+	router.GET(options.BaseURL+"/api/v1/tags", wrapper.ListTags)
 }
 
 type GoogleAuthRequestObject struct {
@@ -675,6 +786,59 @@ func (response UpdateShop500JSONResponse) VisitUpdateShopResponse(w http.Respons
 	return json.NewEncoder(w).Encode(response)
 }
 
+type SaveTagsRequestObject struct {
+	Body *SaveTagsJSONRequestBody
+}
+
+type SaveTagsResponseObject interface {
+	VisitSaveTagsResponse(w http.ResponseWriter) error
+}
+
+type SaveTags200JSONResponse TagsResponse
+
+func (response SaveTags200JSONResponse) VisitSaveTagsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SaveTags400JSONResponse TagBadRequestErrorBody
+
+func (response SaveTags400JSONResponse) VisitSaveTagsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SaveTags401JSONResponse AuthenticationRequiredErrorBody
+
+func (response SaveTags401JSONResponse) VisitSaveTagsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SaveTags403JSONResponse PermissionDeniedErrorBody
+
+func (response SaveTags403JSONResponse) VisitSaveTagsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SaveTags500JSONResponse InternalErrorBody
+
+func (response SaveTags500JSONResponse) VisitSaveTagsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type ListShopsRequestObject struct {
 }
 
@@ -700,6 +864,31 @@ func (response ListShops500JSONResponse) VisitListShopsResponse(w http.ResponseW
 	return json.NewEncoder(w).Encode(response)
 }
 
+type ListTagsRequestObject struct {
+}
+
+type ListTagsResponseObject interface {
+	VisitListTagsResponse(w http.ResponseWriter) error
+}
+
+type ListTags200JSONResponse TagsResponse
+
+func (response ListTags200JSONResponse) VisitListTagsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListTags500JSONResponse InternalErrorBody
+
+func (response ListTags500JSONResponse) VisitListTagsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 
@@ -718,8 +907,14 @@ type StrictServerInterface interface {
 	// (PUT /api/v1/auth/shops/{id})
 	UpdateShop(ctx context.Context, request UpdateShopRequestObject) (UpdateShopResponseObject, error)
 
+	// (PUT /api/v1/auth/tags)
+	SaveTags(ctx context.Context, request SaveTagsRequestObject) (SaveTagsResponseObject, error)
+
 	// (GET /api/v1/shops)
 	ListShops(ctx context.Context, request ListShopsRequestObject) (ListShopsResponseObject, error)
+
+	// (GET /api/v1/tags)
+	ListTags(ctx context.Context, request ListTagsRequestObject) (ListTagsResponseObject, error)
 }
 
 type StrictHandlerFunc = strictgin.StrictGinHandlerFunc
@@ -885,6 +1080,39 @@ func (sh *strictHandler) UpdateShop(ctx *gin.Context, id Uuid) {
 	}
 }
 
+// SaveTags operation middleware
+func (sh *strictHandler) SaveTags(ctx *gin.Context) {
+	var request SaveTagsRequestObject
+
+	var body SaveTagsJSONRequestBody
+	if err := ctx.ShouldBindJSON(&body); err != nil {
+		ctx.Status(http.StatusBadRequest)
+		ctx.Error(err)
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.SaveTags(ctx, request.(SaveTagsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SaveTags")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(SaveTagsResponseObject); ok {
+		if err := validResponse.VisitSaveTagsResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // ListShops operation middleware
 func (sh *strictHandler) ListShops(ctx *gin.Context) {
 	var request ListShopsRequestObject
@@ -903,6 +1131,31 @@ func (sh *strictHandler) ListShops(ctx *gin.Context) {
 		ctx.Status(http.StatusInternalServerError)
 	} else if validResponse, ok := response.(ListShopsResponseObject); ok {
 		if err := validResponse.VisitListShopsResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListTags operation middleware
+func (sh *strictHandler) ListTags(ctx *gin.Context) {
+	var request ListTagsRequestObject
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListTags(ctx, request.(ListTagsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListTags")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(ListTagsResponseObject); ok {
+		if err := validResponse.VisitListTagsResponse(ctx.Writer); err != nil {
 			ctx.Error(err)
 		}
 	} else if response != nil {
