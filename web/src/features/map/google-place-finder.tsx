@@ -61,7 +61,7 @@ export const GooglePlaceFinder = memo(function GooglePlaceFinder({
   const options = predictions.map((x) => {
     return {
       label: x.description,
-      value: x.place_id,
+      value: x.place_id ?? "",
     };
   });
   const [selectedOptionValue, setSelectedOptionValue] = useState<string>();
@@ -100,7 +100,7 @@ export const GooglePlaceFinder = memo(function GooglePlaceFinder({
   const markerRef = useRef<Marker | undefined>(
     initialPlace
       ? new Marker({
-          place: initialPlace,
+          position: initialPlace.location,
         })
       : undefined,
   );
@@ -141,22 +141,30 @@ export const GooglePlaceFinder = memo(function GooglePlaceFinder({
                 fields: [...fields],
               },
               (res, status) => {
-                if (status !== "OK") {
+                if (status !== PlacesServiceStatus.OK) {
                   toastError({
                     description: status.toString(),
                   });
                   return;
                 }
+
+                if (res === null) {
+                  toastError({
+                    description: "res is null",
+                  });
+                  return;
+                }
+
                 markerRef.current?.setMap(null);
 
-                const lat = res.geometry?.location.lat();
+                const lat = res.geometry?.location?.lat();
                 if (lat === undefined) {
                   toastError({
                     title: "lat is missing",
                   });
                 }
 
-                const lng = res.geometry?.location.lng();
+                const lng = res.geometry?.location?.lng();
                 if (lng === undefined) {
                   toastError({
                     title: "lng is missing",
@@ -172,10 +180,7 @@ export const GooglePlaceFinder = memo(function GooglePlaceFinder({
                   });
                 }
 
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const businessStatus = (res as any).business_status as
-                  | string
-                  | undefined;
+                const businessStatus = res.business_status;
                 if (businessStatus === undefined) {
                   toastError({
                     title: "businessStatus is missing",
@@ -203,22 +208,19 @@ export const GooglePlaceFinder = memo(function GooglePlaceFinder({
                 }
 
                 onSelect({
-                  name: res.name,
+                  name: res.name ?? "",
                   lat: lat ?? 0,
                   lng: lng ?? 0,
                   postalCode: postalCode ?? "",
                   address: address ?? "",
-                  closed: closed ?? false,
+                  closed,
                   placeId: placeId ?? "",
                 });
 
                 markerRef.current = new Marker({
-                  place: {
-                    placeId: placeId,
-                    location: {
-                      lat: lat ?? 0,
-                      lng: lng ?? 0,
-                    },
+                  position: {
+                    lat: lat ?? 0,
+                    lng: lng ?? 0,
                   },
                 });
                 if (mapRef.current) {
