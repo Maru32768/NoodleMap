@@ -5,7 +5,8 @@ select r.id,
        r.lng,
        r.postal_code,
        r.address,
-       r.closed,
+       r.opened_at,
+       r.closed_at,
        r.google_place_id,
        r.category,
        vs.id IS NOT NULL        as eaten,
@@ -58,8 +59,8 @@ where st.shop_id in (sqlc.slice('shop_ids'))
 order by st.shop_id, t.sort_order, t.label;
 
 -- name: InsertShop :exec
-insert into shops (id, name, lat, lng, postal_code, address, closed, google_place_id, category)
-values (?, ?, ?, ?, ?, ?, ?, ?, ?);
+insert into shops (id, name, lat, lng, postal_code, address, opened_at, closed_at, google_place_id, category)
+values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateShop :exec
 update shops
@@ -68,7 +69,8 @@ set name            = ?,
     lng             = ?,
     postal_code     = ?,
     address         = ?,
-    closed          = ?,
+    opened_at       = ?,
+    closed_at       = ?,
     google_place_id = ?,
     category        = ?
 where id = ?;

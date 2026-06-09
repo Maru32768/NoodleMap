@@ -143,7 +143,7 @@ export interface components {
             fieldErrors?: components["schemas"]["AddShopFieldError"][];
         };
         /** @enum {string} */
-        AddShopField: "name" | "lat" | "lng" | "postalCode" | "address" | "closed" | "googlePlaceId" | "category" | "tagIds";
+        AddShopField: "name" | "lat" | "lng" | "postalCode" | "address" | "openedAt" | "closedAt" | "googlePlaceId" | "category" | "tagIds";
         AddShopFieldError: {
             field: components["schemas"]["AddShopField"];
             type: components["schemas"]["FieldErrorType"];
@@ -157,7 +157,8 @@ export interface components {
             lng: number;
             postalCode: string;
             address: string;
-            closed: boolean;
+            openedAt?: string;
+            closedAt?: string;
             googlePlaceId: string;
             category: components["schemas"]["CategorySlug"];
             tagIds: components["schemas"]["uuid"][];
@@ -222,7 +223,10 @@ export interface components {
             lat: number;
             /** Format: double */
             lng: number;
-            closed: boolean;
+            /** @description Opening date as an ISO 8601 calendar date (YYYY-MM-DD). Absent when unknown. */
+            openedAt?: string;
+            /** @description Closing date as an ISO 8601 calendar date (YYYY-MM-DD). Absent when the shop is not closing. */
+            closedAt?: string;
             postalCode: string;
             address: string;
             googlePlaceId: string;
@@ -277,7 +281,7 @@ export interface components {
             fieldErrors?: components["schemas"]["UpdateShopFieldError"][];
         };
         /** @enum {string} */
-        UpdateShopField: "name" | "lat" | "lng" | "postalCode" | "address" | "closed" | "googlePlaceId" | "category" | "eaten" | "rate" | "favorite" | "tagIds";
+        UpdateShopField: "name" | "lat" | "lng" | "postalCode" | "address" | "openedAt" | "closedAt" | "googlePlaceId" | "category" | "eaten" | "rate" | "favorite" | "tagIds";
         UpdateShopFieldError: {
             field: components["schemas"]["UpdateShopField"];
             type: components["schemas"]["FieldErrorType"];
@@ -291,7 +295,8 @@ export interface components {
             lng: number;
             postalCode: string;
             address: string;
-            closed: boolean;
+            openedAt?: string;
+            closedAt?: string;
             googlePlaceId: string;
             category: components["schemas"]["CategorySlug"];
             eaten: boolean;

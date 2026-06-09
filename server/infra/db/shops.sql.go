@@ -53,7 +53,8 @@ select r.id,
        r.lng,
        r.postal_code,
        r.address,
-       r.closed,
+       r.opened_at,
+       r.closed_at,
        r.google_place_id,
        r.category,
        vs.id IS NOT NULL        as eaten,
@@ -64,18 +65,19 @@ from shops r
 `
 
 type FindAllShopsRow struct {
-	ID            uuid.UUID `json:"id"`
-	Name          string    `json:"name"`
-	Lat           float64   `json:"lat"`
-	Lng           float64   `json:"lng"`
-	PostalCode    string    `json:"postalCode"`
-	Address       string    `json:"address"`
-	Closed        bool      `json:"closed"`
-	GooglePlaceID string    `json:"googlePlaceId"`
-	Category      string    `json:"category"`
-	Eaten         bool      `json:"eaten"`
-	Rate          float64   `json:"rate"`
-	Favorite      bool      `json:"favorite"`
+	ID            uuid.UUID    `json:"id"`
+	Name          string       `json:"name"`
+	Lat           float64      `json:"lat"`
+	Lng           float64      `json:"lng"`
+	PostalCode    string       `json:"postalCode"`
+	Address       string       `json:"address"`
+	OpenedAt      sql.NullTime `json:"openedAt"`
+	ClosedAt      sql.NullTime `json:"closedAt"`
+	GooglePlaceID string       `json:"googlePlaceId"`
+	Category      string       `json:"category"`
+	Eaten         bool         `json:"eaten"`
+	Rate          float64      `json:"rate"`
+	Favorite      bool         `json:"favorite"`
 }
 
 func (q *Queries) FindAllShops(ctx context.Context) ([]FindAllShopsRow, error) {
@@ -94,7 +96,8 @@ func (q *Queries) FindAllShops(ctx context.Context) ([]FindAllShopsRow, error) {
 			&i.Lng,
 			&i.PostalCode,
 			&i.Address,
-			&i.Closed,
+			&i.OpenedAt,
+			&i.ClosedAt,
 			&i.GooglePlaceID,
 			&i.Category,
 			&i.Eaten,
@@ -225,20 +228,21 @@ func (q *Queries) FindTagsByShopIds(ctx context.Context, shopIds []uuid.UUID) ([
 }
 
 const insertShop = `-- name: InsertShop :exec
-insert into shops (id, name, lat, lng, postal_code, address, closed, google_place_id, category)
-values (?, ?, ?, ?, ?, ?, ?, ?, ?)
+insert into shops (id, name, lat, lng, postal_code, address, opened_at, closed_at, google_place_id, category)
+values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type InsertShopParams struct {
-	ID            uuid.UUID `json:"id"`
-	Name          string    `json:"name"`
-	Lat           float64   `json:"lat"`
-	Lng           float64   `json:"lng"`
-	PostalCode    string    `json:"postalCode"`
-	Address       string    `json:"address"`
-	Closed        bool      `json:"closed"`
-	GooglePlaceID string    `json:"googlePlaceId"`
-	Category      string    `json:"category"`
+	ID            uuid.UUID    `json:"id"`
+	Name          string       `json:"name"`
+	Lat           float64      `json:"lat"`
+	Lng           float64      `json:"lng"`
+	PostalCode    string       `json:"postalCode"`
+	Address       string       `json:"address"`
+	OpenedAt      sql.NullTime `json:"openedAt"`
+	ClosedAt      sql.NullTime `json:"closedAt"`
+	GooglePlaceID string       `json:"googlePlaceId"`
+	Category      string       `json:"category"`
 }
 
 func (q *Queries) InsertShop(ctx context.Context, arg InsertShopParams) error {
@@ -249,7 +253,8 @@ func (q *Queries) InsertShop(ctx context.Context, arg InsertShopParams) error {
 		arg.Lng,
 		arg.PostalCode,
 		arg.Address,
-		arg.Closed,
+		arg.OpenedAt,
+		arg.ClosedAt,
 		arg.GooglePlaceID,
 		arg.Category,
 	)
@@ -305,22 +310,24 @@ set name            = ?,
     lng             = ?,
     postal_code     = ?,
     address         = ?,
-    closed          = ?,
+    opened_at       = ?,
+    closed_at       = ?,
     google_place_id = ?,
     category        = ?
 where id = ?
 `
 
 type UpdateShopParams struct {
-	Name          string    `json:"name"`
-	Lat           float64   `json:"lat"`
-	Lng           float64   `json:"lng"`
-	PostalCode    string    `json:"postalCode"`
-	Address       string    `json:"address"`
-	Closed        bool      `json:"closed"`
-	GooglePlaceID string    `json:"googlePlaceId"`
-	Category      string    `json:"category"`
-	ID            uuid.UUID `json:"id"`
+	Name          string       `json:"name"`
+	Lat           float64      `json:"lat"`
+	Lng           float64      `json:"lng"`
+	PostalCode    string       `json:"postalCode"`
+	Address       string       `json:"address"`
+	OpenedAt      sql.NullTime `json:"openedAt"`
+	ClosedAt      sql.NullTime `json:"closedAt"`
+	GooglePlaceID string       `json:"googlePlaceId"`
+	Category      string       `json:"category"`
+	ID            uuid.UUID    `json:"id"`
 }
 
 func (q *Queries) UpdateShop(ctx context.Context, arg UpdateShopParams) error {
@@ -330,7 +337,8 @@ func (q *Queries) UpdateShop(ctx context.Context, arg UpdateShopParams) error {
 		arg.Lng,
 		arg.PostalCode,
 		arg.Address,
-		arg.Closed,
+		arg.OpenedAt,
+		arg.ClosedAt,
 		arg.GooglePlaceID,
 		arg.Category,
 		arg.ID,

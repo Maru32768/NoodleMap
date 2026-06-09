@@ -9,7 +9,11 @@ import {
   ShopAddressLink,
   buildGoogleMapsUrl,
 } from "@/features/shops/shop-actions.tsx";
-import { TagChips } from "@/features/shops/tag-chips.tsx";
+import {
+  shopDisplaySystemTags,
+  SHOP_EATEN_STATUS_LABEL,
+} from "@/features/shops/status.ts";
+import { SystemTagChips, TagChips } from "@/features/shops/tag-chips.tsx";
 import { useIsPc } from "@/utils/use-is-pc.ts";
 import { Box } from "@chakra-ui/react";
 import { useEffect, useRef, useState } from "react";
@@ -62,6 +66,7 @@ function MobileListItem({
   onClick: () => void;
 }) {
   const currentUser = useCurrentUser();
+  const displaySystemTags = shopDisplaySystemTags(shop);
   return (
     <Box
       display="flex"
@@ -70,12 +75,16 @@ function MobileListItem({
       py="0.75rem"
       borderBottom="1px solid"
       borderBottomColor="nm.lineFaint"
-      opacity={shop.closed ? 0.55 : 1}
+      opacity={shop.lifecycleStatus === "closed" ? 0.55 : 1}
       cursor="pointer"
       _active={{ bg: "nm.bg" }}
       onClick={onClick}
     >
-      <ShopThumb catType={shop.category} closed={shop.closed} size="md" />
+      <ShopThumb
+        catType={shop.category}
+        closed={shop.lifecycleStatus === "closed"}
+        size="md"
+      />
       <Box flex="1" minWidth="0">
         <Box
           fontSize="0.875rem"
@@ -91,9 +100,14 @@ function MobileListItem({
           {shop.category === "udon" ? "うどん" : "ラーメン"} ·{" "}
           {shop.address.slice(0, 14)}...
         </Box>
-        {shop.eaten && !shop.closed && (
+        {shop.eaten && shop.lifecycleStatus !== "closed" && (
           <Box mt="0.1875rem">
             <MiniHearts rate={shop.rate} />
+          </Box>
+        )}
+        {displaySystemTags.length > 0 && (
+          <Box mt="0.375rem">
+            <SystemTagChips tags={displaySystemTags} size="xs" />
           </Box>
         )}
         {currentUser.type === "admin" && shop.tags.length > 0 && (
@@ -213,7 +227,7 @@ export function MobileSheet({
               <Box display="flex" gap="0.75rem" alignItems="flex-start">
                 <ShopThumb
                   catType={shop.category}
-                  closed={shop.closed}
+                  closed={shop.lifecycleStatus === "closed"}
                   size="lg"
                 />
 
@@ -239,6 +253,14 @@ export function MobileSheet({
                   {shop.eaten && (
                     <Box mt="0.375rem">
                       <MiniHearts rate={shop.rate} />
+                    </Box>
+                  )}
+                  {shopDisplaySystemTags(shop).length > 0 && (
+                    <Box mt="0.5rem">
+                      <SystemTagChips
+                        tags={shopDisplaySystemTags(shop)}
+                        size="xs"
+                      />
                     </Box>
                   )}
                   {currentUser.type === "admin" && shop.tags.length > 0 && (
@@ -301,11 +323,7 @@ export function MobileSheet({
                       },
                       {
                         label: "STATUS",
-                        value: shop.closed
-                          ? "閉店"
-                          : shop.eaten
-                            ? "食べた"
-                            : "気になる",
+                        value: SHOP_EATEN_STATUS_LABEL[shop.eatenStatus],
                       },
                     ].map(({ label, value }) => (
                       <Box

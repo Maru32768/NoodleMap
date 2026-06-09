@@ -14,16 +14,16 @@ sqlite3 "$DB_PATH" <<SQL
 .mode csv
 CREATE TEMP TABLE tmp_shops (id, google_place_id, name, postal_code, address, closed, lat, lng);
 .import --skip 1 ${DATA_DIR}/ramen.csv tmp_shops
-INSERT OR IGNORE INTO shops (id, name, lat, lng, postal_code, address, google_place_id, closed, category)
-SELECT id, name, CAST(lat AS REAL), CAST(lng AS REAL), postal_code, address, google_place_id,
-       CASE WHEN upper(closed) = 'TRUE' THEN 1 ELSE 0 END,
+INSERT OR IGNORE INTO shops (id, name, lat, lng, postal_code, address, google_place_id, closed_at, category)
+SELECT lower(id), name, CAST(lat AS REAL), CAST(lng AS REAL), postal_code, address, google_place_id,
+       CASE WHEN upper(closed) = 'TRUE' THEN datetime('now', '-1 month') ELSE NULL END,
        'ramen'
 FROM tmp_shops;
 DELETE FROM tmp_shops;
 .import --skip 1 ${DATA_DIR}/udon.csv tmp_shops
-INSERT OR IGNORE INTO shops (id, name, lat, lng, postal_code, address, google_place_id, closed, category)
-SELECT id, name, CAST(lat AS REAL), CAST(lng AS REAL), postal_code, address, google_place_id,
-       CASE WHEN upper(closed) = 'TRUE' THEN 1 ELSE 0 END,
+INSERT OR IGNORE INTO shops (id, name, lat, lng, postal_code, address, google_place_id, closed_at, category)
+SELECT lower(id), name, CAST(lat AS REAL), CAST(lng AS REAL), postal_code, address, google_place_id,
+       CASE WHEN upper(closed) = 'TRUE' THEN datetime('now', '-1 month') ELSE NULL END,
        'udon'
 FROM tmp_shops;
 DROP TABLE tmp_shops;
@@ -36,7 +36,7 @@ sqlite3 "$DB_PATH" <<SQL
 CREATE TEMP TABLE tmp_eaten (id, shop_id, rate, favorite);
 .import --skip 1 ${DATA_DIR}/eaten_shops.csv tmp_eaten
 INSERT OR IGNORE INTO eaten_shops (id, shop_id, rate, favorite)
-SELECT id, shop_id, CAST(rate AS REAL),
+SELECT lower(id), lower(shop_id), CAST(rate AS REAL),
        CASE WHEN lower(favorite) = 'true' THEN 1 ELSE 0 END
 FROM tmp_eaten;
 DROP TABLE tmp_eaten;

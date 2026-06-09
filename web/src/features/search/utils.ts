@@ -1,15 +1,23 @@
 import { Shop } from "@/features/shops/api/use-shops.ts";
+import {
+  isSystemTagSlug,
+  shopSystemTagSlugs,
+} from "@/features/shops/status.ts";
 
 export type CategoryType = "all" | "ramen" | "udon";
 
 export type FilterToggles = {
+  // Visit facet (OR within).
   eaten: boolean;
   wish: boolean;
-  closed: boolean;
+  // Category facet (OR within).
   ramen: boolean;
   udon: boolean;
 };
 
+// Status (lifecycle + new) is filtered through `tagIds` as system tags, sharing
+// the list with user tags. The two are evaluated as separate facets in
+// filterShops because their empty-selection meaning differs (see below).
 export type SearchFilters = FilterToggles & {
   favMin: number;
   tagIds: string[];
@@ -42,14 +50,10 @@ export function filterShops(
   const q = query.trim().toLowerCase();
 
   return shops.filter((r) => {
-    const isClosed = r.closed;
-    const isEaten = r.eaten && !r.closed;
-    const isWish = !r.eaten && !r.closed;
-    const statusMatch =
-      (isClosed && filters.closed) ||
-      (isEaten && filters.eaten) ||
-      (isWish && filters.wish);
-    if (!statusMatch) {
+    const visitMatch =
+      (r.eatenStatus === "eaten" && filters.eaten) ||
+      (r.eatenStatus === "uneaten" && filters.wish);
+    if (!visitMatch) {
       return false;
     }
 
@@ -64,9 +68,25 @@ export function filterShops(
       return false;
     }
 
-    if (filters.tagIds.length > 0) {
+    // System-tag (status) facet: lifecycle is exhaustive, so a shop must match a
+    // selected system tag. Deselecting all status chips intentionally shows
+    // nothing. The `system:open` receiver keeps ordinary shops visible while
+    // `閉店` defaults off and single states can be spotlighted.
+    const systemMatch = shopSystemTagSlugs(r).some((slug) =>
+      filters.tagIds.includes(slug),
+    );
+    if (!systemMatch) {
+      return false;
+    }
+
+    // User-tag facet: empty selection means no narrowing (unlike the system
+    // facet above), so the two cannot be a single OR over the whole list.
+    const selectedUserTagIds = filters.tagIds.filter(
+      (id) => !isSystemTagSlug(id),
+    );
+    if (selectedUserTagIds.length > 0) {
       const shopTagIds = new Set(r.tags.map((tag) => tag.id));
-      if (!filters.tagIds.some((tagId) => shopTagIds.has(tagId))) {
+      if (!selectedUserTagIds.some((tagId) => shopTagIds.has(tagId))) {
         return false;
       }
     }

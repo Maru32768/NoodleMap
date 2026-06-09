@@ -24,6 +24,7 @@
     "@googlemaps/js-api-loader": "^1.16.8",
     "@protomaps/basemaps": "^5.7.2",
     "@react-router/node": "^7.14.2",
+    "dayjs": "^1.11.21",
     "es-toolkit": "^1.31.0",
     "google-maps": "^4.3.3",
     "googlemaps": "^1.12.0",

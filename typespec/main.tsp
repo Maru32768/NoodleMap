@@ -38,7 +38,8 @@ union AddShopField {
   "lng",
   "postalCode",
   "address",
-  "closed",
+  "openedAt",
+  "closedAt",
   "googlePlaceId",
   "category",
   "tagIds",
@@ -55,7 +56,8 @@ union UpdateShopField {
   "lng",
   "postalCode",
   "address",
-  "closed",
+  "openedAt",
+  "closedAt",
   "googlePlaceId",
   "category",
   "eaten",
@@ -204,7 +206,13 @@ model Shop {
   name: string;
   lat: float64;
   lng: float64;
-  closed: boolean;
+
+  @doc("Opening date as an ISO 8601 calendar date (YYYY-MM-DD). Absent when unknown.")
+  openedAt?: string;
+
+  @doc("Closing date as an ISO 8601 calendar date (YYYY-MM-DD). Absent when the shop is not closing.")
+  closedAt?: string;
+
   postalCode: string;
   address: string;
   googlePlaceId: string;
@@ -251,7 +259,8 @@ model AddShopRequest {
   lng: float64;
   postalCode: string;
   address: string;
-  closed: boolean;
+  openedAt?: string;
+  closedAt?: string;
   googlePlaceId: string;
   category: CategorySlug;
   tagIds: uuid[];
@@ -263,7 +272,8 @@ model UpdateShopRequest {
   lng: float64;
   postalCode: string;
   address: string;
-  closed: boolean;
+  openedAt?: string;
+  closedAt?: string;
   googlePlaceId: string;
   category: CategorySlug;
   eaten: boolean;

@@ -1,25 +1,42 @@
 import { ShopThumb } from "@/components/shop-thumb.tsx";
 import { Button } from "@/components/ui/button.tsx";
-import { useCurrentUser } from "@/features/auth/use-current-user.ts";
 import { favToHearts, SearchFilters } from "@/features/search/utils.ts";
 import { Shop, Tag, useTags } from "@/features/shops/api/use-shops.ts";
 import { HeartIcon, MiniHearts } from "@/features/shops/rating-hearts.tsx";
-import { getTagTextColor, TagChips } from "@/features/shops/tag-chips.tsx";
+import {
+  DEFAULT_SYSTEM_TAG_SELECTION,
+  SHOP_EATEN_STATUS_LABEL,
+  shopDisplaySystemTags,
+  ShopEatenStatus,
+  SYSTEM_TAGS,
+  SystemTagDef,
+} from "@/features/shops/status.ts";
+import {
+  getTagTextColor,
+  SystemTagChips,
+  TagChips,
+} from "@/features/shops/tag-chips.tsx";
 import { Box, Input } from "@chakra-ui/react";
+import { isEqual } from "es-toolkit";
 import { useState } from "react";
 import { Virtuoso } from "react-virtuoso";
 
+const STATUS_PILL: Record<
+  ShopEatenStatus,
+  { bg: string; color: string; border?: string }
+> = {
+  eaten: { bg: "nm.matcha", color: "white" },
+  uneaten: { bg: "nm.bgSoft", color: "nm.inkMuted", border: "1px solid" },
+};
+
 function StatusPill({ shop }: { shop: Shop }) {
-  const props = shop.closed
-    ? { bg: "nm.ink", color: "nm.paper", label: "閉店", border: undefined }
-    : shop.eaten
-      ? { bg: "nm.matcha", color: "white", label: "食べた", border: undefined }
-      : {
-          bg: "nm.bgSoft",
-          color: "nm.inkMuted",
-          label: "気になる",
-          border: "1px solid",
-        };
+  // The pill shows visit status only; lifecycle/new are shown as system tag
+  // chips in the card body.
+  const status = shop.eatenStatus;
+  const props = {
+    ...STATUS_PILL[status],
+    label: SHOP_EATEN_STATUS_LABEL[status],
+  };
 
   return (
     <Box
@@ -52,7 +69,7 @@ function ShopCard({
   active: boolean;
   onClick: () => void;
 }) {
-  const currentUser = useCurrentUser();
+  const displaySystemTags = shopDisplaySystemTags(shop);
   return (
     <Box
       display="flex"
@@ -69,11 +86,15 @@ function ShopCard({
       boxShadow={
         active ? "inset 3px 0 0 var(--chakra-colors-nm-shu)" : undefined
       }
-      opacity={shop.closed ? 0.55 : 1}
+      opacity={shop.lifecycleStatus === "closed" ? 0.55 : 1}
       _hover={{ bg: "nm.bg" }}
       onClick={onClick}
     >
-      <ShopThumb catType={shop.category} closed={shop.closed} size="md" />
+      <ShopThumb
+        catType={shop.category}
+        closed={shop.lifecycleStatus === "closed"}
+        size="md"
+      />
 
       <Box flex="1" minWidth="0">
         <Box
@@ -101,23 +122,13 @@ function ShopCard({
           <Box as="span" w="3px" h="3px" borderRadius="full" bg="nm.inkFaint" />
           <Box as="span">{shop.address.slice(0, 10)}...</Box>
         </Box>
-        {shop.eaten && !shop.closed ? (
-          <MiniHearts rate={shop.rate} />
-        ) : shop.closed ? (
-          <Box as="span" fontSize="0.6875rem" color="nm.inkFaint">
-            閉店
-          </Box>
-        ) : (
-          <Box
-            as="span"
-            fontSize="0.6875rem"
-            color="nm.kincha"
-            fontWeight={600}
-          >
-            気になる
+        {shop.eatenStatus === "eaten" && <MiniHearts rate={shop.rate} />}
+        {displaySystemTags.length > 0 && (
+          <Box mt="0.25rem">
+            <SystemTagChips tags={displaySystemTags} size="xs" />
           </Box>
         )}
-        {currentUser.type === "admin" && shop.tags.length > 0 && (
+        {shop.tags.length > 0 && (
           <Box mt="0.375rem">
             <TagChips tags={shop.tags} limit={3} size="xs" />
           </Box>
@@ -132,7 +143,6 @@ function ShopCard({
 function Chip({
   active,
   color = "ink",
-  dot,
   onClick,
   children,
 }: {
@@ -164,7 +174,7 @@ function Chip({
       bg={active ? activeBg : "nm.bg"}
       border="1px solid"
       borderColor={active ? activeBg : "nm.line"}
-      borderRadius="999px"
+      borderRadius="full"
       fontSize="0.75rem"
       fontWeight={500}
       color={active ? "nm.paper" : "nm.inkMuted"}
@@ -173,16 +183,6 @@ function Chip({
       _hover={!active ? { borderColor: "nm.lineStrong", color: "nm.ink" } : {}}
       onClick={onClick}
     >
-      {dot && (
-        <Box
-          as="span"
-          w="6px"
-          h="6px"
-          borderRadius="full"
-          bg={active ? "nm.paper" : "nm.inkFaint"}
-          flexShrink={0}
-        />
-      )}
       {children}
     </Button>
   );
@@ -235,6 +235,48 @@ function TagFilterChip({
         boxShadow={active ? "0 0 0 1px currentColor" : undefined}
         flexShrink={0}
       />
+      {tag.label}
+    </Button>
+  );
+}
+
+// System tags render in the same Tags section as user tags but are visually
+// distinguished (dashed border + a sparkle marker) to signal they are
+// auto-computed and not user-editable.
+function SystemTagFilterChip({
+  tag,
+  active,
+  onClick,
+}: {
+  tag: SystemTagDef;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <Button
+      variant="plain"
+      display="inline-flex"
+      alignItems="center"
+      gap="0.375rem"
+      minW="auto"
+      minH="auto"
+      px="0.75rem"
+      py="0.4375rem"
+      bg={active ? tag.color : "nm.bg"}
+      border="1px dashed"
+      borderColor={active ? tag.color : "nm.lineStrong"}
+      borderRadius="full"
+      fontSize="0.75rem"
+      fontWeight={active ? 600 : 500}
+      color={active ? getTagTextColor(tag.color) : "nm.inkMuted"}
+      transition="all 0.15s"
+      userSelect="none"
+      _hover={!active ? { borderColor: tag.color, color: "nm.ink" } : {}}
+      onClick={onClick}
+    >
+      <Box as="span" fontSize="md" color={active ? "currentColor" : tag.color}>
+        ✦
+      </Box>
       {tag.label}
     </Button>
   );
@@ -353,29 +395,35 @@ export interface SidebarProps {
 export type ShopFiltersProps = Pick<SidebarProps, "filters" | "onFilterChange">;
 
 export function ShopFilters({ filters, onFilterChange }: ShopFiltersProps) {
-  const currentUser = useCurrentUser();
-  const isAdmin = currentUser.type === "admin";
   const { tags } = useTags();
-  const visibleTags = !isAdmin
-    ? []
-    : (tags?.filter((tag) => {
-        if (filters.tagIds.includes(tag.id)) {
-          return true;
-        }
-        if (!tag.category) {
-          return true;
-        }
-        if (filters.ramen && filters.udon) {
-          return true;
-        }
-        if (filters.ramen && tag.category === "ramen") {
-          return true;
-        }
-        if (filters.udon && tag.category === "udon") {
-          return true;
-        }
-        return false;
-      }) ?? []);
+  const toggleTag = (id: string) => {
+    onFilterChange(
+      "tagIds",
+      filters.tagIds.includes(id)
+        ? filters.tagIds.filter((tagId) => tagId !== id)
+        : [...filters.tagIds, id],
+    );
+  };
+  const isDefaultTags = !isEqual(filters.tagIds, DEFAULT_SYSTEM_TAG_SELECTION);
+  const visibleTags =
+    tags?.filter((tag) => {
+      if (filters.tagIds.includes(tag.id)) {
+        return true;
+      }
+      if (!tag.category) {
+        return true;
+      }
+      if (filters.ramen && filters.udon) {
+        return true;
+      }
+      if (filters.ramen && tag.category === "ramen") {
+        return true;
+      }
+      if (filters.udon && tag.category === "udon") {
+        return true;
+      }
+      return false;
+    }) ?? [];
 
   return (
     <Box px="1.25rem" pt="0.25rem" pb="1rem" overflowY="auto">
@@ -400,7 +448,7 @@ export function ShopFilters({ filters, onFilterChange }: ShopFiltersProps) {
       </Box>
 
       <Box pt="0.875rem" pb="0.625rem">
-        <SectionLabel>ステータス — Status</SectionLabel>
+        <SectionLabel>訪問状況 — Visit</SectionLabel>
         <Box display="flex" flexWrap="wrap" gap="0.375rem">
           <Chip
             color="matcha"
@@ -417,13 +465,6 @@ export function ShopFilters({ filters, onFilterChange }: ShopFiltersProps) {
             onClick={() => onFilterChange("wish", !filters.wish)}
           >
             気になる
-          </Chip>
-          <Chip
-            color="ink"
-            active={filters.closed}
-            onClick={() => onFilterChange("closed", !filters.closed)}
-          >
-            閉店
           </Chip>
         </Box>
       </Box>
@@ -444,49 +485,47 @@ export function ShopFilters({ filters, onFilterChange }: ShopFiltersProps) {
         </Box>
       </Box>
 
-      {visibleTags.length > 0 && (
-        <Box pt="0.875rem" pb="0.625rem">
-          <SectionLabel>タグ — Tags</SectionLabel>
-          <Box display="flex" flexWrap="wrap" gap="0.375rem">
-            {visibleTags.map((tag) => {
-              const active = filters.tagIds.includes(tag.id);
-              return (
-                <TagFilterChip
-                  key={tag.id}
-                  tag={tag}
-                  active={active}
-                  onClick={() => {
-                    onFilterChange(
-                      "tagIds",
-                      active
-                        ? filters.tagIds.filter((id) => id !== tag.id)
-                        : [...filters.tagIds, tag.id],
-                    );
-                  }}
-                />
-              );
-            })}
-          </Box>
-          {filters.tagIds.length > 0 && (
-            <Button
-              variant="plain"
-              minW="auto"
-              minH="auto"
-              h="auto"
-              mt="0.625rem"
-              p="0"
-              fontSize="0.6875rem"
-              color="nm.inkFaint"
-              fontFamily="mono"
-              letterSpacing="0.05em"
-              _hover={{ color: "nm.inkMuted" }}
-              onClick={() => onFilterChange("tagIds", [])}
-            >
-              CLEAR TAGS
-            </Button>
-          )}
+      <Box pt="0.875rem" pb="0.625rem">
+        <SectionLabel>タグ — Tags</SectionLabel>
+        <Box display="flex" flexWrap="wrap" gap="0.375rem">
+          {visibleTags.map((tag) => (
+            <TagFilterChip
+              key={tag.id}
+              tag={tag}
+              active={filters.tagIds.includes(tag.id)}
+              onClick={() => toggleTag(tag.id)}
+            />
+          ))}
+          {SYSTEM_TAGS.map((tag) => (
+            <SystemTagFilterChip
+              key={tag.slug}
+              tag={tag}
+              active={filters.tagIds.includes(tag.slug)}
+              onClick={() => toggleTag(tag.slug)}
+            />
+          ))}
         </Box>
-      )}
+        {isDefaultTags && (
+          <Button
+            variant="plain"
+            minW="auto"
+            minH="auto"
+            h="auto"
+            mt="0.625rem"
+            p="0"
+            fontSize="0.6875rem"
+            color="nm.inkFaint"
+            fontFamily="mono"
+            letterSpacing="0.05em"
+            _hover={{ color: "nm.inkMuted" }}
+            onClick={() =>
+              onFilterChange("tagIds", DEFAULT_SYSTEM_TAG_SELECTION)
+            }
+          >
+            RESET TAGS
+          </Button>
+        )}
+      </Box>
     </Box>
   );
 }

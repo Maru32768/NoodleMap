@@ -6,15 +6,12 @@ import { AdminMap } from "@/features/admin/admin-map.tsx";
 import { AdminTable } from "@/features/admin/admin-table.tsx";
 import { MobileShopList } from "@/features/admin/mobile-shop-list.tsx";
 import { TagManagementModal } from "@/features/admin/tag-management-modal.tsx";
-import {
-  UpdateShopCommand,
-  useShops,
-} from "@/features/shops/api/use-shops.ts";
+import type { CategoryType } from "@/features/search/utils.ts";
+import { UpdateShopCommand, useShops } from "@/features/shops/api/use-shops.ts";
 import {
   ShopEditDraft,
   ShopEditModal,
 } from "@/features/shops/shop-edit-modal.tsx";
-import type { CategoryType } from "@/features/search/utils.ts";
 import { toastApiError } from "@/utils/toast.ts";
 import { Box, Input, Span } from "@chakra-ui/react";
 import { useCallback, useDeferredValue, useState } from "react";
@@ -164,22 +161,23 @@ export default function AdminPage() {
         }
       }
       if (visitFilter === "eaten") {
-        return shop.eaten && !shop.closed;
+        return shop.eaten && shop.lifecycleStatus !== "closed";
       }
       if (visitFilter === "wish") {
-        return !shop.eaten && !shop.closed;
+        return !shop.eaten && shop.lifecycleStatus !== "closed";
       }
       if (visitFilter === "closed") {
-        return shop.closed;
+        return shop.lifecycleStatus !== "closed";
       }
       return true;
     }) ?? [];
 
   const total = shops?.length ?? 0;
-  const eatenCount = shops?.filter((r) => r.eaten).length ?? 0;
+  const eatenCount = shops?.filter((shop) => shop.eaten).length ?? 0;
   const wishCount =
-    shops?.filter((r) => !r.eaten && !r.closed).length ?? 0;
-  const editShop = shops?.find((r) => r.id === editId);
+    shops?.filter((shop) => !shop.eaten && shop.lifecycleStatus !== "closed")
+      .length ?? 0;
+  const editShop = shops?.find((shop) => shop.id === editId);
 
   const handleEdit = (id: string, tab?: "images") => {
     setEditId(id);
@@ -198,7 +196,8 @@ export default function AdminPage() {
       lng: draft.lng,
       postalCode: draft.postalCode,
       address: draft.address,
-      closed: draft.closed,
+      openedAt: draft.openedAt,
+      closedAt: draft.closedAt,
       googlePlaceId: draft.googlePlaceId,
       category: draft.category,
       eaten: draft.eaten,

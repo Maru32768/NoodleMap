@@ -6,13 +6,26 @@ import { CategoryIcon } from "@/features/map/category-icon.tsx";
 import { Shop } from "@/features/shops/api/use-shops.ts";
 import { FavoriteRating } from "@/features/shops/rating-hearts.tsx";
 import {
+  buildGoogleMapsUrl,
   ShopActions,
   ShopAddressLink,
-  buildGoogleMapsUrl,
 } from "@/features/shops/shop-actions.tsx";
-import { TagChips } from "@/features/shops/tag-chips.tsx";
+import {
+  formatShopDate,
+  shopDisplaySystemTags,
+  SHOP_EATEN_STATUS_LABEL,
+  ShopEatenStatus,
+} from "@/features/shops/status.ts";
+import { SystemTagChips, TagChips } from "@/features/shops/tag-chips.tsx";
 import { Box } from "@chakra-ui/react";
 import { useEffect, useEffectEvent } from "react";
+
+// The hero badge shows visit status only; lifecycle/new are shown as system tag
+// chips in the body.
+const STATUS_TAG: Record<ShopEatenStatus, { bg: string; color: string }> = {
+  eaten: { bg: "nm.matcha", color: "white" },
+  uneaten: { bg: "nm.shu", color: "white" },
+};
 
 const HERO_BG: Record<CategorySlug, string> = {
   ramen:
@@ -48,25 +61,15 @@ export function DetailPanel({ shop, onAdminEdit, onClose }: DetailPanelProps) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  const statusTag = shop.closed
-    ? { label: "閉店", bg: "nm.ink", color: "nm.paper" }
-    : shop.eaten
-      ? { label: "食べた", bg: "nm.matcha", color: "white" }
-      : { label: "気になる", bg: "nm.shu", color: "white" };
-
-  const noteBlock = shop.closed
-    ? {
-        color: "nm.ink",
-        label: "閉店",
-        text: "残念ながら現在は営業を終了しています。",
-      }
-    : !shop.eaten
-      ? {
-          color: "nm.kincha",
-          label: "気になる",
-          text: "まだ行っていない一杯。次の遠征リストへ。",
-        }
-      : null;
+  const status = shop.eatenStatus;
+  const statusTag = {
+    ...STATUS_TAG[status],
+    label: SHOP_EATEN_STATUS_LABEL[status],
+  };
+  const displaySystemTags = shopDisplaySystemTags(shop);
+  const hasTagsBelow = displaySystemTags.length > 0 || showTags;
+  const openedAtLabel = formatShopDate(shop.openedAt);
+  const closedAtLabel = formatShopDate(shop.closedAt);
 
   return (
     <Box
@@ -135,7 +138,7 @@ export function DetailPanel({ shop, onAdminEdit, onClose }: DetailPanelProps) {
           >
             <CategoryIcon
               category={shop.category}
-              closed={shop.closed}
+              closed={shop.lifecycleStatus === "closed"}
               size={64}
               color="var(--chakra-colors-nm-paper)"
               strokeWidth={1.4}
@@ -188,10 +191,16 @@ export function DetailPanel({ shop, onAdminEdit, onClose }: DetailPanelProps) {
           gap="0.625rem"
           fontSize="0.75rem"
           color="nm.inkMuted"
-          mb={showTags ? "0.75rem" : "1.125rem"}
+          mb={hasTagsBelow ? "0.75rem" : "1.125rem"}
         >
           <CategoryBadge catType={shop.category} />
         </Box>
+
+        {displaySystemTags.length > 0 && (
+          <Box mb="1.125rem">
+            <SystemTagChips tags={displaySystemTags} />
+          </Box>
+        )}
 
         {showTags && (
           <Box mb="1.125rem">
@@ -229,14 +238,12 @@ export function DetailPanel({ shop, onAdminEdit, onClose }: DetailPanelProps) {
                 <ShopAddressLink address={shop.address} mapsUrl={mapsUrl} />
               ),
             },
-            {
-              label: "Status",
-              value: shop.closed
-                ? "閉店"
-                : shop.eaten
-                  ? "食べた"
-                  : "気になる",
-            },
+            ...(openedAtLabel
+              ? [{ label: "Opened", value: openedAtLabel }]
+              : []),
+            ...(closedAtLabel
+              ? [{ label: "Closed", value: closedAtLabel }]
+              : []),
           ].map(({ label, value }) => (
             <Box
               key={label}
@@ -266,31 +273,6 @@ export function DetailPanel({ shop, onAdminEdit, onClose }: DetailPanelProps) {
             </Box>
           ))}
         </Box>
-
-        {noteBlock && (
-          <Box
-            bg="linear-gradient(180deg, var(--chakra-colors-nm-bg) 0%, transparent 100%)"
-            borderLeft="3px solid"
-            borderLeftColor={noteBlock.color}
-            px="1rem"
-            py="0.875rem"
-            borderRadius="0 nmMd nmMd 0"
-            mb="1.125rem"
-          >
-            <Box
-              fontFamily="display"
-              fontSize="0.875rem"
-              fontWeight={700}
-              color={noteBlock.color}
-              mb="0.375rem"
-            >
-              {noteBlock.label}
-            </Box>
-            <Box fontSize="0.84375rem" color="nm.inkSoft" lineHeight="1.75">
-              {noteBlock.text}
-            </Box>
-          </Box>
-        )}
       </Box>
 
       {/* Actions */}

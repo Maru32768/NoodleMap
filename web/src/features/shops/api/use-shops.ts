@@ -1,3 +1,14 @@
+import {
+  parseShopDate,
+  shopEatenStatus,
+  shopLifecycleStatus,
+  shopRecencyStatus,
+} from "@/features/shops/status.ts";
+import type {
+  ShopEatenStatus,
+  ShopLifecycleStatus,
+  ShopRecencyStatus,
+} from "@/features/shops/status.ts";
 import type { components } from "@/generated/api.ts";
 import {
   ApiError,
@@ -10,10 +21,39 @@ import {
   withApiResult,
 } from "@/utils/request.ts";
 import { toastApiError } from "@/utils/toast.ts";
+import type { Dayjs } from "dayjs";
 import { useCallback } from "react";
 import useSWR, { SWRConfiguration } from "swr";
 
-export type Shop = components["schemas"]["Shop"];
+type ApiShop = components["schemas"]["Shop"];
+
+export type Shop = ApiShop & {
+  // Opened/closed dates parsed once at fetch time into local-midnight dayjs
+  // values (null when absent or unparseable), so status derivation never
+  // reparses the same strings on every render. See decorateShop below.
+  readonly openedAtDate: Dayjs | null;
+  readonly closedAtDate: Dayjs | null;
+  readonly lifecycleStatus: ShopLifecycleStatus;
+  readonly recencyStatus: ShopRecencyStatus;
+  readonly eatenStatus: ShopEatenStatus;
+};
+
+// Attaches the cached parsed dates used by the status helpers. Run wherever a
+// raw API shop enters the SWR cache (fetch, optimistic add, optimistic update).
+function decorateShop(shop: ApiShop): Shop {
+  const datedShop = {
+    ...shop,
+    openedAtDate: parseShopDate(shop.openedAt),
+    closedAtDate: parseShopDate(shop.closedAt),
+  };
+
+  return {
+    ...datedShop,
+    lifecycleStatus: shopLifecycleStatus(datedShop),
+    recencyStatus: shopRecencyStatus(datedShop),
+    eatenStatus: shopEatenStatus(datedShop),
+  };
+}
 export type Tag = components["schemas"]["Tag"];
 export type TagInput = components["schemas"]["TagInput"];
 export type AddShopCommand = components["schemas"]["AddShopRequest"];
@@ -32,7 +72,7 @@ export function useShops(config?: SWRConfiguration<Shop[]>) {
           throwApiError("/api/v1/shops", res.response, res.error);
         }
 
-        return res.data.shops;
+        return res.data.shops.map(decorateShop);
       }).catch((err: ApiError) => {
         toastApiError(err, {
           fallbackTitle: "店舗一覧を読み込めませんでした",
@@ -61,15 +101,16 @@ export function useShops(config?: SWRConfiguration<Shop[]>) {
             return apiError("/api/v1/auth/shops", res.response, res.error);
           }
 
+          const added = decorateShop(res.data);
           mutate((current) => {
             if (!current) {
               return current;
             }
 
-            return [...current, res.data];
+            return [...current, added];
           }, false);
 
-          return apiOk(res.data);
+          return apiOk(added);
         },
       );
     },
@@ -106,10 +147,12 @@ export function useShops(config?: SWRConfiguration<Shop[]>) {
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const { tagIds: _tagIds, ...shopFields } = command;
             const copy = [...current];
-            copy[i] = {
+            // Re-decorate so the cached date timestamps reflect the edited
+            // openedAt/closedAt values, not the previous shop's.
+            copy[i] = decorateShop({
               ...current[i],
               ...shopFields,
-            };
+            });
             return copy;
           }, true);
 

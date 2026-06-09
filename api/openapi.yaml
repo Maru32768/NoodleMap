@@ -270,7 +270,8 @@ components:
         - lng
         - postalCode
         - address
-        - closed
+        - openedAt
+        - closedAt
         - googlePlaceId
         - category
         - tagIds
@@ -294,7 +295,6 @@ components:
         - lng
         - postalCode
         - address
-        - closed
         - googlePlaceId
         - category
         - tagIds
@@ -311,8 +311,10 @@ components:
           type: string
         address:
           type: string
-        closed:
-          type: boolean
+        openedAt:
+          type: string
+        closedAt:
+          type: string
         googlePlaceId:
           type: string
         category:
@@ -461,7 +463,6 @@ components:
         - name
         - lat
         - lng
-        - closed
         - postalCode
         - address
         - googlePlaceId
@@ -481,8 +482,12 @@ components:
         lng:
           type: number
           format: double
-        closed:
-          type: boolean
+        openedAt:
+          type: string
+          description: Opening date as an ISO 8601 calendar date (YYYY-MM-DD). Absent when unknown.
+        closedAt:
+          type: string
+          description: Closing date as an ISO 8601 calendar date (YYYY-MM-DD). Absent when the shop is not closing.
         postalCode:
           type: string
         address:
@@ -621,7 +626,8 @@ components:
         - lng
         - postalCode
         - address
-        - closed
+        - openedAt
+        - closedAt
         - googlePlaceId
         - category
         - eaten
@@ -648,7 +654,6 @@ components:
         - lng
         - postalCode
         - address
-        - closed
         - googlePlaceId
         - category
         - eaten
@@ -668,8 +673,10 @@ components:
           type: string
         address:
           type: string
-        closed:
-          type: boolean
+        openedAt:
+          type: string
+        closedAt:
+          type: string
         googlePlaceId:
           type: string
         category:

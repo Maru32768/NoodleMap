@@ -7,10 +7,17 @@ import (
 	"server/auth"
 	"server/httperrors"
 	"server/infra/db"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
+
+// Open/close dates are calendar dates entered and displayed in Japan time, so we
+// anchor the stored datetime to JST midnight and always render it back in JST.
+var jst = time.FixedZone("JST", 9*60*60)
+
+const isoDate = "2006-01-02"
 
 type Handler struct {
 	store *db.Store
@@ -95,12 +102,18 @@ func (h *Handler) AddShop(ctx *gin.Context) {
 
 	r, err := h.addShop(ctx, command)
 	if err != nil {
-		if errors.Is(err, errPermissionDenied) {
+		switch {
+		case errors.Is(err, errPermissionDenied):
 			httperrors.Abort(ctx, http.StatusForbidden, httperrors.PermissionDenied, "permission denied")
-			return
+		case errors.Is(err, errInvalidShopTagIDs):
+			httperrors.BadRequestWithFieldErrors(ctx, "invalid tag ids", []httperrors.FieldError{{
+				Field: "tagIds",
+				Type:  httperrors.FieldUnknown,
+			}})
+		default:
+			ctx.Error(err)
+			httperrors.InternalServerError(ctx)
 		}
-		ctx.Error(err)
-		httperrors.InternalServerError(ctx)
 		return
 	}
 
@@ -121,12 +134,18 @@ func (h *Handler) UpdateShop(ctx *gin.Context) {
 	}
 
 	if err := h.updateShop(ctx, id, command); err != nil {
-		if errors.Is(err, errPermissionDenied) {
+		switch {
+		case errors.Is(err, errPermissionDenied):
 			httperrors.Abort(ctx, http.StatusForbidden, httperrors.PermissionDenied, "permission denied")
-			return
+		case errors.Is(err, errInvalidShopTagIDs):
+			httperrors.BadRequestWithFieldErrors(ctx, "invalid tag ids", []httperrors.FieldError{{
+				Field: "tagIds",
+				Type:  httperrors.FieldUnknown,
+			}})
+		default:
+			ctx.Error(err)
+			httperrors.InternalServerError(ctx)
 		}
-		ctx.Error(err)
-		httperrors.InternalServerError(ctx)
 		return
 	}
 
@@ -156,7 +175,8 @@ func (h *Handler) findRegisteredShops(ctx *gin.Context) ([]RegisteredShop, error
 			Name:          r.Name,
 			Lat:           r.Lat,
 			Lng:           r.Lng,
-			Closed:        r.Closed,
+			OpenedAt:      dateToPtr(r.OpenedAt),
+			ClosedAt:      dateToPtr(r.ClosedAt),
 			PostalCode:    r.PostalCode,
 			Address:       r.Address,
 			GooglePlaceID: r.GooglePlaceID,
@@ -188,7 +208,8 @@ func (h *Handler) addShop(ctx *gin.Context, command AddShopCommand) (*Registered
 		Lng:           command.Lng,
 		PostalCode:    command.PostalCode,
 		Address:       command.Address,
-		Closed:        command.Closed,
+		OpenedAt:      nullableDate(command.OpenedAt),
+		ClosedAt:      nullableDate(command.ClosedAt),
 		GooglePlaceID: command.GooglePlaceID,
 		Category:      command.Category,
 	}
@@ -213,7 +234,8 @@ func (h *Handler) addShop(ctx *gin.Context, command AddShopCommand) (*Registered
 		Name:          params.Name,
 		Lat:           params.Lat,
 		Lng:           params.Lng,
-		Closed:        params.Closed,
+		OpenedAt:      dateToPtr(params.OpenedAt),
+		ClosedAt:      dateToPtr(params.ClosedAt),
 		Address:       params.Address,
 		GooglePlaceID: params.GooglePlaceID,
 		PostalCode:    params.PostalCode,
@@ -242,7 +264,8 @@ func (h *Handler) updateShop(ctx *gin.Context, id uuid.UUID, command UpdateShopC
 		Lng:           command.Lng,
 		PostalCode:    command.PostalCode,
 		Address:       command.Address,
-		Closed:        command.Closed,
+		OpenedAt:      nullableDate(command.OpenedAt),
+		ClosedAt:      nullableDate(command.ClosedAt),
 		GooglePlaceID: command.GooglePlaceID,
 		Category:      command.Category,
 	}
@@ -278,6 +301,7 @@ func (h *Handler) updateShop(ctx *gin.Context, id uuid.UUID, command UpdateShopC
 var (
 	errInvalidTagCommand = errors.New("invalid tag command")
 	errDuplicateTagSlug  = errors.New("duplicate tag slug")
+	errInvalidShopTagIDs = errors.New("invalid shop tag ids")
 )
 
 // saveTags replaces the entire tag set with the desired list in a single
@@ -390,11 +414,33 @@ func (h *Handler) findTagsByShopIDs(ctx *gin.Context, ids []uuid.UUID) (map[uuid
 }
 
 func replaceShopTags(ctx *gin.Context, store *db.Store, shopID uuid.UUID, tagIDs []uuid.UUID) error {
+	tags, err := store.FindAllTags(ctx)
+	if err != nil {
+		return err
+	}
+	existingTagIDs := make(map[uuid.UUID]struct{}, len(tags))
+	for _, tag := range tags {
+		existingTagIDs[tag.ID] = struct{}{}
+	}
+
+	seenTagIDs := make(map[uuid.UUID]struct{}, len(tagIDs))
+	normalizedTagIDs := make([]uuid.UUID, 0, len(tagIDs))
+	for _, tagID := range tagIDs {
+		if _, ok := existingTagIDs[tagID]; !ok {
+			return errInvalidShopTagIDs
+		}
+		if _, ok := seenTagIDs[tagID]; ok {
+			continue
+		}
+		seenTagIDs[tagID] = struct{}{}
+		normalizedTagIDs = append(normalizedTagIDs, tagID)
+	}
+
 	if err := store.DeleteShopTagsByShopId(ctx, shopID); err != nil {
 		return err
 	}
 
-	for _, tagID := range tagIDs {
+	for _, tagID := range normalizedTagIDs {
 		if err := store.InsertShopTag(ctx, db.InsertShopTagParams{
 			ID:     uuid.New(),
 			ShopID: shopID,
@@ -444,6 +490,33 @@ func nullableCategory(category *string) sql.NullString {
 		String: *category,
 		Valid:  true,
 	}
+}
+
+// nullableDate parses an optional ISO calendar date (YYYY-MM-DD) into a nullable
+// datetime column value anchored at JST midnight, treating nil, empty, and
+// unparseable input as SQL NULL.
+func nullableDate(date *string) sql.NullTime {
+	if date == nil || *date == "" {
+		return sql.NullTime{}
+	}
+
+	t, err := time.ParseInLocation(isoDate, *date, jst)
+	if err != nil {
+		return sql.NullTime{}
+	}
+
+	return sql.NullTime{Time: t, Valid: true}
+}
+
+// dateToPtr renders a nullable datetime column back into an optional ISO calendar
+// date (YYYY-MM-DD) in JST.
+func dateToPtr(value sql.NullTime) *string {
+	if !value.Valid {
+		return nil
+	}
+
+	s := value.Time.In(jst).Format(isoDate)
+	return &s
 }
 
 func tagFromShopTagRow(row db.FindTagsByShopIdsRow) Tag {

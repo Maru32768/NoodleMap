@@ -7,7 +7,8 @@ type RegisteredShop struct {
 	Name          string    `json:"name"`
 	Lat           float64   `json:"lat"`
 	Lng           float64   `json:"lng"`
-	Closed        bool      `json:"closed"`
+	OpenedAt      *string   `json:"openedAt,omitempty"`
+	ClosedAt      *string   `json:"closedAt,omitempty"`
 	PostalCode    string    `json:"postalCode"`
 	Address       string    `json:"address"`
 	GooglePlaceID string    `json:"googlePlaceId"`
@@ -33,7 +34,8 @@ type AddShopCommand struct {
 	Lng           float64     `json:"lng"`
 	PostalCode    string      `json:"postalCode"`
 	Address       string      `json:"address"`
-	Closed        bool        `json:"closed"`
+	OpenedAt      *string     `json:"openedAt"`
+	ClosedAt      *string     `json:"closedAt"`
 	GooglePlaceID string      `json:"googlePlaceId"`
 	Category      string      `json:"category"`
 	TagIDs        []uuid.UUID `json:"tagIds"`
@@ -45,7 +47,8 @@ type UpdateShopCommand struct {
 	Lng           float64     `json:"lng"`
 	PostalCode    string      `json:"postalCode"`
 	Address       string      `json:"address"`
-	Closed        bool        `json:"closed"`
+	OpenedAt      *string     `json:"openedAt"`
+	ClosedAt      *string     `json:"closedAt"`
 	GooglePlaceID string      `json:"googlePlaceId"`
 	Category      string      `json:"category"`
 	Eaten         bool        `json:"eaten"`

@@ -10,10 +10,9 @@ CREATE TABLE "shops"
     postal_code     TEXT     NOT NULL,
     address         TEXT     NOT NULL,
     google_place_id TEXT     NOT NULL UNIQUE,
-    closed          BOOLEAN  NOT NULL,
     created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    category TEXT NOT NULL DEFAULT 'ramen' CHECK (category IN ('ramen', 'udon')));
+    category TEXT NOT NULL DEFAULT 'ramen' CHECK (category IN ('ramen', 'udon')), opened_at DATETIME, closed_at DATETIME);
 
 CREATE TRIGGER update_shops_modtime
     AFTER UPDATE ON shops

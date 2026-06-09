@@ -9,7 +9,6 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer.tsx";
 import { toaster } from "@/components/ui/toaster.tsx";
-import { useCurrentUser } from "@/features/auth/use-current-user.ts";
 import { FlyToLocationButton } from "@/features/map/fly-to-location-button.tsx";
 import {
   LocationTrackingMode,
@@ -159,8 +158,6 @@ export default function SearchPage() {
   );
 
   const { shops, updateShop } = useShops();
-  const currentUser = useCurrentUser();
-  const isAdmin = currentUser.type === "admin";
 
   const filteredShops = useMemo(() => {
     if (!shops) {
@@ -168,11 +165,9 @@ export default function SearchPage() {
     }
     return filterShops(shops, {
       query: deferredQuery,
-      // Tags are an admin-only feature for now; ignore any persisted tag
-      // filter so non-admins never see shops silently filtered by it.
-      filters: isAdmin ? deferredFilters : { ...deferredFilters, tagIds: [] },
+      filters: deferredFilters,
     });
-  }, [shops, deferredQuery, deferredFilters, isAdmin]);
+  }, [shops, deferredQuery, deferredFilters]);
 
   const sortedShops = useMemo(() => {
     const center = mapView
@@ -223,7 +218,8 @@ export default function SearchPage() {
         lng: draft.lng,
         postalCode: draft.postalCode,
         address: draft.address,
-        closed: draft.closed,
+        openedAt: draft.openedAt,
+        closedAt: draft.closedAt,
         googlePlaceId: draft.googlePlaceId,
         category: draft.category,
         eaten: draft.eaten,

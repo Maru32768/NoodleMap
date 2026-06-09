@@ -23,11 +23,12 @@ const (
 const (
 	AddShopFieldAddress       AddShopField = "address"
 	AddShopFieldCategory      AddShopField = "category"
-	AddShopFieldClosed        AddShopField = "closed"
+	AddShopFieldClosedAt      AddShopField = "closedAt"
 	AddShopFieldGooglePlaceId AddShopField = "googlePlaceId"
 	AddShopFieldLat           AddShopField = "lat"
 	AddShopFieldLng           AddShopField = "lng"
 	AddShopFieldName          AddShopField = "name"
+	AddShopFieldOpenedAt      AddShopField = "openedAt"
 	AddShopFieldPostalCode    AddShopField = "postalCode"
 	AddShopFieldTagIds        AddShopField = "tagIds"
 )
@@ -107,13 +108,14 @@ const (
 const (
 	Address       UpdateShopField = "address"
 	Category      UpdateShopField = "category"
-	Closed        UpdateShopField = "closed"
+	ClosedAt      UpdateShopField = "closedAt"
 	Eaten         UpdateShopField = "eaten"
 	Favorite      UpdateShopField = "favorite"
 	GooglePlaceId UpdateShopField = "googlePlaceId"
 	Lat           UpdateShopField = "lat"
 	Lng           UpdateShopField = "lng"
 	Name          UpdateShopField = "name"
+	OpenedAt      UpdateShopField = "openedAt"
 	PostalCode    UpdateShopField = "postalCode"
 	Rate          UpdateShopField = "rate"
 	TagIds        UpdateShopField = "tagIds"
@@ -143,11 +145,12 @@ type AddShopFieldError struct {
 type AddShopRequest struct {
 	Address       string       `json:"address"`
 	Category      CategorySlug `json:"category"`
-	Closed        bool         `json:"closed"`
+	ClosedAt      *string      `json:"closedAt,omitempty"`
 	GooglePlaceId string       `json:"googlePlaceId"`
 	Lat           float64      `json:"lat"`
 	Lng           float64      `json:"lng"`
 	Name          string       `json:"name"`
+	OpenedAt      *string      `json:"openedAt,omitempty"`
 	PostalCode    string       `json:"postalCode"`
 	TagIds        []Uuid       `json:"tagIds"`
 }
@@ -240,18 +243,23 @@ type SessionCreationFailedErrorBodyType string
 
 // Shop defines model for Shop.
 type Shop struct {
-	Address       string       `json:"address"`
-	Category      CategorySlug `json:"category"`
-	Closed        bool         `json:"closed"`
-	Eaten         bool         `json:"eaten"`
-	Favorite      bool         `json:"favorite"`
-	GooglePlaceId string       `json:"googlePlaceId"`
+	Address  string       `json:"address"`
+	Category CategorySlug `json:"category"`
+
+	// ClosedAt Closing date as an ISO 8601 calendar date (YYYY-MM-DD). Absent when the shop is not closing.
+	ClosedAt      *string `json:"closedAt,omitempty"`
+	Eaten         bool    `json:"eaten"`
+	Favorite      bool    `json:"favorite"`
+	GooglePlaceId string  `json:"googlePlaceId"`
 
 	// Id UUID serialized as a string.
-	Id         Uuid    `json:"id"`
-	Lat        float64 `json:"lat"`
-	Lng        float64 `json:"lng"`
-	Name       string  `json:"name"`
+	Id   Uuid    `json:"id"`
+	Lat  float64 `json:"lat"`
+	Lng  float64 `json:"lng"`
+	Name string  `json:"name"`
+
+	// OpenedAt Opening date as an ISO 8601 calendar date (YYYY-MM-DD). Absent when unknown.
+	OpenedAt   *string `json:"openedAt,omitempty"`
 	PostalCode string  `json:"postalCode"`
 	Rate       float64 `json:"rate"`
 	Tags       []Tag   `json:"tags"`
@@ -335,13 +343,14 @@ type UpdateShopFieldError struct {
 type UpdateShopRequest struct {
 	Address       string       `json:"address"`
 	Category      CategorySlug `json:"category"`
-	Closed        bool         `json:"closed"`
+	ClosedAt      *string      `json:"closedAt,omitempty"`
 	Eaten         bool         `json:"eaten"`
 	Favorite      bool         `json:"favorite"`
 	GooglePlaceId string       `json:"googlePlaceId"`
 	Lat           float64      `json:"lat"`
 	Lng           float64      `json:"lng"`
 	Name          string       `json:"name"`
+	OpenedAt      *string      `json:"openedAt,omitempty"`
 	PostalCode    string       `json:"postalCode"`
 	Rate          float64      `json:"rate"`
 	TagIds        []Uuid       `json:"tagIds"`

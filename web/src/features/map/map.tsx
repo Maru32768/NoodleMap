@@ -115,31 +115,31 @@ function toGeoJson(shops: Shop[]) {
   const nearestKmMap = buildNearestKmMap(shops);
   return {
     type: "FeatureCollection" as const,
-    features: shops.map((r) => {
-      const isEaten = r.eaten;
-      const isClosed = r.closed;
-      const highRate = isEaten && (r.rate ?? 0) >= 80;
-      const nearestKm = nearestKmMap.get(r.id) ?? 99;
+    features: shops.map((shop) => {
+      const highRate = (shop.rate ?? 0) >= 80;
+      const nearestKm = nearestKmMap.get(shop.id) ?? 99;
+      const state: State =
+        shop.lifecycleStatus === "closed"
+          ? "closed"
+          : shop.eatenStatus === "eaten"
+            ? "eaten"
+            : "wish";
 
       return {
         type: "Feature" as const,
-        id: r.id,
+        id: shop.id,
         properties: {
-          id: r.id,
-          name: r.name,
+          id: shop.id,
+          name: shop.name,
           nearestKm,
-          catType: r.category,
-          state: isClosed ? "closed" : isEaten ? "eaten" : "wish",
+          catType: shop.category,
+          state,
           highRate,
-          icon: getPinImageId(
-            isClosed ? "closed" : isEaten ? "eaten" : "wish",
-            r.category,
-            highRate,
-          ),
+          icon: getPinImageId(state, shop.category, highRate),
         },
         geometry: {
           type: "Point" as const,
-          coordinates: [r.lng, r.lat],
+          coordinates: [shop.lng, shop.lat],
         },
       };
     }),

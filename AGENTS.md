@@ -51,6 +51,10 @@ All source, Markdown, SQL, and config files are UTF-8. Do not rewrite Japanese t
 
 When editing files that contain Japanese text, prefer patch-based edits that only touch the intended lines. Before finishing frontend text changes, run `npm run check:mojibake` from `web/`.
 
+## UUID Text Case
+
+Store UUID strings in lowercase in SQLite and seed/import paths. Go's UUID handling serializes IDs as lowercase strings, while SQLite `TEXT` comparisons are case-sensitive by default; uppercase UUIDs in seed CSVs can make updates match zero rows without raising an SQL error.
+
 ## Agent Guidelines Files
 
 `CLAUDE.md` files are the source of truth. Matching `AGENTS.md` files are generated copies for other agents.

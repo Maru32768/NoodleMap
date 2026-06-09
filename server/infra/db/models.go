@@ -30,17 +30,18 @@ type Session struct {
 }
 
 type Shop struct {
-	ID            uuid.UUID `json:"id"`
-	Name          string    `json:"name"`
-	Lat           float64   `json:"lat"`
-	Lng           float64   `json:"lng"`
-	PostalCode    string    `json:"postalCode"`
-	Address       string    `json:"address"`
-	GooglePlaceID string    `json:"googlePlaceId"`
-	Closed        bool      `json:"closed"`
-	CreatedAt     time.Time `json:"createdAt"`
-	UpdatedAt     time.Time `json:"updatedAt"`
-	Category      string    `json:"category"`
+	ID            uuid.UUID    `json:"id"`
+	Name          string       `json:"name"`
+	Lat           float64      `json:"lat"`
+	Lng           float64      `json:"lng"`
+	PostalCode    string       `json:"postalCode"`
+	Address       string       `json:"address"`
+	GooglePlaceID string       `json:"googlePlaceId"`
+	CreatedAt     time.Time    `json:"createdAt"`
+	UpdatedAt     time.Time    `json:"updatedAt"`
+	Category      string       `json:"category"`
+	OpenedAt      sql.NullTime `json:"openedAt"`
+	ClosedAt      sql.NullTime `json:"closedAt"`
 }
 
 type ShopImage struct {

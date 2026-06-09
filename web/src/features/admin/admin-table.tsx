@@ -5,10 +5,11 @@ import {
 } from "@/components/list-table.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { CategoryIcon } from "@/features/map/category-icon.tsx";
+import { favToHearts } from "@/features/search/utils.ts";
 import { Shop } from "@/features/shops/api/use-shops.ts";
 import { buildGoogleMapsUrl } from "@/features/shops/shop-actions.tsx";
-import { TagChips } from "@/features/shops/tag-chips.tsx";
-import { favToHearts } from "@/features/search/utils.ts";
+import { shopDisplaySystemTags } from "@/features/shops/status.ts";
+import { SystemTagChips, TagChips } from "@/features/shops/tag-chips.tsx";
 import { Box, Link } from "@chakra-ui/react";
 import React, { useEffect } from "react";
 import { TableVirtuosoHandle } from "react-virtuoso";
@@ -23,6 +24,7 @@ interface AdminTableProps {
 type AdminTableRow = Shop & {
   categorySort: string;
   favoriteSort: number;
+  closedSort: boolean;
 };
 
 function MiniHearts({ rate }: { rate: number | undefined }) {
@@ -161,6 +163,7 @@ export function AdminTable({
     ...shop,
     categorySort: shop.category,
     favoriteSort: shop.rate ?? 0,
+    closedSort: shop.lifecycleStatus === "closed",
   }));
 
   const { sortedData, createSortableColumn } =
@@ -229,7 +232,12 @@ export function AdminTable({
       property: undefined,
       header: "タグ",
       width: "180px",
-      render: (shop) => <TagChips tags={shop.tags} limit={3} size="xs" />,
+      render: (shop) => (
+        <Box display="flex" flexDirection="column" gap="4px">
+          <SystemTagChips tags={shopDisplaySystemTags(shop)} size="xs" />
+          <TagChips tags={shop.tags} limit={3} size="xs" />
+        </Box>
+      ),
     },
     createSortableColumn({
       property: "address",
@@ -250,10 +258,10 @@ export function AdminTable({
       render: (_favoriteSort, shop) => <MiniHearts rate={shop.rate} />,
     }),
     createSortableColumn({
-      property: "closed",
+      property: "closedSort",
       header: "閉店",
       width: "60px",
-      render: (closed) => <CheckDot on={closed} variant="closed" />,
+      render: (closedSort) => <CheckDot on={closedSort} variant="closed" />,
     }),
     {
       property: undefined,
@@ -327,7 +335,7 @@ export function AdminTable({
 
   const getRowProps = (shop: AdminTableRow) => ({
     bg: shop.id === selectedId ? "nm.bg" : undefined,
-    opacity: shop.closed ? 0.55 : 1,
+    opacity: shop.closedSort ? 0.55 : 1,
     cursor: "pointer",
     transition: "background 0.1s",
     _hover: { bg: "nm.bgSoft" },

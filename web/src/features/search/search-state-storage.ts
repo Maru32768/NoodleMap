@@ -1,7 +1,8 @@
 import { SearchFilters } from "@/features/search/utils.ts";
+import { DEFAULT_SYSTEM_TAG_SELECTION } from "@/features/shops/status.ts";
 
 const SEARCH_STATE_STORAGE_KEY = "noodle-map:search-state:v1";
-const SAVED_SEARCH_STATE_VERSION = 4;
+const SAVED_SEARCH_STATE_VERSION = 5;
 
 export type MapCenter = [number, number];
 
@@ -25,11 +26,11 @@ export type SavedSearchState = {
 export const DEFAULT_FILTERS: SearchFilters = {
   eaten: true,
   wish: true,
-  closed: false,
   ramen: true,
   udon: true,
   favMin: 0,
-  tagIds: [],
+  // Status is filtered via system tags in tagIds; default to all but 閉店.
+  tagIds: [...DEFAULT_SYSTEM_TAG_SELECTION],
 };
 
 function isMapCenter(value: unknown): value is MapCenter {
@@ -63,7 +64,6 @@ function isSearchFilters(value: unknown): value is SearchFilters {
   return (
     typeof candidate.eaten === "boolean" &&
     typeof candidate.wish === "boolean" &&
-    typeof candidate.closed === "boolean" &&
     typeof candidate.ramen === "boolean" &&
     typeof candidate.udon === "boolean" &&
     typeof candidate.favMin === "number" &&

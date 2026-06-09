@@ -77,37 +77,6 @@ function FormInput({
   );
 }
 
-function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
-  return (
-    <Box
-      as="button"
-      w="40px"
-      h="22px"
-      rounded="full"
-      bg={on ? "nm.ink" : "nm.lineFaint"}
-      border="2px solid"
-      borderColor={on ? "nm.ink" : "nm.line"}
-      position="relative"
-      transition="all 0.2s"
-      onClick={onClick}
-      cursor="pointer"
-      flexShrink={0}
-    >
-      <Box
-        position="absolute"
-        top="1px"
-        left={on ? "19px" : "1px"}
-        w="16px"
-        h="16px"
-        rounded="full"
-        bg="white"
-        transition="left 0.2s"
-        boxShadow="0 1px 3px rgba(0,0,0,0.2)"
-      />
-    </Box>
-  );
-}
-
 export function AddModal({
   open,
   onClose,
@@ -122,7 +91,8 @@ export function AddModal({
     lat: initialLatLng?.lat ?? 0,
     lng: initialLatLng?.lng ?? 0,
     googlePlaceId: "",
-    closed: false,
+    openedAt: undefined,
+    closedAt: undefined,
     category: "ramen",
     tagIds: [],
   }));
@@ -153,7 +123,7 @@ export function AddModal({
       lat: res.lat,
       lng: res.lng,
       googlePlaceId: res.placeId,
-      closed: res.closed,
+      closedAt: undefined,
     }));
   };
 
@@ -415,26 +385,23 @@ export function AddModal({
                   step={0.000001}
                 />
               </Box>
-              <Box gridColumn="span 2">
-                <Box
-                  display="flex"
-                  alignItems="center"
-                  justifyContent="space-between"
-                  py="12px"
-                >
-                  <Box>
-                    <Box fontSize="13px" fontWeight={500} color="nm.ink">
-                      閉店フラグ
-                    </Box>
-                    <Box fontSize="11px" color="nm.inkMuted" mt="2px">
-                      ONにすると閉店として表示
-                    </Box>
-                  </Box>
-                  <Toggle
-                    on={draft.closed}
-                    onClick={() => set("closed", !draft.closed)}
-                  />
-                </Box>
+              <Box>
+                <FieldLabel>開店日</FieldLabel>
+                <FormInput
+                  value={draft.openedAt ?? ""}
+                  onChange={(v) => set("openedAt", v || undefined)}
+                  mono
+                  type="date"
+                />
+              </Box>
+              <Box>
+                <FieldLabel>閉店日</FieldLabel>
+                <FormInput
+                  value={draft.closedAt ?? ""}
+                  onChange={(v) => set("closedAt", v || undefined)}
+                  mono
+                  type="date"
+                />
               </Box>
             </Box>
           </Box>

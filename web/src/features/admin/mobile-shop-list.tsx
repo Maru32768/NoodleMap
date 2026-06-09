@@ -1,6 +1,11 @@
-import { Shop } from "@/features/shops/api/use-shops.ts";
-import { TagChips } from "@/features/shops/tag-chips.tsx";
 import { favToHearts } from "@/features/search/utils.ts";
+import { Shop } from "@/features/shops/api/use-shops.ts";
+import {
+  SHOP_EATEN_STATUS_LABEL,
+  shopDisplaySystemTags,
+  ShopEatenStatus,
+} from "@/features/shops/status.ts";
+import { SystemTagChips, TagChips } from "@/features/shops/tag-chips.tsx";
 import { Box } from "@chakra-ui/react";
 import { useEffect, useRef } from "react";
 import { Virtuoso, VirtuosoHandle } from "react-virtuoso";
@@ -42,10 +47,10 @@ const THUMB_BG: Record<Shop["category"], string> = {
   udon: "linear-gradient(135deg, #ddc99c, #8c7341)",
 };
 
-const PILL: Record<string, { bg: string; color: string; label: string }> = {
-  closed: { bg: "nm.ink", color: "nm.paper", label: "閉店" },
-  eaten: { bg: "nm.matcha", color: "white", label: "食べた" },
-  uneaten: { bg: "nm.bg", color: "nm.inkMuted", label: "気になる" },
+// Pill shows eat status only; lifecycle/new are shown as system tag chips.
+const PILL: Record<ShopEatenStatus, { bg: string; color: string }> = {
+  eaten: { bg: "nm.matcha", color: "white" },
+  uneaten: { bg: "nm.bg", color: "nm.inkMuted" },
 };
 
 function MobileShopListItem({
@@ -58,12 +63,9 @@ function MobileShopListItem({
   onEdit: (id: string) => void;
 }) {
   const catLabel = shop.category === "udon" ? "うどん" : "ラーメン";
-  const pillKey = shop.closed
-    ? "closed"
-    : shop.eaten
-      ? "eaten"
-      : "uneaten";
-  const pill = PILL[pillKey];
+  const status = shop.eatenStatus;
+  const pill = PILL[status];
+  const displaySystemTags = shopDisplaySystemTags(shop);
 
   return (
     <Box
@@ -75,7 +77,7 @@ function MobileShopListItem({
       borderBottom="1px solid"
       borderBottomColor="nm.lineFaint"
       cursor="pointer"
-      opacity={shop.closed ? 0.6 : 1}
+      opacity={shop.lifecycleStatus === "closed" ? 0.6 : 1}
       transition="background 0.1s"
       bg={selected ? "nm.bg" : undefined}
       _hover={{ bg: "nm.bg" }}
@@ -158,9 +160,14 @@ function MobileShopListItem({
             fontFamily="mono"
             letterSpacing="0.08em"
           >
-            {pill.label}
+            {SHOP_EATEN_STATUS_LABEL[status]}
           </Box>
         </Box>
+        {displaySystemTags.length > 0 && (
+          <Box mt="6px">
+            <SystemTagChips tags={displaySystemTags} size="xs" />
+          </Box>
+        )}
         {shop.tags.length > 0 && (
           <Box mt="6px">
             <TagChips tags={shop.tags} limit={3} size="xs" />

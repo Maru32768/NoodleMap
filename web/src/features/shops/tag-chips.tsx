@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button.tsx";
 import { Tag } from "@/features/shops/api/use-shops.ts";
+import { SystemTagDef } from "@/features/shops/status.ts";
 import { Box } from "@chakra-ui/react";
 
 export function getTagTextColor(color: string) {
@@ -70,6 +71,64 @@ export function TagChips({
           +{rest}
         </Box>
       )}
+    </Box>
+  );
+}
+
+// Read-only chips for a shop's auto-computed system tags. Visually distinguished
+// from user tags (dashed outline + sparkle marker) to signal they are automatic.
+export function SystemTagChips({
+  tags,
+  size = "sm",
+}: {
+  tags: SystemTagDef[];
+  size?: "xs" | "sm";
+}) {
+  if (tags.length === 0) {
+    return null;
+  }
+
+  return (
+    <Box display="flex" flexWrap="wrap" gap={size === "xs" ? "4px" : "6px"}>
+      {tags.map((tag) => (
+        <Box
+          key={tag.slug}
+          as="span"
+          display="inline-flex"
+          alignItems="center"
+          gap="4px"
+          minH={size === "xs" ? "18px" : "22px"}
+          px={size === "xs" ? "6px" : "8px"}
+          py="1px"
+          borderRadius="999px"
+          border="1px dashed"
+          borderColor={tag.color}
+          color={tag.color}
+          fontSize={size === "xs" ? "10px" : "11px"}
+          fontWeight={600}
+          lineHeight="1"
+          whiteSpace="nowrap"
+        >
+          <Box
+            as="span"
+            w={size === "xs" ? "8px" : "9px"}
+            h={size === "xs" ? "8px" : "9px"}
+            flexShrink={0}
+            display="grid"
+            placeItems="center"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              width="100%"
+              height="100%"
+            >
+              <path d="M12 2l2.2 6.2L20 10l-5.8 1.8L12 18l-2.2-6.2L4 10l5.8-1.8z" />
+            </svg>
+          </Box>
+          {tag.label}
+        </Box>
+      ))}
     </Box>
   );
 }

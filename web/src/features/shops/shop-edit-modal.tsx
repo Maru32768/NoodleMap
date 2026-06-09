@@ -21,7 +21,8 @@ export interface ShopEditDraft {
   lng: number;
   googlePlaceId: string;
   category: CategorySlug;
-  closed: boolean;
+  openedAt?: string;
+  closedAt?: string;
   eaten: boolean;
   favorite: boolean;
   rate: number;
@@ -179,7 +180,8 @@ export function ShopEditModal({
     lng: shop.lng,
     googlePlaceId: shop.googlePlaceId,
     category: shop.category,
-    closed: shop.closed,
+    openedAt: shop.openedAt,
+    closedAt: shop.closedAt,
     eaten: shop.eaten,
     favorite: shop.favorite ?? false,
     rate: shop.rate ?? 0,
@@ -206,9 +208,25 @@ export function ShopEditModal({
   };
 
   const handleSave = async () => {
+    const sanitizedDraft = tags
+      ? {
+          ...draft,
+          tagIds: Array.from(
+            new Set(
+              draft.tagIds.filter((tagId) => {
+                const tag = tags.find((candidate) => candidate.id === tagId);
+                return (
+                  !!tag && (!tag.category || tag.category === draft.category)
+                );
+              }),
+            ),
+          ),
+        }
+      : draft;
+
     setSaving(true);
     try {
-      await onSave(draft);
+      await onSave(sanitizedDraft);
     } finally {
       setSaving(false);
     }
@@ -419,23 +437,23 @@ export function ShopEditModal({
                   step={0.000001}
                 />
               </Box>
-              <Box gridColumn="span 2">
-                <Box
-                  display="flex"
-                  alignItems="center"
-                  justifyContent="space-between"
-                  py="12px"
-                >
-                  <Box>
-                    <Box fontSize="13px" fontWeight={500} color="nm.ink">
-                      閉店フラグ
-                    </Box>
-                  </Box>
-                  <Toggle
-                    on={draft.closed}
-                    onClick={() => set("closed", !draft.closed)}
-                  />
-                </Box>
+              <Box>
+                <FieldLabel>開店日</FieldLabel>
+                <FormInput
+                  value={draft.openedAt ?? ""}
+                  onChange={(v) => set("openedAt", v || undefined)}
+                  mono
+                  type="date"
+                />
+              </Box>
+              <Box>
+                <FieldLabel>閉店日</FieldLabel>
+                <FormInput
+                  value={draft.closedAt ?? ""}
+                  onChange={(v) => set("closedAt", v || undefined)}
+                  mono
+                  type="date"
+                />
               </Box>
             </Box>
           )}

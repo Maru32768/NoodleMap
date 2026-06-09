@@ -10,6 +10,10 @@ Keep schema changes, query changes, and seed data changes focused and reviewable
 
 All SQL, CSV, and Markdown files are UTF-8. Be especially careful with Japanese text in seed data. Do not rewrite files after reading them through a garbled terminal.
 
+## UUID Text Case
+
+Normalize UUID values to lowercase when importing seed CSV data or writing data migrations. Seed CSVs may contain uppercase IDs, but SQLite stores UUIDs as `TEXT` and compares them case-sensitively; the Go API emits lowercase UUID strings, so uppercase stored IDs can cause `UPDATE ... WHERE id = ?` to affect zero rows without an SQL error.
+
 ## Generated Database Code
 
 If SQL query or schema changes affect generated Go database code, regenerate the relevant code using the repository's established sqlc workflow and commit the generated output.
