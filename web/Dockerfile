@@ -1,9 +1,17 @@
+# syntax=docker/dockerfile:1
+# check=skip=SecretsUsedInArgOrEnv
+# The VITE_* build args are public client-side config that Vite inlines into the
+# browser bundle (the Maps key is restricted by HTTP referrer, the OAuth client ID
+# is public by design). They are not secrets, so the SecretsUsedInArgOrEnv check
+# is intentionally skipped here.
+
 FROM node:22 AS build-stage
 
 WORKDIR /work
 
 COPY package*.json ./
-RUN npm install --legacy-peer-deps
+RUN --mount=type=cache,target=/root/.npm \
+    npm install --legacy-peer-deps
 
 COPY . .
 
