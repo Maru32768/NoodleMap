@@ -1,0 +1,11 @@
+#!/bin/sh
+# Quality gate run before every `git push`.
+#
+# Lint, mojibake, and type checks live here (not in `web build`) so the
+# deploy/build path only produces the artifact. Enable on a fresh clone with:
+#   git config core.hooksPath .githooks
+set -e
+
+echo "pre-push: running web checks (mojibake + lint + tsc)..."
+cd web
+npm run check

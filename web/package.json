@@ -6,12 +6,13 @@
   "scripts": {
     "dev": "vite --host --mode https",
     "dev:http": "vite --host",
-    "build": "npm run check:mojibake && npm run lint && tsc -b && vite build",
+    "build": "tsc -b && vite build",
+    "check": "npm run check:mojibake && npm run lint && tsc -b",
     "basemap:extract": "node scripts/extract-basemap.mjs",
     "basemap:upload": "node scripts/upload-basemap-r2.mjs",
     "check:mojibake": "node scripts/check-mojibake.mjs",
-    "lint": "eslint .",
-    "lint-fix": "eslint --fix .",
+    "lint": "eslint --cache .",
+    "lint-fix": "eslint --cache --fix .",
     "format": "prettier --write .",
     "preview": "vite preview"
   },
