@@ -1,0 +1,7 @@
+.gradle/
+build/
+*.db
+*.db.bak
+*.db-shm
+*.db-wal
+.kotlin/

@@ -1,0 +1,11 @@
+-- Schema-only: present in the prod DB but no handler reads/writes it today.
+-- Kept so SQLDelight's declared schema matches the live database.
+CREATE TABLE shop_images (
+    id         TEXT AS java.util.UUID NOT NULL PRIMARY KEY,
+    shop_id    TEXT AS java.util.UUID NOT NULL,
+    path       TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (shop_id) REFERENCES shops (id)
+);
+-- (modtime trigger omitted; see note in Users.sq)

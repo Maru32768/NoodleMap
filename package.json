@@ -3,7 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "api:generate": "npm run tsp:compile && openapi-typescript api/openapi.yaml -o web/src/generated/api.ts && cd server && go generate ./api",
+    "api:generate": "npm run tsp:compile && openapi-typescript api/openapi.yaml -o web/src/generated/api.ts && npm run api:generate:server && npm run api:generate:server-kt",
+    "api:generate:server": "cd server && go generate ./api",
+    "api:generate:server-kt": "node scripts/gen-kt.mjs",
     "api:check": "npm run tsp:check && openapi-typescript api/openapi.yaml -o web/src/generated/api.ts --check",
     "db:schema:dump": "cd server && go run ./cmd/dump-schema -out data/sql/schema/current",
     "sync-agents": "node scripts/sync-agents.mjs",

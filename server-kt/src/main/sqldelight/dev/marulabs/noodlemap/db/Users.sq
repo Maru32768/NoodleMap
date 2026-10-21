@@ -1,0 +1,25 @@
+-- Ported from server/infra/db/users.sql.go (sqlc).
+-- id is stored as lowercase UUID text (see CLAUDE.md UUID rule); UUIDAdapter registered
+-- at driver construction. google_sub is a Google subject string, not a UUID.
+CREATE TABLE users (
+    id         TEXT AS java.util.UUID NOT NULL PRIMARY KEY,
+    email      TEXT NOT NULL UNIQUE,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    google_sub TEXT
+);
+
+CREATE UNIQUE INDEX users_google_sub_unique ON users (google_sub);
+
+-- NOTE: the prod DB has updated_at modtime triggers, but SQLDelight's dialect cannot
+-- parse trigger NEW/OLD references, and the API never reads updated_at, so triggers are
+-- omitted from the declared schema. (They remain on the existing prod database.)
+
+findUserByGoogleSub:
+SELECT id, email FROM users WHERE google_sub = ?;
+
+findUserById:
+SELECT id, email FROM users WHERE id = ?;
+
+insertUser:
+INSERT INTO users(id, email, google_sub) VALUES (?, ?, ?);

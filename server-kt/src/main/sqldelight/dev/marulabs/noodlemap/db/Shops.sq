@@ -1,0 +1,53 @@
+-- Ported from server/infra/db/shops.sql.go (sqlc).
+CREATE TABLE shops (
+    id              TEXT AS java.util.UUID NOT NULL PRIMARY KEY,
+    name            TEXT NOT NULL,
+    lat             REAL NOT NULL,
+    lng             REAL NOT NULL,
+    postal_code     TEXT NOT NULL,
+    address         TEXT NOT NULL,
+    google_place_id TEXT NOT NULL UNIQUE,
+    created_at      TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    category        TEXT NOT NULL DEFAULT 'ramen' CHECK (category IN ('ramen', 'udon')),
+    opened_at       TEXT,
+    closed_at       TEXT
+);
+
+-- (modtime trigger omitted; see note in Users.sq)
+
+-- eaten / rate / favorite are derived from the eaten_shops left join. The boolean
+-- expressions come back as Long (0/1); the mapping layer converts to Boolean.
+findAllShops:
+SELECT r.id,
+       r.name,
+       r.lat,
+       r.lng,
+       r.postal_code,
+       r.address,
+       r.opened_at,
+       r.closed_at,
+       r.google_place_id,
+       r.category,
+       CAST((vs.id IS NOT NULL) AS INTEGER)    AS eaten,
+       CAST(COALESCE(vs.rate, 0.0) AS REAL)    AS rate,
+       CAST(COALESCE(vs.favorite, 0) AS INTEGER) AS favorite
+FROM shops r
+LEFT JOIN eaten_shops vs ON r.id = vs.shop_id;
+
+insertShop:
+INSERT INTO shops (id, name, lat, lng, postal_code, address, opened_at, closed_at, google_place_id, category)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+updateShop:
+UPDATE shops
+SET name            = :name,
+    lat             = :lat,
+    lng             = :lng,
+    postal_code     = :postalCode,
+    address         = :address,
+    opened_at       = :openedAt,
+    closed_at       = :closedAt,
+    google_place_id = :googlePlaceId,
+    category        = :category
+WHERE id = :id;

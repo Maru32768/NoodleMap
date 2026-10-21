@@ -1,0 +1,41 @@
+-- Ported from server/infra/db/sessions.sql.go (sqlc).
+-- NOTE (cross-driver): the Go service stored created_at/expires_at via modernc's
+-- time encoding. With xerial sqlite-jdbc we bind/compare these as text in a single
+-- consistent format. Keep all time binding in one place (see TimeCodec) so the
+-- comparison `expires_at > ?` stays correct. Verify format against existing prod rows
+-- during the cutover validation pass.
+CREATE TABLE sessions (
+    id         TEXT AS java.util.UUID NOT NULL PRIMARY KEY,
+    user_id    TEXT AS java.util.UUID NOT NULL,
+    token_hash TEXT NOT NULL UNIQUE,
+    user_agent TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users (id)
+);
+
+CREATE INDEX sessions_user_id_index ON sessions (user_id);
+
+insertSession:
+INSERT INTO sessions(id, user_id, token_hash, user_agent, expires_at)
+VALUES (?, ?, ?, ?, ?);
+
+-- Joins the user so authentication needs a single round-trip. Returns expires_at so the
+-- caller can decide staleness (and whether to slide) in Kotlin.
+findValidSessionByTokenHash:
+SELECT s.id, u.id AS user_id, u.email, s.expires_at
+FROM sessions s
+INNER JOIN users u ON u.id = s.user_id
+WHERE s.token_hash = :tokenHash
+  AND s.expires_at > :now;
+
+-- Unconditional sliding extend by id; the caller only invokes this when the session is
+-- stale (throttled by the refresh interval), avoiding a write on every request.
+extendSession:
+UPDATE sessions SET expires_at = :expiresAt WHERE id = :id;
+
+deleteSessionByTokenHash:
+DELETE FROM sessions WHERE token_hash = ?;
+
+deleteExpiredSessions:
+DELETE FROM sessions WHERE expires_at <= ?;
