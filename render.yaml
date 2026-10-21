@@ -3,7 +3,9 @@ services:
   - type: web
     name: noodle-map-backend
     runtime: docker
-    rootDir: server
+    # Cutover: the backend is now the Kotlin/Ktor server (server-kt/). The Go server/
+    # remains in the repo for rollback — revert rootDir to `server` to roll back.
+    rootDir: server-kt
     dockerfilePath: ./Dockerfile
     branch: master
     region: oregon
