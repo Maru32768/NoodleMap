@@ -66,18 +66,48 @@ describe("useShops", () => {
     expect(badDate.lifecycleStatus).toBe("open");
   });
 
-  it("shows a load-failure toast when the request fails", async () => {
+  it("exposes the load error instead of shops when the request fails", async () => {
     server.use(
       http.get("/api/v1/shops", () =>
         HttpResponse.json({ type: "internal_error" }, { status: 500 }),
       ),
     );
 
-    renderHookWithProviders(() => useShops({ shouldRetryOnError: false }));
+    const { result } = renderHookWithProviders(() =>
+      useShops({ shouldRetryOnError: false }),
+    );
+
+    await waitFor(() =>
+      expect(result.current.error).toMatchObject({ status: 500 }),
+    );
+    expect(result.current.isValidating).toBe(false);
+    expect(result.current.shops).toBeUndefined();
+  });
+
+  it("toasts a failed revalidation while keeping the stale shops", async () => {
+    server.use(
+      http.get("/api/v1/shops", () =>
+        HttpResponse.json({ shops: [apiShop({ name: "stale" })] }),
+      ),
+    );
+    const { result } = renderHookWithProviders(() =>
+      useShops({ shouldRetryOnError: false }),
+    );
+    await waitFor(() => expect(result.current.shops).toHaveLength(1));
+
+    server.use(
+      http.get("/api/v1/shops", () =>
+        HttpResponse.json({ type: "internal_error" }, { status: 500 }),
+      ),
+    );
+    await act(async () => {
+      await result.current.mutate();
+    });
 
     expect(
       await screen.findByText("店舗一覧を読み込めませんでした"),
     ).toBeInTheDocument();
+    expect(result.current.shops?.map((shop) => shop.name)).toEqual(["stale"]);
   });
 
   it("appends an added shop to the cached list", async () => {

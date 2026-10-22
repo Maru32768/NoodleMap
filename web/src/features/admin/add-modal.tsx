@@ -46,6 +46,7 @@ function FormInput({
   type,
   step,
   placeholder,
+  maxLength,
 }: {
   value: string | number;
   onChange: (v: string) => void;
@@ -53,6 +54,7 @@ function FormInput({
   type?: string;
   step?: number;
   placeholder?: string;
+  maxLength?: number;
 }) {
   return (
     <Input
@@ -61,6 +63,7 @@ function FormInput({
       type={type}
       step={step}
       placeholder={placeholder}
+      maxLength={maxLength}
       w="100%"
       px="12px"
       py="8px"
@@ -118,6 +121,7 @@ export function AddModal({
     setDraft((d) => ({
       ...d,
       name: res.name,
+      nameKana: undefined,
       address: res.address,
       postalCode: res.postalCode,
       lat: res.lat,
@@ -328,6 +332,14 @@ export function AddModal({
                 <FormInput
                   value={draft.name}
                   onChange={(v) => set("name", v)}
+                />
+              </Box>
+              <Box gridColumn="span 2">
+                <FieldLabel>読み（ひらがな）</FieldLabel>
+                <FormInput
+                  value={draft.nameKana ?? ""}
+                  onChange={(v) => set("nameKana", v)}
+                  maxLength={100}
                 />
               </Box>
               <Box gridColumn="span 2">

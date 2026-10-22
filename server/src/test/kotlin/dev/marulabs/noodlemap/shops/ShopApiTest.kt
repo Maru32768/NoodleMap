@@ -23,6 +23,9 @@ import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import java.util.UUID
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.encodeToJsonElement
+import kotlinx.serialization.json.jsonObject
 import org.junit.jupiter.api.Test
 
 const val SHOYU = "018ff6e8-5291-7a01-9ab8-000000000001"
@@ -67,6 +70,46 @@ class ShopApiTest {
             it.openedAt shouldBe "2024-01-05"
             it.closedAt shouldBe null
         }
+    }
+
+    @Test
+    fun `name kana is trimmed, kept when omitted, and cleared when blank`() = testApp { t ->
+        val admin = t.adminToken()
+        val req = addShopRequest().copy(nameKana = " らーめんたろう ")
+        val added = client.postJson("/api/v1/auth/shops", encode(req), admin).body<Shop>()
+        added.nameKana shouldBe "らーめんたろう"
+        client.shops().single().nameKana shouldBe "らーめんたろう"
+
+        client.putJson("/api/v1/auth/shops/${added.id}", encode(req.toUpdate().copy(nameKana = " たろう ")), admin)
+            .status shouldBe HttpStatusCode.OK
+        client.shops().single().nameKana shouldBe "たろう"
+
+        // Older clients don't send the field; that must keep the stored reading.
+        val withoutKana = JsonObject(testJson.encodeToJsonElement(req.toUpdate()).jsonObject - "nameKana").toString()
+        client.putJson("/api/v1/auth/shops/${added.id}", withoutKana, admin).status shouldBe HttpStatusCode.OK
+        client.shops().single().nameKana shouldBe "たろう"
+
+        client.putJson("/api/v1/auth/shops/${added.id}", encode(req.toUpdate().copy(nameKana = "")), admin)
+            .status shouldBe HttpStatusCode.OK
+        client.shops().single().nameKana shouldBe null
+    }
+
+    @Test
+    fun `too long name kana is a field error and nothing is written`() = testApp { t ->
+        val admin = t.adminToken()
+        val tooLong = ErrorBody(ErrorType.INVALID_REQUEST, "name kana too long", listOf(FieldError("nameKana", FieldErrorType.TOO_LONG)))
+        val req = addShopRequest()
+
+        client.postJson("/api/v1/auth/shops", encode(req.copy(nameKana = "あ".repeat(101))), admin).let {
+            it.status shouldBe HttpStatusCode.BadRequest
+            it.body<ErrorBody>() shouldBe tooLong
+        }
+        client.shops().shouldBeEmpty()
+
+        val id = client.postJson("/api/v1/auth/shops", encode(req.copy(nameKana = "あ".repeat(100))), admin).body<Shop>().id
+        client.putJson("/api/v1/auth/shops/$id", encode(req.toUpdate().copy(nameKana = "い".repeat(101))), admin)
+            .body<ErrorBody>() shouldBe tooLong
+        client.shops().single().nameKana shouldBe "あ".repeat(100)
     }
 
     @Test

@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button.tsx";
 import { favToHearts, SearchFilters } from "@/features/search/utils.ts";
 import { Shop, Tag, useTags } from "@/features/shops/api/use-shops.ts";
 import { HeartIcon, MiniHearts } from "@/features/shops/rating-hearts.tsx";
+import { ShopsLoadState } from "@/features/shops/shops-load-state.tsx";
 import {
   DEFAULT_SYSTEM_TAG_SELECTION,
   SHOP_EATEN_STATUS_LABEL,
@@ -379,7 +380,8 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 }
 
 export interface SidebarProps {
-  allShops: Shop[];
+  // undefined until the shop list has loaded.
+  allShops: Shop[] | undefined;
   sortedShops: Shop[];
   query: string;
   onQueryChange: (q: string) => void;
@@ -667,7 +669,7 @@ export function Sidebar({
           transition="border-color 0.15s, background 0.15s"
           _focus={{ borderColor: "nm.shu", bg: "white" }}
           _placeholder={{ color: "nm.inkFaint" }}
-          placeholder="店名、エリアで検索..."
+          placeholder="店名・読み・エリア・タグで検索..."
           value={localQuery}
           onChange={(e) => {
             setLocalQuery(e.target.value);
@@ -720,7 +722,7 @@ export function Sidebar({
           color="nm.ink"
           lineHeight="1"
         >
-          {sortedShops.length}
+          {allShops ? sortedShops.length : "–"}
         </Box>
         <Box
           as="span"
@@ -737,7 +739,7 @@ export function Sidebar({
           color="nm.inkFaint"
           ml="auto"
         >
-          of {allShops.length}
+          of {allShops?.length ?? "–"}
         </Box>
       </Box>
 
@@ -776,41 +778,43 @@ export function Sidebar({
           </Box>
         </Box>
 
-        {sortedShops.length === 0 ? (
-          <Box
-            textAlign="center"
-            px="1.25rem"
-            py="2.5rem"
-            color="nm.inkFaint"
-            fontSize="0.8125rem"
-          >
+        <ShopsLoadState>
+          {sortedShops.length === 0 ? (
             <Box
-              fontFamily="display"
-              fontSize="1.125rem"
-              color="nm.inkMuted"
-              mb="0.375rem"
+              textAlign="center"
+              px="1.25rem"
+              py="2.5rem"
+              color="nm.inkFaint"
+              fontSize="0.8125rem"
             >
-              該当なし
-            </Box>
-            <Box>条件を変えて再度お試しください</Box>
-          </Box>
-        ) : (
-          <Virtuoso
-            style={{ flex: 1 }}
-            data={sortedShops}
-            itemContent={(_index, r) => (
-              <Box px="0.75rem" pb="0">
-                <ShopCard
-                  key={r.id}
-                  shop={r}
-                  active={r.id === selectedId}
-                  onClick={() => onSelect(r.id)}
-                />
+              <Box
+                fontFamily="display"
+                fontSize="1.125rem"
+                color="nm.inkMuted"
+                mb="0.375rem"
+              >
+                該当なし
               </Box>
-            )}
-            overscan={200}
-          />
-        )}
+              <Box>条件を変えて再度お試しください</Box>
+            </Box>
+          ) : (
+            <Virtuoso
+              style={{ flex: 1 }}
+              data={sortedShops}
+              itemContent={(_index, r) => (
+                <Box px="0.75rem" pb="0">
+                  <ShopCard
+                    key={r.id}
+                    shop={r}
+                    active={r.id === selectedId}
+                    onClick={() => onSelect(r.id)}
+                  />
+                </Box>
+              )}
+              overscan={200}
+            />
+          )}
+        </ShopsLoadState>
       </Box>
     </Box>
   );

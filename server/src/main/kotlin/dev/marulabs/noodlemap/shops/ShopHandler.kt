@@ -7,6 +7,8 @@ import dev.marulabs.noodlemap.auth.SessionService
 import dev.marulabs.noodlemap.common.ShopDate
 import dev.marulabs.noodlemap.db.NoodleMapDb
 import dev.marulabs.noodlemap.errors.DomainException
+import dev.marulabs.noodlemap.errors.FieldError
+import dev.marulabs.noodlemap.errors.FieldErrorType
 import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthShopsController
 import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthTagsController
 import dev.marulabs.noodlemap.generated.controllers.ApiV1ShopsController
@@ -23,6 +25,8 @@ import dev.marulabs.noodlemap.generated.models.UpdateShopRequest
 import java.util.UUID
 import org.sqlite.SQLiteErrorCode
 import org.sqlite.SQLiteException
+
+private const val NAME_KANA_MAX_LENGTH = 100
 
 /** Shop and tag endpoints, ported from Go `shops/handler.go`. */
 class ShopHandler(
@@ -76,10 +80,11 @@ class ShopHandler(
 
         val shopId = UUID.randomUUID()
         val req = addShopRequest
+        val nameKana = normalizeNameKana(req.nameKana)
         db.transaction {
             rejectingDuplicatePlaceId {
                 db.shopsQueries.insertShop(
-                    shopId, req.name, req.lat, req.lng, req.postalCode, req.address,
+                    shopId, req.name, nameKana, req.lat, req.lng, req.postalCode, req.address,
                     ShopDate.encode(req.openedAt), ShopDate.encode(req.closedAt), req.googlePlaceId, req.category.value,
                 )
             }
@@ -88,7 +93,7 @@ class ShopHandler(
 
         call.respondTyped(
             Shop(
-                id = shopId.toString(), name = req.name, lat = req.lat, lng = req.lng,
+                id = shopId.toString(), name = req.name, nameKana = nameKana, lat = req.lat, lng = req.lng,
                 openedAt = ShopDate.encode(req.openedAt), closedAt = ShopDate.encode(req.closedAt),
                 postalCode = req.postalCode, address = req.address, googlePlaceId = req.googlePlaceId,
                 eaten = false, rate = 0.0, favorite = false, category = req.category,
@@ -109,10 +114,12 @@ class ShopHandler(
 
         val req = updateShopRequest
         if (req.eaten && req.rate !in 0.0..100.0) throw DomainException.ShopRateOutOfRange()
+        // Missing (older clients) keeps the stored reading; blank clears it ('' -> NULL in SQL).
+        val nameKana = req.nameKana?.let { normalizeNameKana(it) ?: "" }
         db.transaction {
             rejectingDuplicatePlaceId {
                 db.shopsQueries.updateShop(
-                    req.name, req.lat, req.lng, req.postalCode, req.address,
+                    req.name, nameKana, req.lat, req.lng, req.postalCode, req.address,
                     ShopDate.encode(req.openedAt), ShopDate.encode(req.closedAt), req.googlePlaceId, req.category.value, shopId,
                 )
             }
@@ -138,7 +145,7 @@ class ShopHandler(
         val tagsByShop = tagsByShopIds(rows.map { it.id })
         return rows.map { r ->
             Shop(
-                id = r.id.toString(), name = r.name, lat = r.lat, lng = r.lng,
+                id = r.id.toString(), name = r.name, nameKana = r.name_kana, lat = r.lat, lng = r.lng,
                 openedAt = ShopDate.decode(r.opened_at), closedAt = ShopDate.decode(r.closed_at),
                 postalCode = r.postal_code, address = r.address, googlePlaceId = r.google_place_id,
                 eaten = r.eaten != 0L, rate = r.rate, favorite = isFavorite(r.eaten != 0L, r.rate),
@@ -166,6 +173,18 @@ class ShopHandler(
                 )
             },
         )
+    }
+
+    /** Trims the reading; blank means "not set". */
+    private fun normalizeNameKana(raw: String?): String? {
+        val kana = raw?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+        if (kana.length > NAME_KANA_MAX_LENGTH) {
+            throw DomainException.InvalidRequestWithFields(
+                "name kana too long",
+                listOf(FieldError("nameKana", FieldErrorType.TOO_LONG)),
+            )
+        }
+        return kana
     }
 
     /** `google_place_id` is the only UNIQUE column on `shops`, so a UNIQUE violation there is a duplicate place id. */

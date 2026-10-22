@@ -1,6 +1,8 @@
 import {
+  createQueryMatcher,
   favToHearts,
   filterShops,
+  normalizeForSearch,
   SearchFilters,
   sortShops,
 } from "@/features/search/utils.ts";
@@ -160,6 +162,58 @@ describe("filterShops", () => {
     expect(filterNames(shops, {}, "  ramen ")).toEqual(["Ramen Taro"]);
     expect(filterNames(shops, {}, "高松")).toEqual(["うどん花子"]);
     expect(filterNames(shops, {}, "大阪")).toEqual([]);
+  });
+
+  it("matches the query against the reading and tag labels across kana forms", () => {
+    const shops = [
+      makeShop({ name: "麺屋 一燈", nameKana: "めんや いっとう" }),
+      makeShop({ name: "Udon", tags: [makeTag({ label: "ラーメン" })] }),
+    ];
+
+    expect(filterNames(shops, {}, "いっとう")).toEqual(["麺屋 一燈"]);
+    expect(filterNames(shops, {}, "イットウ")).toEqual(["麺屋 一燈"]);
+    expect(filterNames(shops, {}, "らーめん")).toEqual(["Udon"]);
+    expect(filterNames(shops, {}, "ﾗｰﾒﾝ")).toEqual(["Udon"]);
+  });
+});
+
+describe("normalizeForSearch", () => {
+  it.each([
+    ["ラーメン", "らーめん"],
+    ["ﾗｰﾒﾝ", "らーめん"],
+    ["ガッツリ", "がっつり"],
+    ["ヴ", "ゔ"],
+    ["ＲＡＭＥＮ　１", "ramen 1"],
+    ["漢字", "漢字"],
+  ])("normalizes %s to %s", (input, expected) => {
+    expect(normalizeForSearch(input)).toBe(expected);
+  });
+});
+
+describe("createQueryMatcher", () => {
+  it("treats a blank query as matching everything", () => {
+    expect(createQueryMatcher("  ")(makeShop())).toBe(true);
+  });
+
+  it("ignores a missing reading", () => {
+    const shop = makeShop({ name: "Ramen", nameKana: undefined });
+
+    expect(createQueryMatcher("ramen")(shop)).toBe(true);
+    expect(createQueryMatcher("undefined")(shop)).toBe(false);
+  });
+
+  it("matches each whitespace-separated token against any field", () => {
+    const shop = makeShop({ name: "中華そば 麺屋", address: "東京都新宿区" });
+
+    expect(createQueryMatcher("中華そば　新宿")(shop)).toBe(true);
+    expect(createQueryMatcher("新宿 中華そば")(shop)).toBe(true);
+    expect(createQueryMatcher("中華そば 渋谷")(shop)).toBe(false);
+  });
+
+  it("does not let one token span two fields", () => {
+    const shop = makeShop({ name: "麺屋", address: "東京都" });
+
+    expect(createQueryMatcher("麺屋東京")(shop)).toBe(false);
   });
 });
 

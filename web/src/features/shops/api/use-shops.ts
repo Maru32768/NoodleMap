@@ -93,17 +93,23 @@ export function useShops(config?: SWRConfiguration<Shop[]>) {
         }
 
         return res.data.shops.map(decorateShop);
-      }).catch((err: ApiError) => {
-        toastApiError(err, {
-          fallbackTitle: "店舗一覧を読み込めませんでした",
-        });
-        throw err;
       });
     },
     {
       revalidateIfStale: false,
       revalidateOnFocus: false,
       revalidateOnReconnect: false,
+      // Without data, ShopsLoadState shows the failure inline; toast only when
+      // a revalidation fails behind stale data that stays on screen.
+      onError: (err: ApiError) => {
+        if (resp.data) {
+          // Fixed id so SWR's automatic retries replace the toast, not stack it.
+          toastApiError(err, {
+            id: "shops-revalidate-error",
+            fallbackTitle: "店舗一覧を読み込めませんでした",
+          });
+        }
+      },
       ...config,
     },
   );
@@ -173,6 +179,11 @@ export function useShops(config?: SWRConfiguration<Shop[]>) {
               ...current[i],
               ...shopFields,
               favorite: isFavorite(command.eaten, command.rate),
+              // Mirror the server: omitted keeps the reading, blank clears it.
+              nameKana:
+                shopFields.nameKana === undefined
+                  ? current[i].nameKana
+                  : shopFields.nameKana.trim() || undefined,
             });
             return copy;
           }, true);
@@ -187,6 +198,12 @@ export function useShops(config?: SWRConfiguration<Shop[]>) {
   return {
     get shops() {
       return resp.data;
+    },
+    get isValidating() {
+      return resp.isValidating;
+    },
+    get error() {
+      return resp.error as ApiError | undefined;
     },
     addShop,
     updateShop,

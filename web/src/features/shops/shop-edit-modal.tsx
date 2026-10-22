@@ -15,6 +15,7 @@ import { useState } from "react";
 export interface ShopEditDraft {
   id: string;
   name: string;
+  nameKana?: string;
   address: string;
   postalCode: string;
   lat: number;
@@ -53,6 +54,7 @@ function FormInput({
   type,
   step,
   placeholder,
+  maxLength,
 }: {
   value: string | number;
   onChange: (v: string) => void;
@@ -60,6 +62,7 @@ function FormInput({
   type?: string;
   step?: number;
   placeholder?: string;
+  maxLength?: number;
 }) {
   return (
     <Input
@@ -68,6 +71,7 @@ function FormInput({
       type={type}
       step={step}
       placeholder={placeholder}
+      maxLength={maxLength}
       w="100%"
       px="12px"
       py="8px"
@@ -184,6 +188,7 @@ export function ShopEditModal({
   const [draft, setDraft] = useState<ShopEditDraft>(() => ({
     id: shop.id,
     name: shop.name,
+    nameKana: shop.nameKana,
     address: shop.address,
     postalCode: shop.postalCode,
     lat: shop.lat,
@@ -389,6 +394,14 @@ export function ShopEditModal({
                 <FormInput
                   value={draft.name}
                   onChange={(v) => set("name", v)}
+                />
+              </Box>
+              <Box gridColumn="span 2">
+                <FieldLabel>読み（ひらがな）</FieldLabel>
+                <FormInput
+                  value={draft.nameKana ?? ""}
+                  onChange={(v) => set("nameKana", v)}
+                  maxLength={100}
                 />
               </Box>
               <Box gridColumn="span 2">

@@ -9,7 +9,7 @@ async function openAdmin(page: Page) {
 }
 
 async function openEditModal(page: Page, name: string, filter: string) {
-  await page.getByPlaceholder("店名・住所で絞り込み...").filter({ visible: true }).fill(filter);
+  await page.getByPlaceholder("店名・読み・住所・タグで絞り込み...").filter({ visible: true }).fill(filter);
   const row = page.getByRole("row").filter({ hasText: name });
   await expect(row).toHaveCount(1);
   await row.getByRole("button", { name: "編集" }).click();
@@ -90,7 +90,7 @@ test("admin page works when the Google Maps JS cannot load", async ({ page, api 
   await page.route(/maps\.googleapis\.com/, (route) => route.abort("blockedbyclient"));
   await openAdmin(page);
 
-  await page.getByPlaceholder("店名・住所で絞り込み...").filter({ visible: true }).fill(id);
+  await page.getByPlaceholder("店名・読み・住所・タグで絞り込み...").filter({ visible: true }).fill(id);
   await expect(page.getByRole("row").filter({ hasText: shop.name })).toHaveCount(1);
   await page.getByRole("button", { name: "店舗追加" }).click();
   await page.getByRole("button", { name: /Googleで検索して追加/ }).click();

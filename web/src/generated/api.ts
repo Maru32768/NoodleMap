@@ -143,7 +143,7 @@ export interface components {
             fieldErrors?: components["schemas"]["AddShopFieldError"][];
         };
         /** @enum {string} */
-        AddShopField: "name" | "lat" | "lng" | "postalCode" | "address" | "openedAt" | "closedAt" | "googlePlaceId" | "category" | "tagIds";
+        AddShopField: "name" | "nameKana" | "lat" | "lng" | "postalCode" | "address" | "openedAt" | "closedAt" | "googlePlaceId" | "category" | "tagIds";
         AddShopFieldError: {
             field: components["schemas"]["AddShopField"];
             type: components["schemas"]["FieldErrorType"];
@@ -151,6 +151,7 @@ export interface components {
         };
         AddShopRequest: {
             name: string;
+            nameKana?: string;
             /** Format: double */
             lat: number;
             /** Format: double */
@@ -219,6 +220,8 @@ export interface components {
         Shop: {
             id: components["schemas"]["uuid"];
             name: string;
+            /** @description Hiragana reading of the shop name, used for search. Absent when not set. */
+            nameKana?: string;
             /** Format: double */
             lat: number;
             /** Format: double */
@@ -282,7 +285,7 @@ export interface components {
             fieldErrors?: components["schemas"]["UpdateShopFieldError"][];
         };
         /** @enum {string} */
-        UpdateShopField: "name" | "lat" | "lng" | "postalCode" | "address" | "openedAt" | "closedAt" | "googlePlaceId" | "category" | "eaten" | "rate" | "tagIds";
+        UpdateShopField: "name" | "nameKana" | "lat" | "lng" | "postalCode" | "address" | "openedAt" | "closedAt" | "googlePlaceId" | "category" | "eaten" | "rate" | "tagIds";
         UpdateShopFieldError: {
             field: components["schemas"]["UpdateShopField"];
             type: components["schemas"]["FieldErrorType"];
@@ -290,6 +293,8 @@ export interface components {
         };
         UpdateShopRequest: {
             name: string;
+            /** @description Omit to keep the stored reading (older clients); a blank string clears it. */
+            nameKana?: string;
             /** Format: double */
             lat: number;
             /** Format: double */

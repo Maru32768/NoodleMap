@@ -9,8 +9,9 @@ interface AdminFiltersProps {
   setCategoryFilter: (v: CategoryType) => void;
   visitFilter: VisitFilter;
   setVisitFilter: (v: VisitFilter) => void;
-  filteredCount: number;
-  totalCount: number;
+  // undefined until the shop list has loaded.
+  filteredCount: number | undefined;
+  totalCount: number | undefined;
   onClearAll: () => void;
 }
 
@@ -205,11 +206,11 @@ export function AdminFilters({
           fontWeight="700"
           color="nm.ink"
         >
-          {filteredCount}
+          {filteredCount ?? "–"}
         </Box>
         <Box as="span">件</Box>
         <Box as="span" fontFamily="mono" color="nm.inkFaint">
-          / {totalCount}
+          / {totalCount ?? "–"}
         </Box>
         <Box as="span" flex="1" />
       </Box>

@@ -9,9 +9,10 @@ import {
   ShopAddressLink,
   buildGoogleMapsUrl,
 } from "@/features/shops/shop-actions.tsx";
+import { ShopsLoadState } from "@/features/shops/shops-load-state.tsx";
 import {
-  shopDisplaySystemTags,
   SHOP_EATEN_STATUS_LABEL,
+  shopDisplaySystemTags,
 } from "@/features/shops/status.ts";
 import { SystemTagChips, TagChips } from "@/features/shops/tag-chips.tsx";
 import { useIsPc } from "@/utils/use-is-pc.ts";
@@ -362,7 +363,7 @@ export function MobileSheet({
               )}
             </Box>
           ) : (
-            <>
+            <ShopsLoadState>
               <Box
                 px="1.125rem"
                 pb="0.625rem"
@@ -389,18 +390,38 @@ export function MobileSheet({
                   件 / SHOPS
                 </Box>
               </Box>
-              <Virtuoso
-                style={{ height: "calc(88svh - 100px)" }}
-                data={sortedShops}
-                itemContent={(_, r) => (
-                  <MobileListItem
-                    key={r.id}
-                    shop={r}
-                    onClick={() => onSelect(r.id)}
-                  />
-                )}
-              />
-            </>
+              {sortedShops.length === 0 ? (
+                <Box
+                  textAlign="center"
+                  px="1.25rem"
+                  py="2rem"
+                  color="nm.inkFaint"
+                  fontSize="0.8125rem"
+                >
+                  <Box
+                    fontFamily="display"
+                    fontSize="1.125rem"
+                    color="nm.inkMuted"
+                    mb="0.375rem"
+                  >
+                    該当なし
+                  </Box>
+                  <Box>条件を変えて再度お試しください</Box>
+                </Box>
+              ) : (
+                <Virtuoso
+                  style={{ height: "calc(88svh - 100px)" }}
+                  data={sortedShops}
+                  itemContent={(_, r) => (
+                    <MobileListItem
+                      key={r.id}
+                      shop={r}
+                      onClick={() => onSelect(r.id)}
+                    />
+                  )}
+                />
+              )}
+            </ShopsLoadState>
           )}
         </Sheet.Content>
       </Sheet.Container>

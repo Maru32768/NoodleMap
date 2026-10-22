@@ -47,7 +47,7 @@ export function filterShops(
   },
 ): Shop[] {
   const { query, filters } = opts;
-  const q = query.trim().toLowerCase();
+  const matchesQuery = createQueryMatcher(query);
 
   return shops.filter((r) => {
     const visitMatch =
@@ -91,15 +91,40 @@ export function filterShops(
       }
     }
 
-    if (q) {
-      const hay = [r.name, r.address].filter(Boolean).join(" ").toLowerCase();
-      if (!hay.includes(q)) {
-        return false;
-      }
-    }
-
-    return true;
+    return matchesQuery(r);
   });
+}
+
+// NFKC folds half-width kana and full-width ASCII; katakana is then mapped to
+// hiragana so 「ラーメン」, 「ﾗｰﾒﾝ」 and 「らーめん」 all compare equal.
+export function normalizeForSearch(s: string): string {
+  return s
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/[ァ-ヶ]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0x60));
+}
+
+// Free-text match over name, reading (読み), address and tag labels. The query
+// is split on whitespace; every token must appear within a single field, but
+// different tokens may match different fields (「中華そば 新宿」).
+export function createQueryMatcher(query: string): (shop: Shop) => boolean {
+  const tokens = normalizeForSearch(query).split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) {
+    return () => true;
+  }
+  return (shop) => {
+    const fields = [
+      shop.name,
+      shop.nameKana,
+      shop.address,
+      ...shop.tags.map((tag) => tag.label),
+    ]
+      .filter((field) => field !== undefined)
+      .map(normalizeForSearch);
+    return tokens.every((token) =>
+      fields.some((field) => field.includes(token)),
+    );
+  };
 }
 
 export function sortShops(
