@@ -8,6 +8,7 @@ This repository contains a full-stack noodle map application.
 - `server/`: Go API server using Gin.
 - `typespec/`: TypeSpec API contract source.
 - `api/openapi.yaml`: generated OpenAPI document.
+- `e2e/`: Playwright end-to-end tests against the real backend and frontend.
 - `db/`: SQL schemas, queries, initialization scripts, and seed CSV data.
 - `render.yaml`: Render Blueprint for deployed services and non-secret environment variables.
 
@@ -27,6 +28,12 @@ Backend commands run from `server/`:
 - `go run .`: start the API server.
 - `go test ./...`: run all Go tests.
 - `go fmt ./...`: format Go code.
+
+End-to-end commands run from `e2e/` (Playwright against the real `server-kt` and a `web` production build; needs JDK 21 and free ports 8888 and 4180):
+
+- `npm test`: build and start both servers, then run the suite headless.
+- `npm run test:ui`: run the suite in Playwright UI mode.
+- `npm run report`: open the last HTML report.
 
 API generation commands run from the repository root:
 

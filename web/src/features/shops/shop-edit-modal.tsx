@@ -86,10 +86,12 @@ function FormInput({
 }
 
 function Toggle({
+  label,
   on,
   color = "ink",
   onClick,
 }: {
+  label: string;
   on: boolean;
   color?: "ink" | "shu";
   onClick: () => void;
@@ -98,6 +100,9 @@ function Toggle({
   return (
     <Box
       as="button"
+      role="switch"
+      aria-checked={on}
+      aria-label={label}
       w="40px"
       h="22px"
       rounded="full"
@@ -472,6 +477,7 @@ export function ShopEditModal({
                   </Box>
                 </Box>
                 <Toggle
+                  label="食べた"
                   on={draft.eaten}
                   color="shu"
                   onClick={() => set("eaten", !draft.eaten)}
@@ -522,6 +528,7 @@ export function ShopEditModal({
                       お気に入り登録
                     </Box>
                     <Toggle
+                      label="お気に入り登録"
                       on={draft.favorite}
                       color="shu"
                       onClick={() => set("favorite", !draft.favorite)}
