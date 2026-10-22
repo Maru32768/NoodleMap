@@ -17,19 +17,21 @@ export function buildGoogleMapsUrl(r: Shop) {
   return url.toString();
 }
 
-// Native share sheet where available (mobile), clipboard copy otherwise.
+// Native share sheet on touch devices; desktop browsers that expose
+// navigator.share get a plain clipboard copy instead.
 export async function shareShop(shop: Pick<Shop, "id" | "name">) {
   const url = shopShareUrl(shop.id);
-  if (navigator.share) {
+  if (navigator.share && matchMedia("(pointer: coarse)").matches) {
     try {
       await navigator.share({ title: shop.name, url });
-      return;
     } catch (e) {
-      if (e instanceof DOMException && e.name === "AbortError") {
-        return;
+      // Cancelling the share sheet rejects with AbortError. Other failures do
+      // not fall back to the clipboard: user activation is gone by now.
+      if (!(e instanceof DOMException && e.name === "AbortError")) {
+        toastError({ title: "共有できませんでした" });
       }
-      // Any other share failure falls back to copying the URL.
     }
+    return;
   }
   try {
     await navigator.clipboard.writeText(url);

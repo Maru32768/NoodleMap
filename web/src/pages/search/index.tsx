@@ -40,6 +40,7 @@ import {
   useCallback,
   useDeferredValue,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -134,7 +135,6 @@ export default function SearchPage() {
     handleFilterChange,
     handleMapViewChange,
     handleQueryChange,
-    initialMapView,
     mapView,
     query,
   } = useSearchState();
@@ -145,27 +145,28 @@ export default function SearchPage() {
   // The selected shop lives in `?shop=<id>` so the detail view is linkable.
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedId = searchParams.get(SHOP_PARAM);
-  const setSelectedId = useCallback(
-    (update: SetStateAction<string | null>) => {
-      setSearchParams(
-        (prev) => {
-          const next = new URLSearchParams(prev);
-          const id =
-            typeof update === "function"
-              ? update(prev.get(SHOP_PARAM))
-              : update;
-          if (id) {
-            next.set(SHOP_PARAM, id);
-          } else {
-            next.delete(SHOP_PARAM);
-          }
-          return next;
-        },
-        { replace: true },
-      );
-    },
-    [setSearchParams],
-  );
+  // setSearchParams changes identity with every URL change; a ref keeps the
+  // select/close callbacks stable for the map and list children.
+  const setSearchParamsRef = useRef(setSearchParams);
+  useLayoutEffect(() => {
+    setSearchParamsRef.current = setSearchParams;
+  });
+  const setSelectedId = useCallback((update: SetStateAction<string | null>) => {
+    setSearchParamsRef.current(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        const id =
+          typeof update === "function" ? update(prev.get(SHOP_PARAM)) : update;
+        if (id) {
+          next.set(SHOP_PARAM, id);
+        } else {
+          next.delete(SHOP_PARAM);
+        }
+        return next;
+      },
+      { replace: true },
+    );
+  }, []);
   const deepLinkedIdRef = useRef(selectedId);
   const [editId, setEditId] = useState<string | null>(null);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
@@ -232,13 +233,22 @@ export default function SearchPage() {
       return;
     }
     // A shared link overrides the persisted map view once, on first load.
+    // mapView also feeds the map's initial center, so a map re-created after
+    // this pan still opens on the shop.
     if (deepLinkedIdRef.current === selectedId) {
       deepLinkedIdRef.current = null;
-      mapRef.current?.panTo([selectedShop.lat, selectedShop.lng], {
-        animate: false,
-      });
+      const center: [number, number] = [selectedShop.lat, selectedShop.lng];
+      handleMapViewChange({ center, zoom: mapView.zoom });
+      mapRef.current?.panTo(center, { animate: false });
     }
-  }, [shops, selectedId, selectedShop, setSelectedId]);
+  }, [
+    shops,
+    selectedId,
+    selectedShop,
+    setSelectedId,
+    handleMapViewChange,
+    mapView.zoom,
+  ]);
 
   const editShop = useMemo(
     () => shops?.find((r) => r.id === editId) ?? undefined,
@@ -359,8 +369,8 @@ export default function SearchPage() {
         >
           <Map
             ref={mapRef}
-            initialCenter={initialMapView.center}
-            initialZoom={initialMapView.zoom}
+            initialCenter={mapView.center}
+            initialZoom={mapView.zoom}
             shops={mapShops}
             selectedId={selectedId}
             onSelect={handleSelect}

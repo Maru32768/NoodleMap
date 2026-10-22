@@ -718,8 +718,12 @@ export const Map = memo(
     const handleRef = useRef<MapHandle | null>(null);
     const pendingHandleRef = useRef<MapHandle | null>(null);
     const pendingProgrammaticMoveEndsRef = useRef(0);
+    // Read when the map is (re)created, e.g. after an isPc flip, so a re-created
+    // map starts from the latest view the parent passes rather than the first.
     const initialCenterRef = useRef(initialCenter);
+    initialCenterRef.current = initialCenter;
     const initialZoomRef = useRef(initialZoom);
+    initialZoomRef.current = initialZoom;
     const dragGlideStateRef = useRef<DragGlideState>({ type: "idle" });
     const interruptedGlideMoveEndTimerRef = useRef<number | null>(null);
     const [userLocation, setUserLocation] = useState<UserLocation | null>(null);

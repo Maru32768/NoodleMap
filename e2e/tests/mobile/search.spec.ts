@@ -38,6 +38,7 @@ test("guest opens a shared shop URL in the mobile sheet", async ({ page, api }) 
   const shop = await api.createShop({ name: `${uid()} 共有まぜそば` });
 
   await page.goto(`/search?shop=${shop.id}`);
-  await expect(page.getByText(shop.name, { exact: true })).toBeVisible();
+  // The desktop detail panel is in the DOM too, hidden by a media query.
+  await expect(page.getByText(shop.name, { exact: true }).filter({ visible: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "閉じる" })).toBeVisible();
 });

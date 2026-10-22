@@ -83,8 +83,7 @@ test("guest drops an unknown shop id from the URL", async ({ page }) => {
 test("guest copies a shop's share URL", async ({ page, api, baseURL }) => {
   const shop = await api.createShop({ name: `${uid()} 共有つけ麺` });
   await page.addInitScript(() => {
-    // Force the clipboard fallback and record what gets copied.
-    delete (Navigator.prototype as Partial<Navigator>).share;
+    // Desktop copies the URL instead of sharing; record what gets copied.
     Object.defineProperty(navigator, "clipboard", {
       value: {
         writeText: async (text: string) => {
@@ -96,7 +95,7 @@ test("guest copies a shop's share URL", async ({ page, api, baseURL }) => {
 
   await page.goto("/search");
   const sidebar = page.getByRole("complementary");
-  await sidebar.getByPlaceholder("店名、エリアで検索...").fill(shop.name);
+  await sidebar.getByPlaceholder("店名・読み・エリア・タグで検索...").fill(shop.name);
   await sidebar.getByText(shop.name, { exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/search\\?shop=${shop.id}$`));
 
