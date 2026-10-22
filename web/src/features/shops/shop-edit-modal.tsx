@@ -409,7 +409,8 @@ function toUpdateCommand(draft: ShopEditDraft): UpdateShopCommand {
     address: draft.address,
     openedAt: draft.openedAt,
     closedAt: draft.closedAt,
-    googlePlaceId: draft.googlePlaceId,
+    // Blank clears the stored Place ID.
+    googlePlaceId: draft.googlePlaceId.trim(),
     category: draft.category,
     eaten: draft.eaten,
     rate: draft.rate,
@@ -442,7 +443,7 @@ export function ShopEditModal({
     postalCode: shop.postalCode,
     lat: shop.lat,
     lng: shop.lng,
-    googlePlaceId: shop.googlePlaceId,
+    googlePlaceId: shop.googlePlaceId ?? "",
     category: shop.category,
     openedAt: shop.openedAt,
     closedAt: shop.closedAt,

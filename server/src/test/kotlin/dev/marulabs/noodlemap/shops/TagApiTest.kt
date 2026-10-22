@@ -107,6 +107,14 @@ class TagApiTest {
 
         client.tags() shouldHaveSize 1
         client.shops().single().tags.map { it.id } shouldContainExactly listOf(SHIO)
+        // The shops_tags row goes with the tag through ON DELETE CASCADE (foreign keys are enforced).
+        t.dataSource.connection.use { c ->
+            c.createStatement().use { st ->
+                st.executeQuery("SELECT tag_id FROM shops_tags").use { rs ->
+                    buildList { while (rs.next()) add(rs.getString(1)) }
+                } shouldContainExactly listOf(SHIO)
+            }
+        }
     }
 
     @Test

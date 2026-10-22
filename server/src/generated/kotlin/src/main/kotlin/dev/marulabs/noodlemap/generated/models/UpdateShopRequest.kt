@@ -28,8 +28,11 @@ public data class UpdateShopRequest(
   public val openedAt: String? = null,
   @SerialName("closedAt")
   public val closedAt: String? = null,
+  /**
+   * Omit to keep the stored place id (older clients); a blank string clears it.
+   */
   @SerialName("googlePlaceId")
-  public val googlePlaceId: String,
+  public val googlePlaceId: String? = null,
   @SerialName("category")
   public val category: CategorySlug,
   @SerialName("eaten")

@@ -39,8 +39,11 @@ public data class Shop(
   public val postalCode: String,
   @SerialName("address")
   public val address: String,
+  /**
+   * Google Places place id. Absent when the shop was entered by hand.
+   */
   @SerialName("googlePlaceId")
-  public val googlePlaceId: String,
+  public val googlePlaceId: String? = null,
   @SerialName("eaten")
   public val eaten: Boolean,
   @SerialName("rate")

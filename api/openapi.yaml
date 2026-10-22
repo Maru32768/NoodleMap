@@ -544,7 +544,6 @@ components:
         - lng
         - postalCode
         - address
-        - googlePlaceId
         - category
         - tagIds
       properties:
@@ -568,6 +567,7 @@ components:
           type: string
         googlePlaceId:
           type: string
+          description: Omit (or send a blank string) for a shop entered by hand. Must be unique among shops when set.
         category:
           $ref: '#/components/schemas/CategorySlug'
         tagIds:
@@ -841,7 +841,6 @@ components:
         - lng
         - postalCode
         - address
-        - googlePlaceId
         - eaten
         - rate
         - favorite
@@ -874,6 +873,7 @@ components:
           type: string
         googlePlaceId:
           type: string
+          description: Google Places place id. Absent when the shop was entered by hand.
         eaten:
           type: boolean
         rate:
@@ -1078,7 +1078,6 @@ components:
         - lng
         - postalCode
         - address
-        - googlePlaceId
         - category
         - eaten
         - rate
@@ -1105,6 +1104,7 @@ components:
           type: string
         googlePlaceId:
           type: string
+          description: Omit to keep the stored place id (older clients); a blank string clears it.
         category:
           $ref: '#/components/schemas/CategorySlug'
         eaten:

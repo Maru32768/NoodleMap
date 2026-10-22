@@ -1,5 +1,6 @@
-import { useShops } from "@/features/shops/api/use-shops.ts";
+import { Shop, useShops } from "@/features/shops/api/use-shops.ts";
 import type { components } from "@/generated/api.ts";
+import { makeShop } from "@/test/fixtures.ts";
 import { renderHookWithProviders } from "@/test/render.tsx";
 import { server } from "@/test/server.ts";
 import { act, screen, waitFor } from "@testing-library/react";
@@ -8,23 +9,14 @@ import { describe, expect, it } from "vitest";
 
 type ApiShop = components["schemas"]["Shop"];
 
-function apiShop(overrides: Partial<ApiShop>): ApiShop {
-  return {
+// A not-eaten shop with a fixed id, so the update tests can address it.
+function apiShop(overrides: Partial<ApiShop>): Shop {
+  return makeShop({
     id: "00000000-0000-4000-8000-0000000000a1",
-    name: "麺屋 まる",
-    lat: 35.69,
-    lng: 139.7,
-    postalCode: "160-0022",
-    address: "東京都新宿区",
-    googlePlaceId: "",
     eaten: false,
     rate: 0,
-    favorite: false,
-    category: "ramen",
-    tags: [],
-    links: [],
     ...overrides,
-  };
+  });
 }
 
 const addCommand = {
@@ -33,7 +25,6 @@ const addCommand = {
   lng: 139.7,
   postalCode: "160-0022",
   address: "東京都新宿区",
-  googlePlaceId: "",
   category: "udon" as const,
   tagIds: [],
 };
@@ -224,6 +215,46 @@ describe("useShops", () => {
       { type: "twitter", label: undefined, url: "https://x.com/a" },
       { type: "other", label: "本店", url: "https://b.example/" },
     ]);
+  });
+
+  it("mirrors the server's Google Place ID rules in the optimistic update", async () => {
+    let gets = 0;
+    server.use(
+      http.get("/api/v1/shops", async () => {
+        // Hold the revalidation so the optimistic cache stays observable.
+        if (gets++ > 0) {
+          await delay("infinite");
+        }
+        return HttpResponse.json({
+          shops: [apiShop({ googlePlaceId: "place-1" })],
+        });
+      }),
+      http.put(
+        "/api/v1/auth/shops/00000000-0000-4000-8000-0000000000a1",
+        () => new HttpResponse(null, { status: 200 }),
+      ),
+    );
+    const { result } = renderHookWithProviders(() => useShops());
+    await waitFor(() => expect(result.current.shops).toHaveLength(1));
+    const id = "00000000-0000-4000-8000-0000000000a1";
+    const update = (googlePlaceId: string | undefined) =>
+      act(async () => {
+        await result.current.updateShop(id, {
+          ...addCommand,
+          googlePlaceId,
+          eaten: false,
+          rate: 0,
+        });
+      });
+
+    await update(undefined);
+    expect(result.current.shops?.[0].googlePlaceId).toBe("place-1");
+
+    await update(" place-2 ");
+    expect(result.current.shops?.[0].googlePlaceId).toBe("place-2");
+
+    await update(" ");
+    expect(result.current.shops?.[0].googlePlaceId).toBeUndefined();
   });
 
   it("drops a shop that the update reports as not found", async () => {

@@ -134,7 +134,7 @@ suspend inline fun <reified T> HttpResponse.body(): T = testJson.decodeFromStrin
 inline fun <reified T> encode(value: T): String = testJson.encodeToString(value)
 
 fun addShopRequest(
-    placeId: String = "place-1",
+    placeId: String? = "place-1",
     tagIds: List<String> = emptyList(),
     openedAt: String? = null,
     closedAt: String? = null,
