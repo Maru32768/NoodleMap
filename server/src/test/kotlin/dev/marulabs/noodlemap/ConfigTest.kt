@@ -19,6 +19,7 @@ class ConfigTest {
             googleOAuthClientId = "cid",
             adminEmail = "",
             cookieSecure = false,
+            googlePlacesApiKey = "",
             backup = Config.BackupConfig(snapshotPath = "/data/app.db.bak", s3Bucket = null, s3Prefix = null, awsRegion = null),
         )
     }
@@ -43,6 +44,11 @@ class ConfigTest {
         load("AUTH_COOKIE_SECURE" to "").cookieSecure shouldBe false
         shouldThrow<IllegalStateException> { load("AUTH_COOKIE_SECURE" to "yes") }.message shouldContain "AUTH_COOKIE_SECURE"
         shouldThrow<IllegalStateException> { load("AUTH_COOKIE_SECURE" to "TRUE") }
+    }
+
+    @Test
+    fun `google places api key is optional and trimmed`() {
+        load("GOOGLE_PLACES_API_KEY" to " key ").googlePlacesApiKey shouldBe "key"
     }
 
     @Test

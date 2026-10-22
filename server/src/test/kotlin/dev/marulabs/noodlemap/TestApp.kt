@@ -12,6 +12,7 @@ import dev.marulabs.noodlemap.db.buildDatabase
 import dev.marulabs.noodlemap.generated.models.AddShopRequest
 import dev.marulabs.noodlemap.generated.models.CategorySlug
 import dev.marulabs.noodlemap.generated.models.UpdateShopRequest
+import dev.marulabs.noodlemap.places.PlacesHandler
 import dev.marulabs.noodlemap.shops.ShopHandler
 import io.ktor.client.HttpClient
 import io.ktor.client.request.HttpRequestBuilder
@@ -60,6 +61,7 @@ fun testConfig(dbPath: String, adminEmail: String = ADMIN_EMAIL, cookieSecure: B
     googleOAuthClientId = "test-client",
     adminEmail = adminEmail,
     cookieSecure = cookieSecure,
+    googlePlacesApiKey = "",
     backup = Config.BackupConfig(snapshotPath = "$dbPath.bak", s3Bucket = null, s3Prefix = null, awsRegion = null),
 )
 
@@ -79,11 +81,18 @@ fun withTestDb(adminEmail: String = ADMIN_EMAIL, cookieSecure: Boolean = false, 
 fun testApp(
     adminEmail: String = ADMIN_EMAIL,
     cookieSecure: Boolean = false,
+    placesApiKey: String = "",
+    // Nothing listens on port 9; tests that reach Google pass a local fake server's URL.
+    placesBaseUrl: String = "http://127.0.0.1:9",
     block: suspend ApplicationTestBuilder.(TestDb) -> Unit,
 ) = withTestDb(adminEmail, cookieSecure) { t ->
     testApplication {
         application {
-            installApp(AuthHandler(t.db, GoogleVerifier(t.config.googleOAuthClientId), t.sessions), ShopHandler(t.db, t.sessions))
+            installApp(
+                AuthHandler(t.db, GoogleVerifier(t.config.googleOAuthClientId), t.sessions),
+                ShopHandler(t.db, t.sessions),
+                PlacesHandler(t.sessions, placesApiKey, placesBaseUrl),
+            )
         }
         block(t)
     }

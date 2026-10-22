@@ -17,6 +17,8 @@ union ErrorType {
   "google_auth_failed",
   "session_creation_failed",
   "internal_error",
+  "google_places_not_configured",
+  "google_places_failed",
 }
 
 union FieldErrorType {
@@ -148,6 +150,18 @@ model InternalErrorBody {
   message?: string;
 }
 
+@doc("The server has no Google Places API key configured.")
+model GooglePlacesNotConfiguredErrorBody {
+  type: "google_places_not_configured";
+  message?: string;
+}
+
+@doc("The Google Places API request failed or returned an unusable response.")
+model GooglePlacesFailedErrorBody {
+  type: "google_places_failed";
+  message?: string;
+}
+
 alias ErrorBody =
   InvalidRequestErrorBody |
   GoogleAuthBadRequestErrorBody |
@@ -157,7 +171,9 @@ alias ErrorBody =
   AuthenticationRequiredErrorBody |
   PermissionDeniedErrorBody |
   SessionCreationFailedErrorBody |
-  InternalErrorBody;
+  InternalErrorBody |
+  GooglePlacesNotConfiguredErrorBody |
+  GooglePlacesFailedErrorBody;
 
 model BadRequestResponse<TError> {
   @statusCode statusCode: 400;
@@ -176,6 +192,16 @@ model ForbiddenResponse<TError> {
 
 model InternalServerErrorResponse<TError> {
   @statusCode statusCode: 500;
+  @body body: TError;
+}
+
+model BadGatewayResponse<TError> {
+  @statusCode statusCode: 502;
+  @body body: TError;
+}
+
+model ServiceUnavailableResponse<TError> {
+  @statusCode statusCode: 503;
   @body body: TError;
 }
 
@@ -294,6 +320,31 @@ model UpdateShopRequest {
   tagIds: uuid[];
 }
 
+model PlaceSuggestion {
+  placeId: string;
+  mainText: string;
+  secondaryText?: string;
+}
+
+model PlaceSuggestionsResponse {
+  suggestions: PlaceSuggestion[];
+}
+
+model PlaceDetails {
+  placeId: string;
+  name: string;
+  postalCode: string;
+
+  @doc("Formatted address without the leading country name and postal code.")
+  address: string;
+
+  lat: float64;
+  lng: float64;
+
+  @doc("True when Google reports the place as permanently closed.")
+  closed: boolean;
+}
+
 @get
 @route("/shops")
 op listShops(): OkResponse<ShopsResponse> | InternalServerErrorResponse<InternalErrorBody>;
@@ -332,3 +383,21 @@ op updateShop(
   @path id: uuid,
   @body body: UpdateShopRequest,
 ): OkEmptyResponse | BadRequestResponse<UpdateShopBadRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
+
+@doc("Admin-only Google Places (New) autocomplete proxy. A blank query returns no suggestions.")
+@get
+@route("/auth/google-places/autocomplete")
+op googlePlacesAutocomplete(
+  @query q: string,
+  @doc("Client-generated token grouping an autocomplete session with its details call for billing.")
+  @query sessionToken: string,
+): OkResponse<PlaceSuggestionsResponse> | BadRequestResponse<InvalidRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | InternalServerErrorResponse<InternalErrorBody> | BadGatewayResponse<GooglePlacesFailedErrorBody> | ServiceUnavailableResponse<GooglePlacesNotConfiguredErrorBody>;
+
+@doc("Admin-only Google Places (New) place details proxy.")
+@get
+@route("/auth/google-places/details")
+op googlePlacesDetails(
+  @query placeId: string,
+  @doc("The token used by the autocomplete session this selection ends.")
+  @query sessionToken: string,
+): OkResponse<PlaceDetails> | BadRequestResponse<InvalidRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | InternalServerErrorResponse<InternalErrorBody> | BadGatewayResponse<GooglePlacesFailedErrorBody> | ServiceUnavailableResponse<GooglePlacesNotConfiguredErrorBody>;

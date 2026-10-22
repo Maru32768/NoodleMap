@@ -13,6 +13,8 @@ enum class ErrorType {
     @SerialName("google_auth_failed") GOOGLE_AUTH_FAILED,
     @SerialName("session_creation_failed") SESSION_CREATION_FAILED,
     @SerialName("internal_error") INTERNAL_ERROR,
+    @SerialName("google_places_not_configured") GOOGLE_PLACES_NOT_CONFIGURED,
+    @SerialName("google_places_failed") GOOGLE_PLACES_FAILED,
 }
 
 /** Field-level error kind. Values mirror TypeSpec `FieldErrorType`. */
@@ -82,6 +84,12 @@ sealed class DomainException(
 
     class SessionCreationFailed(cause: Throwable? = null) :
         DomainException(HttpStatusCode.InternalServerError, ErrorType.SESSION_CREATION_FAILED, "failed to create session", cause = cause)
+
+    class GooglePlacesNotConfigured :
+        DomainException(HttpStatusCode.ServiceUnavailable, ErrorType.GOOGLE_PLACES_NOT_CONFIGURED, "google places is not configured")
+
+    class GooglePlacesFailed(cause: Throwable? = null) :
+        DomainException(HttpStatusCode.BadGateway, ErrorType.GOOGLE_PLACES_FAILED, "google places request failed", cause = cause)
 
     // --- Domain-specific 400s ported from shops/handler.go ---
 

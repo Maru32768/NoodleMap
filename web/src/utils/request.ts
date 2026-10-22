@@ -206,6 +206,8 @@ const errorTypes = new Set<ErrorType>([
   "google_auth_failed",
   "session_creation_failed",
   "internal_error",
+  "google_places_not_configured",
+  "google_places_failed",
 ]);
 
 function getErrorType(body: ApiErrorBody | undefined): ErrorType | undefined {
