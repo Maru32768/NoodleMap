@@ -161,9 +161,12 @@ export default function AdminPage() {
 
   // Counts stay undefined until the shops load so the UI shows a placeholder, not 0.
   const total = shops?.length;
-  const eatenCount = shops?.filter((shop) => shop.eaten).length;
-  const wishCount = shops?.filter(
-    (shop) => !shop.eaten && shop.lifecycleStatus !== "closed",
+  // Same rules as the visit filter, so a count matches its filtered list.
+  const eatenCount = shops?.filter((shop) =>
+    matchesVisitFilter(shop, "eaten"),
+  ).length;
+  const wishCount = shops?.filter((shop) =>
+    matchesVisitFilter(shop, "wish"),
   ).length;
   const editShop = shops?.find((shop) => shop.id === editId);
   const mapPaneDisplay = {
