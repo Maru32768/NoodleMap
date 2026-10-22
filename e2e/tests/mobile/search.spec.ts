@@ -9,7 +9,10 @@ test("guest searches, filters and opens a shop from the mobile sheet", async ({ 
   await expect(page.getByRole("complementary")).toBeHidden();
 
   const count = (n: number) => page.getByText(new RegExp(`^${n}\\s*件 / SHOPS$`));
-  await page.getByPlaceholder("店名・読み・エリア・タグで検索...").fill(id);
+  await page
+    .getByPlaceholder("店名・読み・エリア・タグで検索...")
+    .filter({ visible: true })
+    .fill(id);
   await expect(count(2)).toBeVisible();
 
   await page.getByRole("button", { name: "フィルター" }).click();
