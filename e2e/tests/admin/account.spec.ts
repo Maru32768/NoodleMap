@@ -27,12 +27,23 @@ test("a user revokes their other sessions from マイページ", async ({ page, 
   await expect(rows).toHaveCount(1);
   await expect(rows.first()).toContainText("この端末");
 
-  for (const [stale, status] of [...others.map((t) => [t, 401] as const), [token, 200] as const]) {
+  const meStatus = async (sessionToken: string) => {
     const request = await playwright.request.newContext({
       baseURL,
-      extraHTTPHeaders: { cookie: `${SESSION_COOKIE}=${stale}` },
+      extraHTTPHeaders: { cookie: `${SESSION_COOKIE}=${sessionToken}` },
     });
-    expect((await request.get("/api/v1/auth/me")).status()).toBe(status);
+    const status = (await request.get("/api/v1/auth/me")).status();
     await request.dispose();
+    return status;
+  };
+  for (const other of others) {
+    expect(await meStatus(other)).toBe(401);
   }
+  expect(await meStatus(token)).toBe(200);
+
+  // Revoking this device is a logout that lands on /search, not on the login redirect.
+  await rows.first().getByRole("button", { name: "ログアウト", exact: true }).click();
+  await expect(page).toHaveURL(/\/search$/);
+  await expect(page.getByRole("link", { name: "マイページ" })).toHaveCount(0);
+  expect(await meStatus(token)).toBe(401);
 });

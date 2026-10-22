@@ -1,3 +1,4 @@
+import { useCurrentUser } from "@/features/auth/use-current-user.ts";
 import type { components } from "@/generated/api.ts";
 import {
   ApiError,
@@ -24,21 +25,42 @@ type RevokeOtherSessionsErrorBody = ApiErrorBodyFor<
 >;
 
 export function useSessions() {
-  const resp = useSWR(["/api/v1/auth/sessions"], () => {
-    return withApiError("/api/v1/auth/sessions", async () => {
-      const res = await apiClient.GET("/api/v1/auth/sessions");
-      if (res.error) {
-        throwApiError("/api/v1/auth/sessions", res.response, res.error);
-      }
+  const currentUser = useCurrentUser();
+  // Keyed by user so a cached list never outlives a logout/login as someone else.
+  const key =
+    currentUser.type === "guest"
+      ? null
+      : (["/api/v1/auth/sessions", currentUser.id] as const);
+  const resp = useSWR(
+    key,
+    () => {
+      return withApiError("/api/v1/auth/sessions", async () => {
+        const res = await apiClient.GET("/api/v1/auth/sessions");
+        if (res.error) {
+          throwApiError("/api/v1/auth/sessions", res.response, res.error);
+        }
 
-      return res.data.sessions;
-    }).catch((err: ApiError) => {
-      toastApiError(err, {
-        fallbackTitle: "ログイン中の端末を読み込めませんでした",
+        return res.data.sessions;
       });
-      throw err;
-    });
-  });
+    },
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      shouldRetryOnError: (err) => {
+        return !(err instanceof ApiError && err.status === 401);
+      },
+      // Without data the page shows the failure inline; toast only when a
+      // revalidation fails behind a list that stays on screen.
+      onError: (err: ApiError) => {
+        if (resp.data) {
+          toastApiError(err, {
+            id: "sessions-revalidate-error",
+            fallbackTitle: "ログイン中の端末を読み込めませんでした",
+          });
+        }
+      },
+    },
+  );
   const { mutate } = resp;
 
   const revokeSession = useCallback(
@@ -49,7 +71,8 @@ export function useSessions() {
           const res = await apiClient.DELETE("/api/v1/auth/sessions/{id}", {
             params: { path: { id } },
           });
-          if (res.error) {
+          // 404: already revoked elsewhere or expired, which is the goal anyway.
+          if (res.error && res.response.status !== 404) {
             return apiError(
               "/api/v1/auth/sessions/{id}",
               res.response,
@@ -88,6 +111,13 @@ export function useSessions() {
     get sessions() {
       return resp.data;
     },
+    get error() {
+      return resp.error as ApiError | undefined;
+    },
+    get isValidating() {
+      return resp.isValidating;
+    },
+    mutate,
     revokeSession,
     revokeOtherSessions,
   };

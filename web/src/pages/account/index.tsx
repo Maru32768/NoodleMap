@@ -18,15 +18,19 @@ function formatTime(iso: string) {
 
 export default function AccountPage() {
   const currentUser = useCurrentUser();
-  const { logout } = useAuth();
-  const { sessions, revokeSession, revokeOtherSessions } = useSessions();
+  const { clearCurrentUser } = useAuth();
+  const {
+    sessions,
+    error,
+    isValidating,
+    mutate,
+    revokeSession,
+    revokeOtherSessions,
+  } = useSessions();
   const navigate = useNavigate();
 
   const handleRevoke = async (session: AuthSession) => {
-    // Revoking this device is a logout: go through the auth hook so the app state clears too.
-    const result = session.current
-      ? await logout()
-      : await revokeSession(session.id);
+    const result = await revokeSession(session.id);
     if (!result.ok) {
       toastApiError(result.error, {
         fallbackTitle: "ログアウトできませんでした",
@@ -35,7 +39,10 @@ export default function AccountPage() {
     }
     toaster.success({ description: "ログアウトしました" });
     if (session.current) {
+      // The server already cleared the cookie. Leave /account before the guest
+      // state re-renders it, or ProtectedRoute would bounce to /login first.
       navigate(SEARCH_PATH, { replace: true });
+      await clearCurrentUser();
     }
   };
 
@@ -152,8 +159,32 @@ export default function AccountPage() {
                 </Box>
               ))}
             </Box>
+          ) : error ? (
+            // Error wins over loading so SWR's automatic retries don't flicker the alert.
+            <Box
+              role="alert"
+              aria-busy={isValidating}
+              display="flex"
+              flexWrap="wrap"
+              alignItems="center"
+              justifyContent="center"
+              gap="0.75rem"
+              py="1rem"
+              color="nm.inkMuted"
+              fontSize="0.8125rem"
+            >
+              ログイン中の端末を読み込めませんでした
+              <LoadableButton
+                size="sm"
+                variant="outline"
+                loading={isValidating}
+                onClick={() => mutate()}
+              >
+                再試行
+              </LoadableButton>
+            </Box>
           ) : (
-            <Loading size="lg" />
+            <Loading size="lg" aria-label="読み込み中" />
           )}
         </Box>
       </Box>

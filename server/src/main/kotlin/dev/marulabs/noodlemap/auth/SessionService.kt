@@ -35,11 +35,13 @@ class SessionService(
     fun listSessions(call: ApplicationCall): List<AuthSession> {
         val current = requireSession(call)
         return sessions.findValidSessionsByUserId(userId = current.user_id, now = SessionTime.now()).executeAsList().map {
+            // An unreadable timestamp falls back to the epoch: the row stays listed and revocable.
+            val lastUsed = SessionTime.parseOrNull(it.expires_at)?.minus(TTL) ?: Instant.EPOCH
             AuthSession(
                 id = it.id.toString(),
                 userAgent = it.user_agent,
-                createdAt = SessionTime.parse(it.created_at).toString(),
-                lastUsedAt = SessionTime.parse(it.expires_at).minus(TTL).toString(),
+                createdAt = (SessionTime.parseOrNull(it.created_at) ?: Instant.EPOCH).toString(),
+                lastUsedAt = lastUsed.toString(),
                 current = it.id == current.id,
             )
         }
