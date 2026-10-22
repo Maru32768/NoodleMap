@@ -15,7 +15,7 @@ class OgCardTest {
     private val shop = Shop(
         id = "0f8e5d0c-1111-4222-8333-444455556666", name = "麺屋", lat = 35.0, lng = 139.0,
         postalCode = "160-0023", address = "日本、〒160-0023 東京都新宿区西新宿1-1", googlePlaceId = "p",
-        eaten = true, rate = 70.0, favorite = false, category = CategorySlug.RAMEN, tags = listOf(tag),
+        eaten = true, rate = 70.0, favorite = false, category = CategorySlug.RAMEN, tags = listOf(tag), links = emptyList(),
     )
 
     private fun hash(s: Shop, day: LocalDate = today) = OgCard.of(s, day).hash()
