@@ -38,6 +38,11 @@ export type Shop = ApiShop & {
   readonly eatenStatus: ShopEatenStatus;
 };
 
+// Mirrors the server's favorite rule (ShopHandler.isFavorite); only for optimistic cache updates.
+export function isFavorite(eaten: boolean, rate: number): boolean {
+  return eaten && rate >= 80;
+}
+
 // Attaches the cached parsed dates used by the status helpers. Run wherever a
 // raw API shop enters the SWR cache (fetch, optimistic add, optimistic update).
 export function decorateShop(shop: ApiShop): Shop {
@@ -167,6 +172,7 @@ export function useShops(config?: SWRConfiguration<Shop[]>) {
             copy[i] = decorateShop({
               ...current[i],
               ...shopFields,
+              favorite: isFavorite(command.eaten, command.rate),
             });
             return copy;
           }, true);

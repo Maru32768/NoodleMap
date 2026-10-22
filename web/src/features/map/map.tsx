@@ -116,7 +116,7 @@ function toGeoJson(shops: Shop[]) {
   return {
     type: "FeatureCollection" as const,
     features: shops.map((shop) => {
-      const highRate = (shop.rate ?? 0) >= 80;
+      const highRate = shop.favorite;
       const nearestKm = nearestKmMap.get(shop.id) ?? 99;
       const state: State =
         shop.lifecycleStatus === "closed"

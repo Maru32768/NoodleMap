@@ -34,7 +34,7 @@ export function makeShop(overrides: Partial<ApiShop> = {}): Shop {
     googlePlaceId: "",
     eaten: true,
     rate: 80,
-    favorite: false,
+    favorite: true,
     category: "ramen",
     tags: [],
     ...overrides,
