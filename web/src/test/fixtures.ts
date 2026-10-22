@@ -1,4 +1,9 @@
-import { decorateShop, Shop, Tag } from "@/features/shops/api/use-shops.ts";
+import {
+  decorateShop,
+  isFavorite,
+  Shop,
+  Tag,
+} from "@/features/shops/api/use-shops.ts";
 import type { components } from "@/generated/api.ts";
 
 type ApiShop = components["schemas"]["Shop"];
@@ -24,6 +29,8 @@ export function makeTag(overrides: Partial<Tag> = {}): Tag {
 // Builds an API shop and derives the cached date/status fields exactly as the
 // app does after fetching, so lifecycle follows openedAt/closedAt.
 export function makeShop(overrides: Partial<ApiShop> = {}): Shop {
+  const eaten = overrides.eaten ?? true;
+  const rate = overrides.rate ?? 80;
   return decorateShop({
     id: fixtureUuid(),
     name: "麺屋 まる",
@@ -32,9 +39,9 @@ export function makeShop(overrides: Partial<ApiShop> = {}): Shop {
     postalCode: "160-0022",
     address: "東京都新宿区新宿3-1-1",
     googlePlaceId: "",
-    eaten: true,
-    rate: 80,
-    favorite: true,
+    eaten,
+    rate,
+    favorite: isFavorite(eaten, rate),
     category: "ramen",
     tags: [],
     ...overrides,

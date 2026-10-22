@@ -145,7 +145,11 @@ function FavPicker({
         max={100}
         step={1}
         value={rate}
-        onChange={(e) => onChange(Number(e.target.value))}
+        onChange={(e) => {
+          // An empty or partial entry keeps the previous rate instead of becoming 0.
+          const v = e.target.valueAsNumber;
+          if (!Number.isNaN(v)) onChange(Math.min(100, Math.max(0, v)));
+        }}
         width="72px"
         fontFamily="mono"
         fontSize="13px"
@@ -497,14 +501,19 @@ export function ShopEditModal({
                     alignItems="center"
                     justifyContent="space-between"
                   >
-                    <Box
-                      fontSize="12px"
-                      fontFamily="mono"
-                      letterSpacing="0.1em"
-                      color="nm.inkMuted"
-                      textTransform="uppercase"
-                    >
-                      お気に入り度
+                    <Box>
+                      <Box
+                        fontSize="12px"
+                        fontFamily="mono"
+                        letterSpacing="0.1em"
+                        color="nm.inkMuted"
+                        textTransform="uppercase"
+                      >
+                        評価
+                      </Box>
+                      <Box fontSize="11px" color="nm.inkMuted" mt="2px">
+                        80以上でお気に入り
+                      </Box>
                     </Box>
                     <FavPicker
                       rate={draft.rate}
