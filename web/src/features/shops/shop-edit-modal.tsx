@@ -148,7 +148,9 @@ function FavPicker({
         onChange={(e) => {
           // An empty or partial entry keeps the previous rate instead of becoming 0.
           const v = e.target.valueAsNumber;
-          if (!Number.isNaN(v)) onChange(Math.min(100, Math.max(0, v)));
+          if (!Number.isNaN(v)) {
+            onChange(Math.min(100, Math.max(0, v)));
+          }
         }}
         width="72px"
         fontFamily="mono"
