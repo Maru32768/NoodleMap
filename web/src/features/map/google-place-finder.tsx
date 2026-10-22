@@ -2,6 +2,7 @@ import { Map, MapHandle } from "@/features/map/map.tsx";
 import { DEFAULT_MAP_VIEW } from "@/features/search/search-state-storage.ts";
 import type { Shop } from "@/features/shops/api/use-shops.ts";
 import type { components } from "@/generated/api.ts";
+import { randomId } from "@/utils/random-id.ts";
 import {
   ApiError,
   ApiErrorBodyFor,
@@ -55,25 +56,15 @@ function fetchDetails(placeId: string, sessionToken: string) {
   );
 }
 
-// randomUUID needs a secure context (e.g. not plain-HTTP LAN dev); fall back to random hex there.
-function newSessionToken(): string {
-  return (
-    crypto.randomUUID?.() ??
-    Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) =>
-      b.toString(16).padStart(2, "0"),
-    ).join("")
-  );
-}
-
 interface Props {
   onSelect: (res: FindResult) => void;
 }
 
 export function GooglePlaceFinder({ onSelect }: Props) {
   // Groups the autocomplete calls and the closing details call into one Google billing session.
-  const [initialSessionToken] = useState(newSessionToken);
+  const [initialSessionToken] = useState(randomId);
   const sessionTokenRef = useRef(initialSessionToken);
-  // Only the latest request may update state, so slow stale responses are dropped.
+  // Only the latest input/selection may update state, so slow stale responses are dropped.
   const latestQueryRef = useRef(0);
   const latestSelectionRef = useRef(0);
   const mapRef = useRef<MapHandle>(null);
@@ -99,25 +90,28 @@ export function GooglePlaceFinder({ onSelect }: Props) {
     toastApiError(error);
   };
 
-  const querySuggestions = useDebouncedCallback(async (input: string) => {
-    const query = ++latestQueryRef.current;
-    const res = await fetchSuggestions(input, sessionTokenRef.current);
-    if (query !== latestQueryRef.current) {
-      return;
-    }
-    setIsLoading(false);
-    if (!res.ok) {
-      handleError(res.error);
-      return;
-    }
-    setSuggestions(res.data);
-  }, 200);
+  const querySuggestions = useDebouncedCallback(
+    async (input: string, query: number) => {
+      const res = await fetchSuggestions(input, sessionTokenRef.current);
+      if (query !== latestQueryRef.current) {
+        return;
+      }
+      setIsLoading(false);
+      if (!res.ok) {
+        handleError(res.error);
+        return;
+      }
+      setSuggestions(res.data);
+    },
+    200,
+  );
 
   const selectPlace = async (placeId: string) => {
     const selection = ++latestSelectionRef.current;
     // A details call ends the session; the next search starts a new one.
+    querySuggestions.cancel();
     const sessionToken = sessionTokenRef.current;
-    sessionTokenRef.current = newSessionToken();
+    sessionTokenRef.current = randomId();
     const res = await fetchDetails(placeId, sessionToken);
     if (selection !== latestSelectionRef.current) {
       return;
@@ -155,9 +149,10 @@ export function GooglePlaceFinder({ onSelect }: Props) {
           inputValue={inputText}
           onInputChange={(x) => {
             setInputText(x);
+            const query = ++latestQueryRef.current;
+            setIsLoading(x !== "");
             if (x !== "") {
-              setIsLoading(true);
-              void querySuggestions(x);
+              void querySuggestions(x, query);
             }
           }}
           menuIsOpen={isSelectMenuOpen}

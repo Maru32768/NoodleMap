@@ -95,7 +95,9 @@ test("add form falls back to manual entry when Google Places is not configured",
   await expect(
     dialog.getByText("Google Place 検索を利用できません。店舗情報はフォームに直接入力できます。"),
   ).toBeVisible();
-  await dialog.locator('label:has-text("店名") + input').fill("手入力できる");
+  const name = dialog.locator('label:has-text("店名") + input');
+  await name.fill("手入力できる");
+  await expect(name).toHaveValue("手入力できる");
 });
 
 test("admin fills the add form from a Google Place search", async ({ page }) => {

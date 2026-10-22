@@ -5,10 +5,7 @@ import {
   FindResult,
   GooglePlaceFinder,
 } from "@/features/map/google-place-finder.tsx";
-import {
-  AddShopCommand,
-  useTags,
-} from "@/features/shops/api/use-shops.ts";
+import { AddShopCommand, useTags } from "@/features/shops/api/use-shops.ts";
 import { TagSelector } from "@/features/shops/tag-chips.tsx";
 import { Box, Input } from "@chakra-ui/react";
 import { useState } from "react";
@@ -120,8 +117,9 @@ export function AddModal({
     setPlaceResult(res);
     setDraft((d) => ({
       ...d,
-      name: res.name,
-      nameKana: undefined,
+      // Google may omit the name; keep what the admin typed (and its reading) rather than blanking it.
+      name: res.name || d.name,
+      nameKana: res.name ? undefined : d.nameKana,
       address: res.address,
       postalCode: res.postalCode,
       lat: res.lat,
