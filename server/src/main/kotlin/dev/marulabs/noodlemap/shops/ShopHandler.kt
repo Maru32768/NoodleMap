@@ -117,13 +117,15 @@ class ShopHandler(
         // Missing (older clients) keeps the stored reading; blank clears it ('' -> NULL in SQL).
         val nameKana = req.nameKana?.let { normalizeNameKana(it) ?: "" }
         db.transaction {
-            requireShopExists(shopId)
-            rejectingDuplicatePlaceId {
+            // Write first and judge existence by rows affected: a SELECT before the first write
+            // in a deferred WAL transaction can fail with SQLITE_BUSY_SNAPSHOT under contention.
+            val updated = rejectingDuplicatePlaceId {
                 db.shopsQueries.updateShop(
                     req.name, nameKana, req.lat, req.lng, req.postalCode, req.address,
                     ShopDate.encode(req.openedAt), ShopDate.encode(req.closedAt), req.googlePlaceId, req.category.value, shopId,
-                )
+                ).value
             }
+            if (updated == 0L) throw DomainException.NotFound()
             if (req.eaten) {
                 db.eatenShopsQueries.upsertEatenShop(UUID.randomUUID(), shopId, req.rate)
             } else {
@@ -136,21 +138,23 @@ class ShopHandler(
     }
 
     override suspend fun deleteShop(id: String, call: ApplicationCall) {
-        sessions.requireAdmin(call)
+        // Same order as updateShop: auth (401) -> bad id (400) -> admin (403).
+        val user = sessions.requireUser(call)
         val shopId = try {
             UUID.fromString(id)
         } catch (_: IllegalArgumentException) {
             throw DomainException.InvalidRequest("invalid id")
         }
+        if (!user.isAdmin) throw DomainException.PermissionDenied()
 
         // TODO: 訪問ログ実装時、訪問ログを持つ店舗は削除不可 (409) にする
         db.transaction {
-            requireShopExists(shopId)
-            // eaten_shops / shop_images have no ON DELETE CASCADE, so children go first.
+            // eaten_shops / shop_images have no ON DELETE CASCADE, so children go first. An unknown
+            // id deletes nothing; it is detected by rows affected (no SELECT before the first write).
             db.eatenShopsQueries.deleteEatenShopByShopId(shopId)
             db.shopsTagsQueries.deleteShopTagsByShopId(shopId)
             db.shopImagesQueries.deleteShopImagesByShopId(shopId)
-            db.shopsQueries.deleteShop(shopId)
+            if (db.shopsQueries.deleteShop(shopId).value == 0L) throw DomainException.NotFound()
         }
 
         call.respond(HttpStatusCode.NoContent)
@@ -209,14 +213,10 @@ class ShopHandler(
         return kana
     }
 
-    private fun requireShopExists(shopId: UUID) {
-        if (db.shopsQueries.findShopId(shopId).executeAsOneOrNull() == null) throw DomainException.NotFound()
-    }
-
     /** `google_place_id` is the only UNIQUE column on `shops`, so a UNIQUE violation there is a duplicate place id. */
-    private inline fun rejectingDuplicatePlaceId(write: () -> Unit) {
+    private inline fun <T> rejectingDuplicatePlaceId(write: () -> T): T {
         try {
-            write()
+            return write()
         } catch (e: SQLiteException) {
             if (e.resultCode == SQLiteErrorCode.SQLITE_CONSTRAINT_UNIQUE) throw DomainException.DuplicateGooglePlaceId()
             throw e
