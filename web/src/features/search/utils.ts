@@ -47,7 +47,6 @@ export function filterShops(
   },
 ): Shop[] {
   const { query, filters } = opts;
-  const q = query.trim().toLowerCase();
 
   return shops.filter((r) => {
     const visitMatch =
@@ -91,15 +90,34 @@ export function filterShops(
       }
     }
 
-    if (q) {
-      const hay = [r.name, r.address].filter(Boolean).join(" ").toLowerCase();
-      if (!hay.includes(q)) {
-        return false;
-      }
-    }
-
-    return true;
+    return matchesQuery(r, query);
   });
+}
+
+// NFKC folds half-width kana and full-width ASCII; katakana is then mapped to
+// hiragana so 「ラーメン」, 「ﾗｰﾒﾝ」 and 「らーめん」 all compare equal.
+export function normalizeForSearch(s: string): string {
+  return s
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/[ァ-ヶ]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0x60));
+}
+
+// Free-text match over name, reading (読み), address and tag labels.
+export function matchesQuery(shop: Shop, query: string): boolean {
+  const q = normalizeForSearch(query).trim();
+  if (!q) {
+    return true;
+  }
+  const hay = [
+    shop.name,
+    shop.nameKana,
+    shop.address,
+    ...shop.tags.map((tag) => tag.label),
+  ]
+    .filter(Boolean)
+    .join(" ");
+  return normalizeForSearch(hay).includes(q);
 }
 
 export function sortShops(

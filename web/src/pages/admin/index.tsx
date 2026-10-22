@@ -6,7 +6,7 @@ import { AdminMap } from "@/features/admin/admin-map.tsx";
 import { AdminTable } from "@/features/admin/admin-table.tsx";
 import { MobileShopList } from "@/features/admin/mobile-shop-list.tsx";
 import { TagManagementModal } from "@/features/admin/tag-management-modal.tsx";
-import type { CategoryType } from "@/features/search/utils.ts";
+import { CategoryType, matchesQuery } from "@/features/search/utils.ts";
 import {
   isDuplicatePlaceIdError,
   UpdateShopCommand,
@@ -16,6 +16,7 @@ import {
   ShopEditDraft,
   ShopEditModal,
 } from "@/features/shops/shop-edit-modal.tsx";
+import { ShopsLoadState } from "@/features/shops/shops-load-state.tsx";
 import { toastApiError } from "@/utils/toast.ts";
 import { Box, Input, Span } from "@chakra-ui/react";
 import { useCallback, useDeferredValue, useState } from "react";
@@ -150,14 +151,8 @@ export default function AdminPage() {
 
   const filtered =
     shops?.filter((shop) => {
-      if (deferredKeyword) {
-        const kw = deferredKeyword.toLowerCase();
-        if (
-          !shop.name.toLowerCase().includes(kw) &&
-          !shop.address.toLowerCase().includes(kw)
-        ) {
-          return false;
-        }
+      if (!matchesQuery(shop, deferredKeyword)) {
+        return false;
       }
       if (categoryFilter !== "all") {
         if (shop.category !== categoryFilter) {
@@ -182,6 +177,10 @@ export default function AdminPage() {
     shops?.filter((shop) => !shop.eaten && shop.lifecycleStatus !== "closed")
       .length ?? 0;
   const editShop = shops?.find((shop) => shop.id === editId);
+  const mapPaneDisplay = {
+    base: mobileView === "map" ? "block" : "none",
+    lg: "block",
+  };
 
   const handleEdit = (id: string, tab?: "images") => {
     setEditId(id);
@@ -196,6 +195,7 @@ export default function AdminPage() {
   const handleSave = async (draft: ShopEditDraft) => {
     const cmd: UpdateShopCommand = {
       name: draft.name,
+      nameKana: draft.nameKana,
       lat: draft.lat,
       lng: draft.lng,
       postalCode: draft.postalCode,
@@ -511,7 +511,7 @@ export default function AdminPage() {
         overflow="hidden"
       >
         {/* Map pane */}
-        {shops && (
+        {shops ? (
           <AdminMap
             shops={shops}
             filtered={filtered}
@@ -520,11 +520,12 @@ export default function AdminPage() {
             addingMode={addingMode}
             onMapClick={handleMapClick}
             draftLatLng={draftLatLng}
-            display={{
-              base: mobileView === "map" ? "block" : "none",
-              lg: "block",
-            }}
+            display={mapPaneDisplay}
           />
+        ) : (
+          <Box display={mapPaneDisplay} bg="nm.bgSoft">
+            <ShopsLoadState />
+          </Box>
         )}
 
         {/* List pane */}
@@ -557,7 +558,7 @@ export default function AdminPage() {
               setVisitFilter("all");
             }}
           />
-          {shops && (
+          <ShopsLoadState>
             <Box h="100%" minH="0" overflow="hidden">
               <Box
                 display={{ base: "none", md: "block" }}
@@ -583,7 +584,7 @@ export default function AdminPage() {
                 />
               </Box>
             </Box>
-          )}
+          </ShopsLoadState>
         </Box>
       </Box>
 

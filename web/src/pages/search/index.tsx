@@ -218,6 +218,7 @@ export default function SearchPage() {
     async (draft: ShopEditDraft) => {
       const cmd: UpdateShopCommand = {
         name: draft.name,
+        nameKana: draft.nameKana,
         lat: draft.lat,
         lng: draft.lng,
         postalCode: draft.postalCode,

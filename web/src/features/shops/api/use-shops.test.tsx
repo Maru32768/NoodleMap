@@ -5,7 +5,7 @@ import {
 import type { components } from "@/generated/api.ts";
 import { renderHookWithProviders } from "@/test/render.tsx";
 import { server } from "@/test/server.ts";
-import { act, screen, waitFor } from "@testing-library/react";
+import { act, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
 
@@ -66,18 +66,23 @@ describe("useShops", () => {
     expect(badDate.lifecycleStatus).toBe("open");
   });
 
-  it("shows a load-failure toast when the request fails", async () => {
+  it("exposes the load error instead of shops when the request fails", async () => {
     server.use(
       http.get("/api/v1/shops", () =>
         HttpResponse.json({ type: "internal_error" }, { status: 500 }),
       ),
     );
 
-    renderHookWithProviders(() => useShops({ shouldRetryOnError: false }));
+    const { result } = renderHookWithProviders(() =>
+      useShops({ shouldRetryOnError: false }),
+    );
 
-    expect(
-      await screen.findByText("店舗一覧を読み込めませんでした"),
-    ).toBeInTheDocument();
+    expect(result.current.isLoading).toBe(true);
+    await waitFor(() =>
+      expect(result.current.error).toMatchObject({ status: 500 }),
+    );
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.shops).toBeUndefined();
   });
 
   it("appends an added shop to the cached list", async () => {

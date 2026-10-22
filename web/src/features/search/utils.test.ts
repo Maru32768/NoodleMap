@@ -1,6 +1,8 @@
 import {
   favToHearts,
   filterShops,
+  matchesQuery,
+  normalizeForSearch,
   SearchFilters,
   sortShops,
 } from "@/features/search/utils.ts";
@@ -160,6 +162,44 @@ describe("filterShops", () => {
     expect(filterNames(shops, {}, "  ramen ")).toEqual(["Ramen Taro"]);
     expect(filterNames(shops, {}, "高松")).toEqual(["うどん花子"]);
     expect(filterNames(shops, {}, "大阪")).toEqual([]);
+  });
+
+  it("matches the query against the reading and tag labels across kana forms", () => {
+    const shops = [
+      makeShop({ name: "麺屋 一燈", nameKana: "めんや いっとう" }),
+      makeShop({ name: "Udon", tags: [makeTag({ label: "ラーメン" })] }),
+    ];
+
+    expect(filterNames(shops, {}, "いっとう")).toEqual(["麺屋 一燈"]);
+    expect(filterNames(shops, {}, "イットウ")).toEqual(["麺屋 一燈"]);
+    expect(filterNames(shops, {}, "らーめん")).toEqual(["Udon"]);
+    expect(filterNames(shops, {}, "ﾗｰﾒﾝ")).toEqual(["Udon"]);
+  });
+});
+
+describe("normalizeForSearch", () => {
+  it.each([
+    ["ラーメン", "らーめん"],
+    ["ﾗｰﾒﾝ", "らーめん"],
+    ["ガッツリ", "がっつり"],
+    ["ヴ", "ゔ"],
+    ["ＲＡＭＥＮ　１", "ramen 1"],
+    ["漢字", "漢字"],
+  ])("normalizes %s to %s", (input, expected) => {
+    expect(normalizeForSearch(input)).toBe(expected);
+  });
+});
+
+describe("matchesQuery", () => {
+  it("treats a blank query as matching everything", () => {
+    expect(matchesQuery(makeShop(), "  ")).toBe(true);
+  });
+
+  it("ignores a missing reading", () => {
+    const shop = makeShop({ name: "Ramen", nameKana: undefined });
+
+    expect(matchesQuery(shop, "ramen")).toBe(true);
+    expect(matchesQuery(shop, "undefined")).toBe(false);
   });
 });
 

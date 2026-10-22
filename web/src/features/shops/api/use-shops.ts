@@ -92,12 +92,8 @@ export function useShops(config?: SWRConfiguration<Shop[]>) {
           throwApiError("/api/v1/shops", res.response, res.error);
         }
 
+        // Load failures are shown inline by ShopsLoadState, not toasted.
         return res.data.shops.map(decorateShop);
-      }).catch((err: ApiError) => {
-        toastApiError(err, {
-          fallbackTitle: "店舗一覧を読み込めませんでした",
-        });
-        throw err;
       });
     },
     {
@@ -187,6 +183,12 @@ export function useShops(config?: SWRConfiguration<Shop[]>) {
   return {
     get shops() {
       return resp.data;
+    },
+    get isLoading() {
+      return resp.isLoading;
+    },
+    get error() {
+      return resp.error as ApiError | undefined;
     },
     addShop,
     updateShop,

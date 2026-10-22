@@ -331,6 +331,13 @@ export function AddModal({
                 />
               </Box>
               <Box gridColumn="span 2">
+                <FieldLabel>読み（ひらがな）</FieldLabel>
+                <FormInput
+                  value={draft.nameKana ?? ""}
+                  onChange={(v) => set("nameKana", v)}
+                />
+              </Box>
+              <Box gridColumn="span 2">
                 <FieldLabel>住所</FieldLabel>
                 <FormInput
                   value={draft.address}

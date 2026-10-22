@@ -15,6 +15,7 @@ import { useState } from "react";
 export interface ShopEditDraft {
   id: string;
   name: string;
+  nameKana?: string;
   address: string;
   postalCode: string;
   lat: number;
@@ -184,6 +185,7 @@ export function ShopEditModal({
   const [draft, setDraft] = useState<ShopEditDraft>(() => ({
     id: shop.id,
     name: shop.name,
+    nameKana: shop.nameKana,
     address: shop.address,
     postalCode: shop.postalCode,
     lat: shop.lat,
@@ -389,6 +391,13 @@ export function ShopEditModal({
                 <FormInput
                   value={draft.name}
                   onChange={(v) => set("name", v)}
+                />
+              </Box>
+              <Box gridColumn="span 2">
+                <FieldLabel>読み（ひらがな）</FieldLabel>
+                <FormInput
+                  value={draft.nameKana ?? ""}
+                  onChange={(v) => set("nameKana", v)}
                 />
               </Box>
               <Box gridColumn="span 2">
