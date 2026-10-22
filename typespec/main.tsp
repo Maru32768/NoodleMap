@@ -278,8 +278,8 @@ model AddShopRequest {
 model UpdateShopRequest {
   name: string;
 
-  @doc("Required because the update replaces the whole shop; null clears the reading.")
-  nameKana: string | null;
+  @doc("Omit to keep the stored reading (older clients); a blank string clears it.")
+  nameKana?: string;
 
   lat: float64;
   lng: float64;

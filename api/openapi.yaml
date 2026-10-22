@@ -657,7 +657,6 @@ components:
       type: object
       required:
         - name
-        - nameKana
         - lat
         - lng
         - postalCode
@@ -672,8 +671,7 @@ components:
           type: string
         nameKana:
           type: string
-          nullable: true
-          description: Required because the update replaces the whole shop; null clears the reading.
+          description: Omit to keep the stored reading (older clients); a blank string clears it.
         lat:
           type: number
           format: double

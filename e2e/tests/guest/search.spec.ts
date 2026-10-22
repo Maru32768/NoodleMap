@@ -19,7 +19,7 @@ test("guest searches, filters and opens a shop on the search page", async ({ pag
   const card = (name: string) => sidebar.getByText(name, { exact: true });
   const count = (n: number) => sidebar.getByText(new RegExp(`^${n}\\s*件 / SHOPS`));
 
-  await sidebar.getByPlaceholder("店名、エリアで検索...").fill(id);
+  await sidebar.getByPlaceholder("店名・読み・エリア・タグで検索...").fill(id);
   await expect(count(3)).toBeVisible();
   for (const shop of [eatenRamen, wishRamen, wishUdon]) {
     await expect(card(shop.name)).toBeVisible();
@@ -42,11 +42,11 @@ test("guest searches, filters and opens a shop on the search page", async ({ pag
   await expect(card(eatenRamen.name)).toBeVisible();
   await chip(tag.label).click();
 
-  await sidebar.getByPlaceholder("店名、エリアで検索...").fill(`${id} 讃岐`);
+  await sidebar.getByPlaceholder("店名・読み・エリア・タグで検索...").fill(`${id} 讃岐`);
   await expect(count(1)).toBeVisible();
   await expect(card(wishUdon.name)).toBeVisible();
 
-  await sidebar.getByPlaceholder("店名、エリアで検索...").fill(id);
+  await sidebar.getByPlaceholder("店名・読み・エリア・タグで検索...").fill(id);
   await card(eatenRamen.name).click();
   const favorite = page.getByText("お気に入り度 - Favorite");
   await expect(favorite).toBeVisible();

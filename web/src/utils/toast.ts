@@ -11,6 +11,8 @@ export function toastError(options: Parameters<typeof toaster.error>[0]) {
 type ApiErrorToastOptions = {
   fallbackTitle?: string;
   fallbackDescription?: string;
+  // A repeated toast with the same id replaces the visible one.
+  id?: string;
 };
 
 type UserErrorMessage = {
@@ -74,6 +76,8 @@ const statusMessages: Readonly<Record<number, UserErrorMessage>> = {
 export function toastApiError(err: ApiError, options?: ApiErrorToastOptions) {
   const message = getApiErrorMessage(err, options);
   toastError({
+    // An explicit `id: undefined` would stop the toaster generating one.
+    ...(options?.id ? { id: options.id } : {}),
     title: message.title,
     description: message.description,
   });
@@ -83,8 +87,7 @@ function getApiErrorMessage(
   err: ApiError,
   options?: ApiErrorToastOptions,
 ): UserErrorMessage {
-  const message =
-    (err.type ? apiErrorMessages[err.type] : undefined) ??
+  const message = (err.type ? apiErrorMessages[err.type] : undefined) ??
     statusMessages[err.status] ?? {
       title: "予期しないエラーが発生しました",
       description: "時間をおいてもう一度お試しください。",

@@ -202,10 +202,18 @@ describe("createQueryMatcher", () => {
     expect(createQueryMatcher("undefined")(shop)).toBe(false);
   });
 
-  it("does not match a query spanning two fields", () => {
+  it("matches each whitespace-separated token against any field", () => {
+    const shop = makeShop({ name: "中華そば 麺屋", address: "東京都新宿区" });
+
+    expect(createQueryMatcher("中華そば　新宿")(shop)).toBe(true);
+    expect(createQueryMatcher("新宿 中華そば")(shop)).toBe(true);
+    expect(createQueryMatcher("中華そば 渋谷")(shop)).toBe(false);
+  });
+
+  it("does not let one token span two fields", () => {
     const shop = makeShop({ name: "麺屋", address: "東京都" });
 
-    expect(createQueryMatcher("麺屋 東京")(shop)).toBe(false);
+    expect(createQueryMatcher("麺屋東京")(shop)).toBe(false);
   });
 });
 

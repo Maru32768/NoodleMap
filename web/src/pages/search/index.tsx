@@ -92,7 +92,7 @@ function MobileSearchBar({
         border="none"
         outline="none"
         fontSize="14px"
-        placeholder="店名・エリアで検索..."
+        placeholder="店名・読み・エリア・タグで検索..."
         value={query}
         onChange={(e) => {
           onQueryChange(e.target.value);
@@ -218,7 +218,7 @@ export default function SearchPage() {
     async (draft: ShopEditDraft) => {
       const cmd: UpdateShopCommand = {
         name: draft.name,
-        nameKana: draft.nameKana ?? null,
+        nameKana: draft.nameKana ?? "",
         lat: draft.lat,
         lng: draft.lng,
         postalCode: draft.postalCode,

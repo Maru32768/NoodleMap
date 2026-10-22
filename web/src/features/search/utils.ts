@@ -104,20 +104,27 @@ export function normalizeForSearch(s: string): string {
     .replace(/[ァ-ヶ]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0x60));
 }
 
-// Free-text match over name, reading (読み), address and tag labels. Each field
-// is matched on its own so a query never spans two fields.
+// Free-text match over name, reading (読み), address and tag labels. The query
+// is split on whitespace; every token must appear within a single field, but
+// different tokens may match different fields (「中華そば 新宿」).
 export function createQueryMatcher(query: string): (shop: Shop) => boolean {
-  const q = normalizeForSearch(query).trim();
-  if (!q) {
+  const tokens = normalizeForSearch(query).split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) {
     return () => true;
   }
-  return (shop) =>
-    [
+  return (shop) => {
+    const fields = [
       shop.name,
       shop.nameKana,
       shop.address,
       ...shop.tags.map((tag) => tag.label),
-    ].some((field) => field && normalizeForSearch(field).includes(q));
+    ]
+      .filter((field) => field !== undefined)
+      .map(normalizeForSearch);
+    return tokens.every((token) =>
+      fields.some((field) => field.includes(token)),
+    );
+  };
 }
 
 export function sortShops(

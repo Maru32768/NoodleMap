@@ -43,7 +43,8 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 updateShop:
 UPDATE shops
 SET name            = :name,
-    name_kana       = :nameKana,
+    -- NULL keeps the stored reading; '' clears it.
+    name_kana       = NULLIF(COALESCE(:nameKana, name_kana), ''),
     lat             = :lat,
     lng             = :lng,
     postal_code     = :postalCode,

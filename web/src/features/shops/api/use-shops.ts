@@ -103,7 +103,9 @@ export function useShops(config?: SWRConfiguration<Shop[]>) {
       // a revalidation fails behind stale data that stays on screen.
       onError: (err: ApiError) => {
         if (resp.data) {
+          // Fixed id so SWR's automatic retries replace the toast, not stack it.
           toastApiError(err, {
+            id: "shops-revalidate-error",
             fallbackTitle: "店舗一覧を読み込めませんでした",
           });
         }
@@ -177,8 +179,11 @@ export function useShops(config?: SWRConfiguration<Shop[]>) {
               ...current[i],
               ...shopFields,
               favorite: isFavorite(command.eaten, command.rate),
-              // The request clears with null; the response shape omits it.
-              nameKana: shopFields.nameKana?.trim() || undefined,
+              // Mirror the server: omitted keeps the reading, blank clears it.
+              nameKana:
+                shopFields.nameKana === undefined
+                  ? current[i].nameKana
+                  : shopFields.nameKana.trim() || undefined,
             });
             return copy;
           }, true);
@@ -194,8 +199,8 @@ export function useShops(config?: SWRConfiguration<Shop[]>) {
     get shops() {
       return resp.data;
     },
-    get isLoading() {
-      return resp.isLoading;
+    get isValidating() {
+      return resp.isValidating;
     },
     get error() {
       return resp.error as ApiError | undefined;

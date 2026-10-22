@@ -7,7 +7,7 @@ import { ReactNode } from "react";
 // Renders `children` once the shop list has loaded; until then shows a spinner,
 // or a retryable error when the fetch failed. Shares the SWR cache with the page.
 export function ShopsLoadState({ children }: { children?: ReactNode }) {
-  const { shops, error, mutate } = useShops();
+  const { shops, error, isValidating, mutate } = useShops();
 
   if (shops) {
     return children;
@@ -18,6 +18,7 @@ export function ShopsLoadState({ children }: { children?: ReactNode }) {
     return (
       <Box
         role="alert"
+        aria-busy={isValidating}
         display="flex"
         flexWrap="wrap"
         alignItems="center"
@@ -29,7 +30,12 @@ export function ShopsLoadState({ children }: { children?: ReactNode }) {
         fontSize="0.8125rem"
       >
         店舗一覧を読み込めませんでした
-        <LoadableButton size="sm" variant="outline" onClick={() => mutate()}>
+        <LoadableButton
+          size="sm"
+          variant="outline"
+          loading={isValidating}
+          onClick={() => mutate()}
+        >
           再試行
         </LoadableButton>
       </Box>

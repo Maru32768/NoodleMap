@@ -77,11 +77,10 @@ describe("useShops", () => {
       useShops({ shouldRetryOnError: false }),
     );
 
-    expect(result.current.isLoading).toBe(true);
     await waitFor(() =>
       expect(result.current.error).toMatchObject({ status: 500 }),
     );
-    expect(result.current.isLoading).toBe(false);
+    expect(result.current.isValidating).toBe(false);
     expect(result.current.shops).toBeUndefined();
   });
 

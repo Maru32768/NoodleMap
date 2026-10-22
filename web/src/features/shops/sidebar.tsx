@@ -669,7 +669,7 @@ export function Sidebar({
           transition="border-color 0.15s, background 0.15s"
           _focus={{ borderColor: "nm.shu", bg: "white" }}
           _placeholder={{ color: "nm.inkFaint" }}
-          placeholder="店名、エリアで検索..."
+          placeholder="店名・読み・エリア・タグで検索..."
           value={localQuery}
           onChange={(e) => {
             setLocalQuery(e.target.value);

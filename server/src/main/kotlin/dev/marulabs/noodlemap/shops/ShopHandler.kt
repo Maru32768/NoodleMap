@@ -114,7 +114,8 @@ class ShopHandler(
 
         val req = updateShopRequest
         if (req.eaten && req.rate !in 0.0..100.0) throw DomainException.ShopRateOutOfRange()
-        val nameKana = normalizeNameKana(req.nameKana)
+        // Missing (older clients) keeps the stored reading; blank clears it ('' -> NULL in SQL).
+        val nameKana = req.nameKana?.let { normalizeNameKana(it) ?: "" }
         db.transaction {
             rejectingDuplicatePlaceId {
                 db.shopsQueries.updateShop(

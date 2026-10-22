@@ -12,10 +12,10 @@ public data class UpdateShopRequest(
   @SerialName("name")
   public val name: String,
   /**
-   * Required because the update replaces the whole shop; null clears the reading.
+   * Omit to keep the stored reading (older clients); a blank string clears it.
    */
   @SerialName("nameKana")
-  public val nameKana: String?,
+  public val nameKana: String? = null,
   @SerialName("lat")
   public val lat: Double,
   @SerialName("lng")
