@@ -350,6 +350,7 @@ export function MobileSheet({
 
                   <Box display="flex" gap="0.5rem" mt="1rem">
                     <ShopActions
+                      shop={shop}
                       mapsUrl={mapsUrl}
                       mapsLabel="Google Maps"
                       onAdminClick={

@@ -32,16 +32,20 @@ import {
   ShopEditModal,
 } from "@/features/shops/shop-edit-modal.tsx";
 import { ShopFilters, Sidebar } from "@/features/shops/sidebar.tsx";
+import { SHOP_PARAM } from "@/utils/path.ts";
 import { toastApiError } from "@/utils/toast.ts";
 import { Box, Input } from "@chakra-ui/react";
 import {
+  SetStateAction,
   useCallback,
   useDeferredValue,
+  useEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
 import { CiFilter } from "react-icons/ci";
+import { useSearchParams } from "react-router";
 
 const DEFAULT_CENTER = { lat: 35.6895315, lng: 139.700492 } as const;
 
@@ -138,7 +142,31 @@ export default function SearchPage() {
   const deferredQuery = useDeferredValue(query);
   const deferredFilters = useDeferredValue(filters);
 
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // The selected shop lives in `?shop=<id>` so the detail view is linkable.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectedId = searchParams.get(SHOP_PARAM);
+  const setSelectedId = useCallback(
+    (update: SetStateAction<string | null>) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          const id =
+            typeof update === "function"
+              ? update(prev.get(SHOP_PARAM))
+              : update;
+          if (id) {
+            next.set(SHOP_PARAM, id);
+          } else {
+            next.delete(SHOP_PARAM);
+          }
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+  const deepLinkedIdRef = useRef(selectedId);
   const [editId, setEditId] = useState<string | null>(null);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [locationTrackingMode, setLocationTrackingMode] =
@@ -186,6 +214,32 @@ export default function SearchPage() {
     () => shops?.find((r) => r.id === selectedId) ?? undefined,
     [shops, selectedId],
   );
+  // Keep the selected shop's pin even when the filters would hide it.
+  const mapShops = useMemo(
+    () =>
+      selectedShop && !filteredShops.includes(selectedShop)
+        ? [...filteredShops, selectedShop]
+        : filteredShops,
+    [filteredShops, selectedShop],
+  );
+
+  useEffect(() => {
+    if (!shops || !selectedId) {
+      return;
+    }
+    if (!selectedShop) {
+      setSelectedId(null);
+      return;
+    }
+    // A shared link overrides the persisted map view once, on first load.
+    if (deepLinkedIdRef.current === selectedId) {
+      deepLinkedIdRef.current = null;
+      mapRef.current?.panTo([selectedShop.lat, selectedShop.lng], {
+        animate: false,
+      });
+    }
+  }, [shops, selectedId, selectedShop, setSelectedId]);
+
   const editShop = useMemo(
     () => shops?.find((r) => r.id === editId) ?? undefined,
     [shops, editId],
@@ -205,20 +259,23 @@ export default function SearchPage() {
         map.panTo([r.lat, r.lng], { animate: true });
       }
     },
-    [shops],
+    [shops, setSelectedId],
   );
 
   const handleClose = useCallback(() => {
     setSelectedId(null);
-  }, []);
+  }, [setSelectedId]);
 
   const handleEditOpen = useCallback((id: string) => {
     setEditId(id);
   }, []);
 
-  const handleShopDeleted = useCallback((id: string) => {
-    setSelectedId((current) => (current === id ? null : current));
-  }, []);
+  const handleShopDeleted = useCallback(
+    (id: string) => {
+      setSelectedId((current) => (current === id ? null : current));
+    },
+    [setSelectedId],
+  );
 
   const handleEditSave = useCallback(
     async (draft: ShopEditDraft) => {
@@ -304,7 +361,7 @@ export default function SearchPage() {
             ref={mapRef}
             initialCenter={initialMapView.center}
             initialZoom={initialMapView.zoom}
-            shops={filteredShops}
+            shops={mapShops}
             selectedId={selectedId}
             onSelect={handleSelect}
             onMoveEnd={handleMoveEnd}

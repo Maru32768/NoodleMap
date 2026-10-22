@@ -55,3 +55,54 @@ test("guest searches, filters and opens a shop on the search page", async ({ pag
   await page.getByRole("button", { name: "閉じる" }).click();
   await expect(favorite).toBeHidden();
 });
+
+test("guest opens a shared shop URL even when filters hide the shop", async ({ page, api }) => {
+  const shop = await api.createShop({ name: `${uid()} 共有ラーメン`, eaten: true, rate: 80 });
+
+  // Persist a filter that hides every ramen shop.
+  await page.goto("/search");
+  await page.getByRole("complementary").getByRole("button", { name: "ラーメン", exact: true }).click();
+  await expect
+    .poll(() => page.evaluate(() => localStorage.getItem("noodle-map:search-state:v1")))
+    .toContain('"ramen":false');
+
+  await page.goto(`/search?shop=${shop.id}`);
+  await expect(page.getByText(shop.name, { exact: true })).toBeVisible();
+  await expect(page.getByText("お気に入り度 - Favorite")).toBeVisible();
+
+  await page.getByRole("button", { name: "閉じる" }).click();
+  await expect(page.getByText(shop.name, { exact: true })).toBeHidden();
+  await expect(page).toHaveURL(/\/search$/);
+});
+
+test("guest drops an unknown shop id from the URL", async ({ page }) => {
+  await page.goto("/search?shop=00000000-0000-4000-8000-000000000000");
+  await expect(page).toHaveURL(/\/search$/);
+});
+
+test("guest copies a shop's share URL", async ({ page, api, baseURL }) => {
+  const shop = await api.createShop({ name: `${uid()} 共有つけ麺` });
+  await page.addInitScript(() => {
+    // Force the clipboard fallback and record what gets copied.
+    delete (Navigator.prototype as Partial<Navigator>).share;
+    Object.defineProperty(navigator, "clipboard", {
+      value: {
+        writeText: async (text: string) => {
+          (window as unknown as { copied: string }).copied = text;
+        },
+      },
+    });
+  });
+
+  await page.goto("/search");
+  const sidebar = page.getByRole("complementary");
+  await sidebar.getByPlaceholder("店名、エリアで検索...").fill(shop.name);
+  await sidebar.getByText(shop.name, { exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`/search\\?shop=${shop.id}$`));
+
+  await page.getByRole("button", { name: "共有" }).click();
+  await expect(page.getByText("URLをコピーしました")).toBeVisible();
+  expect(await page.evaluate(() => (window as unknown as { copied: string }).copied)).toBe(
+    `${baseURL}/search?shop=${shop.id}`,
+  );
+});
