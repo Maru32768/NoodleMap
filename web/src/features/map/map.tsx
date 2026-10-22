@@ -16,8 +16,8 @@ import {
   memo,
   SetStateAction,
   useEffect,
-  useEffectEvent,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -731,26 +731,38 @@ export const Map = memo(
       watchLocationPermissionChange: true,
     });
 
-    const onSelectEvent = useEffectEvent(
-      (id: string, details: MapSelectDetails) => {
-        onSelect(id, details);
-      },
-    );
-    const onMoveEndEvent = useEffectEvent(
-      (map: MapHandle, source: "user" | "programmatic") => {
-        onMoveEnd(map, source);
-      },
-    );
-    const onMapClickEvent = useEffectEvent(
-      (latlng: { lat: number; lng: number }) => {
-        onMapClick?.(latlng);
-      },
-    );
-    const onLocationTrackingModeChangeEvent = useEffectEvent(
-      (mode: LocationTrackingMode) => {
-        onLocationTrackingModeChange?.(mode);
-      },
-    );
+    // Not useEffectEvent: react-dom 19.2 never refreshes its handler inside
+    // memo/forwardRef components, which froze onMapClick at its first-render
+    // value (the admin pin-drop add did nothing).
+    const handlersRef = useRef({
+      onSelect,
+      onMoveEnd,
+      onMapClick,
+      onLocationTrackingModeChange,
+    });
+    useLayoutEffect(() => {
+      handlersRef.current = {
+        onSelect,
+        onMoveEnd,
+        onMapClick,
+        onLocationTrackingModeChange,
+      };
+    });
+    const onSelectEvent = (id: string, details: MapSelectDetails) => {
+      handlersRef.current.onSelect(id, details);
+    };
+    const onMoveEndEvent = (
+      map: MapHandle,
+      source: "user" | "programmatic",
+    ) => {
+      handlersRef.current.onMoveEnd(map, source);
+    };
+    const onMapClickEvent = (latlng: { lat: number; lng: number }) => {
+      handlersRef.current.onMapClick?.(latlng);
+    };
+    const onLocationTrackingModeChangeEvent = (mode: LocationTrackingMode) => {
+      handlersRef.current.onLocationTrackingModeChange?.(mode);
+    };
     const geoJsonData = useMemo(() => {
       return toGeoJson(shops);
     }, [shops]);
