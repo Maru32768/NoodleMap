@@ -13,6 +13,7 @@ import dev.marulabs.noodlemap.generated.models.User
 import java.time.Duration
 import java.time.Instant
 import java.util.UUID
+import org.slf4j.LoggerFactory
 
 /**
  * Opaque-token session handling, ported from Go `auth/handler.go` + `auth/session.go`.
@@ -26,6 +27,7 @@ class SessionService(
     private val config: Config,
 ) {
     private val sessions = db.sessionsQueries
+    private val log = LoggerFactory.getLogger(SessionService::class.java)
 
     /** Resolves the current user from the session cookie, sliding the expiry. Null if unauthenticated. */
     fun authenticate(call: ApplicationCall): User? =
@@ -34,14 +36,19 @@ class SessionService(
     /** Lists the caller's live sessions, flagging the one that made this request. */
     fun listSessions(call: ApplicationCall): List<AuthSession> {
         val current = requireSession(call)
-        return sessions.findValidSessionsByUserId(userId = current.user_id, now = SessionTime.now()).executeAsList().map {
-            // An unreadable timestamp falls back to the epoch: the row stays listed and revocable.
-            val lastUsed = SessionTime.parseOrNull(it.expires_at)?.minus(TTL) ?: Instant.EPOCH
+        return sessions.findValidSessionsByUserId(userId = current.user_id, now = SessionTime.now()).executeAsList().mapNotNull {
+            val createdAt = SessionTime.parseOrNull(it.created_at)
+            val expiresAt = SessionTime.parseOrNull(it.expires_at)
+            if (createdAt == null || expiresAt == null) {
+                // Skip rather than fail the whole list; revoke-others still removes it.
+                log.warn("skipping session {} with unreadable timestamps", it.id)
+                return@mapNotNull null
+            }
             AuthSession(
                 id = it.id.toString(),
                 userAgent = it.user_agent,
-                createdAt = (SessionTime.parseOrNull(it.created_at) ?: Instant.EPOCH).toString(),
-                lastUsedAt = lastUsed.toString(),
+                createdAt = createdAt.toString(),
+                lastUsedAt = expiresAt.minus(TTL).toString(),
                 current = it.id == current.id,
             )
         }

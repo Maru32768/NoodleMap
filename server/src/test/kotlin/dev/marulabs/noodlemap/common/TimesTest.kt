@@ -29,13 +29,13 @@ class TimesTest {
     }
 
     @Test
-    fun `SessionTime parseOrNull reads stored, legacy, ISO and short values and rejects garbage`() {
+    fun `SessionTime parseOrNull reads only full UTC timestamps`() {
         val t = Instant.parse("2024-01-05T23:59:59Z")
-        SessionTime.parseOrNull("2024-01-05 23:59:59") shouldBe t
-        SessionTime.parseOrNull("2024-01-05 23:59:59.123456 +0000 UTC") shouldBe t
-        SessionTime.parseOrNull("2024-01-05T23:59:59Z") shouldBe t
-        SessionTime.parseOrNull("2024-01-05 23:59") shouldBe Instant.parse("2024-01-05T23:59:00Z")
-        SessionTime.parseOrNull("2024-01-05") shouldBe Instant.parse("2024-01-05T00:00:00Z")
-        listOf("", "garbage", "2024-13-45 99:99:99").forEach { SessionTime.parseOrNull(it) shouldBe null }
+        listOf("2024-01-05 23:59:59", "2024-01-05T23:59:59", "2024-01-05T23:59:59Z", "2024-01-05 23:59:59.123")
+            .forEach { SessionTime.parseOrNull(it) shouldBe t }
+        listOf(
+            "", "garbage", "2024-01-05", "2024-01-05 23:59", "2024-13-45 23:59:59",
+            "2024-01-05 23:59:59 +0000 UTC", " 2024-01-05 23:59:59",
+        ).forEach { SessionTime.parseOrNull(it) shouldBe null }
     }
 }

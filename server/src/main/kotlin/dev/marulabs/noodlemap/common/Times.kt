@@ -17,17 +17,16 @@ object SessionTime {
     fun now(): String = format(Instant.now())
 
     /**
-     * Leniently reads a stored timestamp as UTC: the leading "yyyy-MM-dd HH:mm:ss" (also the
-     * prefix of legacy Go values), an ISO `T` separator, or a shorter value such as a bare date
-     * (missing parts default to zero). Null when unreadable, so one odd row can't fail a listing.
+     * Reads a stored UTC timestamp: exactly "yyyy-MM-dd HH:mm:ss" (or a `T` separator), with
+     * optional fractional seconds and a trailing `Z`. Null for anything else, so callers can
+     * skip an odd row instead of failing.
      */
     fun parseOrNull(stored: String): Instant? {
-        val s = stored.trim().replace('T', ' ').take(EPOCH_TEXT.length)
-        if (s.length < "yyyy-MM-dd".length) return null
-        return runCatching { Instant.from(fmt.parse(s + EPOCH_TEXT.substring(s.length))) }.getOrNull()
+        val m = STORED.matchEntire(stored) ?: return null
+        return runCatching { Instant.from(fmt.parse("${m.groupValues[1]} ${m.groupValues[2]}")) }.getOrNull()
     }
 
-    private const val EPOCH_TEXT = "1970-01-01 00:00:00"
+    private val STORED = Regex("""(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})(?:\.\d+)?Z?""")
 }
 
 /**

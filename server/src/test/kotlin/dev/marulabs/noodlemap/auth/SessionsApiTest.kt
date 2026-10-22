@@ -52,6 +52,21 @@ class SessionsApiTest {
     }
 
     @Test
+    fun `a row with an unreadable timestamp is skipped instead of failing the list`() = testApp { t ->
+        val user = t.seedUser("u@example.com")
+        val current = t.seedSession(user)
+        val odd = t.seedSession(user)
+        t.dataSource.connection.use { c ->
+            c.prepareStatement("UPDATE sessions SET created_at = 'not-a-time' WHERE token_hash = ?").use {
+                it.setString(1, SessionTokens.hash(odd))
+                it.executeUpdate()
+            }
+        }
+
+        client.sessions(current).map { it.current } shouldBe listOf(true)
+    }
+
+    @Test
     fun `listing requires a session`() = testApp {
         val res = client.get("/api/v1/auth/sessions")
         res.status shouldBe HttpStatusCode.Unauthorized

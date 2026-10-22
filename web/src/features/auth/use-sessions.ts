@@ -1,5 +1,6 @@
 import { useCurrentUser } from "@/features/auth/use-current-user.ts";
 import type { components } from "@/generated/api.ts";
+import { ACCOUNT_PATH, LOGIN_PATH } from "@/utils/path.ts";
 import {
   ApiError,
   ApiErrorBodyFor,
@@ -23,6 +24,14 @@ type RevokeOtherSessionsErrorBody = ApiErrorBodyFor<
   "/api/v1/auth/sessions/revoke-others",
   "post"
 >;
+
+// 401 here means this session was revoked elsewhere. A full reload re-resolves
+// auth, so the user lands on login instead of a page stuck on a dead session.
+function redirectToLogin() {
+  window.location.replace(
+    `${LOGIN_PATH}?redirectTo=${encodeURIComponent(ACCOUNT_PATH)}`,
+  );
+}
 
 export function useSessions() {
   const currentUser = useCurrentUser();
@@ -52,6 +61,10 @@ export function useSessions() {
       // Without data the page shows the failure inline; toast only when a
       // revalidation fails behind a list that stays on screen.
       onError: (err: ApiError) => {
+        if (err.status === 401) {
+          redirectToLogin();
+          return;
+        }
         if (resp.data) {
           toastApiError(err, {
             id: "sessions-revalidate-error",
@@ -71,12 +84,19 @@ export function useSessions() {
           const res = await apiClient.DELETE("/api/v1/auth/sessions/{id}", {
             params: { path: { id } },
           });
-          // 404: already revoked elsewhere or expired, which is the goal anyway.
-          if (res.error && res.response.status !== 404) {
+          // A typed not_found means already revoked or expired, which is the goal
+          // anyway; a bodiless 404 (e.g. a server without this route) is an error.
+          // Check `ok`, not `res.error`: openapi-fetch leaves `error` undefined
+          // for an empty error body.
+          if (!res.response.ok && res.error?.type !== "not_found") {
+            if (res.response.status === 401) {
+              redirectToLogin();
+            }
             return apiError(
               "/api/v1/auth/sessions/{id}",
               res.response,
-              res.error,
+              // May be undefined or text; ApiError only reads a typed body.
+              res.error as RevokeSessionErrorBody,
             );
           }
 
@@ -93,11 +113,15 @@ export function useSessions() {
       "/api/v1/auth/sessions/revoke-others",
       async () => {
         const res = await apiClient.POST("/api/v1/auth/sessions/revoke-others");
-        if (res.error) {
+        if (!res.response.ok) {
+          if (res.response.status === 401) {
+            redirectToLogin();
+          }
           return apiError(
             "/api/v1/auth/sessions/revoke-others",
             res.response,
-            res.error,
+            // May be undefined or text; ApiError only reads a typed body.
+            res.error as RevokeOtherSessionsErrorBody,
           );
         }
 

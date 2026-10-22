@@ -84,12 +84,6 @@ export function useAuth() {
     );
   }, [mutate]);
 
-  // For callers that already ended the session server-side (e.g. revoking this
-  // device) and must navigate away before the guest state re-renders routes.
-  const clearCurrentUser = useCallback(async () => {
-    await mutate(undefined, false);
-  }, [mutate]);
-
   return {
     get currentUser() {
       return resp.data;
@@ -99,6 +93,5 @@ export function useAuth() {
     },
     loginWithGoogle,
     logout,
-    clearCurrentUser,
   };
 }

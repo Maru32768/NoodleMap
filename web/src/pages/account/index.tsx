@@ -2,7 +2,6 @@ import { ButtonLink } from "@/components/button-link.tsx";
 import { LoadableButton } from "@/components/loadable-button.tsx";
 import { Loading } from "@/components/loading.tsx";
 import { toaster } from "@/components/ui/toaster.tsx";
-import { useAuth } from "@/features/auth/use-auth.ts";
 import { useCurrentUser } from "@/features/auth/use-current-user.ts";
 import { AuthSession, useSessions } from "@/features/auth/use-sessions.ts";
 import { describeUserAgent } from "@/features/auth/user-agent.ts";
@@ -10,7 +9,6 @@ import { SEARCH_PATH } from "@/utils/path.ts";
 import { toastApiError } from "@/utils/toast.ts";
 import { Box, Flex, Heading, Text } from "@chakra-ui/react";
 import dayjs from "dayjs";
-import { useNavigate } from "react-router";
 
 function formatTime(iso: string) {
   return dayjs(iso).format("YYYY/MM/DD HH:mm");
@@ -18,7 +16,6 @@ function formatTime(iso: string) {
 
 export default function AccountPage() {
   const currentUser = useCurrentUser();
-  const { clearCurrentUser } = useAuth();
   const {
     sessions,
     error,
@@ -27,7 +24,6 @@ export default function AccountPage() {
     revokeSession,
     revokeOtherSessions,
   } = useSessions();
-  const navigate = useNavigate();
 
   const handleRevoke = async (session: AuthSession) => {
     const result = await revokeSession(session.id);
@@ -37,13 +33,14 @@ export default function AccountPage() {
       });
       return;
     }
-    toaster.success({ description: "ログアウトしました" });
     if (session.current) {
-      // The server already cleared the cookie. Leave /account before the guest
-      // state re-renders it, or ProtectedRoute would bounce to /login first.
-      navigate(SEARCH_PATH, { replace: true });
-      await clearCurrentUser();
+      // The server already cleared the cookie. A full reload lands on /search as
+      // a guest; a client-side navigate would lose the race with ProtectedRoute's
+      // redirect to /login once the auth state clears.
+      window.location.replace(SEARCH_PATH);
+      return;
     }
+    toaster.success({ description: "ログアウトしました" });
   };
 
   const handleRevokeOthers = async () => {
