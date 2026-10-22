@@ -91,7 +91,7 @@ class ShopHandler(
                 id = shopId.toString(), name = req.name, lat = req.lat, lng = req.lng,
                 openedAt = ShopDate.encode(req.openedAt), closedAt = ShopDate.encode(req.closedAt),
                 postalCode = req.postalCode, address = req.address, googlePlaceId = req.googlePlaceId,
-                eaten = false, rate = 0.0, favorite = isFavorite(eaten = false, rate = 0.0), category = req.category,
+                eaten = false, rate = 0.0, favorite = false, category = req.category,
                 tags = tagsByShopIds(listOf(shopId))[shopId] ?: emptyList(),
             ),
         )
@@ -108,7 +108,7 @@ class ShopHandler(
         if (!user.isAdmin) throw DomainException.PermissionDenied()
 
         val req = updateShopRequest
-        if (req.rate !in 0.0..100.0) throw DomainException.ShopRateOutOfRange()
+        if (req.eaten && req.rate !in 0.0..100.0) throw DomainException.ShopRateOutOfRange()
         db.transaction {
             rejectingDuplicatePlaceId {
                 db.shopsQueries.updateShop(

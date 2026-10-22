@@ -170,7 +170,7 @@ class ShopApiTest {
     }
 
     @Test
-    fun `update rejects a rate outside 0 to 100`() = testApp { t ->
+    fun `update rejects a rate outside 0 to 100 only for eaten shops`() = testApp { t ->
         val admin = t.adminToken()
         val req = addShopRequest()
         val id = client.postJson("/api/v1/auth/shops", encode(req), admin).body<Shop>().id
@@ -182,6 +182,10 @@ class ShopApiTest {
             res.body<ErrorBody>() shouldBe rateOutOfRange
         }
         client.shops().single().eaten shouldBe false
+
+        // The rate is discarded when the shop is not eaten, so it is not validated.
+        client.putJson("/api/v1/auth/shops/$id", encode(req.toUpdate(eaten = false, rate = 150.0)), admin)
+            .status shouldBe HttpStatusCode.OK
 
         client.putJson("/api/v1/auth/shops/$id", encode(req.toUpdate(eaten = true, rate = 100.0)), admin)
             .status shouldBe HttpStatusCode.OK
