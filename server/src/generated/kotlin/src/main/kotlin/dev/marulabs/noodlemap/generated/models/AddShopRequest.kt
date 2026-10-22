@@ -10,6 +10,8 @@ import kotlinx.serialization.Serializable
 public data class AddShopRequest(
   @SerialName("name")
   public val name: String,
+  @SerialName("nameKana")
+  public val nameKana: String? = null,
   @SerialName("lat")
   public val lat: Double,
   @SerialName("lng")

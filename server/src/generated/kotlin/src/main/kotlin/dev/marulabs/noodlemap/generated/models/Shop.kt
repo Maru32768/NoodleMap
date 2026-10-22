@@ -16,6 +16,11 @@ public data class Shop(
   public val id: String,
   @SerialName("name")
   public val name: String,
+  /**
+   * Hiragana reading of the shop name, used for search. Absent when not set.
+   */
+  @SerialName("nameKana")
+  public val nameKana: String? = null,
   @SerialName("lat")
   public val lat: Double,
   @SerialName("lng")

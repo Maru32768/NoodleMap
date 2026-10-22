@@ -9,6 +9,8 @@ public enum class AddShopField(
 ) {
   @SerialName("name")
   NAME("name"),
+  @SerialName("nameKana")
+  NAME_KANA("nameKana"),
   @SerialName("lat")
   LAT("lat"),
   @SerialName("lng")

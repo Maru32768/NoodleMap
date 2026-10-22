@@ -11,7 +11,8 @@ CREATE TABLE shops (
     updated_at      TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     category        TEXT NOT NULL DEFAULT 'ramen' CHECK (category IN ('ramen', 'udon')),
     opened_at       TEXT,
-    closed_at       TEXT
+    closed_at       TEXT,
+    name_kana       TEXT
 );
 
 -- (modtime trigger omitted; see note in Users.sq)
@@ -21,6 +22,7 @@ CREATE TABLE shops (
 findAllShops:
 SELECT r.id,
        r.name,
+       r.name_kana,
        r.lat,
        r.lng,
        r.postal_code,
@@ -35,12 +37,13 @@ FROM shops r
 LEFT JOIN eaten_shops vs ON r.id = vs.shop_id;
 
 insertShop:
-INSERT INTO shops (id, name, lat, lng, postal_code, address, opened_at, closed_at, google_place_id, category)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO shops (id, name, name_kana, lat, lng, postal_code, address, opened_at, closed_at, google_place_id, category)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 updateShop:
 UPDATE shops
 SET name            = :name,
+    name_kana       = :nameKana,
     lat             = :lat,
     lng             = :lng,
     postal_code     = :postalCode,

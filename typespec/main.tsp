@@ -34,6 +34,7 @@ union GoogleAuthField {
 
 union AddShopField {
   "name",
+  "nameKana",
   "lat",
   "lng",
   "postalCode",
@@ -52,6 +53,7 @@ union CategorySlug {
 
 union UpdateShopField {
   "name",
+  "nameKana",
   "lat",
   "lng",
   "postalCode",
@@ -203,6 +205,10 @@ model AuthResponse {
 model Shop {
   id: uuid;
   name: string;
+
+  @doc("Hiragana reading of the shop name, used for search. Absent when not set.")
+  nameKana?: string;
+
   lat: float64;
   lng: float64;
 
@@ -257,6 +263,7 @@ model SaveTagsRequest {
 
 model AddShopRequest {
   name: string;
+  nameKana?: string;
   lat: float64;
   lng: float64;
   postalCode: string;
@@ -270,6 +277,7 @@ model AddShopRequest {
 
 model UpdateShopRequest {
   name: string;
+  nameKana?: string;
   lat: float64;
   lng: float64;
   postalCode: string;

@@ -266,6 +266,7 @@ components:
       type: string
       enum:
         - name
+        - nameKana
         - lat
         - lng
         - postalCode
@@ -300,6 +301,8 @@ components:
         - tagIds
       properties:
         name:
+          type: string
+        nameKana:
           type: string
         lat:
           type: number
@@ -476,6 +479,9 @@ components:
           $ref: '#/components/schemas/uuid'
         name:
           type: string
+        nameKana:
+          type: string
+          description: Hiragana reading of the shop name, used for search. Absent when not set.
         lat:
           type: number
           format: double
@@ -623,6 +629,7 @@ components:
       type: string
       enum:
         - name
+        - nameKana
         - lat
         - lng
         - postalCode
@@ -661,6 +668,8 @@ components:
         - tagIds
       properties:
         name:
+          type: string
+        nameKana:
           type: string
         lat:
           type: number
