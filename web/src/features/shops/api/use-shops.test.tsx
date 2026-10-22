@@ -25,6 +25,7 @@ function apiShop(overrides: Partial<ApiShop>): ApiShop {
     favorite: false,
     category: "ramen",
     tags: [],
+    links: [],
     ...overrides,
   };
 }

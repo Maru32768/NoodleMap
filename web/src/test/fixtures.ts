@@ -44,6 +44,7 @@ export function makeShop(overrides: Partial<ApiShop> = {}): Shop {
     favorite: isFavorite(eaten, rate),
     category: "ramen",
     tags: [],
+    links: [],
     ...overrides,
   });
 }

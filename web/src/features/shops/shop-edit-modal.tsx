@@ -10,9 +10,17 @@ import {
 import { CategoryIcon } from "@/features/map/category-icon.tsx";
 import { Shop, useShops, useTags } from "@/features/shops/api/use-shops.ts";
 import { MiniHearts } from "@/features/shops/rating-hearts.tsx";
+import {
+  SHOP_LINK_TYPE_LABEL,
+  SHOP_LINK_TYPES,
+  SHOP_LINKS_MAX,
+  ShopLinkInput,
+  ShopLinkType,
+  withLinkUrl,
+} from "@/features/shops/shop-links.ts";
 import { TagSelector } from "@/features/shops/tag-chips.tsx";
 import { toastApiError } from "@/utils/toast.ts";
-import { Box, Input } from "@chakra-ui/react";
+import { Box, Input, NativeSelect } from "@chakra-ui/react";
 import { useState } from "react";
 
 export interface ShopEditDraft {
@@ -31,6 +39,7 @@ export interface ShopEditDraft {
   rate: number;
   images: AdminImage[];
   tagIds: string[];
+  links: ShopLinkInput[];
 }
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
@@ -58,6 +67,7 @@ function FormInput({
   step,
   placeholder,
   maxLength,
+  ariaLabel,
 }: {
   value: string | number;
   onChange: (v: string) => void;
@@ -66,9 +76,11 @@ function FormInput({
   step?: number;
   placeholder?: string;
   maxLength?: number;
+  ariaLabel?: string;
 }) {
   return (
     <Input
+      aria-label={ariaLabel}
       value={value}
       onChange={(e) => onChange(e.target.value)}
       type={type}
@@ -168,6 +180,122 @@ function FavPicker({
   );
 }
 
+const linkButtonProps = {
+  variant: "plain",
+  px: "8px",
+  py: "6px",
+  h: "auto",
+  minH: "auto",
+  minW: "auto",
+  fontSize: "12px",
+  color: "nm.inkMuted",
+  border: "1px solid",
+  borderColor: "nm.line",
+  rounded: "nmMd",
+  _hover: { borderColor: "nm.ink", color: "nm.ink" },
+} as const;
+
+function ShopLinksEditor({
+  links,
+  onChange,
+}: {
+  links: ShopLinkInput[];
+  onChange: (links: ShopLinkInput[]) => void;
+}) {
+  const update = (i: number, link: ShopLinkInput) =>
+    onChange(links.map((l, j) => (j === i ? link : l)));
+  const move = (i: number, to: number) => {
+    const next = [...links];
+    [next[i], next[to]] = [next[to], next[i]];
+    onChange(next);
+  };
+
+  return (
+    <Box display="flex" flexDirection="column" gap="8px">
+      {links.map((link, i) => (
+        <Box
+          key={i}
+          role="group"
+          aria-label={`リンク ${i + 1}`}
+          display="flex"
+          flexWrap="wrap"
+          gap="6px"
+          alignItems="center"
+        >
+          <NativeSelect.Root width="120px" size="sm">
+            <NativeSelect.Field
+              aria-label="種類"
+              value={link.type}
+              onChange={(e) =>
+                update(i, { ...link, type: e.target.value as ShopLinkType })
+              }
+            >
+              {SHOP_LINK_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {SHOP_LINK_TYPE_LABEL[type]}
+                </option>
+              ))}
+            </NativeSelect.Field>
+            <NativeSelect.Indicator />
+          </NativeSelect.Root>
+          <Box flex="2 1 220px">
+            <FormInput
+              value={link.url}
+              onChange={(v) => update(i, withLinkUrl(link, v))}
+              mono
+              type="url"
+              placeholder="https://..."
+              maxLength={2048}
+              ariaLabel="URL"
+            />
+          </Box>
+          <Box flex="1 1 140px">
+            <FormInput
+              value={link.label ?? ""}
+              onChange={(v) => update(i, { ...link, label: v })}
+              placeholder="表示名（任意）"
+              maxLength={100}
+              ariaLabel="表示名（任意）"
+            />
+          </Box>
+          <Button
+            {...linkButtonProps}
+            aria-label="上へ"
+            disabled={i === 0}
+            onClick={() => move(i, i - 1)}
+          >
+            ↑
+          </Button>
+          <Button
+            {...linkButtonProps}
+            aria-label="下へ"
+            disabled={i === links.length - 1}
+            onClick={() => move(i, i + 1)}
+          >
+            ↓
+          </Button>
+          <Button
+            {...linkButtonProps}
+            aria-label="リンクを削除"
+            onClick={() => onChange(links.filter((_, j) => j !== i))}
+          >
+            削除
+          </Button>
+        </Box>
+      ))}
+      <Box>
+        <Button
+          {...linkButtonProps}
+          disabled={links.length >= SHOP_LINKS_MAX}
+          onClick={() => onChange([...links, { type: "other", url: "" }])}
+        >
+          ＋ リンクを追加
+        </Button>
+      </Box>
+    </Box>
+  );
+}
+
 type Tab = "info" | "visit" | "images";
 
 interface ShopEditModalProps {
@@ -204,6 +332,8 @@ export function ShopEditModal({
     rate: shop.rate ?? 0,
     images: [],
     tagIds: shop.tags.map((tag) => tag.id),
+    // `links` is missing while an older server is still deployed.
+    links: shop.links ?? [],
   }));
   const [saving, setSaving] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
@@ -227,9 +357,14 @@ export function ShopEditModal({
   };
 
   const handleSave = async () => {
+    // Rows left without a URL are dropped instead of failing validation.
+    const withLinks = {
+      ...draft,
+      links: draft.links.filter((link) => link.url.trim() !== ""),
+    };
     const sanitizedDraft = tags
       ? {
-          ...draft,
+          ...withLinks,
           tagIds: Array.from(
             new Set(
               draft.tagIds.filter((tagId) => {
@@ -241,7 +376,7 @@ export function ShopEditModal({
             ),
           ),
         }
-      : draft;
+      : withLinks;
 
     setSaving(true);
     try {
@@ -503,6 +638,13 @@ export function ShopEditModal({
                     onChange={(v) => set("closedAt", v || undefined)}
                     mono
                     type="date"
+                  />
+                </Box>
+                <Box gridColumn="span 2">
+                  <FieldLabel>リンク（公式サイト・SNS）</FieldLabel>
+                  <ShopLinksEditor
+                    links={draft.links}
+                    onChange={(links) => set("links", links)}
                   />
                 </Box>
               </Box>

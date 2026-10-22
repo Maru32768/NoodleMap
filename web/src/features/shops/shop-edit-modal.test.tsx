@@ -81,3 +81,56 @@ describe("ShopEditModal delete", () => {
     expect(onDeleted).not.toHaveBeenCalled();
   });
 });
+
+describe("ShopEditModal links", () => {
+  it("adds a link with the type inferred from the URL and saves it", async () => {
+    server.use(http.get("/api/v1/tags", () => HttpResponse.json({ tags: [] })));
+    const onSave = vi.fn(() => Promise.resolve());
+    renderWithProviders(
+      <ShopEditModal
+        shop={makeShop({
+          links: [{ type: "official", url: "https://aoba.example/" }],
+        })}
+        open
+        onClose={vi.fn()}
+        onSave={onSave}
+        onDeleted={vi.fn()}
+      />,
+    );
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "＋ リンクを追加" }),
+    );
+    const row = screen.getByRole("group", { name: "リンク 2" });
+    await userEvent.type(
+      within(row).getByRole("textbox", { name: "URL" }),
+      "https://www.instagram.com/aoba",
+    );
+    expect(within(row).getByRole("combobox", { name: "種類" })).toHaveValue(
+      "instagram",
+    );
+    await userEvent.type(
+      within(row).getByRole("textbox", { name: "表示名（任意）" }),
+      "インスタ",
+    );
+    await userEvent.click(within(row).getByRole("button", { name: "上へ" }));
+    // An empty row is dropped on save.
+    await userEvent.click(
+      screen.getByRole("button", { name: "＋ リンクを追加" }),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "保存" }));
+
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        links: [
+          {
+            type: "instagram",
+            label: "インスタ",
+            url: "https://www.instagram.com/aoba",
+          },
+          { type: "official", url: "https://aoba.example/" },
+        ],
+      }),
+    );
+  });
+});

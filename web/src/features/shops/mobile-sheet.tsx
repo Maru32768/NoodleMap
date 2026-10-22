@@ -9,6 +9,7 @@ import {
   ShopAddressLink,
   buildGoogleMapsUrl,
 } from "@/features/shops/shop-actions.tsx";
+import { ShopLinkList } from "@/features/shops/shop-link-list.tsx";
 import { ShopsLoadState } from "@/features/shops/shops-load-state.tsx";
 import {
   SHOP_EATEN_STATUS_LABEL,
@@ -346,6 +347,10 @@ export function MobileSheet({
                         <Box color="nm.ink">{value}</Box>
                       </Box>
                     ))}
+                  </Box>
+
+                  <Box mt="0.75rem">
+                    <ShopLinkList links={shop.links} />
                   </Box>
 
                   <Box display="flex" gap="0.5rem" mt="1rem">

@@ -22,6 +22,7 @@ import { useSearchState } from "@/features/search/use-search-state.ts";
 import { filterShops, sortShops } from "@/features/search/utils.ts";
 import {
   isDuplicatePlaceIdError,
+  isInvalidLinksError,
   UpdateShopCommand,
   useShops,
 } from "@/features/shops/api/use-shops.ts";
@@ -303,6 +304,7 @@ export default function SearchPage() {
         eaten: draft.eaten,
         rate: draft.rate,
         tagIds: draft.tagIds,
+        links: draft.links,
       };
       const result = await updateShop(draft.id, cmd);
       if (!result.ok) {
@@ -317,7 +319,9 @@ export default function SearchPage() {
         toastApiError(result.error, {
           fallbackTitle: isDuplicatePlaceIdError(result.error.body)
             ? "Google Place ID が他の店舗と重複しています"
-            : "店舗を更新できませんでした",
+            : isInvalidLinksError(result.error.body)
+              ? "リンクの URL を確認してください（http:// または https://）"
+              : "店舗を更新できませんでした",
         });
         return;
       }

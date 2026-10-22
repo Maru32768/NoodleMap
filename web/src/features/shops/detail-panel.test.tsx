@@ -91,6 +91,34 @@ describe("DetailPanel", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it("shows http(s) shop links to guests in a new tab", () => {
+    renderPanel(
+      makeShop({
+        links: [
+          { type: "twitter", url: "https://x.com/aoba" },
+          {
+            type: "official",
+            label: "本店サイト",
+            url: "https://aoba.example/",
+          },
+          { type: "other", label: "悪い", url: "javascript:alert(1)" },
+        ],
+      }),
+    );
+
+    const links = screen.getAllByRole("link", {
+      ...hidden,
+      name: /Twitter|本店サイト|悪い/,
+    });
+    expect(links.map((link) => link.textContent)).toEqual([
+      "Twitter",
+      "本店サイト",
+    ]);
+    expect(links[0]).toHaveAttribute("href", "https://x.com/aoba");
+    expect(links[0]).toHaveAttribute("target", "_blank");
+    expect(links[0]).toHaveAttribute("rel", "noopener noreferrer");
+  });
+
   it("shows the favorite rating only for visited shops", () => {
     renderPanel(makeShop({ eaten: false, rate: 0 }));
 

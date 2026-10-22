@@ -83,6 +83,16 @@ export function isDuplicatePlaceIdError(
   return false;
 }
 
+export function isInvalidLinksError(
+  body: UpdateShopErrorBody | undefined,
+): boolean {
+  return (
+    body?.type === "invalid_request" &&
+    (body.fieldErrors?.some((fieldError) => fieldError.field === "links") ??
+      false)
+  );
+}
+
 export function useShops(config?: SWRConfiguration<Shop[]>) {
   const resp = useSWR(
     ["/api/v1/shops"],
