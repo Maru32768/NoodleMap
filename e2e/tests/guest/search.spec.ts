@@ -111,6 +111,7 @@ test("guest opening a share URL lands on the shop's detail", async ({ page, api 
 
   await page.goto(`/r/${shop.id}`);
   await expect(page).toHaveURL(new RegExp(`/search\\?shop=${shop.id}$`));
-  await expect(page.getByText(shop.name, { exact: true }).filter({ visible: true })).toBeVisible();
-  await expect(page.getByText("お気に入り度 - Favorite")).toBeVisible();
+  // The name can also be visible in the sidebar list, so check the open detail via its close button.
+  await expect(page.getByText(shop.name, { exact: true }).filter({ visible: true }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "閉じる" })).toBeVisible();
 });
