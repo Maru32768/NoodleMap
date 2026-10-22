@@ -49,7 +49,7 @@ describe("DetailPanel", () => {
     expect(screen.getByText("1996/10/1")).toBeInTheDocument();
     expect(screen.getByText("2999/3/31")).toBeInTheDocument();
     expect(screen.getByText("閉店予定")).toBeInTheDocument();
-    expect(screen.getByText(/Favorite/)).toBeInTheDocument();
+    expect(screen.getByText("評価 - Rating")).toBeInTheDocument();
 
     const mapsUrl = new URL(
       screen
@@ -122,9 +122,9 @@ describe("DetailPanel", () => {
     expect(links[0]).toHaveAttribute("rel", "noopener noreferrer");
   });
 
-  it("shows the favorite rating only for visited shops", () => {
+  it("shows the rating only for visited shops", () => {
     renderPanel(makeShop({ eaten: false, rate: 0 }));
 
-    expect(screen.queryByText(/Favorite/)).not.toBeInTheDocument();
+    expect(screen.queryByText("評価 - Rating")).not.toBeInTheDocument();
   });
 });

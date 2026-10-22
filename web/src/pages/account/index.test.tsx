@@ -6,7 +6,7 @@ import type { components } from "@/generated/api.ts";
 import AccountPage from "@/pages/account/index.tsx";
 import { renderWithProviders } from "@/test/render.tsx";
 import { server } from "@/test/server.ts";
-import { SEARCH_PATH } from "@/utils/path.ts";
+import { ACCOUNT_PATH, LOGIN_PATH, SEARCH_PATH } from "@/utils/path.ts";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
@@ -119,5 +119,28 @@ describe("AccountPage", () => {
     ).toBeInTheDocument();
     expect(screen.getAllByRole("listitem")).toHaveLength(2);
     expect(replace).not.toHaveBeenCalled();
+  });
+
+  it("sends a bodiless 401 on the session list to the login page", async () => {
+    server.use(
+      http.get(
+        "/api/v1/auth/sessions",
+        () => new HttpResponse(null, { status: 401 }),
+      ),
+    );
+
+    renderWithProviders(
+      <CurrentUserProvider value={user}>
+        <MemoryRouter>
+          <AccountPage />
+        </MemoryRouter>
+      </CurrentUserProvider>,
+    );
+
+    await waitFor(() =>
+      expect(replace).toHaveBeenCalledWith(
+        `${LOGIN_PATH}?redirectTo=${encodeURIComponent(ACCOUNT_PATH)}`,
+      ),
+    );
   });
 });

@@ -13,8 +13,8 @@ import {
 import { ShopLinkList } from "@/features/shops/shop-link-list.tsx";
 import {
   formatShopDate,
-  shopDisplaySystemTags,
   SHOP_EATEN_STATUS_LABEL,
+  shopDisplaySystemTags,
   ShopEatenStatus,
 } from "@/features/shops/status.ts";
 import { SystemTagChips, TagChips } from "@/features/shops/tag-chips.tsx";
@@ -225,7 +225,7 @@ export function DetailPanel({ shop, onAdminEdit, onClose }: DetailPanelProps) {
               textTransform="uppercase"
               mb="0.5rem"
             >
-              お気に入り度 - Favorite
+              評価 - Rating
             </Box>
             <FavoriteRating rate={shop.rate} />
           </Box>

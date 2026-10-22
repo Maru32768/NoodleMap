@@ -1,29 +1,19 @@
 import { Button } from "@/components/ui/button.tsx";
-import { toaster } from "@/components/ui/toaster.tsx";
-import { AddDraft, AddModal } from "@/features/admin/add-modal.tsx";
-import { AdminFilters, VisitFilter } from "@/features/admin/admin-filters.tsx";
+import { AddModal } from "@/features/admin/add-modal.tsx";
+import { AdminFilters } from "@/features/admin/admin-filters.tsx";
 import { AdminMap } from "@/features/admin/admin-map.tsx";
 import { AdminTable } from "@/features/admin/admin-table.tsx";
 import { MobileShopList } from "@/features/admin/mobile-shop-list.tsx";
 import { TagManagementModal } from "@/features/admin/tag-management-modal.tsx";
+import {
+  matchesVisitFilter,
+  VisitFilter,
+} from "@/features/admin/visit-filter.ts";
 import { AccountLink } from "@/features/auth/account-link.tsx";
 import { CategoryType, createQueryMatcher } from "@/features/search/utils.ts";
-import {
-  isDuplicatePlaceIdError,
-  UpdateShopCommand,
-  updateShopErrorTitle,
-  useShops,
-} from "@/features/shops/api/use-shops.ts";
-import {
-  ShopEditDraft,
-  ShopEditModal,
-} from "@/features/shops/shop-edit-modal.tsx";
+import { useShops } from "@/features/shops/api/use-shops.ts";
+import { ShopEditModal } from "@/features/shops/shop-edit-modal.tsx";
 import { ShopsLoadState } from "@/features/shops/shops-load-state.tsx";
-import {
-  SHOP_ADD_FAILED_TITLE,
-  SHOP_DUPLICATE_PLACE_ID_TITLE,
-  toastApiError,
-} from "@/utils/toast.ts";
 import { Box, Input, Span } from "@chakra-ui/react";
 import { useCallback, useDeferredValue, useState } from "react";
 import { CiLocationOn, CiSearch } from "react-icons/ci";
@@ -134,7 +124,7 @@ function AdminSearchBox({
 }
 
 export default function AdminPage() {
-  const { shops, addShop, updateShop, mutate: mutateShops } = useShops();
+  const { shops, mutate: mutateShops } = useShops();
 
   const [keyword, setKeyword] = useState("");
   const deferredKeyword = useDeferredValue(keyword);
@@ -166,23 +156,20 @@ export default function AdminPage() {
           return false;
         }
       }
-      if (visitFilter === "eaten") {
-        return shop.eaten && shop.lifecycleStatus !== "closed";
-      }
-      if (visitFilter === "wish") {
-        return !shop.eaten && shop.lifecycleStatus !== "closed";
-      }
-      if (visitFilter === "closed") {
-        return shop.lifecycleStatus !== "closed";
-      }
-      return true;
+      return matchesVisitFilter(shop, visitFilter);
     }) ?? [];
 
   // Counts stay undefined until the shops load so the UI shows a placeholder, not 0.
   const total = shops?.length;
-  const eatenCount = shops?.filter((shop) => shop.eaten).length;
-  const wishCount = shops?.filter(
-    (shop) => !shop.eaten && shop.lifecycleStatus !== "closed",
+  // Same rules as the visit filter, so a count matches its filtered list.
+  const eatenCount = shops?.filter((shop) =>
+    matchesVisitFilter(shop, "eaten"),
+  ).length;
+  const wishCount = shops?.filter((shop) =>
+    matchesVisitFilter(shop, "wish"),
+  ).length;
+  const closedCount = shops?.filter((shop) =>
+    matchesVisitFilter(shop, "closed"),
   ).length;
   const editShop = shops?.find((shop) => shop.id === editId);
   const mapPaneDisplay = {
@@ -203,59 +190,6 @@ export default function AdminPage() {
   const handleShopDeleted = useCallback((id: string) => {
     setSelectedId((current) => (current === id ? null : current));
   }, []);
-
-  const handleSave = async (draft: ShopEditDraft) => {
-    const cmd: UpdateShopCommand = {
-      name: draft.name,
-      nameKana: draft.nameKana ?? "",
-      lat: draft.lat,
-      lng: draft.lng,
-      postalCode: draft.postalCode,
-      address: draft.address,
-      openedAt: draft.openedAt,
-      closedAt: draft.closedAt,
-      googlePlaceId: draft.googlePlaceId,
-      category: draft.category,
-      eaten: draft.eaten,
-      rate: draft.rate,
-      tagIds: draft.tagIds,
-      links: draft.links,
-    };
-    const result = await updateShop(draft.id, cmd);
-    if (!result.ok) {
-      if (result.error.type === "not_found") {
-        handleShopDeleted(draft.id);
-        setEditId(null);
-        toastApiError(result.error, {
-          fallbackTitle: "この店舗はすでに削除されています",
-        });
-        return;
-      }
-      toastApiError(result.error, {
-        fallbackTitle: updateShopErrorTitle(result.error.body),
-      });
-      return;
-    }
-
-    setEditId(null);
-    toaster.success({ description: "保存しました" });
-  };
-
-  const handleAdd = async (draft: AddDraft) => {
-    const result = await addShop(draft);
-    if (!result.ok) {
-      toastApiError(result.error, {
-        fallbackTitle: isDuplicatePlaceIdError(result.error.body)
-          ? SHOP_DUPLICATE_PLACE_ID_TITLE
-          : SHOP_ADD_FAILED_TITLE,
-      });
-      return;
-    }
-
-    setShowAdd(false);
-    setDraftLatLng(null);
-    toaster.success({ description: "店舗を追加しました" });
-  };
 
   const handleMapClick = useCallback(
     (latlng: { lat: number; lng: number } | null) => {
@@ -351,6 +285,7 @@ export default function AdminPage() {
           <AdminStat value={total} label="店舗" />
           <AdminStat value={eatenCount} label="食べた" />
           <AdminStat value={wishCount} label="気になる" tone="warning" />
+          <AdminStat value={closedCount} label="閉店" />
         </Box>
 
         <Box ml="auto" display="flex" alignItems="center" gap="8px">
@@ -726,7 +661,6 @@ export default function AdminPage() {
           open={!!editId}
           initialTab={editTab}
           onClose={() => setEditId(null)}
-          onSave={handleSave}
           onDeleted={handleShopDeleted}
         />
       )}
@@ -740,7 +674,6 @@ export default function AdminPage() {
             setShowAdd(false);
             setDraftLatLng(null);
           }}
-          onSave={handleAdd}
           initialLatLng={draftLatLng ?? undefined}
         />
       )}

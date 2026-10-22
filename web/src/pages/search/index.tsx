@@ -8,7 +8,6 @@ import {
   DrawerRoot,
   DrawerTitle,
 } from "@/components/ui/drawer.tsx";
-import { toaster } from "@/components/ui/toaster.tsx";
 import { AccountLink } from "@/features/auth/account-link.tsx";
 import { FlyToLocationButton } from "@/features/map/fly-to-location-button.tsx";
 import {
@@ -20,20 +19,12 @@ import {
 } from "@/features/map/map.tsx";
 import { useSearchState } from "@/features/search/use-search-state.ts";
 import { filterShops, sortShops } from "@/features/search/utils.ts";
-import {
-  UpdateShopCommand,
-  updateShopErrorTitle,
-  useShops,
-} from "@/features/shops/api/use-shops.ts";
+import { useShops } from "@/features/shops/api/use-shops.ts";
 import { DetailPanel } from "@/features/shops/detail-panel.tsx";
 import { MobileSheet } from "@/features/shops/mobile-sheet.tsx";
-import {
-  ShopEditDraft,
-  ShopEditModal,
-} from "@/features/shops/shop-edit-modal.tsx";
+import { ShopEditModal } from "@/features/shops/shop-edit-modal.tsx";
 import { ShopFilters, Sidebar } from "@/features/shops/sidebar.tsx";
 import { SHOP_PARAM } from "@/utils/path.ts";
-import { toastApiError } from "@/utils/toast.ts";
 import { Box, Input } from "@chakra-ui/react";
 import {
   SetStateAction,
@@ -192,7 +183,7 @@ export default function SearchPage() {
     [handleMapViewChange],
   );
 
-  const { shops, updateShop } = useShops();
+  const { shops } = useShops();
 
   const filteredShops = useMemo(() => {
     if (!shops) {
@@ -285,46 +276,6 @@ export default function SearchPage() {
       setSelectedId((current) => (current === id ? null : current));
     },
     [setSelectedId],
-  );
-
-  const handleEditSave = useCallback(
-    async (draft: ShopEditDraft) => {
-      const cmd: UpdateShopCommand = {
-        name: draft.name,
-        nameKana: draft.nameKana ?? "",
-        lat: draft.lat,
-        lng: draft.lng,
-        postalCode: draft.postalCode,
-        address: draft.address,
-        openedAt: draft.openedAt,
-        closedAt: draft.closedAt,
-        googlePlaceId: draft.googlePlaceId,
-        category: draft.category,
-        eaten: draft.eaten,
-        rate: draft.rate,
-        tagIds: draft.tagIds,
-        links: draft.links,
-      };
-      const result = await updateShop(draft.id, cmd);
-      if (!result.ok) {
-        if (result.error.type === "not_found") {
-          handleShopDeleted(draft.id);
-          setEditId(null);
-          toastApiError(result.error, {
-            fallbackTitle: "この店舗はすでに削除されています",
-          });
-          return;
-        }
-        toastApiError(result.error, {
-          fallbackTitle: updateShopErrorTitle(result.error.body),
-        });
-        return;
-      }
-
-      setEditId(null);
-      toaster.success({ description: "保存しました" });
-    },
-    [updateShop, handleShopDeleted],
   );
 
   return (
@@ -482,7 +433,6 @@ export default function SearchPage() {
           open={!!editId}
           initialTab="info"
           onClose={() => setEditId(null)}
-          onSave={handleEditSave}
           onDeleted={handleShopDeleted}
         />
       )}

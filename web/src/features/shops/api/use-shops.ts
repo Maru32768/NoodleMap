@@ -20,12 +20,7 @@ import {
   withApiError,
   withApiResult,
 } from "@/utils/request.ts";
-import {
-  SHOP_DUPLICATE_PLACE_ID_TITLE,
-  SHOP_LINKS_INVALID_TITLE,
-  SHOP_UPDATE_FAILED_TITLE,
-  toastApiError,
-} from "@/utils/toast.ts";
+import { toastApiError } from "@/utils/toast.ts";
 import type { Dayjs } from "dayjs";
 import { useCallback } from "react";
 import useSWR, { SWRConfiguration } from "swr";
@@ -72,41 +67,6 @@ type AddShopErrorBody = ApiErrorBodyFor<"/api/v1/auth/shops", "post">;
 type UpdateShopErrorBody = ApiErrorBodyFor<"/api/v1/auth/shops/{id}", "put">;
 type DeleteShopErrorBody = ApiErrorBodyFor<"/api/v1/auth/shops/{id}", "delete">;
 export type SaveTagsErrorBody = ApiErrorBodyFor<"/api/v1/auth/tags", "put">;
-
-export function isDuplicatePlaceIdError(
-  body: AddShopErrorBody | UpdateShopErrorBody | undefined,
-): boolean {
-  if (body?.type === "invalid_request") {
-    return (
-      body.fieldErrors?.some(
-        (fieldError) =>
-          fieldError.field === "googlePlaceId" &&
-          fieldError.type === "duplicate",
-      ) ?? false
-    );
-  }
-  return false;
-}
-
-function isInvalidLinksError(body: UpdateShopErrorBody | undefined): boolean {
-  return (
-    body?.type === "invalid_request" &&
-    (body.fieldErrors?.some((fieldError) => fieldError.field === "links") ??
-      false)
-  );
-}
-
-export function updateShopErrorTitle(
-  body: UpdateShopErrorBody | undefined,
-): string {
-  if (isDuplicatePlaceIdError(body)) {
-    return SHOP_DUPLICATE_PLACE_ID_TITLE;
-  }
-  if (isInvalidLinksError(body)) {
-    return SHOP_LINKS_INVALID_TITLE;
-  }
-  return SHOP_UPDATE_FAILED_TITLE;
-}
 
 export function useShops(config?: SWRConfiguration<Shop[]>) {
   const resp = useSWR(

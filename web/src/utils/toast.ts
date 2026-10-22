@@ -1,5 +1,10 @@
 import { toaster } from "@/components/ui/toaster.tsx";
 import {
+  type FieldErrorType,
+  SHOP_NAME_KANA_MAX_LENGTH,
+  type UpdateShopField,
+} from "@/features/shops/shop-field-errors.ts";
+import {
   SHOP_LINK_LABEL_MAX_LENGTH,
   SHOP_LINK_URL_MAX_LENGTH,
   SHOP_LINKS_MAX,
@@ -91,13 +96,70 @@ const statusMessages: Readonly<Record<number, UserErrorMessage>> = {
   },
 };
 
-export const SHOP_DUPLICATE_PLACE_ID_TITLE =
+const SHOP_DUPLICATE_PLACE_ID_TITLE =
   "Google Place ID が他の店舗と重複しています";
 export const SHOP_ADD_FAILED_TITLE = "店舗を追加できませんでした";
 export const SHOP_UPDATE_FAILED_TITLE = "店舗を更新できませんでした";
+export const SHOP_ALREADY_DELETED_TITLE = "この店舗はすでに削除されています";
 
 // 店舗リンク problems: rejected by the server, or caught before saving.
-export const SHOP_LINKS_INVALID_TITLE = `リンクの内容を確認してください（http(s) の URL は${SHOP_LINK_URL_MAX_LENGTH}文字まで、表示名は${SHOP_LINK_LABEL_MAX_LENGTH}文字まで、最大${SHOP_LINKS_MAX}件）`;
+const SHOP_LINKS_INVALID_TITLE = `リンクの内容を確認してください（http(s) の URL は${SHOP_LINK_URL_MAX_LENGTH}文字まで、表示名は${SHOP_LINK_LABEL_MAX_LENGTH}文字まで、最大${SHOP_LINKS_MAX}件）`;
+
+// Shown under the shop form input named by an `invalid_request` field error.
+export function shopFieldErrorMessage(
+  field: UpdateShopField,
+  type: FieldErrorType,
+): string {
+  if (field === "links") {
+    return SHOP_LINKS_INVALID_TITLE;
+  }
+  if (field === "tagIds") {
+    return "存在しないタグが含まれています。タグを選び直してください";
+  }
+  switch (type) {
+    case "required":
+      return "入力してください";
+    case "invalid_format":
+      return "形式が正しくありません";
+    case "out_of_range":
+      return field === "rate"
+        ? "0〜100の範囲で入力してください"
+        : "範囲外の値です";
+    case "too_long":
+      return field === "nameKana"
+        ? `${SHOP_NAME_KANA_MAX_LENGTH}文字以内で入力してください`
+        : "長すぎます";
+    case "duplicate":
+      return field === "googlePlaceId"
+        ? SHOP_DUPLICATE_PLACE_ID_TITLE
+        : "他の店舗と重複しています";
+    case "unknown":
+      return "入力内容を確認してください";
+  }
+  // A field or error type added on the server after this client was built.
+  return "入力内容を確認してください";
+}
+
+// For field errors the form has no input to show them on: one toast per distinct message.
+export function toastShopFieldErrors(
+  title: string,
+  errors: readonly { field: UpdateShopField; type: FieldErrorType }[],
+) {
+  const messages = new Set(
+    errors.map((error) => shopFieldErrorMessage(error.field, error.type)),
+  );
+  for (const description of messages) {
+    toastError({ title, description });
+  }
+}
+
+// The edit modal shows one tab at a time; this points at errors on another one.
+export function shopOtherTabErrorsMessage(tabLabel: string): UserErrorMessage {
+  return {
+    title: `「${tabLabel}」タブにも入力エラーがあります`,
+    description: "タブを切り替えて確認してください。",
+  };
+}
 
 export function shopLinkProblemMessage(
   problem: ShopLinkProblem,

@@ -306,7 +306,7 @@ export function MobileSheet({
                         textTransform="uppercase"
                         mb="0.5rem"
                       >
-                        お気に入り度
+                        評価
                       </Box>
                       <FavoriteRating rate={shop.rate} compact />
                     </Box>

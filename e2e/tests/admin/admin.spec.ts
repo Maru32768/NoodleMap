@@ -141,6 +141,32 @@ test("admin adds a shop by typing its details into the add form", async ({ page,
   expect(added).toMatchObject({ category: "udon", lat: 35.6812, lng: 139.7671, eaten: false });
 });
 
+test("add form shows a duplicate Google Place ID under its input", async ({ page, api }) => {
+  const existing = await api.createShop({ name: `${uid()} 既存の店` });
+  const name = `${uid()} 重複する店`;
+  await openAdmin(page);
+
+  await page.getByRole("button", { name: "店舗追加" }).click();
+  await page.getByRole("button", { name: /Googleで検索して追加/ }).click();
+  const dialog = page.getByRole("dialog").filter({ hasText: "新しい店舗を追加" });
+  await dialog.locator('label:has-text("店名") + input').fill(name);
+  await dialog.locator('label:has-text("緯度") + input').fill("35.6812");
+  await dialog.locator('label:has-text("経度") + input').fill("139.7671");
+  const placeId = dialog.locator('label:has-text("Google Place ID") + input');
+  await placeId.fill(existing.googlePlaceId);
+  await dialog.getByRole("button", { name: "追加", exact: true }).click();
+
+  const message = dialog.getByText("Google Place ID が他の店舗と重複しています");
+  await expect(message).toBeVisible();
+  await expect(placeId).toHaveAttribute("aria-invalid", "true");
+  await expect(dialog).toBeVisible();
+  expect((await api.listShops()).some((s) => s.name === name)).toBe(false);
+
+  await placeId.fill(`${existing.googlePlaceId}-new`);
+  await expect(message).toBeHidden();
+  await expect(placeId).not.toHaveAttribute("aria-invalid");
+});
+
 test("add form falls back to manual entry when Google Places is not configured", async ({ page }) => {
   // No route stub: the E2E backend runs without GOOGLE_PLACES_API_KEY and answers 503.
   await openAdmin(page);

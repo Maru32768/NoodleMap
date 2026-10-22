@@ -1,15 +1,29 @@
+import { FieldError, FormField } from "@/components/form-field.tsx";
 import { LoadableButton } from "@/components/loadable-button.tsx";
 import { ModalDialog } from "@/components/modal-dialog.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { toaster } from "@/components/ui/toaster.tsx";
+import { useRevealFirstError } from "@/components/use-reveal-first-error.ts";
 import { AdminImage, ImageUploader } from "@/features/admin/image-uploader.tsx";
 import {
   CATEGORY_OPTIONS,
   CategorySlug,
 } from "@/features/categories/categories.ts";
 import { CategoryIcon } from "@/features/map/category-icon.tsx";
-import { Shop, useShops, useTags } from "@/features/shops/api/use-shops.ts";
+import {
+  Shop,
+  UpdateShopCommand,
+  useShops,
+  useTags,
+} from "@/features/shops/api/use-shops.ts";
 import { MiniHearts } from "@/features/shops/rating-hearts.tsx";
+import {
+  clearShopFieldErrors,
+  SHOP_NAME_KANA_MAX_LENGTH,
+  ShopFieldErrors,
+  toShopFieldErrors,
+  UpdateShopField,
+} from "@/features/shops/shop-field-errors.ts";
 import {
   findShopLinkProblem,
   savableShopLinks,
@@ -21,15 +35,21 @@ import {
   withLinkUrl,
 } from "@/features/shops/shop-links.ts";
 import { TagSelector } from "@/features/shops/tag-chips.tsx";
+import { invalidRequestFieldErrors } from "@/utils/request.ts";
 import {
+  SHOP_ALREADY_DELETED_TITLE,
+  SHOP_UPDATE_FAILED_TITLE,
+  shopFieldErrorMessage,
   shopLinkProblemMessage,
+  shopOtherTabErrorsMessage,
   toastApiError,
   toastError,
+  toastShopFieldErrors,
 } from "@/utils/toast.ts";
 import { Box, Input, NativeSelect } from "@chakra-ui/react";
 import { useEffect, useRef, useState } from "react";
 
-export interface ShopEditDraft {
+interface ShopEditDraft {
   id: string;
   name: string;
   nameKana?: string;
@@ -106,6 +126,8 @@ function FormInput({
       fontFamily={mono ? "mono" : "body"}
       color="nm.ink"
       _focus={{ borderColor: "nm.shu", bg: "white", boxShadow: "none" }}
+      // Field.Root marks the input invalid; the borderColor above would hide it.
+      _invalid={{ borderColor: "border.error" }}
     />
   );
 }
@@ -348,12 +370,59 @@ function ShopLinksEditor({
 
 type Tab = "info" | "visit" | "images";
 
+const TAB_LABELS: Record<Tab, string> = {
+  info: "店舗情報",
+  visit: "食べた記録",
+  images: "画像",
+};
+
+// The tab that shows each field's input.
+const FIELD_TAB: Record<UpdateShopField, Tab> = {
+  name: "info",
+  nameKana: "info",
+  lat: "info",
+  lng: "info",
+  postalCode: "info",
+  address: "info",
+  openedAt: "info",
+  closedAt: "info",
+  googlePlaceId: "info",
+  category: "info",
+  tagIds: "info",
+  links: "info",
+  eaten: "visit",
+  rate: "visit",
+};
+
+// Also false for a field added on the server after this client was built.
+function isUpdateShopField(key: string): key is UpdateShopField {
+  return Object.hasOwn(FIELD_TAB, key);
+}
+
+function toUpdateCommand(draft: ShopEditDraft): UpdateShopCommand {
+  return {
+    name: draft.name,
+    nameKana: draft.nameKana ?? "",
+    lat: draft.lat,
+    lng: draft.lng,
+    postalCode: draft.postalCode,
+    address: draft.address,
+    openedAt: draft.openedAt,
+    closedAt: draft.closedAt,
+    googlePlaceId: draft.googlePlaceId,
+    category: draft.category,
+    eaten: draft.eaten,
+    rate: draft.rate,
+    tagIds: draft.tagIds,
+    links: draft.links,
+  };
+}
+
 interface ShopEditModalProps {
   shop: Shop;
   open: boolean;
   initialTab?: Tab;
   onClose: () => void;
-  onSave: (draft: ShopEditDraft) => Promise<void>;
   onDeleted: (id: string) => void;
 }
 
@@ -362,7 +431,6 @@ export function ShopEditModal({
   open,
   initialTab = "info",
   onClose,
-  onSave,
   onDeleted,
 }: ShopEditModalProps) {
   const [tab, setTab] = useState<Tab>(initialTab);
@@ -385,26 +453,55 @@ export function ShopEditModal({
     // `links` is missing while an older server is still deployed.
     links: (shop.links ?? []).map(toLinkRow),
   }));
+  const [fieldErrors, setFieldErrors] = useState<
+    ShopFieldErrors<UpdateShopField>
+  >({});
   const [saving, setSaving] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   // Locks closing and saving while the DELETE is in flight.
   const [deleting, setDeleting] = useState(false);
   const { tags } = useTags();
-  const { deleteShop } = useShops();
+  const { updateShop, deleteShop } = useShops();
 
-  const set = <K extends keyof ShopEditState>(k: K, v: ShopEditState[K]) =>
+  const { ref: formRef, reveal: revealFirstError } =
+    useRevealFirstError<HTMLDivElement>();
+
+  const errorOf = (field: UpdateShopField) => {
+    const type = fieldErrors[field];
+    return type && shopFieldErrorMessage(field, type);
+  };
+
+  const clearErrors = (fields: readonly UpdateShopField[]) =>
+    setFieldErrors((errors) => clearShopFieldErrors(errors, fields));
+
+  // Editing a field clears its server-side error.
+  const set = <K extends keyof ShopEditState>(k: K, v: ShopEditState[K]) => {
     setDraft((d) => ({ ...d, [k]: v }));
+    if (isUpdateShopField(k)) {
+      clearErrors([k]);
+    }
+  };
 
   const setCategory = (category: ShopEditDraft["category"]) => {
+    const fitsCategory = (tagId: string) => {
+      const tag = tags?.find((candidate) => candidate.id === tagId);
+      return !tag?.category || tag.category === category;
+    };
     setDraft((current) => ({
       ...current,
       category,
-      tagIds: current.tagIds.filter((tagId) => {
-        const tag = tags?.find((candidate) => candidate.id === tagId);
-        return !tag?.category || tag.category === category;
-      }),
+      tagIds: current.tagIds.filter(fitsCategory),
     }));
+    clearErrors(
+      draft.tagIds.every(fitsCategory) ? ["category"] : ["category", "tagIds"],
+    );
   };
+
+  // Whether the field's input is on screen (on its tab) to show an error.
+  const hasInput = (field: UpdateShopField) =>
+    isUpdateShopField(field) &&
+    (field !== "tagIds" || !!tags) &&
+    (field !== "rate" || draft.eaten);
 
   const handleSave = async () => {
     const problem = findShopLinkProblem(draft.links);
@@ -435,9 +532,51 @@ export function ShopEditModal({
         }
       : withLinks;
 
+    setFieldErrors({});
     setSaving(true);
     try {
-      await onSave(sanitizedDraft);
+      const result = await updateShop(shop.id, toUpdateCommand(sanitizedDraft));
+      if (!result.ok) {
+        if (result.error.type === "not_found") {
+          toastApiError(result.error, {
+            fallbackTitle: SHOP_ALREADY_DELETED_TITLE,
+          });
+          onDeleted(shop.id);
+          onClose();
+          return;
+        }
+        const errors = invalidRequestFieldErrors(result.error.body);
+        if (errors) {
+          const shown = errors.filter((e) => hasInput(e.field));
+          if (shown.length > 0) {
+            setFieldErrors(toShopFieldErrors(shown));
+            const tabs = new Set(shown.map((e) => FIELD_TAB[e.field]));
+            // Prefer 店舗情報; a toast points at errors left on the other tab.
+            const nextTab = tabs.has("info") ? "info" : "visit";
+            setTab(nextTab);
+            revealFirstError();
+            if (tabs.size > 1) {
+              toastError(
+                shopOtherTabErrorsMessage(
+                  TAB_LABELS[nextTab === "info" ? "visit" : "info"],
+                ),
+              );
+            }
+          }
+          toastShopFieldErrors(
+            SHOP_UPDATE_FAILED_TITLE,
+            errors.filter((e) => !hasInput(e.field)),
+          );
+          return;
+        }
+        toastApiError(result.error, {
+          fallbackTitle: SHOP_UPDATE_FAILED_TITLE,
+        });
+        return;
+      }
+
+      onClose();
+      toaster.success({ description: "保存しました" });
     } finally {
       setSaving(false);
     }
@@ -465,17 +604,12 @@ export function ShopEditModal({
 
   const displayName = shop.name || "(名称未設定)";
 
-  const TAB_LABELS: Record<Tab, string> = {
-    info: "店舗情報",
-    visit: "食べた記録",
-    images: "画像",
-  };
-
   return (
     <>
       <ModalDialog
         open={open}
-        onOpenChange={(o) => !o && onClose()}
+        // Closing while a save or delete is in flight would drop its errors.
+        onOpenChange={(o) => !o && !saving && !deleting && onClose()}
         width="100%"
         maxWidth="1040px"
         height="80vh"
@@ -560,11 +694,21 @@ export function ShopEditModal({
           </Box>
 
           {/* Content */}
-          <Box px="22px" py="20px" flex="1" minH="0" overflowY="auto">
+          <Box
+            ref={formRef}
+            px="22px"
+            py="20px"
+            flex="1"
+            minH="0"
+            overflowY="auto"
+          >
             {tab === "info" && (
               <Box display="grid" gridTemplateColumns="1fr 1fr" gap="16px">
-                <Box gridColumn="span 2">
-                  <FieldLabel>カテゴリ</FieldLabel>
+                <FormField
+                  gridColumn="span 2"
+                  label={<FieldLabel>カテゴリ</FieldLabel>}
+                  error={errorOf("category")}
+                >
                   <Box display="flex" gap="6px" flexWrap="wrap">
                     {CATEGORY_OPTIONS.map((cat) => (
                       <Button
@@ -592,70 +736,92 @@ export function ShopEditModal({
                       </Button>
                     ))}
                   </Box>
-                </Box>
+                </FormField>
                 {tags && (
-                  <Box gridColumn="span 2">
-                    <FieldLabel>タグ</FieldLabel>
+                  <FormField
+                    gridColumn="span 2"
+                    label={<FieldLabel>タグ</FieldLabel>}
+                    error={errorOf("tagIds")}
+                  >
                     <TagSelector
                       tags={tags}
                       selectedIds={draft.tagIds}
                       category={draft.category}
                       onChange={(ids) => set("tagIds", ids)}
                     />
-                  </Box>
+                  </FormField>
                 )}
-                <Box gridColumn="span 2">
-                  <FieldLabel>
-                    店名{" "}
-                    <Box as="span" color="nm.shu">
-                      *
-                    </Box>
-                  </FieldLabel>
+                <FormField
+                  gridColumn="span 2"
+                  label={
+                    <FieldLabel>
+                      店名{" "}
+                      <Box as="span" color="nm.shu">
+                        *
+                      </Box>
+                    </FieldLabel>
+                  }
+                  error={errorOf("name")}
+                >
                   <FormInput
                     value={draft.name}
                     onChange={(v) => set("name", v)}
                   />
-                </Box>
-                <Box gridColumn="span 2">
-                  <FieldLabel>読み（ひらがな）</FieldLabel>
+                </FormField>
+                <FormField
+                  gridColumn="span 2"
+                  label={<FieldLabel>読み（ひらがな）</FieldLabel>}
+                  error={errorOf("nameKana")}
+                >
                   <FormInput
                     value={draft.nameKana ?? ""}
                     onChange={(v) => set("nameKana", v)}
-                    maxLength={100}
+                    maxLength={SHOP_NAME_KANA_MAX_LENGTH}
                   />
-                </Box>
-                <Box gridColumn="span 2">
-                  <FieldLabel>住所</FieldLabel>
+                </FormField>
+                <FormField
+                  gridColumn="span 2"
+                  label={<FieldLabel>住所</FieldLabel>}
+                  error={errorOf("address")}
+                >
                   <FormInput
                     value={draft.address}
                     onChange={(v) => set("address", v)}
                   />
-                </Box>
-                <Box>
-                  <FieldLabel>郵便番号</FieldLabel>
+                </FormField>
+                <FormField
+                  label={<FieldLabel>郵便番号</FieldLabel>}
+                  error={errorOf("postalCode")}
+                >
                   <FormInput
                     value={draft.postalCode}
                     onChange={(v) => set("postalCode", v)}
                     mono
                     placeholder="000-0000"
                   />
-                </Box>
-                <Box>
-                  <FieldLabel>Google Place ID</FieldLabel>
+                </FormField>
+                <FormField
+                  label={<FieldLabel>Google Place ID</FieldLabel>}
+                  error={errorOf("googlePlaceId")}
+                >
                   <FormInput
                     value={draft.googlePlaceId}
                     onChange={(v) => set("googlePlaceId", v)}
                     mono
                     placeholder="ChIJ..."
                   />
-                </Box>
-                <Box>
-                  <FieldLabel>
-                    緯度{" "}
-                    <Box as="span" color="nm.shu">
-                      *
-                    </Box>
-                  </FieldLabel>
+                </FormField>
+                <FormField
+                  label={
+                    <FieldLabel>
+                      緯度{" "}
+                      <Box as="span" color="nm.shu">
+                        *
+                      </Box>
+                    </FieldLabel>
+                  }
+                  error={errorOf("lat")}
+                >
                   <FormInput
                     value={draft.lat}
                     onChange={(v) => set("lat", parseFloat(v))}
@@ -663,14 +829,18 @@ export function ShopEditModal({
                     type="number"
                     step={0.000001}
                   />
-                </Box>
-                <Box>
-                  <FieldLabel>
-                    経度{" "}
-                    <Box as="span" color="nm.shu">
-                      *
-                    </Box>
-                  </FieldLabel>
+                </FormField>
+                <FormField
+                  label={
+                    <FieldLabel>
+                      経度{" "}
+                      <Box as="span" color="nm.shu">
+                        *
+                      </Box>
+                    </FieldLabel>
+                  }
+                  error={errorOf("lng")}
+                >
                   <FormInput
                     value={draft.lng}
                     onChange={(v) => set("lng", parseFloat(v))}
@@ -678,31 +848,36 @@ export function ShopEditModal({
                     type="number"
                     step={0.000001}
                   />
-                </Box>
-                <Box>
-                  <FieldLabel>開店日</FieldLabel>
+                </FormField>
+                <FormField
+                  label={<FieldLabel>開店日</FieldLabel>}
+                  error={errorOf("openedAt")}
+                >
                   <FormInput
                     value={draft.openedAt ?? ""}
                     onChange={(v) => set("openedAt", v || undefined)}
                     mono
                     type="date"
                   />
-                </Box>
-                <Box>
-                  <FieldLabel>閉店日</FieldLabel>
+                </FormField>
+                <FormField
+                  label={<FieldLabel>閉店日</FieldLabel>}
+                  error={errorOf("closedAt")}
+                >
                   <FormInput
                     value={draft.closedAt ?? ""}
                     onChange={(v) => set("closedAt", v || undefined)}
                     mono
                     type="date"
                   />
-                </Box>
+                </FormField>
                 <Box gridColumn="span 2">
                   <FieldLabel>リンク（公式サイト・SNS）</FieldLabel>
                   <ShopLinksEditor
                     links={draft.links}
                     onChange={(links) => set("links", links)}
                   />
+                  <FieldError error={errorOf("links")} />
                 </Box>
               </Box>
             )}
@@ -727,6 +902,7 @@ export function ShopEditModal({
                     onClick={() => set("eaten", !draft.eaten)}
                   />
                 </Box>
+                <FieldError error={errorOf("eaten")} />
 
                 {draft.eaten && (
                   <Box
@@ -738,30 +914,32 @@ export function ShopEditModal({
                     flexDirection="column"
                     gap="14px"
                   >
-                    <Box
-                      display="flex"
-                      alignItems="center"
-                      justifyContent="space-between"
-                    >
-                      <Box>
-                        <Box
-                          fontSize="12px"
-                          fontFamily="mono"
-                          letterSpacing="0.1em"
-                          color="nm.inkMuted"
-                          textTransform="uppercase"
-                        >
-                          評価
+                    <FormField error={errorOf("rate")}>
+                      <Box
+                        display="flex"
+                        alignItems="center"
+                        justifyContent="space-between"
+                      >
+                        <Box>
+                          <Box
+                            fontSize="12px"
+                            fontFamily="mono"
+                            letterSpacing="0.1em"
+                            color="nm.inkMuted"
+                            textTransform="uppercase"
+                          >
+                            評価
+                          </Box>
+                          <Box fontSize="11px" color="nm.inkMuted" mt="2px">
+                            80以上でお気に入り
+                          </Box>
                         </Box>
-                        <Box fontSize="11px" color="nm.inkMuted" mt="2px">
-                          80以上でお気に入り
-                        </Box>
+                        <FavPicker
+                          rate={draft.rate}
+                          onChange={(v) => set("rate", v)}
+                        />
                       </Box>
-                      <FavPicker
-                        rate={draft.rate}
-                        onChange={(v) => set("rate", v)}
-                      />
-                    </Box>
+                    </FormField>
                   </Box>
                 )}
               </Box>
@@ -820,6 +998,7 @@ export function ShopEditModal({
               border="1px solid"
               borderColor="nm.line"
               _hover={{ borderColor: "nm.ink", color: "nm.ink" }}
+              disabled={saving || deleting}
               onClick={onClose}
             >
               キャンセル

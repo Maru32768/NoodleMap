@@ -1,8 +1,7 @@
 import { Button } from "@/components/ui/button.tsx";
+import type { VisitFilter } from "@/features/admin/visit-filter.ts";
 import { CategoryType } from "@/features/search/utils.ts";
 import { Box } from "@chakra-ui/react";
-
-type VisitFilter = "all" | "eaten" | "wish" | "closed";
 
 interface AdminFiltersProps {
   categoryFilter: CategoryType;
@@ -217,5 +216,3 @@ export function AdminFilters({
     </>
   );
 }
-
-export type { VisitFilter };

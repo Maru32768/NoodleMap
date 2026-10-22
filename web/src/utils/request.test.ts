@@ -1,6 +1,7 @@
 import {
   ApiError,
   apiOk,
+  invalidRequestFieldErrors,
   isApiError,
   toApiError,
   withApiError,
@@ -92,5 +93,30 @@ describe("withApiResult", () => {
 
     expect(result.ok).toBe(false);
     expect(!result.ok && result.error.status).toBe(0);
+  });
+});
+
+describe("invalidRequestFieldErrors", () => {
+  it("returns the field errors of an invalid_request body", () => {
+    const fieldErrors = [
+      { field: "nameKana" as const, type: "too_long" as const },
+    ];
+
+    expect(
+      invalidRequestFieldErrors({ type: "invalid_request", fieldErrors }),
+    ).toEqual(fieldErrors);
+  });
+
+  it("returns undefined when there are no field errors", () => {
+    expect(
+      invalidRequestFieldErrors({ type: "invalid_request" }),
+    ).toBeUndefined();
+    expect(
+      invalidRequestFieldErrors({ type: "invalid_request", fieldErrors: [] }),
+    ).toBeUndefined();
+    expect(
+      invalidRequestFieldErrors({ type: "internal_error" }),
+    ).toBeUndefined();
+    expect(invalidRequestFieldErrors(undefined)).toBeUndefined();
   });
 });
