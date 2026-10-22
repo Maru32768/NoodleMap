@@ -45,7 +45,7 @@ export function useSessions() {
     () => {
       return withApiError("/api/v1/auth/sessions", async () => {
         const res = await apiClient.GET("/api/v1/auth/sessions");
-        if (res.error) {
+        if (res.error || !res.response.ok) {
           throwApiError("/api/v1/auth/sessions", res.response, res.error);
         }
 
