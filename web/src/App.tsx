@@ -7,6 +7,7 @@ import {
   toCurrentUser,
 } from "@/features/auth/use-current-user.ts";
 import {
+  ACCOUNT_PATH,
   ADMIN_PATH,
   LOGIN_PATH,
   SEARCH_PATH,
@@ -89,6 +90,14 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path={ACCOUNT_PATH}
+            element={
+              <ProtectedRoute>
+                <LazyAccountPage />
+              </ProtectedRoute>
+            }
+          />
           {currentUser.type === "guest" && (
             <Route path={LOGIN_PATH} element={<LazyLoginPage />} />
           )}
@@ -102,5 +111,6 @@ function App() {
 const LazySearchPage = React.lazy(() => import("./pages/search"));
 const LazyAdminPage = React.lazy(() => import("./pages/admin"));
 const LazyLoginPage = React.lazy(() => import("./pages/login"));
+const LazyAccountPage = React.lazy(() => import("./pages/account"));
 
 export default App;

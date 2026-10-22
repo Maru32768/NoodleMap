@@ -86,6 +86,56 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listSessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/sessions/revoke-others": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Revokes every session of the current user except the current one. */
+        post: operations["revokeOtherSessions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/sessions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description Revokes one of the current user's sessions. Revoking the current session also clears the cookie. */
+        delete: operations["revokeSession"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/shops": {
         parameters: {
             query?: never;
@@ -201,6 +251,17 @@ export interface components {
         AuthResponse: {
             user: components["schemas"]["User"];
         };
+        /** @description A signed-in session (device) of the current user. `id` is not the session token. */
+        AuthSession: {
+            id: components["schemas"]["uuid"];
+            userAgent?: string;
+            /** @description Login time, ISO 8601 UTC. */
+            createdAt: string;
+            /** @description Approximate last use (expiry minus TTL; the expiry slides at most every 12 hours), ISO 8601 UTC. */
+            lastUsedAt: string;
+            /** @description True for the session that made this request. */
+            current: boolean;
+        };
         AuthenticationRequiredErrorBody: {
             /** @enum {string} */
             type: "authentication_required";
@@ -209,7 +270,7 @@ export interface components {
         /** @enum {string} */
         CategorySlug: "ramen" | "udon";
         /** @enum {string} */
-        ErrorType: "invalid_request" | "authentication_required" | "permission_denied" | "google_auth_failed" | "session_creation_failed" | "internal_error" | "google_places_not_configured" | "google_places_failed";
+        ErrorType: "invalid_request" | "authentication_required" | "permission_denied" | "google_auth_failed" | "session_creation_failed" | "not_found" | "internal_error" | "google_places_not_configured" | "google_places_failed";
         /** @enum {string} */
         FieldErrorType: "required" | "invalid_format" | "out_of_range" | "too_long" | "duplicate" | "unknown";
         GoogleAuthBadRequestErrorBody: {
@@ -250,6 +311,11 @@ export interface components {
             type: "invalid_request";
             message?: string;
         };
+        NotFoundErrorBody: {
+            /** @enum {string} */
+            type: "not_found";
+            message?: string;
+        };
         PermissionDeniedErrorBody: {
             /** @enum {string} */
             type: "permission_denied";
@@ -283,6 +349,9 @@ export interface components {
             /** @enum {string} */
             type: "session_creation_failed";
             message?: string;
+        };
+        SessionsResponse: {
+            sessions: components["schemas"]["AuthSession"][];
         };
         Shop: {
             id: components["schemas"]["uuid"];
@@ -670,6 +739,127 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuthenticationRequiredErrorBody"];
+                };
+            };
+            /** @description Server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InternalErrorBody"];
+                };
+            };
+        };
+    };
+    listSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionsResponse"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthenticationRequiredErrorBody"];
+                };
+            };
+            /** @description Server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InternalErrorBody"];
+                };
+            };
+        };
+    };
+    revokeOtherSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthenticationRequiredErrorBody"];
+                };
+            };
+            /** @description Server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InternalErrorBody"];
+                };
+            };
+        };
+    };
+    revokeSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthenticationRequiredErrorBody"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotFoundErrorBody"];
                 };
             };
             /** @description Server error */

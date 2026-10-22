@@ -6,6 +6,7 @@ import { AdminMap } from "@/features/admin/admin-map.tsx";
 import { AdminTable } from "@/features/admin/admin-table.tsx";
 import { MobileShopList } from "@/features/admin/mobile-shop-list.tsx";
 import { TagManagementModal } from "@/features/admin/tag-management-modal.tsx";
+import { AccountLink } from "@/features/auth/account-link.tsx";
 import { CategoryType, createQueryMatcher } from "@/features/search/utils.ts";
 import {
   isDuplicatePlaceIdError,
@@ -362,6 +363,7 @@ export default function AdminPage() {
               タグ管理
             </Box>
           </Button>
+          <AccountLink />
         </Box>
 
         <Box position="relative">

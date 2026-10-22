@@ -39,6 +39,9 @@ const apiErrorMessages: Readonly<Record<ErrorType, UserErrorMessage>> = {
     title: "ログイン状態を保存できませんでした",
     description: "時間をおいてもう一度お試しください。",
   },
+  not_found: {
+    title: "対象のデータが見つかりません",
+  },
   internal_error: {
     title: "サーバーで問題が発生しました",
     description: "時間をおいてもう一度お試しください。",
