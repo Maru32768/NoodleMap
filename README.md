@@ -129,7 +129,7 @@ Render service configuration is defined in `render.yaml`.
 - Public domains: `noodle-map.marulab.jp` and `noodle-map.marulabs.dev`.
 - API traffic from the frontend is rewritten to the Render backend.
 
-Secrets such as `GOOGLE_OAUTH_CLIENT_ID`, `ADMIN_EMAIL`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `VITE_GOOGLE_API_KEY`, and `VITE_GOOGLE_OAUTH_CLIENT_ID` are configured outside the repository.
+Secrets such as `GOOGLE_OAUTH_CLIENT_ID`, `ADMIN_EMAIL`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `GOOGLE_PLACES_API_KEY`, and `VITE_GOOGLE_OAUTH_CLIENT_ID` are configured outside the repository.
 
 ## Editing Notes
 
