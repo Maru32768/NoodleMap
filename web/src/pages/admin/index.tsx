@@ -711,6 +711,9 @@ export default function AdminPage() {
           initialTab={editTab}
           onClose={() => setEditId(null)}
           onSave={handleSave}
+          onDeleted={(id) =>
+            setSelectedId((current) => (current === id ? null : current))
+          }
         />
       )}
 

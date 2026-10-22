@@ -9,17 +9,24 @@ import { describe, expect, it, vi } from "vitest";
 
 const shop = makeShop({ name: "中華そば 青葉" });
 
-function renderModal() {
+function renderModal(deleteResponse: () => Response) {
+  server.use(
+    http.get("/api/v1/shops", () => HttpResponse.json({ shops: [shop] })),
+    http.get("/api/v1/tags", () => HttpResponse.json({ tags: [] })),
+    http.delete(`/api/v1/auth/shops/${shop.id}`, deleteResponse),
+  );
   const onClose = vi.fn();
+  const onDeleted = vi.fn();
   renderWithProviders(
     <ShopEditModal
       shop={shop}
       open
       onClose={onClose}
       onSave={() => Promise.resolve()}
+      onDeleted={onDeleted}
     />,
   );
-  return { onClose };
+  return { onClose, onDeleted };
 }
 
 async function confirmDelete() {
@@ -33,39 +40,43 @@ async function confirmDelete() {
 
 describe("ShopEditModal delete", () => {
   it("deletes the shop after confirmation and closes", async () => {
-    let deletedId: string | undefined;
-    server.use(
-      http.get("/api/v1/shops", () => HttpResponse.json({ shops: [shop] })),
-      http.get("/api/v1/tags", () => HttpResponse.json({ tags: [] })),
-      http.delete("/api/v1/auth/shops/:id", ({ params }) => {
-        deletedId = params.id as string;
-        return new HttpResponse(null, { status: 204 });
-      }),
+    const { onClose, onDeleted } = renderModal(
+      () => new HttpResponse(null, { status: 204 }),
     );
-    const { onClose } = renderModal();
 
     await confirmDelete();
 
     expect(await screen.findByText("店舗を削除しました")).toBeInTheDocument();
-    expect(deletedId).toBe(shop.id);
+    expect(onDeleted).toHaveBeenCalledWith(shop.id);
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("treats an already deleted shop as deleted", async () => {
+    const { onClose, onDeleted } = renderModal(() =>
+      HttpResponse.json({ type: "not_found" }, { status: 404 }),
+    );
+
+    await confirmDelete();
+
+    // The toaster store is global, so the previous test's toast may still be shown.
+    expect(await screen.findAllByText("店舗を削除しました")).not.toHaveLength(
+      0,
+    );
+    expect(onDeleted).toHaveBeenCalledWith(shop.id);
     expect(onClose).toHaveBeenCalled();
   });
 
   it("toasts the API error and stays open when deletion fails", async () => {
-    server.use(
-      http.get("/api/v1/shops", () => HttpResponse.json({ shops: [shop] })),
-      http.get("/api/v1/tags", () => HttpResponse.json({ tags: [] })),
-      http.delete("/api/v1/auth/shops/:id", () =>
-        HttpResponse.json({ type: "not_found" }, { status: 404 }),
-      ),
+    const { onClose, onDeleted } = renderModal(() =>
+      HttpResponse.json({ type: "permission_denied" }, { status: 403 }),
     );
-    const { onClose } = renderModal();
 
     await confirmDelete();
 
     expect(
-      await screen.findByText("対象のデータが見つかりません"),
+      await screen.findByText("この操作を行う権限がありません"),
     ).toBeInTheDocument();
     await waitFor(() => expect(onClose).not.toHaveBeenCalled());
+    expect(onDeleted).not.toHaveBeenCalled();
   });
 });

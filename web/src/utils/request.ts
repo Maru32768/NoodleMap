@@ -94,7 +94,7 @@ export class ApiError<
   }
 }
 
-export function toApiError<TBody extends ApiErrorBody>(
+export function toApiError<TBody extends ApiErrorBody | undefined>(
   input: RequestInfo | URL,
   response: Response,
   body: TBody,
@@ -135,7 +135,7 @@ export function isApiError(err: unknown): err is ApiError {
   return err instanceof ApiError;
 }
 
-export function throwApiError<TBody extends ApiErrorBody>(
+export function throwApiError<TBody extends ApiErrorBody | undefined>(
   input: RequestInfo | URL,
   response: Response,
   body: TBody,
@@ -147,7 +147,7 @@ export function apiOk<TData>(data: TData): Result<TData, never> {
   return ok(data);
 }
 
-export function apiError<TBody extends ApiErrorBody>(
+export function apiError<TBody extends ApiErrorBody | undefined>(
   input: RequestInfo | URL,
   response: Response,
   body: TBody,

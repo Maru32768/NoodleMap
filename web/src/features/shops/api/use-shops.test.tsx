@@ -175,6 +175,27 @@ describe("useShops", () => {
     expect(result.current.shops?.map((shop) => shop.name)).toEqual(["kept"]);
   });
 
+  it("reports a non-OK response with an empty body as an error", async () => {
+    server.use(
+      http.get("/api/v1/shops", () =>
+        HttpResponse.json({ shops: [apiShop({ name: "kept" })] }),
+      ),
+      http.delete(
+        "/api/v1/auth/shops/00000000-0000-4000-8000-0000000000a1",
+        () => new HttpResponse(null, { status: 500 }),
+      ),
+    );
+    const { result } = renderHookWithProviders(() => useShops());
+    await waitFor(() => expect(result.current.shops).toHaveLength(1));
+
+    const outcome = await result.current.deleteShop(
+      "00000000-0000-4000-8000-0000000000a1",
+    );
+
+    expect(outcome).toMatchObject({ ok: false, error: { status: 500 } });
+    expect(result.current.shops).toHaveLength(1);
+  });
+
   it("returns field errors from a rejected add without throwing", async () => {
     server.use(
       http.get("/api/v1/shops", () => HttpResponse.json({ shops: [] })),

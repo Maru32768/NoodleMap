@@ -176,6 +176,7 @@ interface ShopEditModalProps {
   initialTab?: Tab;
   onClose: () => void;
   onSave: (draft: ShopEditDraft) => Promise<void>;
+  onDeleted: (id: string) => void;
 }
 
 export function ShopEditModal({
@@ -184,6 +185,7 @@ export function ShopEditModal({
   initialTab = "info",
   onClose,
   onSave,
+  onDeleted,
 }: ShopEditModalProps) {
   const [tab, setTab] = useState<Tab>(initialTab);
   const [draft, setDraft] = useState<ShopEditDraft>(() => ({
@@ -205,6 +207,8 @@ export function ShopEditModal({
   }));
   const [saving, setSaving] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  // Locks closing and saving while the DELETE is in flight.
+  const [deleting, setDeleting] = useState(false);
   const { tags } = useTags();
   const { deleteShop } = useShops();
 
@@ -248,16 +252,24 @@ export function ShopEditModal({
   };
 
   const handleDelete = async () => {
-    const result = await deleteShop(shop.id);
-    if (!result.ok) {
-      toastApiError(result.error);
-      return;
-    }
+    setDeleting(true);
+    try {
+      const result = await deleteShop(shop.id);
+      if (!result.ok) {
+        toastApiError(result.error);
+        return;
+      }
 
-    setConfirmDeleteOpen(false);
-    onClose();
-    toaster.success({ description: "店舗を削除しました" });
+      setConfirmDeleteOpen(false);
+      onDeleted(shop.id);
+      onClose();
+      toaster.success({ description: "店舗を削除しました" });
+    } finally {
+      setDeleting(false);
+    }
   };
+
+  const displayName = shop.name || "(名称未設定)";
 
   const TAB_LABELS: Record<Tab, string> = {
     info: "店舗情報",
@@ -269,11 +281,11 @@ export function ShopEditModal({
     <>
       <ModalDialog
         open={open}
-        onOpenChange={(o) => !o && onClose()}
+        onOpenChange={(o) => !o && !deleting && onClose()}
         width="100%"
         maxWidth="1040px"
         height="80vh"
-        title={shop.name || "(名称未設定)"}
+        title={displayName}
         subtitle={`EDIT · ${shop.id}`}
         icon={
           <CategoryIcon
@@ -621,9 +633,9 @@ export function ShopEditModal({
               rounded="nmMd"
               bg="nm.ink"
               color="nm.paper"
-              opacity={saving ? 0.6 : 1}
+              opacity={saving || deleting ? 0.6 : 1}
               _hover={{ bg: "nm.inkSoft" }}
-              disabled={saving}
+              disabled={saving || deleting}
               onClick={handleSave}
             >
               保存{" "}
@@ -633,13 +645,13 @@ export function ShopEditModal({
       </ModalDialog>
       <ModalDialog
         open={confirmDeleteOpen}
-        onOpenChange={setConfirmDeleteOpen}
+        onOpenChange={(o) => !deleting && setConfirmDeleteOpen(o)}
         width="100%"
         maxWidth="420px"
         title="店舗を削除"
       >
         <Box fontSize="13px" color="nm.ink">
-          「{shop.name}」を削除しますか？この操作は取り消せません。
+          「{displayName}」を削除しますか？この操作は取り消せません。
         </Box>
         <Box display="flex" justifyContent="flex-end" gap="8px" mt="20px">
           <Button
@@ -656,6 +668,7 @@ export function ShopEditModal({
             border="1px solid"
             borderColor="nm.line"
             _hover={{ borderColor: "nm.ink", color: "nm.ink" }}
+            disabled={deleting}
             onClick={() => setConfirmDeleteOpen(false)}
           >
             キャンセル

@@ -405,6 +405,9 @@ export default function SearchPage() {
           initialTab="info"
           onClose={() => setEditId(null)}
           onSave={handleEditSave}
+          onDeleted={(id) =>
+            setSelectedId((current) => (current === id ? null : current))
+          }
         />
       )}
     </Box>
