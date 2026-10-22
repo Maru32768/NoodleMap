@@ -48,8 +48,9 @@ The `admin` project loads that storage state. The `guest` and `guest-mobile`
 projects start signed out. The `api` fixture seeds and reads data through the
 backend HTTP API with the admin cookie.
 
-Because Google is unreachable, the add form's Google Place search pane shows its
-"could not load" fallback; the rest of `/admin` does not depend on Maps.
+The E2E backend has no `GOOGLE_PLACES_API_KEY`, so the add form's Google Place
+search shows its "not available" fallback once you type; tests that need results
+stub the backend `/api/v1/auth/google-places/*` endpoints with `page.route`.
 
 ## Writing tests
 

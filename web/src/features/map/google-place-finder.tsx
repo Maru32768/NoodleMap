@@ -1,276 +1,161 @@
-import { toastError } from "@/utils/toast.ts";
+import { Map, MapHandle } from "@/features/map/map.tsx";
+import type { Shop } from "@/features/shops/api/use-shops.ts";
+import type { components } from "@/generated/api.ts";
+import {
+  ApiError,
+  ApiErrorBodyFor,
+  apiClient,
+  apiError,
+  apiOk,
+  withApiResult,
+} from "@/utils/request.ts";
+import { toastApiError } from "@/utils/toast.ts";
 import { Box, VStack } from "@chakra-ui/react";
-import { Loader } from "@googlemaps/js-api-loader";
-import { memo, useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import Select from "react-select/base";
 import { useDebouncedCallback } from "use-debounce";
 
-// Loaded on mount, not at import, so the admin page still renders when the Maps JS is blocked.
-const loader = new Loader({
-  apiKey: import.meta.env.VITE_GOOGLE_API_KEY,
-  version: "weekly",
-  language: "ja",
-  region: "JP",
-  libraries: ["places", "maps", "core", "marker"],
-});
+export type FindResult = components["schemas"]["PlaceDetails"];
+type PlaceSuggestion = components["schemas"]["PlaceSuggestion"];
 
-// https://developers.google.com/maps/documentation/javascript/reference/places-service?hl=ja#PlaceResult
-const fields = [
-  "name",
-  "place_id",
-  "address_components",
-  "formatted_address",
-  "geometry",
-  "business_status",
-] as const;
+const AUTOCOMPLETE = "/api/v1/auth/google-places/autocomplete";
+const DETAILS = "/api/v1/auth/google-places/details";
 
-export interface FindResult {
-  name: string;
-  placeId: string;
-  postalCode: string;
-  address: string;
-  lat: number;
-  lng: number;
-  closed: boolean;
+const PREVIEW_CENTER: [number, number] = [35.6895315, 139.700492];
+const NO_SHOPS: Shop[] = [];
+const noop = () => {};
+
+function fetchSuggestions(q: string, sessionToken: string) {
+  return withApiResult<
+    PlaceSuggestion[],
+    ApiErrorBodyFor<typeof AUTOCOMPLETE, "get">
+  >(AUTOCOMPLETE, async () => {
+    const res = await apiClient.GET(AUTOCOMPLETE, {
+      params: { query: { q, sessionToken } },
+    });
+    if (res.error) {
+      return apiError(AUTOCOMPLETE, res.response, res.error);
+    }
+    return apiOk(res.data.suggestions);
+  });
+}
+
+function fetchDetails(placeId: string, sessionToken: string) {
+  return withApiResult<FindResult, ApiErrorBodyFor<typeof DETAILS, "get">>(
+    DETAILS,
+    async () => {
+      const res = await apiClient.GET(DETAILS, {
+        params: { query: { placeId, sessionToken } },
+      });
+      if (res.error) {
+        return apiError(DETAILS, res.response, res.error);
+      }
+      return apiOk(res.data);
+    },
+  );
 }
 
 interface Props {
-  initialPlace?: google.maps.Place;
   onSelect: (res: FindResult) => void;
 }
 
-export const GooglePlaceFinder = memo(function GooglePlaceFinder(
-  props: Props,
-) {
-  const [status, setStatus] = useState<"loading" | "ready" | "failed">(
-    "loading",
-  );
-
-  useEffect(() => {
-    let active = true;
-    loader.load().then(
-      () => active && setStatus("ready"),
-      () => active && setStatus("failed"),
-    );
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  if (status === "ready") {
-    return <PlaceFinder {...props} />;
-  }
-  return (
-    <Box p="16px" fontSize="12px" color="nm.inkMuted">
-      {status === "loading"
-        ? "Google マップを読み込み中..."
-        : "Google マップを読み込めませんでした。店舗情報はフォームに直接入力できます。"}
-    </Box>
-  );
-});
-
-function PlaceFinder({ initialPlace, onSelect }: Props) {
-  const [autocompleteService] = useState(
-    () => new google.maps.places.AutocompleteService(),
-  );
+export function GooglePlaceFinder({ onSelect }: Props) {
+  // Groups the autocomplete calls and the closing details call into one Google billing session.
+  const sessionTokenRef = useRef(crypto.randomUUID());
+  const mapRef = useRef<MapHandle>(null);
   const [inputText, setInputText] = useState("");
   const [isSelectMenuOpen, setIsSelectMenuOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [predictions, setPredictions] = useState<google.maps.places.QueryAutocompletePrediction[]>(
-    [],
-  );
-  const options = predictions.map((x) => {
-    return {
-      label: x.description,
-      value: x.place_id ?? "",
-    };
-  });
-  const [selectedOptionValue, setSelectedOptionValue] = useState<string>();
-  const selectedOption = options.find((x) => x.value === selectedOptionValue);
+  const [notConfigured, setNotConfigured] = useState(false);
+  const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
+  const [selectedPlaceId, setSelectedPlaceId] = useState<string>();
+  const [pin, setPin] = useState<{ lat: number; lng: number } | null>(null);
 
-  const queryPredictions = useDebouncedCallback((input: string) => {
-    autocompleteService.getQueryPredictions(
-      {
-        input,
-      },
-      (res, status) => {
-        setIsLoading(false);
+  const options = suggestions.map((x) => ({
+    label: x.secondaryText ? `${x.mainText} ${x.secondaryText}` : x.mainText,
+    value: x.placeId,
+  }));
+  const selectedOption = options.find((x) => x.value === selectedPlaceId);
 
-        if (status !== google.maps.places.PlacesServiceStatus.OK) {
-          toastError({
-            description: status.toString(),
-          });
-          return;
-        }
-
-        if (res === null) {
-          toastError({
-            description: "res is null",
-          });
-          return;
-        }
-
-        setPredictions(res);
-      },
-    );
-  }, 200);
-
-  const mapWrapperRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<google.maps.Map>(null);
-  const placesServiceRef = useRef<google.maps.places.PlacesService>(null);
-  const markerRef = useRef<google.maps.Marker | undefined>(
-    initialPlace
-      ? new google.maps.Marker({
-          position: initialPlace.location,
-        })
-      : undefined,
-  );
-
-  useEffect(() => {
-    if (!mapWrapperRef.current) {
+  const handleError = (error: ApiError) => {
+    if (error.type === "google_places_not_configured") {
+      setNotConfigured(true);
       return;
     }
-    const map = new google.maps.Map(mapWrapperRef.current, {
-      center: { lat: 35.6895315, lng: 139.700492 },
-      zoom: 17,
-    });
-    mapRef.current = map;
-    placesServiceRef.current = new google.maps.places.PlacesService(map);
+    toastApiError(error);
+  };
 
-    if (markerRef.current && initialPlace?.location) {
-      markerRef.current.setMap(map);
-      map.setCenter(initialPlace.location);
+  const querySuggestions = useDebouncedCallback(async (input: string) => {
+    const res = await fetchSuggestions(input, sessionTokenRef.current);
+    setIsLoading(false);
+    if (!res.ok) {
+      handleError(res.error);
+      return;
     }
+    setSuggestions(res.data);
+  }, 200);
 
-    return () => {
-      mapRef.current?.unbindAll();
-    };
-  }, [initialPlace]);
+  const selectPlace = async (placeId: string) => {
+    const res = await fetchDetails(placeId, sessionTokenRef.current);
+    // A details call ends the session; the next search starts a new one.
+    sessionTokenRef.current = crypto.randomUUID();
+    if (!res.ok) {
+      handleError(res.error);
+      return;
+    }
+    onSelect(res.data);
+    setPin({ lat: res.data.lat, lng: res.data.lng });
+    mapRef.current?.panTo([res.data.lat, res.data.lng], { animate: true });
+  };
 
   return (
-    <VStack alignItems="stretch" boxSize="full" minWidth="24rem">
-      <Select
-        isLoading={isLoading}
-        options={options}
-        value={selectedOption}
-        onChange={(x) => {
-          setSelectedOptionValue(x?.value ?? undefined);
-          if (x) {
-            placesServiceRef.current?.getDetails(
-              {
-                placeId: x.value,
-                fields: [...fields],
-              },
-              (res, status) => {
-                if (status !== google.maps.places.PlacesServiceStatus.OK) {
-                  toastError({
-                    description: status.toString(),
-                  });
-                  return;
-                }
-
-                if (res === null) {
-                  toastError({
-                    description: "res is null",
-                  });
-                  return;
-                }
-
-                markerRef.current?.setMap(null);
-
-                const lat = res.geometry?.location?.lat();
-                if (lat === undefined) {
-                  toastError({
-                    title: "lat is missing",
-                  });
-                }
-
-                const lng = res.geometry?.location?.lng();
-                if (lng === undefined) {
-                  toastError({
-                    title: "lng is missing",
-                  });
-                }
-
-                const postalCode = res.address_components?.find((x) =>
-                  x.types.includes("postal_code"),
-                )?.short_name;
-                if (postalCode === undefined) {
-                  toastError({
-                    title: "postalCode is missing",
-                  });
-                }
-
-                const businessStatus = res.business_status;
-                if (businessStatus === undefined) {
-                  toastError({
-                    title: "businessStatus is missing",
-                  });
-                }
-                const closed = businessStatus === "CLOSED_PERMANENTLY";
-
-                const formattedAddress = res.formatted_address;
-                if (formattedAddress === undefined) {
-                  toastError({
-                    title: "formattedAddress is missing",
-                  });
-                }
-                const address = formattedAddress?.startsWith("〒")
-                  ? formattedAddress.substring(
-                      formattedAddress.indexOf(" ") + 1,
-                    )
-                  : formattedAddress;
-
-                const placeId = res.place_id;
-                if (placeId === undefined) {
-                  toastError({
-                    title: "placeId is missing",
-                  });
-                }
-
-                onSelect({
-                  name: res.name ?? "",
-                  lat: lat ?? 0,
-                  lng: lng ?? 0,
-                  postalCode: postalCode ?? "",
-                  address: address ?? "",
-                  closed,
-                  placeId: placeId ?? "",
-                });
-
-                markerRef.current = new google.maps.Marker({
-                  position: {
-                    lat: lat ?? 0,
-                    lng: lng ?? 0,
-                  },
-                });
-                if (mapRef.current) {
-                  markerRef.current?.setMap(mapRef.current);
-                  if (res.geometry?.viewport) {
-                    mapRef.current.fitBounds(res.geometry.viewport);
-                  }
-                }
-              },
-            );
-          }
-        }}
-        inputValue={inputText}
-        onInputChange={(x) => {
-          setInputText(x);
-          if (x !== "") {
-            setIsLoading(true);
-            queryPredictions(x);
-          }
-        }}
-        menuIsOpen={isSelectMenuOpen}
-        onMenuOpen={() => {
-          setIsSelectMenuOpen(true);
-        }}
-        onMenuClose={() => {
-          setIsSelectMenuOpen(false);
-        }}
-      />
-      <Box ref={mapWrapperRef} boxSize="full" />
+    <VStack alignItems="stretch" boxSize="full" gap="0">
+      {notConfigured ? (
+        <Box p="16px" fontSize="12px" color="nm.inkMuted">
+          Google Place
+          検索を利用できません。店舗情報はフォームに直接入力できます。
+        </Box>
+      ) : (
+        <Select
+          aria-label="Google Place を検索"
+          isLoading={isLoading}
+          options={options}
+          value={selectedOption}
+          onChange={(x) => {
+            setSelectedPlaceId(x?.value);
+            if (x) {
+              void selectPlace(x.value);
+            }
+          }}
+          inputValue={inputText}
+          onInputChange={(x) => {
+            setInputText(x);
+            if (x !== "") {
+              setIsLoading(true);
+              void querySuggestions(x);
+            }
+          }}
+          menuIsOpen={isSelectMenuOpen}
+          onMenuOpen={() => {
+            setIsSelectMenuOpen(true);
+          }}
+          onMenuClose={() => {
+            setIsSelectMenuOpen(false);
+          }}
+        />
+      )}
+      <Box flex="1" minH="200px">
+        <Map
+          ref={mapRef}
+          initialCenter={PREVIEW_CENTER}
+          initialZoom={16}
+          shops={NO_SHOPS}
+          selectedId={null}
+          onSelect={noop}
+          onMoveEnd={noop}
+          draftLatLng={pin}
+        />
+      </Box>
     </VStack>
   );
 }
