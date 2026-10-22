@@ -45,6 +45,8 @@ class ShopHandler(
 
         val seenSlugs = HashSet<String>()
         for (t in saveTagsRequest.tags) {
+            // Go bound id as uuid.UUID, so a malformed id failed BindJSON with a plain 400.
+            if (t.id != null && runCatching { UUID.fromString(t.id) }.isFailure) throw DomainException.InvalidRequest()
             if (t.label.isBlank() || t.slug.isBlank() || t.color.isBlank()) throw DomainException.InvalidTagCommand()
             if (!seenSlugs.add(t.slug)) throw DomainException.DuplicateTagSlug()
         }
