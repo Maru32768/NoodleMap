@@ -3,6 +3,7 @@ package dev.marulabs.noodlemap
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 import org.junit.jupiter.api.Test
 
 class ConfigTest {
@@ -49,6 +50,7 @@ class ConfigTest {
     @Test
     fun `google places api key is optional and trimmed`() {
         load("GOOGLE_PLACES_API_KEY" to " key ").googlePlacesApiKey shouldBe "key"
+        load("GOOGLE_PLACES_API_KEY" to "secret-key").toString() shouldNotContain "secret-key"
     }
 
     @Test

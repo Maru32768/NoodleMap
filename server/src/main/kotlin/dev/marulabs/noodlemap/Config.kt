@@ -25,6 +25,11 @@ data class Config(
         val s3Enabled: Boolean get() = !s3Bucket.isNullOrBlank()
     }
 
+    // Keep the Places key out of logs and error messages.
+    override fun toString(): String =
+        "Config(dbPath=$dbPath, serverPort=$serverPort, googleOAuthClientId=$googleOAuthClientId, adminEmail=$adminEmail, " +
+            "cookieSecure=$cookieSecure, googlePlacesApiKey=${if (googlePlacesApiKey.isEmpty()) "" else "***"}, backup=$backup)"
+
     companion object {
         private val log = LoggerFactory.getLogger(Config::class.java)
 

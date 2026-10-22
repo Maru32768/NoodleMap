@@ -70,7 +70,8 @@ class PlacesApiTest {
           {"placePrediction":{"placeId":"p1","text":{"text":"ラーメン太郎 新宿"},
             "structuredFormat":{"mainText":{"text":"ラーメン太郎"},"secondaryText":{"text":"東京都新宿区"}}}},
           {"queryPrediction":{"text":{"text":"ラーメン 近く"}}},
-          {"placePrediction":{"placeId":"p2","text":{"text":"麺屋"}}}
+          {"placePrediction":{"placeId":"p2","text":{"text":"麺屋"}}},
+          {"placePrediction":{"placeId":"p3","text":{}}}
         ]}
         """,
     ).use { google ->
@@ -81,6 +82,7 @@ class PlacesApiTest {
             res.body<PlaceSuggestionsResponse>().suggestions shouldBe listOf(
                 PlaceSuggestion("p1", "ラーメン太郎", "東京都新宿区"),
                 PlaceSuggestion("p2", "麺屋", null),
+                PlaceSuggestion("p3", "", null),
             )
             val req = google.requests.single()
             req.method shouldBe "POST"
@@ -144,6 +146,32 @@ class PlacesApiTest {
     }
 
     @Test
+    fun `Google rejecting the input becomes 400 invalid_request`() {
+        for (status in listOf(400, 404)) {
+            FakeGoogle(status, """{"error":{"status":"NOT_FOUND"}}""").use { google ->
+                testApp(placesApiKey = "secret", placesBaseUrl = google.url) { t ->
+                    val res = client.get(detailsPath) { session(t.adminToken()) }
+
+                    res.status shouldBe HttpStatusCode.BadRequest
+                    res.body<ErrorBody>().type shouldBe ErrorType.INVALID_REQUEST
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `session tokens that are not short URL-safe strings are rejected before calling Google`() = FakeGoogle(200, "{}").use { google ->
+        testApp(placesApiKey = "secret", placesBaseUrl = google.url) { t ->
+            val admin = t.adminToken()
+            for (token in listOf("a%26b", "x".repeat(37), "")) {
+                val res = client.get("/api/v1/auth/google-places/autocomplete?q=a&sessionToken=$token") { session(admin) }
+                res.status shouldBe HttpStatusCode.BadRequest
+            }
+            google.requests shouldBe emptyList()
+        }
+    }
+
+    @Test
     fun `unreachable Google becomes 502`() = testApp(placesApiKey = "secret") { t ->
         val res = client.get(autocompletePath) { session(t.adminToken()) }
 
@@ -164,5 +192,6 @@ class PlacesApiTest {
         PlacesHandler.normalizeAddress("〒100-0005 東京都千代田区丸の内１丁目") shouldBe "東京都千代田区丸の内１丁目"
         PlacesHandler.normalizeAddress("日本、東京都千代田区") shouldBe "東京都千代田区"
         PlacesHandler.normalizeAddress("東京都千代田区") shouldBe "東京都千代田区"
+        PlacesHandler.normalizeAddress("〒160-0022\u3000ABC\u3000DEF") shouldBe "ABC\u3000DEF"
     }
 }

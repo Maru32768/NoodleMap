@@ -17,8 +17,9 @@ private val log = LoggerFactory.getLogger("StatusPages")
 fun Application.installStatusPages() {
     install(StatusPages) {
         exception<DomainException> { call, cause ->
-            // Server faults (5xx) are worth logging with the cause; client faults are not.
-            if (cause.status.value >= 500) {
+            // Server faults (5xx) are worth logging with the cause; client faults are not. A missing
+            // Places key is expected config (Config warns at startup), not a fault.
+            if (cause.status.value >= 500 && cause !is DomainException.GooglePlacesNotConfigured) {
                 log.error("domain error: ${cause.type}", cause)
             }
             call.respond(cause.status, cause.toBody())

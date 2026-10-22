@@ -14,6 +14,7 @@ import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.time.Duration
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.future.await
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -40,6 +41,7 @@ class PlacesHandler(
     ) {
         sessions.requireAdmin(call)
         requireKey()
+        requireSessionToken(sessionToken)
         val input = q.trim()
         if (input.isEmpty()) {
             call.respondTyped(PlaceSuggestionsResponse(emptyList()))
@@ -74,6 +76,7 @@ class PlacesHandler(
     override suspend fun googlePlacesDetails(placeId: String, sessionToken: String, call: TypedApplicationCall<PlaceDetails>) {
         sessions.requireAdmin(call)
         requireKey()
+        requireSessionToken(sessionToken)
         // The id becomes a URL path segment; reject anything that is not a Place ID shape.
         if (!PLACE_ID.matches(placeId)) throw DomainException.InvalidRequest("invalid place id")
 
@@ -97,6 +100,10 @@ class PlacesHandler(
         if (apiKey.isBlank()) throw DomainException.GooglePlacesNotConfigured()
     }
 
+    private fun requireSessionToken(token: String) {
+        if (!SESSION_TOKEN.matches(token)) throw DomainException.InvalidRequest("invalid session token")
+    }
+
     private fun request(path: String, fieldMask: String): HttpRequest.Builder =
         HttpRequest.newBuilder(URI.create(baseUrl + path))
             .timeout(Duration.ofSeconds(10))
@@ -106,8 +113,14 @@ class PlacesHandler(
     private suspend inline fun <reified T> send(request: HttpRequest.Builder): T {
         val res = try {
             http.sendAsync(request.build(), HttpResponse.BodyHandlers.ofString()).await()
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             throw DomainException.GooglePlacesFailed(e)
+        }
+        // Google answers 400 INVALID_ARGUMENT / 404 NOT_FOUND for bad input such as an unknown place id.
+        if (res.statusCode() == 400 || res.statusCode() == 404) {
+            throw DomainException.InvalidRequest("google places rejected the request")
         }
         if (res.statusCode() !in 200..299) {
             throw DomainException.GooglePlacesFailed(IllegalStateException("Google Places HTTP ${res.statusCode()}: ${res.body().take(500)}"))
@@ -122,10 +135,12 @@ class PlacesHandler(
     companion object {
         private val json = Json { ignoreUnknownKeys = true }
         private val PLACE_ID = Regex("^[A-Za-z0-9_-]{1,512}$")
+        private val SESSION_TOKEN = Regex("^[A-Za-z0-9_-]{1,36}$")
         private const val AUTOCOMPLETE_FIELDS =
             "suggestions.placePrediction.placeId,suggestions.placePrediction.text,suggestions.placePrediction.structuredFormat"
         private const val DETAILS_FIELDS = "id,displayName,formattedAddress,addressComponents,location,businessStatus"
-        private val LEADING_POSTAL_CODE = Regex("^〒\\S+[\\s　]+")
+        // Not \S: in Java that also matches the full-width space U+3000.
+        private val LEADING_POSTAL_CODE = Regex("^〒[0-9０-９\\-－]+[\\s　]+")
 
         /** Drops the leading "日本、" and "〒123-4567 " that Places prepends to Japanese addresses. */
         fun normalizeAddress(formatted: String): String =
@@ -150,7 +165,7 @@ private data class PlacePrediction(
 private data class StructuredFormat(val mainText: LocalizedText? = null, val secondaryText: LocalizedText? = null)
 
 @Serializable
-private data class LocalizedText(val text: String)
+private data class LocalizedText(val text: String = "")
 
 @Serializable
 private data class Place(

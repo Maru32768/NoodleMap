@@ -26,6 +26,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
+import java.net.http.HttpClient as JdkHttpClient
 import java.nio.file.Files
 import java.time.Instant
 import java.util.UUID
@@ -34,6 +35,9 @@ import kotlinx.serialization.json.Json
 const val ADMIN_EMAIL = "admin@example.com"
 
 val testJson = Json { ignoreUnknownKeys = true }
+
+/** One JDK client for every test app's PlacesHandler instead of a selector thread per test. */
+private val placesHttp = JdkHttpClient.newHttpClient()
 
 /** A migrated SQLite file DB plus the real services built on it. */
 class TestDb(val config: Config, val dataSource: HikariDataSource, val db: NoodleMapDb) {
@@ -91,7 +95,7 @@ fun testApp(
             installApp(
                 AuthHandler(t.db, GoogleVerifier(t.config.googleOAuthClientId), t.sessions),
                 ShopHandler(t.db, t.sessions),
-                PlacesHandler(t.sessions, placesApiKey, placesBaseUrl),
+                PlacesHandler(t.sessions, placesApiKey, placesBaseUrl, placesHttp),
             )
         }
         block(t)
