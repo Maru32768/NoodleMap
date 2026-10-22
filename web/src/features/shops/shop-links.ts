@@ -30,15 +30,22 @@ const DOMAIN_TYPES: ReadonlyArray<[string, ShopLinkType]> = [
   ["tabelog.com", "tabelog"],
 ];
 
+// Same rules as the server (ShopHandler isHttpUrl): http(s) with a host, no
+// userinfo, port 1..65535 (WHATWG URL already rejects ports above 65535).
 function parseHttpUrl(url: string): URL | null {
+  let parsed: URL;
   try {
-    const parsed = new URL(url.trim());
-    return parsed.protocol === "http:" || parsed.protocol === "https:"
-      ? parsed
-      : null;
+    parsed = new URL(url.trim());
   } catch {
     return null;
   }
+  const ok =
+    (parsed.protocol === "http:" || parsed.protocol === "https:") &&
+    parsed.hostname !== "" &&
+    parsed.username === "" &&
+    parsed.password === "" &&
+    parsed.port !== "0";
+  return ok ? parsed : null;
 }
 
 export function isHttpUrl(url: string): boolean {
@@ -58,7 +65,7 @@ export function inferShopLinkType(url: string): ShopLinkType {
 
 // Re-infers the type from the new URL unless the admin picked a type that
 // differs from what the previous URL implied.
-export function withLinkUrl(link: ShopLinkInput, url: string): ShopLinkInput {
+export function withLinkUrl<T extends ShopLinkInput>(link: T, url: string): T {
   const followsUrl = link.type === inferShopLinkType(link.url);
   return {
     ...link,
@@ -71,9 +78,10 @@ export function shopLinkText(link: ShopLink): string {
   if (link.label) {
     return link.label;
   }
+  // A newer server may send a type this (possibly cached PWA) build doesn't know.
   return link.type === "official"
     ? "公式サイト"
-    : SHOP_LINK_TYPE_LABEL[link.type];
+    : (SHOP_LINK_TYPE_LABEL[link.type] ?? SHOP_LINK_TYPE_LABEL.other);
 }
 
 // `links` may be missing while an older server is still deployed; only

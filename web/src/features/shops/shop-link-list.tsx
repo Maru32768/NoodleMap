@@ -40,7 +40,7 @@ export function ShopLinkList({
       gap="0.5rem"
     >
       {shown.map((link, i) => {
-        const { icon: Icon, color } = LINK_ICON[link.type];
+        const { icon: Icon, color } = LINK_ICON[link.type] ?? LINK_ICON.other;
         return (
           <li key={i}>
             <Link

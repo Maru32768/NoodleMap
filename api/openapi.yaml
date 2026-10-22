@@ -578,6 +578,7 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ShopLinkInput'
+          maxItems: 10
           description: At most 10 links, stored in array order. Omit for none.
     AuthResponse:
       type: object
@@ -915,8 +916,10 @@ components:
           $ref: '#/components/schemas/ShopLinkType'
         label:
           type: string
+          maxLength: 100
         url:
           type: string
+          maxLength: 2048
       description: An http(s) URL of at most 2048 characters with an optional label of at most 100 characters.
     ShopLinkType:
       type: string
@@ -1117,6 +1120,7 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ShopLinkInput'
+          maxItems: 10
           description: Omit to keep the stored links (older clients); an array replaces them all, in array order. At most 10.
     User:
       type: object

@@ -10,8 +10,8 @@ import { AccountLink } from "@/features/auth/account-link.tsx";
 import { CategoryType, createQueryMatcher } from "@/features/search/utils.ts";
 import {
   isDuplicatePlaceIdError,
-  isInvalidLinksError,
   UpdateShopCommand,
+  updateShopErrorTitle,
   useShops,
 } from "@/features/shops/api/use-shops.ts";
 import {
@@ -228,11 +228,7 @@ export default function AdminPage() {
         return;
       }
       toastApiError(result.error, {
-        fallbackTitle: isDuplicatePlaceIdError(result.error.body)
-          ? "Google Place ID が他の店舗と重複しています"
-          : isInvalidLinksError(result.error.body)
-            ? "リンクの URL を確認してください（http:// または https://）"
-            : "店舗を更新できませんでした",
+        fallbackTitle: updateShopErrorTitle(result.error.body),
       });
       return;
     }

@@ -318,7 +318,11 @@ model ShopLink {
 @doc("An http(s) URL of at most 2048 characters with an optional label of at most 100 characters.")
 model ShopLinkInput {
   type: ShopLinkType;
+
+  @maxLength(100)
   label?: string;
+
+  @maxLength(2048)
   url: string;
 }
 
@@ -366,6 +370,7 @@ model AddShopRequest {
   tagIds: uuid[];
 
   @doc("At most 10 links, stored in array order. Omit for none.")
+  @maxItems(10)
   links?: ShopLinkInput[];
 }
 
@@ -388,6 +393,7 @@ model UpdateShopRequest {
   tagIds: uuid[];
 
   @doc("Omit to keep the stored links (older clients); an array replaces them all, in array order. At most 10.")
+  @maxItems(10)
   links?: ShopLinkInput[];
 }
 

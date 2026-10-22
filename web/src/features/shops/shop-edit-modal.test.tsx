@@ -133,4 +133,68 @@ describe("ShopEditModal links", () => {
       }),
     );
   });
+
+  it("keeps focus on a link moved with the arrows", async () => {
+    server.use(http.get("/api/v1/tags", () => HttpResponse.json({ tags: [] })));
+    renderWithProviders(
+      <ShopEditModal
+        shop={makeShop({
+          links: [
+            { type: "official", url: "https://a.example/" },
+            { type: "other", url: "https://b.example/" },
+          ],
+        })}
+        open
+        onClose={vi.fn()}
+        onSave={vi.fn(() => Promise.resolve())}
+        onDeleted={vi.fn()}
+      />,
+    );
+    const row = (n: number) =>
+      screen.getByRole("group", { name: `リンク ${n}` });
+
+    await userEvent.click(within(row(2)).getByRole("button", { name: "上へ" }));
+
+    // The moved link is now first; its 上へ is disabled, so focus is on 下へ.
+    expect(within(row(1)).getByRole("textbox", { name: "URL" })).toHaveValue(
+      "https://b.example/",
+    );
+    expect(within(row(1)).getByRole("button", { name: "下へ" })).toHaveFocus();
+
+    await userEvent.click(within(row(1)).getByRole("button", { name: "下へ" }));
+
+    expect(within(row(2)).getByRole("textbox", { name: "URL" })).toHaveValue(
+      "https://b.example/",
+    );
+    expect(within(row(2)).getByRole("button", { name: "上へ" })).toHaveFocus();
+  });
+
+  it("blocks saving a link that has a label but no URL", async () => {
+    server.use(http.get("/api/v1/tags", () => HttpResponse.json({ tags: [] })));
+    const onSave = vi.fn(() => Promise.resolve());
+    renderWithProviders(
+      <ShopEditModal
+        shop={makeShop()}
+        open
+        onClose={vi.fn()}
+        onSave={onSave}
+        onDeleted={vi.fn()}
+      />,
+    );
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "＋ リンクを追加" }),
+    );
+    await userEvent.type(
+      screen.getByRole("textbox", { name: "表示名（任意）" }),
+      "公式",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "保存" }));
+
+    expect(
+      await screen.findByText("URL が未入力のリンクがあります"),
+    ).toBeInTheDocument();
+    expect(onSave).not.toHaveBeenCalled();
+    toaster.remove();
+  });
 });

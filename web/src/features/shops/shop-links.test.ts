@@ -1,10 +1,41 @@
 import {
   displayableShopLinks,
   inferShopLinkType,
+  isHttpUrl,
+  type ShopLink,
   shopLinkText,
   withLinkUrl,
 } from "@/features/shops/shop-links.ts";
 import { describe, expect, it } from "vitest";
+
+describe("isHttpUrl", () => {
+  it.each([
+    "https://a.example",
+    "HTTP://A.EXAMPLE/",
+    "https://らーめん.jp/",
+    "https://my_shop.example/",
+    "https://a.example:8080/x",
+    "https://a.example/a|b%zz c#a#b",
+    "https://a.example/ラーメン",
+  ])("accepts %s", (url) => {
+    expect(isHttpUrl(url)).toBe(true);
+  });
+
+  it.each([
+    "javascript:alert(1)",
+    "data:text/html,hi",
+    "ftp://a.example/",
+    "a.example",
+    "https://",
+    "https://user@a.example/",
+    "https://user:pass@a.example/",
+    "https://a.example:0/",
+    "https://a.example:65536/",
+    "https://a b.example/",
+  ])("rejects %s", (url) => {
+    expect(isHttpUrl(url)).toBe(false);
+  });
+});
 
 describe("inferShopLinkType", () => {
   it.each([
@@ -63,6 +94,10 @@ describe("shopLinkText", () => {
     expect(shopLinkText({ type: "tabelog", label: "", url: "https://t" })).toBe(
       "食べログ",
     );
+    // A type added by a newer server than this build.
+    expect(
+      shopLinkText({ type: "tiktok", url: "https://t" } as unknown as ShopLink),
+    ).toBe("その他");
   });
 });
 

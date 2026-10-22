@@ -25,8 +25,7 @@ import dev.marulabs.noodlemap.generated.models.ShopsResponse
 import dev.marulabs.noodlemap.generated.models.Tag
 import dev.marulabs.noodlemap.generated.models.TagsResponse
 import dev.marulabs.noodlemap.generated.models.UpdateShopRequest
-import java.net.URI
-import java.net.URISyntaxException
+import java.net.IDN
 import java.util.UUID
 import org.sqlite.SQLiteErrorCode
 import org.sqlite.SQLiteException
@@ -35,6 +34,32 @@ private const val NAME_KANA_MAX_LENGTH = 100
 private const val SHOP_LINKS_MAX = 10
 private const val SHOP_LINK_URL_MAX_LENGTH = 2048
 private const val SHOP_LINK_LABEL_MAX_LENGTH = 100
+
+private val HTTP_URL = Regex("^(?i:https?)://([^/?#]*)(.*)$", RegexOption.DOT_MATCHES_ALL)
+private const val FORBIDDEN_HOST_CHARS = " #%/:<>?@[\\]^|"
+
+/**
+ * Accepts what browsers accept as an http(s) URL with a host (path, query and fragment are free text,
+ * IDN and underscore hosts are fine) but rejects other schemes, userinfo and ports outside 1..65535.
+ * Mirrored by `isHttpUrl` in web/src/features/shops/shop-links.ts.
+ * shortcut: no IPv6 literal hosts; add them if a shop ever links to one.
+ */
+internal fun isHttpUrl(url: String): Boolean {
+    if (url.any { it.isISOControl() }) return false
+    val authority = HTTP_URL.matchEntire(url)?.groupValues?.get(1) ?: return false
+    if ('@' in authority) return false
+    val colon = authority.lastIndexOf(':')
+    val host = if (colon < 0) authority else authority.substring(0, colon)
+    val port = if (colon < 0) "" else authority.substring(colon + 1)
+    if (port.isNotEmpty() && port.toIntOrNull() !in 1..65535) return false
+    if (host.isEmpty()) return false
+    val ascii = try {
+        IDN.toASCII(host, IDN.ALLOW_UNASSIGNED)
+    } catch (_: IllegalArgumentException) {
+        return false
+    }
+    return ascii.isNotEmpty() && ascii.none { it in FORBIDDEN_HOST_CHARS }
+}
 
 /** Shop and tag endpoints, ported from Go `shops/handler.go`. */
 class ShopHandler(
@@ -240,16 +265,6 @@ class ShopHandler(
             if (label != null && label.length > SHOP_LINK_LABEL_MAX_LENGTH) invalid("link label too long", FieldErrorType.TOO_LONG)
             link.copy(url = url, label = label)
         }
-    }
-
-    // Only http(s) with a host: rejects javascript:, data:, relative and scheme-less input.
-    private fun isHttpUrl(url: String): Boolean {
-        val uri = try {
-            URI(url)
-        } catch (_: URISyntaxException) {
-            return false
-        }
-        return uri.scheme?.lowercase() in setOf("http", "https") && !uri.host.isNullOrEmpty()
     }
 
     private fun replaceShopLinks(shopId: UUID, links: List<ShopLinkInput>) {

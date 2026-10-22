@@ -19,9 +19,13 @@ import {
   withLinkUrl,
 } from "@/features/shops/shop-links.ts";
 import { TagSelector } from "@/features/shops/tag-chips.tsx";
-import { toastApiError } from "@/utils/toast.ts";
+import {
+  SHOP_LINK_URL_MISSING,
+  toastApiError,
+  toastError,
+} from "@/utils/toast.ts";
 import { Box, Input, NativeSelect } from "@chakra-ui/react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export interface ShopEditDraft {
   id: string;
@@ -195,26 +199,65 @@ const linkButtonProps = {
   _hover: { borderColor: "nm.ink", color: "nm.ink" },
 } as const;
 
+// Editor rows carry a stable id so React keys survive reordering.
+type ShopLinkRow = ShopLinkInput & { rowId: number };
+type ShopEditState = Omit<ShopEditDraft, "links"> & { links: ShopLinkRow[] };
+
+let nextLinkRowId = 0;
+const toLinkRow = (link: ShopLinkInput): ShopLinkRow => ({
+  ...link,
+  rowId: nextLinkRowId++,
+});
+
+type MoveDirection = "up" | "down";
+
 function ShopLinksEditor({
   links,
   onChange,
 }: {
-  links: ShopLinkInput[];
-  onChange: (links: ShopLinkInput[]) => void;
+  links: ShopLinkRow[];
+  onChange: (links: ShopLinkRow[]) => void;
 }) {
-  const update = (i: number, link: ShopLinkInput) =>
+  const listRef = useRef<HTMLDivElement>(null);
+  const pendingFocus = useRef<{ rowId: number; dir: MoveDirection } | null>(
+    null,
+  );
+  // Keep focus on the moved link; at the top/bottom its pressed arrow is
+  // disabled, so fall back to the other one.
+  useEffect(() => {
+    const target = pendingFocus.current;
+    if (!target) {
+      return;
+    }
+    pendingFocus.current = null;
+    const row = listRef.current?.querySelector(
+      `[data-row-id="${target.rowId}"]`,
+    );
+    const same = row?.querySelector<HTMLButtonElement>(
+      `[data-move="${target.dir}"]`,
+    );
+    const other = row?.querySelector<HTMLButtonElement>(
+      `[data-move="${target.dir === "up" ? "down" : "up"}"]`,
+    );
+    (same && !same.disabled ? same : other)?.focus();
+  });
+
+  const update = (i: number, link: ShopLinkRow) =>
     onChange(links.map((l, j) => (j === i ? link : l)));
-  const move = (i: number, to: number) => {
+  const move = (i: number, dir: MoveDirection) => {
+    const to = dir === "up" ? i - 1 : i + 1;
     const next = [...links];
     [next[i], next[to]] = [next[to], next[i]];
+    pendingFocus.current = { rowId: links[i].rowId, dir };
     onChange(next);
   };
 
   return (
-    <Box display="flex" flexDirection="column" gap="8px">
+    <Box ref={listRef} display="flex" flexDirection="column" gap="8px">
       {links.map((link, i) => (
         <Box
-          key={i}
+          key={link.rowId}
+          data-row-id={link.rowId}
           role="group"
           aria-label={`リンク ${i + 1}`}
           display="flex"
@@ -261,16 +304,18 @@ function ShopLinksEditor({
           <Button
             {...linkButtonProps}
             aria-label="上へ"
+            data-move="up"
             disabled={i === 0}
-            onClick={() => move(i, i - 1)}
+            onClick={() => move(i, "up")}
           >
             ↑
           </Button>
           <Button
             {...linkButtonProps}
             aria-label="下へ"
+            data-move="down"
             disabled={i === links.length - 1}
-            onClick={() => move(i, i + 1)}
+            onClick={() => move(i, "down")}
           >
             ↓
           </Button>
@@ -287,7 +332,9 @@ function ShopLinksEditor({
         <Button
           {...linkButtonProps}
           disabled={links.length >= SHOP_LINKS_MAX}
-          onClick={() => onChange([...links, { type: "other", url: "" }])}
+          onClick={() =>
+            onChange([...links, toLinkRow({ type: "other", url: "" })])
+          }
         >
           ＋ リンクを追加
         </Button>
@@ -316,7 +363,7 @@ export function ShopEditModal({
   onDeleted,
 }: ShopEditModalProps) {
   const [tab, setTab] = useState<Tab>(initialTab);
-  const [draft, setDraft] = useState<ShopEditDraft>(() => ({
+  const [draft, setDraft] = useState<ShopEditState>(() => ({
     id: shop.id,
     name: shop.name,
     nameKana: shop.nameKana,
@@ -333,7 +380,7 @@ export function ShopEditModal({
     images: [],
     tagIds: shop.tags.map((tag) => tag.id),
     // `links` is missing while an older server is still deployed.
-    links: shop.links ?? [],
+    links: (shop.links ?? []).map(toLinkRow),
   }));
   const [saving, setSaving] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
@@ -342,7 +389,7 @@ export function ShopEditModal({
   const { tags } = useTags();
   const { deleteShop } = useShops();
 
-  const set = <K extends keyof ShopEditDraft>(k: K, v: ShopEditDraft[K]) =>
+  const set = <K extends keyof ShopEditState>(k: K, v: ShopEditState[K]) =>
     setDraft((d) => ({ ...d, [k]: v }));
 
   const setCategory = (category: ShopEditDraft["category"]) => {
@@ -357,10 +404,18 @@ export function ShopEditModal({
   };
 
   const handleSave = async () => {
-    // Rows left without a URL are dropped instead of failing validation.
-    const withLinks = {
+    const isBlank = (value: string | undefined) => !value?.trim();
+    if (draft.links.some((link) => isBlank(link.url) && !isBlank(link.label))) {
+      setTab("info");
+      toastError(SHOP_LINK_URL_MISSING);
+      return;
+    }
+    // Rows left entirely empty are dropped instead of failing validation.
+    const withLinks: ShopEditDraft = {
       ...draft,
-      links: draft.links.filter((link) => link.url.trim() !== ""),
+      links: draft.links
+        .filter((link) => !isBlank(link.url))
+        .map(({ type, label, url }) => ({ type, label, url })),
     };
     const sanitizedDraft = tags
       ? {

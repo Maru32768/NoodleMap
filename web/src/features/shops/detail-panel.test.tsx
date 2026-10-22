@@ -102,17 +102,20 @@ describe("DetailPanel", () => {
             url: "https://aoba.example/",
           },
           { type: "other", label: "悪い", url: "javascript:alert(1)" },
+          // A type added by a newer server than this build.
+          { type: "tiktok", url: "https://t.example/" } as never,
         ],
       }),
     );
 
     const links = screen.getAllByRole("link", {
       ...hidden,
-      name: /Twitter|本店サイト|悪い/,
+      name: /Twitter|本店サイト|悪い|その他/,
     });
     expect(links.map((link) => link.textContent)).toEqual([
       "Twitter",
       "本店サイト",
+      "その他",
     ]);
     expect(links[0]).toHaveAttribute("href", "https://x.com/aoba");
     expect(links[0]).toHaveAttribute("target", "_blank");

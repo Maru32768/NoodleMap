@@ -85,6 +85,14 @@ const statusMessages: Readonly<Record<number, UserErrorMessage>> = {
   },
 };
 
+// 店舗リンク problems reported by the shop edit flow.
+export const SHOP_LINKS_INVALID_TITLE =
+  "リンクの内容を確認してください（http(s) の URL、表示名は100文字まで、最大10件）";
+export const SHOP_LINK_URL_MISSING: UserErrorMessage = {
+  title: "URL が未入力のリンクがあります",
+  description: "URL を入力するか、そのリンクを削除してください。",
+};
+
 export function toastApiError(err: ApiError, options?: ApiErrorToastOptions) {
   const message = getApiErrorMessage(err, options);
   toastError({

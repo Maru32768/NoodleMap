@@ -61,23 +61,26 @@ test("admin adds a shop link that guests see in the shop detail", async ({ page,
   expect((await api.getShop(shop.id)).links).toEqual([{ type: "twitter", url }]);
 
   const guest = await browser.newContext({ baseURL, storageState: { cookies: [], origins: [] } });
-  await guest.route(
-    (u) => u.hostname !== "localhost",
-    (route) => route.abort("blockedbyclient"),
-  );
-  const guestPage = await guest.newPage();
-  await guestPage.goto("/search");
-  const sidebar = guestPage.getByRole("complementary");
-  await sidebar.getByPlaceholder("店名・読み・エリア・タグで検索...").fill(id);
-  await sidebar.getByText(shop.name, { exact: true }).click();
-  const link = guestPage
-    .getByRole("list", { name: "店舗リンク" })
-    .filter({ visible: true })
-    .getByRole("link", { name: "Twitter" });
-  await expect(link).toHaveAttribute("href", url);
-  await expect(link).toHaveAttribute("target", "_blank");
-  await expect(link).toHaveAttribute("rel", "noopener noreferrer");
-  await guest.close();
+  try {
+    await guest.route(
+      (u) => u.hostname !== "localhost",
+      (route) => route.abort("blockedbyclient"),
+    );
+    const guestPage = await guest.newPage();
+    await guestPage.goto("/search");
+    const sidebar = guestPage.getByRole("complementary");
+    await sidebar.getByPlaceholder("店名・読み・エリア・タグで検索...").fill(id);
+    await sidebar.getByText(shop.name, { exact: true }).click();
+    const link = guestPage
+      .getByRole("list", { name: "店舗リンク" })
+      .filter({ visible: true })
+      .getByRole("link", { name: "Twitter" });
+    await expect(link).toHaveAttribute("href", url);
+    await expect(link).toHaveAttribute("target", "_blank");
+    await expect(link).toHaveAttribute("rel", "noopener noreferrer");
+  } finally {
+    await guest.close();
+  }
 });
 
 test("admin deletes a shop from the edit modal", async ({ page, api }) => {
