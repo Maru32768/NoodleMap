@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.ktor)
     alias(libs.plugins.sqldelight)
     alias(libs.plugins.fabrikt)
+    jacoco
 }
 
 group = "dev.marulabs.noodlemap"
@@ -88,4 +89,10 @@ fabrikt {
         }
         validationLibrary = NoValidation
     }
+}
+
+// Coverage report only (no threshold): `./gradlew test jacocoTestReport` → build/reports/jacoco/test.
+tasks.jacocoTestReport {
+    dependsOn(tasks.test)
+    reports { xml.required = true }
 }

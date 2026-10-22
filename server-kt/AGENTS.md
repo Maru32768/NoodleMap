@@ -15,6 +15,14 @@ the transition both exist; `server-kt` replaces `server` at cutover.
 - `./gradlew run` — start the server (env: `DB_PATH`, `SERVER_PORT`, `GOOGLE_OAUTH_CLIENT_ID`, …).
 - `./gradlew build` — compile + tests + fat jar (`build/libs/*-all.jar`).
 - `./gradlew fabriktGenerate` — regenerate API models/interfaces after the OpenAPI changes.
+- `./gradlew test` — run tests; add `jacocoTestReport` for coverage in `build/reports/jacoco/test/`.
+
+## Tests
+
+- No mocks or fake app classes. Tests use a real migrated SQLite file and the real app via
+  the `testApp`/`withTestDb` fixture in `src/test/kotlin/.../TestApp.kt`.
+- Authenticate by seeding a user and session row (`seedSession`, `adminToken`, `userToken`) and
+  sending the token as the session cookie. Google sign-in success is not testable offline.
 
 ## Generated code
 
