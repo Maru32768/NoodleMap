@@ -168,6 +168,9 @@ export default function AdminPage() {
   const wishCount = shops?.filter((shop) =>
     matchesVisitFilter(shop, "wish"),
   ).length;
+  const closedCount = shops?.filter((shop) =>
+    matchesVisitFilter(shop, "closed"),
+  ).length;
   const editShop = shops?.find((shop) => shop.id === editId);
   const mapPaneDisplay = {
     base: mobileView === "map" ? "block" : "none",
@@ -282,6 +285,7 @@ export default function AdminPage() {
           <AdminStat value={total} label="店舗" />
           <AdminStat value={eatenCount} label="食べた" />
           <AdminStat value={wishCount} label="気になる" tone="warning" />
+          <AdminStat value={closedCount} label="閉店" />
         </Box>
 
         <Box ml="auto" display="flex" alignItems="center" gap="8px">

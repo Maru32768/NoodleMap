@@ -214,14 +214,43 @@ describe("ShopEditModal save", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "保存" }));
 
+    // One toast per error.
     expect(
-      await screen.findByText("店舗を更新できませんでした"),
+      await screen.findByText("0〜100の範囲で入力してください"),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText("0〜100の範囲で入力してください"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("入力してください")).toBeInTheDocument();
+    expect(screen.getAllByText("店舗を更新できませんでした")).toHaveLength(2);
     // Stays on 店舗情報 rather than switching to an empty tab.
     expect(screen.getByText("読み（ひらがな）")).toBeInTheDocument();
+  });
+
+  it("opens 店舗情報 and points at 食べた記録 when errors span both tabs", async () => {
+    renderEditor(makeShop({ eaten: true }), {
+      initialTab: "visit",
+      saveResponse: fieldErrorResponse([
+        { field: "rate", type: "out_of_range" },
+        { field: "nameKana", type: "too_long" },
+      ]),
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: "保存" }));
+
+    expect(
+      await screen.findByRole("textbox", {
+        description: "100文字以内で入力してください",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText("「食べた記録」タブにも入力エラーがあります"),
+    ).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "食べた記録" }));
+
+    expect(
+      await screen.findByRole("spinbutton", {
+        description: "0〜100の範囲で入力してください",
+      }),
+    ).toBeInTheDocument();
   });
 
   it("cannot be cancelled while saving", async () => {

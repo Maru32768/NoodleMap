@@ -40,6 +40,7 @@ function StubPlaceFinder({
 function renderAddModal(
   addResponse: () => Response | Promise<Response>,
   tags: Tag[] = [],
+  PlaceFinder: typeof StubPlaceFinder = StubPlaceFinder,
 ) {
   server.use(
     http.get("/api/v1/shops", () => HttpResponse.json({ shops: [] })),
@@ -52,7 +53,7 @@ function renderAddModal(
       open
       onClose={onClose}
       initialLatLng={{ lat: 35.6812, lng: 139.7671 }}
-      PlaceFinder={StubPlaceFinder}
+      PlaceFinder={PlaceFinder}
     />,
   );
   return { onClose };
@@ -146,12 +147,47 @@ describe("AddModal", () => {
     expect(
       screen.queryByText("Google Place ID が他の店舗と重複しています"),
     ).toBeNull();
+    // A named place replaces the name and its reading.
     expect(screen.queryByText("入力してください")).toBeNull();
-    // The reading stays empty and カテゴリ is not filled, so their errors stay.
-    expect(
-      screen.getByText("100文字以内で入力してください"),
-    ).toBeInTheDocument();
+    expect(screen.queryByText("100文字以内で入力してください")).toBeNull();
+    // カテゴリ is not filled from the place, so its error stays.
     expect(screen.getByText("形式が正しくありません")).toBeInTheDocument();
+  });
+
+  it("keeps a name typed while the place details load", async () => {
+    let loadDetails!: () => void;
+    const detailsLoaded = new Promise<void>(
+      (resolve) => (loadDetails = resolve),
+    );
+    // Like GooglePlaceFinder: onSelect is the one from the render where the
+    // admin picked the place, called after the details request returns.
+    function SlowPlaceFinder({
+      onSelect,
+    }: {
+      onSelect: (res: FindResult) => void;
+    }) {
+      return (
+        <button
+          type="button"
+          onClick={async () => {
+            await detailsLoaded;
+            onSelect({ ...place, name: "" });
+          }}
+        >
+          場所を選ぶ
+        </button>
+      );
+    }
+    renderAddModal(() => HttpResponse.json(makeShop()), [], SlowPlaceFinder);
+
+    await userEvent.click(screen.getByRole("button", { name: "場所を選ぶ" }));
+    await userEvent.type(inputLabelled("店名"), "後から入力");
+    loadDetails();
+
+    await waitFor(() =>
+      expect(inputLabelled("Google Place ID")).toHaveValue("picked-place"),
+    );
+    expect(inputLabelled("店名")).toHaveValue("後から入力");
   });
 
   it("clears a tag error when changing the category drops the tag", async () => {

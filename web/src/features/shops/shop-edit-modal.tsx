@@ -41,9 +41,10 @@ import {
   SHOP_UPDATE_FAILED_TITLE,
   shopFieldErrorMessage,
   shopLinkProblemMessage,
+  shopOtherTabErrorsMessage,
   toastApiError,
   toastError,
-  toastShopFieldError,
+  toastShopFieldErrors,
 } from "@/utils/toast.ts";
 import { Box, Input, NativeSelect } from "@chakra-ui/react";
 import { useEffect, useRef, useState } from "react";
@@ -125,6 +126,8 @@ function FormInput({
       fontFamily={mono ? "mono" : "body"}
       color="nm.ink"
       _focus={{ borderColor: "nm.shu", bg: "white", boxShadow: "none" }}
+      // Field.Root marks the input invalid; the borderColor above would hide it.
+      _invalid={{ borderColor: "border.error" }}
     />
   );
 }
@@ -367,6 +370,12 @@ function ShopLinksEditor({
 
 type Tab = "info" | "visit" | "images";
 
+const TAB_LABELS: Record<Tab, string> = {
+  info: "店舗情報",
+  visit: "食べた記録",
+  images: "画像",
+};
+
 // The tab that shows each field's input.
 const FIELD_TAB: Record<UpdateShopField, Tab> = {
   name: "info",
@@ -474,15 +483,17 @@ export function ShopEditModal({
   };
 
   const setCategory = (category: ShopEditDraft["category"]) => {
-    const tagIds = draft.tagIds.filter((tagId) => {
+    const fitsCategory = (tagId: string) => {
       const tag = tags?.find((candidate) => candidate.id === tagId);
       return !tag?.category || tag.category === category;
-    });
-    setDraft((current) => ({ ...current, category, tagIds }));
+    };
+    setDraft((current) => ({
+      ...current,
+      category,
+      tagIds: current.tagIds.filter(fitsCategory),
+    }));
     clearErrors(
-      tagIds.length === draft.tagIds.length
-        ? ["category"]
-        : ["category", "tagIds"],
+      draft.tagIds.every(fitsCategory) ? ["category"] : ["category", "tagIds"],
     );
   };
 
@@ -537,15 +548,25 @@ export function ShopEditModal({
         const errors = invalidRequestFieldErrors(result.error.body);
         if (errors) {
           const shown = errors.filter((e) => hasInput(e.field));
-          const unshown = errors.find((e) => !hasInput(e.field));
           if (shown.length > 0) {
             setFieldErrors(toShopFieldErrors(shown));
-            setTab(FIELD_TAB[shown[0].field]);
+            const tabs = new Set(shown.map((e) => FIELD_TAB[e.field]));
+            // Prefer 店舗情報; a toast points at errors left on the other tab.
+            const nextTab = tabs.has("info") ? "info" : "visit";
+            setTab(nextTab);
             revealFirstError();
+            if (tabs.size > 1) {
+              toastError(
+                shopOtherTabErrorsMessage(
+                  TAB_LABELS[nextTab === "info" ? "visit" : "info"],
+                ),
+              );
+            }
           }
-          if (unshown) {
-            toastShopFieldError(SHOP_UPDATE_FAILED_TITLE, unshown);
-          }
+          toastShopFieldErrors(
+            SHOP_UPDATE_FAILED_TITLE,
+            errors.filter((e) => !hasInput(e.field)),
+          );
           return;
         }
         toastApiError(result.error, {
@@ -582,12 +603,6 @@ export function ShopEditModal({
   };
 
   const displayName = shop.name || "(名称未設定)";
-
-  const TAB_LABELS: Record<Tab, string> = {
-    info: "店舗情報",
-    visit: "食べた記録",
-    images: "画像",
-  };
 
   return (
     <>

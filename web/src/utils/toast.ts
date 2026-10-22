@@ -96,14 +96,14 @@ const statusMessages: Readonly<Record<number, UserErrorMessage>> = {
   },
 };
 
-export const SHOP_DUPLICATE_PLACE_ID_TITLE =
+const SHOP_DUPLICATE_PLACE_ID_TITLE =
   "Google Place ID が他の店舗と重複しています";
 export const SHOP_ADD_FAILED_TITLE = "店舗を追加できませんでした";
 export const SHOP_UPDATE_FAILED_TITLE = "店舗を更新できませんでした";
 export const SHOP_ALREADY_DELETED_TITLE = "この店舗はすでに削除されています";
 
 // 店舗リンク problems: rejected by the server, or caught before saving.
-export const SHOP_LINKS_INVALID_TITLE = `リンクの内容を確認してください（http(s) の URL は${SHOP_LINK_URL_MAX_LENGTH}文字まで、表示名は${SHOP_LINK_LABEL_MAX_LENGTH}文字まで、最大${SHOP_LINKS_MAX}件）`;
+const SHOP_LINKS_INVALID_TITLE = `リンクの内容を確認してください（http(s) の URL は${SHOP_LINK_URL_MAX_LENGTH}文字まで、表示名は${SHOP_LINK_LABEL_MAX_LENGTH}文字まで、最大${SHOP_LINKS_MAX}件）`;
 
 // Shown under the shop form input named by an `invalid_request` field error.
 export function shopFieldErrorMessage(
@@ -140,15 +140,25 @@ export function shopFieldErrorMessage(
   return "入力内容を確認してください";
 }
 
-// For a field error the form has no input to show it on.
-export function toastShopFieldError(
+// For field errors the form has no input to show them on: one toast per distinct message.
+export function toastShopFieldErrors(
   title: string,
-  error: { field: UpdateShopField; type: FieldErrorType },
+  errors: readonly { field: UpdateShopField; type: FieldErrorType }[],
 ) {
-  toastError({
-    title,
-    description: shopFieldErrorMessage(error.field, error.type),
-  });
+  const messages = new Set(
+    errors.map((error) => shopFieldErrorMessage(error.field, error.type)),
+  );
+  for (const description of messages) {
+    toastError({ title, description });
+  }
+}
+
+// The edit modal shows one tab at a time; this points at errors on another one.
+export function shopOtherTabErrorsMessage(tabLabel: string): UserErrorMessage {
+  return {
+    title: `「${tabLabel}」タブにも入力エラーがあります`,
+    description: "タブを切り替えて確認してください。",
+  };
 }
 
 export function shopLinkProblemMessage(

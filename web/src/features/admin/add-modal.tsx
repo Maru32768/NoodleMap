@@ -26,7 +26,7 @@ import {
   SHOP_ADD_FAILED_TITLE,
   shopFieldErrorMessage,
   toastApiError,
-  toastShopFieldError,
+  toastShopFieldErrors,
 } from "@/utils/toast.ts";
 import { Box, Input } from "@chakra-ui/react";
 import { ComponentType, useState } from "react";
@@ -110,6 +110,8 @@ function FormInput({
       fontFamily={mono ? "mono" : "body"}
       color="nm.ink"
       _focus={{ borderColor: "nm.shu", bg: "white", boxShadow: "none" }}
+      // Field.Root marks the input invalid; the borderColor above would hide it.
+      _invalid={{ borderColor: "border.error" }}
     />
   );
 }
@@ -158,25 +160,27 @@ export function AddModal({
   };
 
   const setCategory = (category: AddDraft["category"]) => {
-    const current = draft.tagIds ?? [];
-    const tagIds = current.filter((tagId) => {
+    const fitsCategory = (tagId: string) => {
       const tag = tags?.find((candidate) => candidate.id === tagId);
       return !tag?.category || tag.category === category;
-    });
-    setDraft((d) => ({ ...d, category, tagIds }));
+    };
+    setDraft((d) => ({
+      ...d,
+      category,
+      tagIds: (d.tagIds ?? []).filter(fitsCategory),
+    }));
     clearErrors(
-      tagIds.length === current.length ? ["category"] : ["category", "tagIds"],
+      (draft.tagIds ?? []).every(fitsCategory)
+        ? ["category"]
+        : ["category", "tagIds"],
     );
   };
 
   const handleSelect = (res: FindResult) => {
     setPlaceResult(res);
-    // Google may omit the name; keep what the admin typed (and its reading) rather than blanking it.
-    const name = res.name || draft.name;
-    const nameKana = res.name ? undefined : draft.nameKana;
+    // Decided from `res` alone: this can run after an await, when `draft` is stale.
     clearErrors([
-      ...(name !== draft.name ? (["name"] as const) : []),
-      ...(nameKana !== draft.nameKana ? (["nameKana"] as const) : []),
+      ...(res.name ? (["name", "nameKana"] as const) : []),
       "address",
       "postalCode",
       "lat",
@@ -186,8 +190,9 @@ export function AddModal({
     ]);
     setDraft((d) => ({
       ...d,
-      name,
-      nameKana,
+      // Google may omit the name; keep what the admin typed (and its reading) rather than blanking it.
+      name: res.name || d.name,
+      nameKana: res.name ? undefined : d.nameKana,
       address: res.address,
       postalCode: res.postalCode,
       lat: res.lat,
@@ -212,14 +217,14 @@ export function AddModal({
           return;
         }
         const shown = errors.filter((e) => hasInput(e.field));
-        const unshown = errors.find((e) => !hasInput(e.field));
         if (shown.length > 0) {
           setFieldErrors(toShopFieldErrors(shown));
           revealFirstError();
         }
-        if (unshown) {
-          toastShopFieldError(SHOP_ADD_FAILED_TITLE, unshown);
-        }
+        toastShopFieldErrors(
+          SHOP_ADD_FAILED_TITLE,
+          errors.filter((e) => !hasInput(e.field)),
+        );
         return;
       }
 
