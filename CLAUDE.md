@@ -5,7 +5,7 @@
 This repository contains a full-stack noodle map application.
 
 - `web/`: React + TypeScript frontend built with Vite.
-- `server/`: Go API server using Gin.
+- `server-kt/`: Kotlin/Ktor API server.
 - `typespec/`: TypeSpec API contract source.
 - `api/openapi.yaml`: generated OpenAPI document.
 - `e2e/`: Playwright end-to-end tests against the real backend and frontend.
@@ -23,11 +23,10 @@ Frontend commands run from `web/`:
 - `npm run lint`: run ESLint across the frontend.
 - `npm run format`: format frontend files with Prettier.
 
-Backend commands run from `server/`:
+Backend commands run from `server-kt/` (JDK 21):
 
-- `go run .`: start the API server.
-- `go test ./...`: run all Go tests.
-- `go fmt ./...`: format Go code.
+- `./gradlew run`: start the API server.
+- `./gradlew test`: run all backend tests.
 
 End-to-end commands run from `e2e/` (Playwright against the real `server-kt` and a `web` production build; needs JDK 21 and free ports 8888 and 4180):
 
@@ -37,7 +36,7 @@ End-to-end commands run from `e2e/` (Playwright against the real `server-kt` and
 
 API generation commands run from the repository root:
 
-- `npm run api:generate`: regenerate OpenAPI, frontend TypeScript API types, and backend Go API bindings.
+- `npm run api:generate`: regenerate OpenAPI, frontend TypeScript API types, and backend Kotlin API bindings.
 - `npm run api:check`: verify TypeSpec and generated frontend API types are current.
 
 Use `docker-compose.yml` at the repository root for local container orchestration when database services are needed.
@@ -48,7 +47,7 @@ Keep `typespec/main.tsp` as the source of truth for API request and response sha
 
 - `api/openapi.yaml`
 - `web/src/generated/api.ts`
-- `server/api/api.gen.go`
+- `server-kt/src/generated/kotlin/**`
 
 Do not edit generated files directly. Change TypeSpec first, then run `npm run api:generate`.
 
@@ -60,7 +59,7 @@ When editing files that contain Japanese text, prefer patch-based edits that onl
 
 ## UUID Text Case
 
-Store UUID strings in lowercase in SQLite and seed/import paths. Go's UUID handling serializes IDs as lowercase strings, while SQLite `TEXT` comparisons are case-sensitive by default; uppercase UUIDs in seed CSVs can make updates match zero rows without raising an SQL error.
+Store UUID strings in lowercase in SQLite and seed/import paths. The backend serializes UUIDs as lowercase strings, while SQLite `TEXT` comparisons are case-sensitive by default; uppercase UUIDs in seed CSVs can make updates match zero rows without raising an SQL error.
 
 ## Agent Guidelines Files
 
@@ -72,7 +71,7 @@ Current guideline files:
 
 - `CLAUDE.md` -> `AGENTS.md`
 - `web/CLAUDE.md` -> `web/AGENTS.md`
-- `server/CLAUDE.md` -> `server/AGENTS.md`
+- `server-kt/CLAUDE.md` -> `server-kt/AGENTS.md`
 - `typespec/CLAUDE.md` -> `typespec/AGENTS.md`
 - `db/CLAUDE.md` -> `db/AGENTS.md`
 

@@ -9,7 +9,7 @@ Live app: https://noodle-map.marulabs.dev/
 ## Stack
 
 - Frontend: React, TypeScript, React Router, Vite, Chakra UI, MapLibre GL, Google Maps APIs
-- Backend: Go, Gin, SQLite
+- Backend: Kotlin, Ktor, SQLDelight, SQLite
 - API contract: TypeSpec -> OpenAPI -> generated frontend/backend API types
 - Local orchestration: Docker Compose
 - Deployment: Render Blueprint in `render.yaml`
@@ -19,8 +19,9 @@ Live app: https://noodle-map.marulabs.dev/
 ## Repository Layout
 
 - `web/`: frontend app
-- `server/`: Go API server
-- `db/`: SQLite schema, initialization scripts, queries, and seed data
+- `server-kt/`: Kotlin/Ktor API server
+- `e2e/`: Playwright end-to-end tests
+- `db/`: seed data and the local seed script
 - `typespec/`: TypeSpec API contract source
 - `api/openapi.yaml`: generated OpenAPI output
 - `terraform/`: Terraform configuration
@@ -30,7 +31,7 @@ Generated files are committed for reviewability:
 
 - `api/openapi.yaml`
 - `web/src/generated/api.ts`
-- `server/api/api.gen.go`
+- `server-kt/src/generated/kotlin/**`
 
 Do not edit generated files directly. Update `typespec/main.tsp` first, then regenerate.
 
@@ -49,10 +50,9 @@ npm run format
 Backend:
 
 ```sh
-cd server
-go run .
-go test ./...
-go fmt ./...
+cd server-kt
+./gradlew run
+./gradlew test
 ```
 
 API generation from the repository root:
@@ -72,7 +72,7 @@ The Compose setup starts the API server on `http://localhost:8888` and the front
 
 ### Required environment variables for local development
 
-The backend now authenticates exclusively via Google Sign-In, so the following variables must be set in `.env` / `web/.env` before `go run` or `docker compose up` will work:
+The backend now authenticates exclusively via Google Sign-In, so the following variables must be set in `.env` / `web/.env` before `./gradlew run` or `docker compose up` will work:
 
 - `GOOGLE_OAUTH_CLIENT_ID` (server) — OAuth 2.0 Client ID from Google Cloud Console.
 - `VITE_GOOGLE_OAUTH_CLIENT_ID` (frontend) — same value as above; the Sign-In button does not render without it.
@@ -84,7 +84,7 @@ The backend now authenticates exclusively via Google Sign-In, so the following v
 flowchart LR
   tsp["typespec/main.tsp"] --> openapi["api/openapi.yaml"]
   openapi --> webtypes["web/src/generated/api.ts"]
-  openapi --> goapi["server/api/api.gen.go"]
+  openapi --> ktapi["server-kt/src/generated/kotlin"]
 ```
 
 When changing routes, request/response shapes, or API-facing models:
@@ -92,7 +92,7 @@ When changing routes, request/response shapes, or API-facing models:
 1. Update `typespec/main.tsp`.
 2. Run `npm run api:generate`.
 3. Use generated frontend types from `web/src/generated/api.ts`.
-4. Keep backend route wiring through the generated `server/api` bindings.
+4. Keep backend route wiring through the generated `server-kt` controller interfaces.
 
 ## mise
 
@@ -104,7 +104,7 @@ Current responsibilities:
 - Load local environment values from `.env`.
 - Set AWS checksum options required by the current R2/S3-compatible tooling.
 
-Go, the JDK, and other developer tools may be moved into `mise` later as the local workflow becomes more standardized.
+The JDK and other developer tools may be moved into `mise` later as the local workflow becomes more standardized.
 
 ## Terraform
 

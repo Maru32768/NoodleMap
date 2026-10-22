@@ -1,7 +1,7 @@
 # Server (Kotlin) Guidelines
 
-`server-kt/` is the Kotlin/Ktor rewrite of the Go `server/` (see `../MIGRATION.md`). During
-the transition both exist; `server-kt` replaces `server` at cutover.
+`server-kt/` is the API server, a Kotlin/Ktor rewrite of the former Go server (history in
+`../MIGRATION.md`).
 
 ## Stack
 
@@ -40,7 +40,7 @@ the transition both exist; `server-kt` replaces `server` at cutover.
   2. Mirror the change in the matching `.sq` `CREATE TABLE`. The `.sq` files are only
      SQLDelight's compile-time schema; it can't parse the modtime triggers.
   3. Run `./gradlew test`. `MigrationsTest` fails if the `.sq` columns or indexes drift from the migrated schema.
-- Never edit a migration that has already shipped. Add new migrations here only, not in the Go `server/`.
+- Never edit a migration that has already shipped.
 
 ## Conventions
 
@@ -53,5 +53,4 @@ the transition both exist; `server-kt` replaces `server` at cutover.
 
 ## After editing this file
 
-Run `npm run sync-agents` from the repo root (add `server-kt/CLAUDE.md` to the list in
-`scripts/sync-agents.mjs` first).
+Run `npm run sync-agents` from the repo root.

@@ -12,18 +12,14 @@ All SQL, CSV, and Markdown files are UTF-8. Be especially careful with Japanese 
 
 ## UUID Text Case
 
-Normalize UUID values to lowercase when importing seed CSV data or writing data migrations. Seed CSVs may contain uppercase IDs, but SQLite stores UUIDs as `TEXT` and compares them case-sensitively; the Go API emits lowercase UUID strings, so uppercase stored IDs can cause `UPDATE ... WHERE id = ?` to affect zero rows without an SQL error.
+Normalize UUID values to lowercase when importing seed CSV data or writing data migrations. Seed CSVs may contain uppercase IDs, but SQLite stores UUIDs as `TEXT` and compares them case-sensitively; the API emits lowercase UUID strings, so uppercase stored IDs can cause `UPDATE ... WHERE id = ?` to affect zero rows without an SQL error.
 
-## Generated Database Code
+## Schema and Queries
 
-If SQL query or schema changes affect generated Go database code, regenerate the relevant code using the repository's established sqlc workflow and commit the generated output.
+Schema migrations and queries live in `server-kt/` (see `server-kt/CLAUDE.md`): goose-format migrations in `src/main/resources/db/migrations/`, and SQLDelight `.sq` files in `src/main/sqldelight/`, whose `CREATE TABLE`s show the current table structure. `MigrationsTest` keeps the two aligned.
 
-## Current Schema Snapshot
-
-`server/data/sql/schema/current/` contains read-only per-table snapshots of the schema after all goose migrations are applied. Migrations remain the source of database changes; the snapshots exist so the current table structure can be reviewed without replaying the full history mentally.
-
-After adding or changing migrations, run `npm run db:schema:dump` from the repository root and commit the updated snapshots. Do not edit files under `current/` by hand.
+`db/init.sh` seeds a local database from the CSVs in `db/data/`. Start `server-kt` once first so its migrations create the schema.
 
 ## Testing
 
-For database-facing behavior, prefer focused Go tests in the server package that consumes the query. Call out migrations, seed data changes, or data compatibility concerns in PR notes.
+For database-facing behavior, prefer focused `server-kt` tests against a real migrated SQLite database. Call out migrations, seed data changes, or data compatibility concerns in PR notes.

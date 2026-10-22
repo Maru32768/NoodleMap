@@ -10,7 +10,7 @@ Generated files are:
 
 - `api/openapi.yaml`
 - `web/src/generated/api.ts`
-- `server/api/api.gen.go`
+- `server-kt/src/generated/kotlin/**`
 
 Do not edit generated files by hand.
 

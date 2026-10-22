@@ -171,5 +171,6 @@ real login during final validation.
   Kotlin server. Roll back by reverting `rootDir` to `server` (the Go server is untouched).
 - Still recommended before/at the push: verify `openedAt`/`closedAt` against any prod rows
   that have them, and do one real Google login end-to-end against a staging copy.
-</content>
-</invoke>
+- **Go server removed.** After the post-cutover soak, `server/`, `sqlc.yml`, and
+  `db/entrypoint.sh` were deleted; `server-kt` is the only backend. Rolling back now means
+  reverting that removal commit and pointing `render.yaml` `rootDir` back to `server`.

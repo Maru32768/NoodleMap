@@ -2,13 +2,10 @@ services:
   server:
     image: noodle-map-server
     build:
-      context: ./server
+      context: ./server-kt
       dockerfile: Dockerfile
-      target: dev
-    entrypoint: ["/bin/sh", "/db/entrypoint.sh"]
     volumes:
       - ./db-data:/work/db-data
-      - ./db:/db
     environment:
       - DB_PATH=/work/db-data/noodle_map.db
       - SERVER_PORT=8888

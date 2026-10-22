@@ -4,6 +4,4 @@ mise.local.toml
 mise.*.local.toml
 node_modules
 *.exe
-server/server-app
-server/cmd/migrate-to-sqlite/migrate-to-sqlite
 db-data/

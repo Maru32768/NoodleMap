@@ -1,7 +1,7 @@
 #!/bin/bash
 # SQLite seed script for local development.
-# Prerequisites: start the server once first so goose creates the schema, then stop it.
-# Usage: DB_PATH=/work/data/noodle_map.db bash db/init.sh
+# Prerequisites: start server-kt once first so its migrations create the schema, then stop it.
+# Usage: DB_PATH=db-data/noodle_map.db bash db/init.sh
 
 set -e
 
