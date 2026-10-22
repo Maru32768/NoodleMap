@@ -1,22 +1,46 @@
+import { FormField } from "@/components/form-field.tsx";
 import { ModalDialog } from "@/components/modal-dialog.tsx";
 import { Button } from "@/components/ui/button.tsx";
+import { toaster } from "@/components/ui/toaster.tsx";
 import { CATEGORY_OPTIONS } from "@/features/categories/categories.ts";
 import {
   FindResult,
   GooglePlaceFinder,
 } from "@/features/map/google-place-finder.tsx";
-import { AddShopCommand, useTags } from "@/features/shops/api/use-shops.ts";
+import {
+  AddShopCommand,
+  useShops,
+  useTags,
+} from "@/features/shops/api/use-shops.ts";
+import {
+  AddShopField,
+  clearShopFieldErrors,
+  SHOP_NAME_KANA_MAX_LENGTH,
+  ShopFieldErrors,
+  toShopFieldErrors,
+} from "@/features/shops/shop-field-errors.ts";
 import { TagSelector } from "@/features/shops/tag-chips.tsx";
+import { invalidRequestFieldErrors } from "@/utils/request.ts";
+import {
+  SHOP_ADD_FAILED_TITLE,
+  shopFieldErrorMessage,
+  toastApiError,
+  toastError,
+} from "@/utils/toast.ts";
 import { Box, Input } from "@chakra-ui/react";
-import { useState } from "react";
+import { ComponentType, useState } from "react";
 
-export type AddDraft = AddShopCommand;
+type AddDraft = AddShopCommand;
+
+// Fields the API can reject that this form has no input for.
+const FIELDS_WITHOUT_INPUT: readonly AddShopField[] = ["links"];
 
 interface AddModalProps {
   open: boolean;
   onClose: () => void;
-  onSave: (draft: AddDraft) => Promise<void>;
   initialLatLng?: { lat: number; lng: number };
+  // Replaceable because its WebGL map cannot render in jsdom tests.
+  PlaceFinder?: ComponentType<{ onSelect: (res: FindResult) => void }>;
 }
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
@@ -80,8 +104,8 @@ function FormInput({
 export function AddModal({
   open,
   onClose,
-  onSave,
   initialLatLng,
+  PlaceFinder = GooglePlaceFinder,
 }: AddModalProps) {
   const [placeResult, setPlaceResult] = useState<FindResult | null>(null);
   const [draft, setDraft] = useState<AddDraft>(() => ({
@@ -97,12 +121,28 @@ export function AddModal({
     tagIds: [],
   }));
   const { tags } = useTags();
+  const { addShop } = useShops();
   const [saving, setSaving] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<ShopFieldErrors<AddShopField>>(
+    {},
+  );
 
-  const set = <K extends keyof AddDraft>(k: K, v: AddDraft[K]) =>
+  const errorOf = (field: AddShopField) => {
+    const type = fieldErrors[field];
+    return type && shopFieldErrorMessage(field, type);
+  };
+
+  const clearErrors = (fields: readonly string[]) =>
+    setFieldErrors((errors) => clearShopFieldErrors(errors, fields));
+
+  // Editing a field clears its server-side error.
+  const set = <K extends keyof AddDraft>(k: K, v: AddDraft[K]) => {
     setDraft((d) => ({ ...d, [k]: v }));
+    clearErrors([k]);
+  };
 
   const setCategory = (category: AddDraft["category"]) => {
+    clearErrors(["category"]);
     setDraft((current) => ({
       ...current,
       category,
@@ -115,6 +155,16 @@ export function AddModal({
 
   const handleSelect = (res: FindResult) => {
     setPlaceResult(res);
+    clearErrors([
+      "name",
+      "nameKana",
+      "address",
+      "postalCode",
+      "lat",
+      "lng",
+      "googlePlaceId",
+      "closedAt",
+    ]);
     setDraft((d) => ({
       ...d,
       // Google may omit the name; keep what the admin typed (and its reading) rather than blanking it.
@@ -132,7 +182,28 @@ export function AddModal({
   const handleSave = async () => {
     setSaving(true);
     try {
-      await onSave(draft);
+      const result = await addShop(draft);
+      if (!result.ok) {
+        const errors = invalidRequestFieldErrors(result.error.body);
+        if (!errors) {
+          toastApiError(result.error, { fallbackTitle: SHOP_ADD_FAILED_TITLE });
+          return;
+        }
+        setFieldErrors(toShopFieldErrors(errors));
+        const unshown = errors.find((e) =>
+          FIELDS_WITHOUT_INPUT.includes(e.field),
+        );
+        if (unshown) {
+          toastError({
+            title: SHOP_ADD_FAILED_TITLE,
+            description: shopFieldErrorMessage(unshown.field, unshown.type),
+          });
+        }
+        return;
+      }
+
+      onClose();
+      toaster.success({ description: "店舗を追加しました" });
     } finally {
       setSaving(false);
     }
@@ -277,8 +348,11 @@ export function AddModal({
             )}
 
             <Box display="grid" gridTemplateColumns="1fr 1fr" gap="14px">
-              <Box gridColumn="span 2">
-                <FieldLabel>カテゴリ</FieldLabel>
+              <FormField
+                gridColumn="span 2"
+                label={<FieldLabel>カテゴリ</FieldLabel>}
+                error={errorOf("category")}
+              >
                 <Box display="flex" gap="6px" flexWrap="wrap">
                   {CATEGORY_OPTIONS.map((cat) => (
                     <Button
@@ -306,72 +380,94 @@ export function AddModal({
                     </Button>
                   ))}
                 </Box>
-              </Box>
+              </FormField>
 
               {tags && (
-                <Box gridColumn="span 2">
-                  <FieldLabel>タグ</FieldLabel>
+                <FormField
+                  gridColumn="span 2"
+                  label={<FieldLabel>タグ</FieldLabel>}
+                  error={errorOf("tagIds")}
+                >
                   <TagSelector
                     tags={tags}
                     selectedIds={draft.tagIds ?? []}
                     category={draft.category}
                     onChange={(ids) => set("tagIds", ids)}
                   />
-                </Box>
+                </FormField>
               )}
 
-              <Box gridColumn="span 2">
-                <FieldLabel>
-                  店名{" "}
-                  <Box as="span" color="nm.shu">
-                    *
-                  </Box>
-                </FieldLabel>
+              <FormField
+                gridColumn="span 2"
+                label={
+                  <FieldLabel>
+                    店名{" "}
+                    <Box as="span" color="nm.shu">
+                      *
+                    </Box>
+                  </FieldLabel>
+                }
+                error={errorOf("name")}
+              >
                 <FormInput
                   value={draft.name}
                   onChange={(v) => set("name", v)}
                 />
-              </Box>
-              <Box gridColumn="span 2">
-                <FieldLabel>読み（ひらがな）</FieldLabel>
+              </FormField>
+              <FormField
+                gridColumn="span 2"
+                label={<FieldLabel>読み（ひらがな）</FieldLabel>}
+                error={errorOf("nameKana")}
+              >
                 <FormInput
                   value={draft.nameKana ?? ""}
                   onChange={(v) => set("nameKana", v)}
-                  maxLength={100}
+                  maxLength={SHOP_NAME_KANA_MAX_LENGTH}
                 />
-              </Box>
-              <Box gridColumn="span 2">
-                <FieldLabel>住所</FieldLabel>
+              </FormField>
+              <FormField
+                gridColumn="span 2"
+                label={<FieldLabel>住所</FieldLabel>}
+                error={errorOf("address")}
+              >
                 <FormInput
                   value={draft.address}
                   onChange={(v) => set("address", v)}
                 />
-              </Box>
-              <Box>
-                <FieldLabel>郵便番号</FieldLabel>
+              </FormField>
+              <FormField
+                label={<FieldLabel>郵便番号</FieldLabel>}
+                error={errorOf("postalCode")}
+              >
                 <FormInput
                   value={draft.postalCode}
                   onChange={(v) => set("postalCode", v)}
                   mono
                   placeholder="000-0000"
                 />
-              </Box>
-              <Box>
-                <FieldLabel>Google Place ID</FieldLabel>
+              </FormField>
+              <FormField
+                label={<FieldLabel>Google Place ID</FieldLabel>}
+                error={errorOf("googlePlaceId")}
+              >
                 <FormInput
                   value={draft.googlePlaceId}
                   onChange={(v) => set("googlePlaceId", v)}
                   mono
                   placeholder="ChIJ..."
                 />
-              </Box>
-              <Box>
-                <FieldLabel>
-                  緯度{" "}
-                  <Box as="span" color="nm.shu">
-                    *
-                  </Box>
-                </FieldLabel>
+              </FormField>
+              <FormField
+                label={
+                  <FieldLabel>
+                    緯度{" "}
+                    <Box as="span" color="nm.shu">
+                      *
+                    </Box>
+                  </FieldLabel>
+                }
+                error={errorOf("lat")}
+              >
                 <FormInput
                   value={draft.lat || ""}
                   onChange={(v) => set("lat", parseFloat(v) || 0)}
@@ -379,14 +475,18 @@ export function AddModal({
                   type="number"
                   step={0.000001}
                 />
-              </Box>
-              <Box>
-                <FieldLabel>
-                  経度{" "}
-                  <Box as="span" color="nm.shu">
-                    *
-                  </Box>
-                </FieldLabel>
+              </FormField>
+              <FormField
+                label={
+                  <FieldLabel>
+                    経度{" "}
+                    <Box as="span" color="nm.shu">
+                      *
+                    </Box>
+                  </FieldLabel>
+                }
+                error={errorOf("lng")}
+              >
                 <FormInput
                   value={draft.lng || ""}
                   onChange={(v) => set("lng", parseFloat(v) || 0)}
@@ -394,25 +494,29 @@ export function AddModal({
                   type="number"
                   step={0.000001}
                 />
-              </Box>
-              <Box>
-                <FieldLabel>開店日</FieldLabel>
+              </FormField>
+              <FormField
+                label={<FieldLabel>開店日</FieldLabel>}
+                error={errorOf("openedAt")}
+              >
                 <FormInput
                   value={draft.openedAt ?? ""}
                   onChange={(v) => set("openedAt", v || undefined)}
                   mono
                   type="date"
                 />
-              </Box>
-              <Box>
-                <FieldLabel>閉店日</FieldLabel>
+              </FormField>
+              <FormField
+                label={<FieldLabel>閉店日</FieldLabel>}
+                error={errorOf("closedAt")}
+              >
                 <FormInput
                   value={draft.closedAt ?? ""}
                   onChange={(v) => set("closedAt", v || undefined)}
                   mono
                   type="date"
                 />
-              </Box>
+              </FormField>
             </Box>
           </Box>
 
@@ -432,7 +536,7 @@ export function AddModal({
               Google Place 検索
             </Box>
             <Box flex="1" overflow="hidden">
-              <GooglePlaceFinder onSelect={handleSelect} />
+              <PlaceFinder onSelect={handleSelect} />
             </Box>
           </Box>
         </Box>

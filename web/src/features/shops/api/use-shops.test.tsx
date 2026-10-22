@@ -1,7 +1,4 @@
-import {
-  isDuplicatePlaceIdError,
-  useShops,
-} from "@/features/shops/api/use-shops.ts";
+import { useShops } from "@/features/shops/api/use-shops.ts";
 import type { components } from "@/generated/api.ts";
 import { renderHookWithProviders } from "@/test/render.tsx";
 import { server } from "@/test/server.ts";
@@ -313,24 +310,5 @@ describe("useShops", () => {
     const outcome = await result.current.addShop(addCommand);
 
     expect(!outcome.ok && outcome.error.status).toBe(0);
-  });
-});
-
-describe("isDuplicatePlaceIdError", () => {
-  it("matches only a duplicate googlePlaceId field error", () => {
-    expect(
-      isDuplicatePlaceIdError({
-        type: "invalid_request",
-        fieldErrors: [{ field: "googlePlaceId", type: "duplicate" }],
-      }),
-    ).toBe(true);
-    expect(
-      isDuplicatePlaceIdError({
-        type: "invalid_request",
-        fieldErrors: [{ field: "tagIds", type: "unknown" }],
-      }),
-    ).toBe(false);
-    expect(isDuplicatePlaceIdError({ type: "invalid_request" })).toBe(false);
-    expect(isDuplicatePlaceIdError(undefined)).toBe(false);
   });
 });

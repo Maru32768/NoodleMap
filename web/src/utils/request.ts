@@ -143,6 +143,27 @@ export function throwApiError<TBody extends ApiErrorBody | undefined>(
   throw toApiError(input, response, body);
 }
 
+type FieldErrorOf<TBody> = TBody extends {
+  type: "invalid_request";
+  fieldErrors?: (infer TFieldError)[];
+}
+  ? TFieldError
+  : never;
+
+/** The field errors of an `invalid_request` body; undefined when it has none. */
+export function invalidRequestFieldErrors<
+  TBody extends ApiErrorBody | undefined,
+>(body: TBody): FieldErrorOf<TBody>[] | undefined {
+  if (
+    body?.type !== "invalid_request" ||
+    !("fieldErrors" in body) ||
+    !body.fieldErrors?.length
+  ) {
+    return undefined;
+  }
+  return body.fieldErrors as FieldErrorOf<TBody>[];
+}
+
 export function apiOk<TData>(data: TData): Result<TData, never> {
   return ok(data);
 }
