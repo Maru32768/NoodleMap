@@ -1,5 +1,6 @@
 package dev.marulabs.noodlemap
 
+import java.net.URI
 import org.slf4j.LoggerFactory
 
 /**
@@ -73,6 +74,7 @@ data class Config(
             val snapshotPath = env("BACKUP_PATH")?.takeIf { it.isNotBlank() } ?: "$dbPath.bak"
 
             val publicBaseUrl = env("PUBLIC_BASE_URL")?.trim()?.trimEnd('/')?.takeIf { it.isNotEmpty() }
+                ?.also { httpUrl("PUBLIC_BASE_URL", it) }
                 ?: "http://localhost:$serverPort".also {
                     log.warn("PUBLIC_BASE_URL is empty; share pages use {} for absolute URLs", it)
                 }
@@ -82,7 +84,9 @@ data class Config(
             val ogR2 = when {
                 r2.all { it.isEmpty() } -> null
                 r2.any { it.isEmpty() } -> error("${r2Keys.joinToString()} must be set together")
-                else -> OgR2Config(r2[0], r2[1], r2[2], r2[3], r2[4].trimEnd('/'))
+                else -> OgR2Config(
+                    r2[0], httpUrl("OG_R2_ENDPOINT", r2[1]), r2[2], r2[3], httpUrl("OG_R2_PUBLIC_BASE_URL", r2[4].trimEnd('/')),
+                )
             }
             if (ogR2 == null) log.info("OG_R2_* not set; OGP images are rendered on every request")
 
@@ -106,5 +110,14 @@ data class Config(
 
         private fun required(env: (String) -> String?, key: String): String =
             env(key)?.takeIf { it.isNotBlank() } ?: error("$key is missing")
+
+        /** Returns [value] if it is an absolute http(s) URL with a host; otherwise refuses to boot. */
+        private fun httpUrl(key: String, value: String): String {
+            val uri = runCatching { URI(value) }.getOrNull()
+            if (uri?.scheme?.lowercase() !in setOf("http", "https") || uri?.host.isNullOrEmpty()) {
+                error("$key must be an absolute http(s) URL: $value")
+            }
+            return value
+        }
     }
 }

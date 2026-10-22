@@ -7,7 +7,7 @@ import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
 /** Bump whenever the image layout changes, so every OGP image URL changes with it. */
-private const val TEMPLATE_VERSION = 1
+private const val TEMPLATE_VERSION = 2
 
 /** A pill label with its background color (`#rrggbb`). */
 data class Chip(val label: String, val color: String)
@@ -25,10 +25,24 @@ data class OgCard(
     val hearts: Double,
     val area: String,
 ) {
-    fun hash(): String = MessageDigest.getInstance("SHA-256")
-        .digest("$TEMPLATE_VERSION|$this".toByteArray())
-        .joinToString("") { "%02x".format(it) }
-        .take(16)
+    fun hash(): String {
+        // Length-prefixed fields, so no value can shift into its neighbour.
+        val input = buildString {
+            fun field(v: Any) = v.toString().let { append(it.length).append(':').append(it) }
+            field(TEMPLATE_VERSION)
+            field(name)
+            field(category)
+            for (chips in listOf(statuses, tags)) {
+                field(chips.size)
+                chips.forEach { field(it.label); field(it.color) }
+            }
+            field(hearts)
+            field(area)
+        }
+        return MessageDigest.getInstance("SHA-256").digest(input.toByteArray())
+            .joinToString("") { "%02x".format(it) }
+            .take(16)
+    }
 
     fun description(): String =
         (listOf(category) + tags.map { it.label } + statuses.map { it.label } + area).filter { it.isNotEmpty() }.joinToString("・")
@@ -65,11 +79,23 @@ internal fun lifecycleChips(openedAt: String?, closedAt: String?, today: LocalDa
     )
 }
 
-// A place-name character: stops at digits, spaces, separators and postal marks.
-private const val N = """[^\s\d０-９、,，〒\-－‐−]"""
+// Place-name characters (no digits, spaces, separators or postal marks), optionally minus some suffixes.
+private fun name(except: String = "") = """[^\s\d０-９、,，〒\-－‐−$except]"""
 
-// shortcut: city names that themselves contain 市 (四日市市, 廿日市市) come out one 市 short; list them if that matters.
-private val AREA = Regex("""(東京都|北海道|(?:京都|大阪)府|$N{2,3}県)($N+?郡$N+?[町村]|$N+?市$N+?区|$N+?[市区町村])""")
+// Tried in order after the prefecture:
+//  1. 郡 + 町村, with no 市 inside (so 大和郡山市 is not read as a 郡);
+//  2. a city up to its first 市 (東村山市, 十日町市), never across a 区 (新宿区市谷), plus a designated city's ward;
+//     cities whose name already contains 市 are listed;
+//  3. a ward with no city before it (東京23区);
+//  4. a town or village written without its 郡.
+// shortcut: a town/village name containing 町 or 村 before its end (大町町) is cut short when the address omits its 郡.
+private val AREA = Regex(
+    "(東京都|北海道|(?:京都|大阪)府|${name()}{2,3}県)(" +
+        "${name("市")}+?郡${name("市")}+?[町村]" +
+        "|(?:四日市|廿日市|野々市|${name("区")}+?)市(?:${name("町村市")}{1,4}区)?" +
+        "|${name()}+?区" +
+        "|${name()}+?[町村])",
+)
 
 /** 都道府県 + 市区町村 (with the ward of a designated city) from a Japanese address, or "". */
 fun areaOf(address: String): String = AREA.find(address)?.let { it.groupValues[1] + it.groupValues[2] }.orEmpty()

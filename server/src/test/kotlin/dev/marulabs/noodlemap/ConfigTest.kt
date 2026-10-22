@@ -43,6 +43,18 @@ class ConfigTest {
         cfg.ogR2 shouldBe Config.OgR2Config("og", "https://acct.r2.cloudflarestorage.com", "kid", "r2-secret", "https://og.example")
         cfg.toString() shouldNotContain "r2-secret"
         shouldThrow<IllegalStateException> { load(*r2.dropLast(1).toTypedArray()) }.message shouldContain "OG_R2_PUBLIC_BASE_URL"
+        shouldThrow<IllegalStateException> { load(*r2, "OG_R2_ENDPOINT" to "acct.r2.cloudflarestorage.com") }
+            .message shouldContain "OG_R2_ENDPOINT"
+        shouldThrow<IllegalStateException> { load(*r2, "OG_R2_PUBLIC_BASE_URL" to "ftp://og.example") }
+            .message shouldContain "OG_R2_PUBLIC_BASE_URL"
+    }
+
+    @Test
+    fun `public base url must be an absolute http url`() {
+        load("PUBLIC_BASE_URL" to "http://localhost:5173").publicBaseUrl shouldBe "http://localhost:5173"
+        for (bad in listOf("noodle-map.marulabs.dev", "/r", "https://")) {
+            shouldThrow<IllegalStateException> { load("PUBLIC_BASE_URL" to bad) }.message shouldContain "PUBLIC_BASE_URL"
+        }
     }
 
     @Test

@@ -13,7 +13,7 @@ import dev.marulabs.noodlemap.generated.models.AddShopRequest
 import dev.marulabs.noodlemap.generated.models.CategorySlug
 import dev.marulabs.noodlemap.generated.models.UpdateShopRequest
 import dev.marulabs.noodlemap.og.OgHandler
-import dev.marulabs.noodlemap.og.OgImageStore
+import dev.marulabs.noodlemap.og.R2OgImageStore
 import dev.marulabs.noodlemap.places.PlacesHandler
 import dev.marulabs.noodlemap.shops.ShopHandler
 import io.ktor.client.HttpClient
@@ -95,7 +95,8 @@ fun testApp(
     placesApiKey: String = "",
     // Nothing listens on port 9; tests that reach Google pass a local fake server's URL.
     placesBaseUrl: String = "http://127.0.0.1:9",
-    ogStore: OgImageStore? = null,
+    ogStore: R2OgImageStore? = null,
+    ogMaxPendingRenders: Int = 4,
     block: suspend ApplicationTestBuilder.(TestDb) -> Unit,
 ) = withTestDb(adminEmail, cookieSecure) { t ->
     testApplication {
@@ -105,7 +106,7 @@ fun testApp(
                 AuthHandler(t.db, GoogleVerifier(t.config.googleOAuthClientId), t.sessions),
                 shopHandler,
                 PlacesHandler(t.sessions, placesApiKey, placesBaseUrl, placesHttp),
-                OgHandler(shopHandler, t.config.publicBaseUrl, ogStore),
+                OgHandler(shopHandler, t.config.publicBaseUrl, ogStore, ogMaxPendingRenders),
             )
         }
         block(t)

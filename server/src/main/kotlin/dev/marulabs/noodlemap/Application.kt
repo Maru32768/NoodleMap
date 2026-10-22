@@ -2,6 +2,9 @@ package dev.marulabs.noodlemap
 
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
+import io.ktor.server.application.ApplicationStopped
+import io.ktor.server.plugins.autohead.AutoHeadResponse
+import javax.imageio.ImageIO
 import io.ktor.server.application.install
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
@@ -39,6 +42,8 @@ import kotlinx.serialization.json.Json
 fun main() {
     // OGP images are drawn with Java2D; the container has no display.
     System.setProperty("java.awt.headless", "true")
+    // PNG encoding stays in memory instead of writing ImageIO temp files.
+    ImageIO.setUseCache(false)
     val config = Config.fromEnv()
     embeddedServer(Netty, port = config.serverPort) {
         module(config)
@@ -54,7 +59,9 @@ fun Application.module(config: Config) {
     val authHandler = AuthHandler(db, google, sessions)
     val shopHandler = ShopHandler(db, sessions)
     val placesHandler = PlacesHandler(sessions, config.googlePlacesApiKey)
-    val ogHandler = OgHandler(shopHandler, config.publicBaseUrl, config.ogR2?.let(::R2OgImageStore))
+    val ogStore = config.ogR2?.let(::R2OgImageStore)
+    ogStore?.let { store -> monitor.subscribe(ApplicationStopped) { store.close() } }
+    val ogHandler = OgHandler(shopHandler, config.publicBaseUrl, ogStore)
 
     startBackgroundJobs(config, dataSource, db, sessions)
     installApp(authHandler, shopHandler, placesHandler, ogHandler)
@@ -72,6 +79,8 @@ fun Application.installApp(
         json(Json { ignoreUnknownKeys = true })
     }
     install(CallLogging)
+    // Crawlers probe share pages and OGP images with HEAD.
+    install(AutoHeadResponse)
     install(NoCache)
     installStatusPages()
 

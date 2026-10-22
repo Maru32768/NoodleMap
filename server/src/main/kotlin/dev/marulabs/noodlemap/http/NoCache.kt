@@ -1,20 +1,19 @@
 package dev.marulabs.noodlemap.http
 
-import dev.marulabs.noodlemap.og.OG_IMAGE_PATH
+import io.ktor.http.HttpHeaders
 import io.ktor.server.application.createApplicationPlugin
-import io.ktor.server.request.path
 import io.ktor.server.response.header
 
 /**
- * Sets no-cache headers on every response, porting Go `middleware.NoCache`.
- * Headers are written before the response body is committed.
+ * Sets no-cache headers on every response, porting Go `middleware.NoCache`, unless the handler
+ * set its own Cache-Control (immutable OGP images). Runs when the response is sent, before
+ * its headers are committed.
  */
 val NoCache = createApplicationPlugin(name = "NoCache") {
-    onCall { call ->
-        // OGP image URLs carry a content hash; their handler sets a long-lived Cache-Control instead.
-        if (call.request.path().startsWith(OG_IMAGE_PATH)) return@onCall
-        call.response.header("Cache-Control", "no-store")
-        call.response.header("Pragma", "no-cache")
-        call.response.header("Expires", "0")
+    onCallRespond { call ->
+        if (call.response.headers.contains(HttpHeaders.CacheControl)) return@onCallRespond
+        call.response.header(HttpHeaders.CacheControl, "no-store")
+        call.response.header(HttpHeaders.Pragma, "no-cache")
+        call.response.header(HttpHeaders.Expires, "0")
     }
 }

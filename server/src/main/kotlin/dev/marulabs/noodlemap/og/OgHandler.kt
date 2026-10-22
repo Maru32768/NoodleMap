@@ -5,17 +5,21 @@ import dev.marulabs.noodlemap.generated.models.Shop
 import dev.marulabs.noodlemap.shops.ShopHandler
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
 import io.ktor.http.withCharset
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.response.header
+import io.ktor.server.response.respond
 import io.ktor.server.response.respondBytes
 import io.ktor.server.response.respondRedirect
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
+import io.ktor.util.escapeHTML
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -24,7 +28,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonPrimitive
 import org.slf4j.LoggerFactory
 
-const val OG_IMAGE_PATH = "/api/v1/og/shops/"
+private const val OG_IMAGE_PATH = "/api/v1/og/shops/"
 private const val SEARCH_PATH = "/search"
 private const val IMMUTABLE = "public, max-age=31536000, immutable"
 
@@ -42,12 +46,15 @@ class OgHandler(
     private val shops: ShopHandler,
     private val publicBaseUrl: String,
     /** Null renders the image on every request (local dev, tests). */
-    private val store: OgImageStore?,
+    private val store: R2OgImageStore?,
+    /** Renders running or waiting before new ones get 503; bounds unauthenticated render work. */
+    private val maxPendingRenders: Int = 4,
 ) {
     // One 1200x630 bitmap at a time keeps memory flat on the 512 MB instance.
     private val renderLock = Mutex()
+    private val pendingRenders = AtomicInteger()
 
-    /** Same response for crawlers and browsers: OGP meta plus an immediate redirect to the search page. */
+    /** Same response for crawlers and browsers: OGP meta plus a script redirect to the search page. */
     suspend fun sharePage(call: ApplicationCall) {
         val shop = findShop(call) ?: return call.respondRedirect(SEARCH_PATH)
         val card = OgCard.of(shop, LocalDate.now(JST))
@@ -67,19 +74,36 @@ class OgHandler(
         // An old hash (the shop changed since the page was shared) gets the current image.
         if (call.parameters["hash"] != hash) return call.respondRedirect(imagePath(shop.id, hash))
 
-        val render = suspend { renderLock.withLock { withContext(Dispatchers.Default) { renderOgImage(card) } } }
-        if (store != null) {
-            val url = try {
-                store.publicUrl("og/shops/${shop.id}/$hash.png", render)
-            } catch (e: Exception) {
-                if (e is CancellationException) throw e
-                log.warn("og: image store failed, rendering directly", e)
-                null
-            }
-            if (url != null) return call.respondRedirect(url)
+        val key = "og/shops/${shop.id}/$hash.png"
+        if (store != null && storage("lookup") { store.exists(key) } == true) return call.respondRedirect(store.publicUrl(key))
+
+        val png = renderOrNull(card) ?: run {
+            call.response.header(HttpHeaders.RetryAfter, "5")
+            return call.respond(HttpStatusCode.ServiceUnavailable)
         }
+        if (store != null && storage("upload") { store.put(key, png) } != null) return call.respondRedirect(store.publicUrl(key))
+
         call.response.header(HttpHeaders.CacheControl, IMMUTABLE)
-        call.respondBytes(render(), ContentType.Image.PNG)
+        call.respondBytes(png, ContentType.Image.PNG)
+    }
+
+    /** The PNG, or null when [maxPendingRenders] renders are already running or queued. */
+    private suspend fun renderOrNull(card: OgCard): ByteArray? {
+        try {
+            if (pendingRenders.incrementAndGet() > maxPendingRenders) return null
+            return renderLock.withLock { withContext(Dispatchers.Default) { renderOgImage(card) } }
+        } finally {
+            pendingRenders.decrementAndGet()
+        }
+    }
+
+    /** Runs one storage call; a failure is logged and gives null, and the image is then served directly. */
+    private suspend fun <T> storage(action: String, block: suspend () -> T): T? = try {
+        block()
+    } catch (e: Exception) {
+        if (e is CancellationException) throw e
+        log.warn("og: image store {} failed; serving the image directly", action, e)
+        null
     }
 
     private fun findShop(call: ApplicationCall): Shop? =
@@ -88,46 +112,34 @@ class OgHandler(
     private fun imagePath(id: String, hash: String) = "$OG_IMAGE_PATH$id/$hash.png"
 }
 
+/**
+ * No meta refresh: scrapers that follow it (Facebook) would land on the SPA, which has no OGP tags.
+ * Browsers leave via the script; the link covers the rest.
+ */
 internal fun sharePageHtml(card: OgCard, shareUrl: String, imageUrl: String, target: String): String {
-    val title = esc(card.name)
-    val description = esc(card.description())
+    val title = card.name.escapeHTML()
+    val description = card.description().escapeHTML()
     // JSON string literal for the script; `<` escaped so the value can never close the tag.
     val targetJs = JsonPrimitive(target).toString().replace("<", "\\u003c")
-    return """
-        |<!doctype html>
-        |<html lang="ja">
-        |<head>
-        |<meta charset="utf-8">
-        |<title>$title | NoodleMap</title>
-        |<meta name="description" content="$description">
-        |<meta property="og:type" content="website">
-        |<meta property="og:site_name" content="NoodleMap">
-        |<meta property="og:title" content="$title">
-        |<meta property="og:description" content="$description">
-        |<meta property="og:url" content="${esc(shareUrl)}">
-        |<meta property="og:image" content="${esc(imageUrl)}">
-        |<meta property="og:image:width" content="$OG_WIDTH">
-        |<meta property="og:image:height" content="$OG_HEIGHT">
-        |<meta name="twitter:card" content="summary_large_image">
-        |<link rel="canonical" href="${esc(shareUrl)}">
-        |<meta http-equiv="refresh" content="0;url=${esc(target)}">
-        |<script>location.replace($targetJs)</script>
-        |</head>
-        |<body><a href="${esc(target)}">$title</a></body>
-        |</html>
-        |
-    """.trimMargin()
-}
-
-private fun esc(s: String): String = buildString {
-    for (c in s) {
-        when (c) {
-            '&' -> append("&amp;")
-            '<' -> append("&lt;")
-            '>' -> append("&gt;")
-            '"' -> append("&quot;")
-            '\'' -> append("&#39;")
-            else -> append(c)
-        }
-    }
+    return """<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>$title | NoodleMap</title>
+<meta name="description" content="$description">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="NoodleMap">
+<meta property="og:title" content="$title">
+<meta property="og:description" content="$description">
+<meta property="og:url" content="${shareUrl.escapeHTML()}">
+<meta property="og:image" content="${imageUrl.escapeHTML()}">
+<meta property="og:image:width" content="$OG_WIDTH">
+<meta property="og:image:height" content="$OG_HEIGHT">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="canonical" href="${shareUrl.escapeHTML()}">
+<script>location.replace($targetJs)</script>
+</head>
+<body><a href="${target.escapeHTML()}">$title</a></body>
+</html>
+"""
 }

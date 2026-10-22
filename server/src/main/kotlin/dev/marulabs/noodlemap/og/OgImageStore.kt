@@ -8,43 +8,58 @@ import aws.sdk.kotlin.services.s3.putObject
 import aws.smithy.kotlin.runtime.content.ByteStream
 import aws.smithy.kotlin.runtime.net.url.Url
 import dev.marulabs.noodlemap.Config
+import java.io.Closeable
+import java.util.concurrent.ConcurrentHashMap
 
-/** Where rendered OGP images are kept and served from. */
-fun interface OgImageStore {
-    /** Makes sure [key] exists, calling [render] only when it is missing, and returns the object's public URL. */
-    suspend fun publicUrl(key: String, render: suspend () -> ByteArray): String
-}
+private const val MAX_KNOWN_KEYS = 1000
 
-/** Cloudflare R2 through its S3-compatible API; objects are served from the bucket's public custom domain. */
-class R2OgImageStore(private val cfg: Config.OgR2Config) : OgImageStore {
-    override suspend fun publicUrl(key: String, render: suspend () -> ByteArray): String {
-        // A client per call: crawlers fetch rarely, and `use` always closes its HTTP engine.
-        S3Client {
-            region = "auto"
-            endpointUrl = Url.parse(cfg.endpoint)
-            forcePathStyle = true
-            credentialsProvider = StaticCredentialsProvider {
-                accessKeyId = cfg.accessKeyId
-                secretAccessKey = cfg.secretAccessKey
-            }
-        }.use { s3 ->
-            val exists = try {
-                s3.headObject { bucket = cfg.bucket; this.key = key }
-                true
-            } catch (_: NotFound) {
-                false
-            }
-            if (!exists) {
-                val png = render()
-                s3.putObject {
-                    bucket = cfg.bucket
-                    this.key = key
-                    body = ByteStream.fromBytes(png)
-                    contentType = "image/png"
-                    cacheControl = "public, max-age=31536000, immutable"
-                }
-            }
+/**
+ * Cloudflare R2 (S3-compatible API) holding rendered OGP images, served from the bucket's public
+ * custom domain. One client for the app's lifetime; [close] it on shutdown.
+ */
+class R2OgImageStore(private val cfg: Config.OgR2Config) : Closeable {
+    private val s3 = S3Client {
+        region = "auto"
+        endpointUrl = Url.parse(cfg.endpoint)
+        forcePathStyle = true
+        credentialsProvider = StaticCredentialsProvider {
+            accessKeyId = cfg.accessKeyId
+            secretAccessKey = cfg.secretAccessKey
         }
-        return "${cfg.publicBaseUrl}/$key"
+    }
+
+    // Keys known to exist, so repeat crawler hits skip the HEAD. Key strings only; cleared when full.
+    private val known = ConcurrentHashMap.newKeySet<String>()
+
+    suspend fun exists(key: String): Boolean {
+        if (key in known) return true
+        val found = try {
+            s3.headObject { bucket = cfg.bucket; this.key = key }
+            true
+        } catch (_: NotFound) {
+            false
+        }
+        if (found) remember(key)
+        return found
+    }
+
+    suspend fun put(key: String, png: ByteArray) {
+        s3.putObject {
+            bucket = cfg.bucket
+            this.key = key
+            body = ByteStream.fromBytes(png)
+            contentType = "image/png"
+            cacheControl = "public, max-age=31536000, immutable"
+        }
+        remember(key)
+    }
+
+    fun publicUrl(key: String) = "${cfg.publicBaseUrl}/$key"
+
+    override fun close() = s3.close()
+
+    private fun remember(key: String) {
+        if (known.size >= MAX_KNOWN_KEYS) known.clear()
+        known.add(key)
     }
 }
