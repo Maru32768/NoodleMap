@@ -277,7 +277,10 @@ model AddShopRequest {
 
 model UpdateShopRequest {
   name: string;
-  nameKana?: string;
+
+  @doc("Required because the update replaces the whole shop; null clears the reading.")
+  nameKana: string | null;
+
   lat: float64;
   lng: float64;
   postalCode: string;

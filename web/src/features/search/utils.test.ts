@@ -1,7 +1,7 @@
 import {
+  createQueryMatcher,
   favToHearts,
   filterShops,
-  matchesQuery,
   normalizeForSearch,
   SearchFilters,
   sortShops,
@@ -190,16 +190,22 @@ describe("normalizeForSearch", () => {
   });
 });
 
-describe("matchesQuery", () => {
+describe("createQueryMatcher", () => {
   it("treats a blank query as matching everything", () => {
-    expect(matchesQuery(makeShop(), "  ")).toBe(true);
+    expect(createQueryMatcher("  ")(makeShop())).toBe(true);
   });
 
   it("ignores a missing reading", () => {
     const shop = makeShop({ name: "Ramen", nameKana: undefined });
 
-    expect(matchesQuery(shop, "ramen")).toBe(true);
-    expect(matchesQuery(shop, "undefined")).toBe(false);
+    expect(createQueryMatcher("ramen")(shop)).toBe(true);
+    expect(createQueryMatcher("undefined")(shop)).toBe(false);
+  });
+
+  it("does not match a query spanning two fields", () => {
+    const shop = makeShop({ name: "麺屋", address: "東京都" });
+
+    expect(createQueryMatcher("麺屋 東京")(shop)).toBe(false);
   });
 });
 

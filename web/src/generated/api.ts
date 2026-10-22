@@ -293,7 +293,8 @@ export interface components {
         };
         UpdateShopRequest: {
             name: string;
-            nameKana?: string;
+            /** @description Required because the update replaces the whole shop; null clears the reading. */
+            nameKana: string | null;
             /** Format: double */
             lat: number;
             /** Format: double */

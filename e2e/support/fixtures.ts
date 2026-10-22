@@ -77,6 +77,7 @@ export class Api {
   async updateShop(shop: Shop, patch: Partial<UpdateShopRequest>): Promise<void> {
     const body: UpdateShopRequest = {
       name: shop.name,
+      nameKana: shop.nameKana ?? null,
       lat: shop.lat,
       lng: shop.lng,
       postalCode: shop.postalCode,

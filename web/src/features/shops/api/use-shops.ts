@@ -92,7 +92,6 @@ export function useShops(config?: SWRConfiguration<Shop[]>) {
           throwApiError("/api/v1/shops", res.response, res.error);
         }
 
-        // Load failures are shown inline by ShopsLoadState, not toasted.
         return res.data.shops.map(decorateShop);
       });
     },
@@ -100,6 +99,15 @@ export function useShops(config?: SWRConfiguration<Shop[]>) {
       revalidateIfStale: false,
       revalidateOnFocus: false,
       revalidateOnReconnect: false,
+      // Without data, ShopsLoadState shows the failure inline; toast only when
+      // a revalidation fails behind stale data that stays on screen.
+      onError: (err: ApiError) => {
+        if (resp.data) {
+          toastApiError(err, {
+            fallbackTitle: "店舗一覧を読み込めませんでした",
+          });
+        }
+      },
       ...config,
     },
   );
@@ -169,6 +177,8 @@ export function useShops(config?: SWRConfiguration<Shop[]>) {
               ...current[i],
               ...shopFields,
               favorite: isFavorite(command.eaten, command.rate),
+              // The request clears with null; the response shape omits it.
+              nameKana: shopFields.nameKana?.trim() || undefined,
             });
             return copy;
           }, true);

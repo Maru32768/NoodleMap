@@ -380,7 +380,8 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 }
 
 export interface SidebarProps {
-  allShops: Shop[];
+  // undefined until the shop list has loaded.
+  allShops: Shop[] | undefined;
   sortedShops: Shop[];
   query: string;
   onQueryChange: (q: string) => void;
@@ -721,7 +722,7 @@ export function Sidebar({
           color="nm.ink"
           lineHeight="1"
         >
-          {sortedShops.length}
+          {allShops ? sortedShops.length : "–"}
         </Box>
         <Box
           as="span"
@@ -738,7 +739,7 @@ export function Sidebar({
           color="nm.inkFaint"
           ml="auto"
         >
-          of {allShops.length}
+          of {allShops?.length ?? "–"}
         </Box>
       </Box>
 

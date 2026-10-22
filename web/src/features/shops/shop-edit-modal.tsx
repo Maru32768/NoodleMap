@@ -54,6 +54,7 @@ function FormInput({
   type,
   step,
   placeholder,
+  maxLength,
 }: {
   value: string | number;
   onChange: (v: string) => void;
@@ -61,6 +62,7 @@ function FormInput({
   type?: string;
   step?: number;
   placeholder?: string;
+  maxLength?: number;
 }) {
   return (
     <Input
@@ -69,6 +71,7 @@ function FormInput({
       type={type}
       step={step}
       placeholder={placeholder}
+      maxLength={maxLength}
       w="100%"
       px="12px"
       py="8px"
@@ -398,6 +401,7 @@ export function ShopEditModal({
                 <FormInput
                   value={draft.nameKana ?? ""}
                   onChange={(v) => set("nameKana", v)}
+                  maxLength={100}
                 />
               </Box>
               <Box gridColumn="span 2">

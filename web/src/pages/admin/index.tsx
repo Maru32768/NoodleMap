@@ -6,7 +6,7 @@ import { AdminMap } from "@/features/admin/admin-map.tsx";
 import { AdminTable } from "@/features/admin/admin-table.tsx";
 import { MobileShopList } from "@/features/admin/mobile-shop-list.tsx";
 import { TagManagementModal } from "@/features/admin/tag-management-modal.tsx";
-import { CategoryType, matchesQuery } from "@/features/search/utils.ts";
+import { CategoryType, createQueryMatcher } from "@/features/search/utils.ts";
 import {
   isDuplicatePlaceIdError,
   UpdateShopCommand,
@@ -30,7 +30,7 @@ function AdminStat({
   label,
   tone,
 }: {
-  value: number;
+  value: number | undefined;
   label: string;
   tone?: "warning";
 }) {
@@ -48,7 +48,7 @@ function AdminStat({
         mr="4px"
         fontWeight="700"
       >
-        {value}
+        {value ?? "–"}
       </Span>
       {label}
     </Box>
@@ -79,7 +79,7 @@ function AdminSearchBox({
         zIndex="1"
       />
       <Input
-        placeholder="店名・住所で絞り込み..."
+        placeholder="店名・読み・住所・タグで絞り込み..."
         value={keyword}
         onChange={(e) => onKeywordChange(e.target.value)}
         w="100%"
@@ -149,9 +149,10 @@ export default function AdminPage() {
     lng: number;
   } | null>(null);
 
+  const matchesKeyword = createQueryMatcher(deferredKeyword);
   const filtered =
     shops?.filter((shop) => {
-      if (!matchesQuery(shop, deferredKeyword)) {
+      if (!matchesKeyword(shop)) {
         return false;
       }
       if (categoryFilter !== "all") {
@@ -171,11 +172,12 @@ export default function AdminPage() {
       return true;
     }) ?? [];
 
-  const total = shops?.length ?? 0;
-  const eatenCount = shops?.filter((shop) => shop.eaten).length ?? 0;
-  const wishCount =
-    shops?.filter((shop) => !shop.eaten && shop.lifecycleStatus !== "closed")
-      .length ?? 0;
+  // Counts stay undefined until the shops load so the UI shows a placeholder, not 0.
+  const total = shops?.length;
+  const eatenCount = shops?.filter((shop) => shop.eaten).length;
+  const wishCount = shops?.filter(
+    (shop) => !shop.eaten && shop.lifecycleStatus !== "closed",
+  ).length;
   const editShop = shops?.find((shop) => shop.id === editId);
   const mapPaneDisplay = {
     base: mobileView === "map" ? "block" : "none",
@@ -195,7 +197,7 @@ export default function AdminPage() {
   const handleSave = async (draft: ShopEditDraft) => {
     const cmd: UpdateShopCommand = {
       name: draft.name,
-      nameKana: draft.nameKana,
+      nameKana: draft.nameKana ?? null,
       lat: draft.lat,
       lng: draft.lng,
       postalCode: draft.postalCode,
@@ -524,7 +526,10 @@ export default function AdminPage() {
           />
         ) : (
           <Box display={mapPaneDisplay} bg="nm.bgSoft">
-            <ShopsLoadState />
+            {/* On lg+ the list pane beside it already shows the load state. */}
+            <Box hideFrom="lg">
+              <ShopsLoadState />
+            </Box>
           </Box>
         )}
 
@@ -551,7 +556,7 @@ export default function AdminPage() {
             setCategoryFilter={setCategoryFilter}
             visitFilter={visitFilter}
             setVisitFilter={setVisitFilter}
-            filteredCount={filtered.length}
+            filteredCount={shops && filtered.length}
             totalCount={total}
             onClearAll={() => {
               setCategoryFilter("all");

@@ -47,6 +47,7 @@ export function filterShops(
   },
 ): Shop[] {
   const { query, filters } = opts;
+  const matchesQuery = createQueryMatcher(query);
 
   return shops.filter((r) => {
     const visitMatch =
@@ -90,7 +91,7 @@ export function filterShops(
       }
     }
 
-    return matchesQuery(r, query);
+    return matchesQuery(r);
   });
 }
 
@@ -103,21 +104,20 @@ export function normalizeForSearch(s: string): string {
     .replace(/[ァ-ヶ]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0x60));
 }
 
-// Free-text match over name, reading (読み), address and tag labels.
-export function matchesQuery(shop: Shop, query: string): boolean {
+// Free-text match over name, reading (読み), address and tag labels. Each field
+// is matched on its own so a query never spans two fields.
+export function createQueryMatcher(query: string): (shop: Shop) => boolean {
   const q = normalizeForSearch(query).trim();
   if (!q) {
-    return true;
+    return () => true;
   }
-  const hay = [
-    shop.name,
-    shop.nameKana,
-    shop.address,
-    ...shop.tags.map((tag) => tag.label),
-  ]
-    .filter(Boolean)
-    .join(" ");
-  return normalizeForSearch(hay).includes(q);
+  return (shop) =>
+    [
+      shop.name,
+      shop.nameKana,
+      shop.address,
+      ...shop.tags.map((tag) => tag.label),
+    ].some((field) => field && normalizeForSearch(field).includes(q));
 }
 
 export function sortShops(

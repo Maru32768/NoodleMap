@@ -5,7 +5,7 @@ import {
 import type { components } from "@/generated/api.ts";
 import { renderHookWithProviders } from "@/test/render.tsx";
 import { server } from "@/test/server.ts";
-import { act, waitFor } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
 
@@ -83,6 +83,32 @@ describe("useShops", () => {
     );
     expect(result.current.isLoading).toBe(false);
     expect(result.current.shops).toBeUndefined();
+  });
+
+  it("toasts a failed revalidation while keeping the stale shops", async () => {
+    server.use(
+      http.get("/api/v1/shops", () =>
+        HttpResponse.json({ shops: [apiShop({ name: "stale" })] }),
+      ),
+    );
+    const { result } = renderHookWithProviders(() =>
+      useShops({ shouldRetryOnError: false }),
+    );
+    await waitFor(() => expect(result.current.shops).toHaveLength(1));
+
+    server.use(
+      http.get("/api/v1/shops", () =>
+        HttpResponse.json({ type: "internal_error" }, { status: 500 }),
+      ),
+    );
+    await act(async () => {
+      await result.current.mutate();
+    });
+
+    expect(
+      await screen.findByText("店舗一覧を読み込めませんでした"),
+    ).toBeInTheDocument();
+    expect(result.current.shops?.map((shop) => shop.name)).toEqual(["stale"]);
   });
 
   it("appends an added shop to the cached list", async () => {

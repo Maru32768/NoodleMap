@@ -7,23 +7,24 @@ import { ReactNode } from "react";
 // Renders `children` once the shop list has loaded; until then shows a spinner,
 // or a retryable error when the fetch failed. Shares the SWR cache with the page.
 export function ShopsLoadState({ children }: { children?: ReactNode }) {
-  const { shops, isLoading, error, mutate } = useShops();
+  const { shops, error, mutate } = useShops();
 
   if (shops) {
     return children;
   }
 
-  if (error && !isLoading) {
+  // Error wins over loading so SWR's automatic retries don't flicker the alert.
+  if (error) {
     return (
       <Box
         role="alert"
         display="flex"
-        flexDirection="column"
+        flexWrap="wrap"
         alignItems="center"
+        justifyContent="center"
         gap="0.75rem"
         px="1.25rem"
-        py="2.5rem"
-        textAlign="center"
+        py="1rem"
         color="nm.inkMuted"
         fontSize="0.8125rem"
       >
@@ -36,7 +37,7 @@ export function ShopsLoadState({ children }: { children?: ReactNode }) {
   }
 
   return (
-    <Box display="flex" justifyContent="center" py="2.5rem">
+    <Box display="flex" justifyContent="center" py="1rem">
       <Loading aria-label="読み込み中" />
     </Box>
   );

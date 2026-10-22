@@ -11,8 +11,11 @@ import kotlinx.serialization.Serializable
 public data class UpdateShopRequest(
   @SerialName("name")
   public val name: String,
+  /**
+   * Required because the update replaces the whole shop; null clears the reading.
+   */
   @SerialName("nameKana")
-  public val nameKana: String? = null,
+  public val nameKana: String?,
   @SerialName("lat")
   public val lat: Double,
   @SerialName("lng")

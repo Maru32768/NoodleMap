@@ -81,6 +81,11 @@ class ShopApiTest {
             .status shouldBe HttpStatusCode.OK
         client.shops().single().nameKana shouldBe "たろう"
 
+        // PUT replaces the whole shop, so omitting the reading is rejected rather than clearing it.
+        val withoutKana = encode(req.toUpdate().copy(nameKana = null)).replace("\"nameKana\":null,", "")
+        client.putJson("/api/v1/auth/shops/${added.id}", withoutKana, admin).status shouldBe HttpStatusCode.BadRequest
+        client.shops().single().nameKana shouldBe "たろう"
+
         client.putJson("/api/v1/auth/shops/${added.id}", encode(req.toUpdate().copy(nameKana = "  ")), admin)
         client.shops().single().nameKana shouldBe null
     }

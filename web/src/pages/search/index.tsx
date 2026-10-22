@@ -218,7 +218,7 @@ export default function SearchPage() {
     async (draft: ShopEditDraft) => {
       const cmd: UpdateShopCommand = {
         name: draft.name,
-        nameKana: draft.nameKana,
+        nameKana: draft.nameKana ?? null,
         lat: draft.lat,
         lng: draft.lng,
         postalCode: draft.postalCode,
@@ -257,7 +257,7 @@ export default function SearchPage() {
     >
       {/* Sidebar (desktop) */}
       <Sidebar
-        allShops={shops ?? []}
+        allShops={shops}
         sortedShops={sortedShops}
         query={query}
         onQueryChange={handleQueryChange}
