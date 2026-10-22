@@ -3,6 +3,7 @@ import { LoadableButton } from "@/components/loadable-button.tsx";
 import { ModalDialog } from "@/components/modal-dialog.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { toaster } from "@/components/ui/toaster.tsx";
+import { useRevealFirstError } from "@/components/use-reveal-first-error.ts";
 import { AdminImage, ImageUploader } from "@/features/admin/image-uploader.tsx";
 import {
   CATEGORY_OPTIONS,
@@ -36,11 +37,13 @@ import {
 import { TagSelector } from "@/features/shops/tag-chips.tsx";
 import { invalidRequestFieldErrors } from "@/utils/request.ts";
 import {
+  SHOP_ALREADY_DELETED_TITLE,
   SHOP_UPDATE_FAILED_TITLE,
   shopFieldErrorMessage,
   shopLinkProblemMessage,
   toastApiError,
   toastError,
+  toastShopFieldError,
 } from "@/utils/toast.ts";
 import { Box, Input, NativeSelect } from "@chakra-ui/react";
 import { useEffect, useRef, useState } from "react";
@@ -382,6 +385,11 @@ const FIELD_TAB: Record<UpdateShopField, Tab> = {
   rate: "visit",
 };
 
+// Also false for a field added on the server after this client was built.
+function isUpdateShopField(key: string): key is UpdateShopField {
+  return Object.hasOwn(FIELD_TAB, key);
+}
+
 function toUpdateCommand(draft: ShopEditDraft): UpdateShopCommand {
   return {
     name: draft.name,
@@ -446,28 +454,43 @@ export function ShopEditModal({
   const { tags } = useTags();
   const { updateShop, deleteShop } = useShops();
 
+  const { ref: formRef, reveal: revealFirstError } =
+    useRevealFirstError<HTMLDivElement>();
+
   const errorOf = (field: UpdateShopField) => {
     const type = fieldErrors[field];
     return type && shopFieldErrorMessage(field, type);
   };
 
+  const clearErrors = (fields: readonly UpdateShopField[]) =>
+    setFieldErrors((errors) => clearShopFieldErrors(errors, fields));
+
   // Editing a field clears its server-side error.
   const set = <K extends keyof ShopEditState>(k: K, v: ShopEditState[K]) => {
     setDraft((d) => ({ ...d, [k]: v }));
-    setFieldErrors((errors) => clearShopFieldErrors(errors, [k]));
+    if (isUpdateShopField(k)) {
+      clearErrors([k]);
+    }
   };
 
   const setCategory = (category: ShopEditDraft["category"]) => {
-    setFieldErrors((errors) => clearShopFieldErrors(errors, ["category"]));
-    setDraft((current) => ({
-      ...current,
-      category,
-      tagIds: current.tagIds.filter((tagId) => {
-        const tag = tags?.find((candidate) => candidate.id === tagId);
-        return !tag?.category || tag.category === category;
-      }),
-    }));
+    const tagIds = draft.tagIds.filter((tagId) => {
+      const tag = tags?.find((candidate) => candidate.id === tagId);
+      return !tag?.category || tag.category === category;
+    });
+    setDraft((current) => ({ ...current, category, tagIds }));
+    clearErrors(
+      tagIds.length === draft.tagIds.length
+        ? ["category"]
+        : ["category", "tagIds"],
+    );
   };
+
+  // Whether the field's input is on screen (on its tab) to show an error.
+  const hasInput = (field: UpdateShopField) =>
+    isUpdateShopField(field) &&
+    (field !== "tagIds" || !!tags) &&
+    (field !== "rate" || draft.eaten);
 
   const handleSave = async () => {
     const problem = findShopLinkProblem(draft.links);
@@ -498,13 +521,14 @@ export function ShopEditModal({
         }
       : withLinks;
 
+    setFieldErrors({});
     setSaving(true);
     try {
       const result = await updateShop(shop.id, toUpdateCommand(sanitizedDraft));
       if (!result.ok) {
         if (result.error.type === "not_found") {
           toastApiError(result.error, {
-            fallbackTitle: "この店舗はすでに削除されています",
+            fallbackTitle: SHOP_ALREADY_DELETED_TITLE,
           });
           onDeleted(shop.id);
           onClose();
@@ -512,9 +536,16 @@ export function ShopEditModal({
         }
         const errors = invalidRequestFieldErrors(result.error.body);
         if (errors) {
-          // Every UpdateShopField has an input here, so no toast is needed.
-          setFieldErrors(toShopFieldErrors(errors));
-          setTab(FIELD_TAB[errors[0].field]);
+          const shown = errors.filter((e) => hasInput(e.field));
+          const unshown = errors.find((e) => !hasInput(e.field));
+          if (shown.length > 0) {
+            setFieldErrors(toShopFieldErrors(shown));
+            setTab(FIELD_TAB[shown[0].field]);
+            revealFirstError();
+          }
+          if (unshown) {
+            toastShopFieldError(SHOP_UPDATE_FAILED_TITLE, unshown);
+          }
           return;
         }
         toastApiError(result.error, {
@@ -562,7 +593,8 @@ export function ShopEditModal({
     <>
       <ModalDialog
         open={open}
-        onOpenChange={(o) => !o && onClose()}
+        // Closing while a save or delete is in flight would drop its errors.
+        onOpenChange={(o) => !o && !saving && !deleting && onClose()}
         width="100%"
         maxWidth="1040px"
         height="80vh"
@@ -647,7 +679,14 @@ export function ShopEditModal({
           </Box>
 
           {/* Content */}
-          <Box px="22px" py="20px" flex="1" minH="0" overflowY="auto">
+          <Box
+            ref={formRef}
+            px="22px"
+            py="20px"
+            flex="1"
+            minH="0"
+            overflowY="auto"
+          >
             {tab === "info" && (
               <Box display="grid" gridTemplateColumns="1fr 1fr" gap="16px">
                 <FormField
@@ -944,6 +983,7 @@ export function ShopEditModal({
               border="1px solid"
               borderColor="nm.line"
               _hover={{ borderColor: "nm.ink", color: "nm.ink" }}
+              disabled={saving || deleting}
               onClick={onClose}
             >
               キャンセル

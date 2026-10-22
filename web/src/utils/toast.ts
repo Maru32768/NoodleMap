@@ -100,6 +100,7 @@ export const SHOP_DUPLICATE_PLACE_ID_TITLE =
   "Google Place ID が他の店舗と重複しています";
 export const SHOP_ADD_FAILED_TITLE = "店舗を追加できませんでした";
 export const SHOP_UPDATE_FAILED_TITLE = "店舗を更新できませんでした";
+export const SHOP_ALREADY_DELETED_TITLE = "この店舗はすでに削除されています";
 
 // 店舗リンク problems: rejected by the server, or caught before saving.
 export const SHOP_LINKS_INVALID_TITLE = `リンクの内容を確認してください（http(s) の URL は${SHOP_LINK_URL_MAX_LENGTH}文字まで、表示名は${SHOP_LINK_LABEL_MAX_LENGTH}文字まで、最大${SHOP_LINKS_MAX}件）`;
@@ -135,6 +136,19 @@ export function shopFieldErrorMessage(
     case "unknown":
       return "入力内容を確認してください";
   }
+  // A field or error type added on the server after this client was built.
+  return "入力内容を確認してください";
+}
+
+// For a field error the form has no input to show it on.
+export function toastShopFieldError(
+  title: string,
+  error: { field: UpdateShopField; type: FieldErrorType },
+) {
+  toastError({
+    title,
+    description: shopFieldErrorMessage(error.field, error.type),
+  });
 }
 
 export function shopLinkProblemMessage(

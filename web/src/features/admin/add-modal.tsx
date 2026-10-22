@@ -2,6 +2,7 @@ import { FormField } from "@/components/form-field.tsx";
 import { ModalDialog } from "@/components/modal-dialog.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { toaster } from "@/components/ui/toaster.tsx";
+import { useRevealFirstError } from "@/components/use-reveal-first-error.ts";
 import { CATEGORY_OPTIONS } from "@/features/categories/categories.ts";
 import {
   FindResult,
@@ -25,15 +26,27 @@ import {
   SHOP_ADD_FAILED_TITLE,
   shopFieldErrorMessage,
   toastApiError,
-  toastError,
+  toastShopFieldError,
 } from "@/utils/toast.ts";
 import { Box, Input } from "@chakra-ui/react";
 import { ComponentType, useState } from "react";
 
 type AddDraft = AddShopCommand;
 
-// Fields the API can reject that this form has no input for.
-const FIELDS_WITHOUT_INPUT: readonly AddShopField[] = ["links"];
+// Fields this form has an input for; an error on any other field is toasted.
+const FIELDS_WITH_INPUT: readonly AddShopField[] = [
+  "category",
+  "tagIds",
+  "name",
+  "nameKana",
+  "address",
+  "postalCode",
+  "googlePlaceId",
+  "lat",
+  "lng",
+  "openedAt",
+  "closedAt",
+];
 
 interface AddModalProps {
   open: boolean;
@@ -132,7 +145,10 @@ export function AddModal({
     return type && shopFieldErrorMessage(field, type);
   };
 
-  const clearErrors = (fields: readonly string[]) =>
+  const { ref: formRef, reveal: revealFirstError } =
+    useRevealFirstError<HTMLDivElement>();
+
+  const clearErrors = (fields: readonly AddShopField[]) =>
     setFieldErrors((errors) => clearShopFieldErrors(errors, fields));
 
   // Editing a field clears its server-side error.
@@ -142,22 +158,25 @@ export function AddModal({
   };
 
   const setCategory = (category: AddDraft["category"]) => {
-    clearErrors(["category"]);
-    setDraft((current) => ({
-      ...current,
-      category,
-      tagIds: (current.tagIds ?? []).filter((tagId) => {
-        const tag = tags?.find((candidate) => candidate.id === tagId);
-        return !tag?.category || tag.category === category;
-      }),
-    }));
+    const current = draft.tagIds ?? [];
+    const tagIds = current.filter((tagId) => {
+      const tag = tags?.find((candidate) => candidate.id === tagId);
+      return !tag?.category || tag.category === category;
+    });
+    setDraft((d) => ({ ...d, category, tagIds }));
+    clearErrors(
+      tagIds.length === current.length ? ["category"] : ["category", "tagIds"],
+    );
   };
 
   const handleSelect = (res: FindResult) => {
     setPlaceResult(res);
+    // Google may omit the name; keep what the admin typed (and its reading) rather than blanking it.
+    const name = res.name || draft.name;
+    const nameKana = res.name ? undefined : draft.nameKana;
     clearErrors([
-      "name",
-      "nameKana",
+      ...(name !== draft.name ? (["name"] as const) : []),
+      ...(nameKana !== draft.nameKana ? (["nameKana"] as const) : []),
       "address",
       "postalCode",
       "lat",
@@ -167,9 +186,8 @@ export function AddModal({
     ]);
     setDraft((d) => ({
       ...d,
-      // Google may omit the name; keep what the admin typed (and its reading) rather than blanking it.
-      name: res.name || d.name,
-      nameKana: res.name ? undefined : d.nameKana,
+      name,
+      nameKana,
       address: res.address,
       postalCode: res.postalCode,
       lat: res.lat,
@@ -179,7 +197,11 @@ export function AddModal({
     }));
   };
 
+  const hasInput = (field: AddShopField) =>
+    FIELDS_WITH_INPUT.includes(field) && (field !== "tagIds" || !!tags);
+
   const handleSave = async () => {
+    setFieldErrors({});
     setSaving(true);
     try {
       const result = await addShop(draft);
@@ -189,15 +211,14 @@ export function AddModal({
           toastApiError(result.error, { fallbackTitle: SHOP_ADD_FAILED_TITLE });
           return;
         }
-        setFieldErrors(toShopFieldErrors(errors));
-        const unshown = errors.find((e) =>
-          FIELDS_WITHOUT_INPUT.includes(e.field),
-        );
+        const shown = errors.filter((e) => hasInput(e.field));
+        const unshown = errors.find((e) => !hasInput(e.field));
+        if (shown.length > 0) {
+          setFieldErrors(toShopFieldErrors(shown));
+          revealFirstError();
+        }
         if (unshown) {
-          toastError({
-            title: SHOP_ADD_FAILED_TITLE,
-            description: shopFieldErrorMessage(unshown.field, unshown.type),
-          });
+          toastShopFieldError(SHOP_ADD_FAILED_TITLE, unshown);
         }
         return;
       }
@@ -215,7 +236,8 @@ export function AddModal({
   return (
     <ModalDialog
       open={open}
-      onOpenChange={(o) => !o && onClose()}
+      // Closing while a save is in flight would drop its errors.
+      onOpenChange={(o) => !o && !saving && onClose()}
       width="100%"
       maxWidth="1040px"
       title="新しい店舗を追加"
@@ -249,6 +271,7 @@ export function AddModal({
         >
           {/* Form pane */}
           <Box
+            ref={formRef}
             overflowY="auto"
             px="22px"
             py="18px"
@@ -567,6 +590,7 @@ export function AddModal({
             border="1px solid"
             borderColor="nm.line"
             _hover={{ borderColor: "nm.ink", color: "nm.ink" }}
+            disabled={saving}
             onClick={onClose}
           >
             キャンセル

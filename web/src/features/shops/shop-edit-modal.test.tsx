@@ -38,7 +38,7 @@ function renderEditor(
     saveResponse = () => new HttpResponse(null, { status: 204 }),
     initialTab,
   }: {
-    saveResponse?: () => Response;
+    saveResponse?: () => Response | Promise<Response>;
     initialTab?: "info" | "visit";
   } = {},
 ) {
@@ -150,6 +150,7 @@ describe("ShopEditModal save", () => {
       description: "100文字以内で入力してください",
     });
     expect(kana).toHaveAttribute("aria-invalid", "true");
+    expect(kana).toHaveFocus();
     expect(
       screen.getByRole("textbox", {
         description: "Google Place ID が他の店舗と重複しています",
@@ -195,6 +196,53 @@ describe("ShopEditModal save", () => {
     expect(
       await screen.findByText("店舗を更新できませんでした"),
     ).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("toasts a field error that has no input on screen", async () => {
+    renderEditor(makeShop({ eaten: false }), {
+      saveResponse: fieldErrorResponse([
+        // The rate input is hidden while 食べた is off.
+        { field: "rate", type: "out_of_range" },
+        // A field from a newer server.
+        { field: "visitLogs", type: "required" } as unknown as {
+          field: "name";
+          type: "required";
+        },
+      ]),
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: "保存" }));
+
+    expect(
+      await screen.findByText("店舗を更新できませんでした"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("0〜100の範囲で入力してください"),
+    ).toBeInTheDocument();
+    // Stays on 店舗情報 rather than switching to an empty tab.
+    expect(screen.getByText("読み（ひらがな）")).toBeInTheDocument();
+  });
+
+  it("cannot be cancelled while saving", async () => {
+    let respond!: () => void;
+    const responded = new Promise<void>((resolve) => (respond = resolve));
+    const { onClose } = renderEditor(makeShop(), {
+      saveResponse: async () => {
+        await responded;
+        return HttpResponse.json({ type: "internal_error" }, { status: 500 });
+      },
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: "保存" }));
+    const cancel = screen.getByRole("button", { name: "キャンセル" });
+    await waitFor(() => expect(cancel).toBeDisabled());
+    respond();
+
+    expect(
+      await screen.findByText("店舗を更新できませんでした"),
+    ).toBeInTheDocument();
+    expect(cancel).toBeEnabled();
     expect(onClose).not.toHaveBeenCalled();
   });
 });

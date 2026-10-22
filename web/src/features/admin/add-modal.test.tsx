@@ -1,11 +1,12 @@
 import { toaster } from "@/components/ui/toaster.tsx";
 import { AddModal } from "@/features/admin/add-modal.tsx";
 import type { FindResult } from "@/features/map/google-place-finder.tsx";
+import type { Tag } from "@/features/shops/api/use-shops.ts";
 import type { components } from "@/generated/api.ts";
-import { makeShop } from "@/test/fixtures.ts";
+import { makeShop, makeTag } from "@/test/fixtures.ts";
 import { renderWithProviders } from "@/test/render.tsx";
 import { server } from "@/test/server.ts";
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -36,10 +37,13 @@ function StubPlaceFinder({
   );
 }
 
-function renderAddModal(addResponse: () => Response) {
+function renderAddModal(
+  addResponse: () => Response | Promise<Response>,
+  tags: Tag[] = [],
+) {
   server.use(
     http.get("/api/v1/shops", () => HttpResponse.json({ shops: [] })),
-    http.get("/api/v1/tags", () => HttpResponse.json({ tags: [] })),
+    http.get("/api/v1/tags", () => HttpResponse.json({ tags })),
     http.post("/api/v1/auth/shops", addResponse),
   );
   const onClose = vi.fn();
@@ -103,8 +107,12 @@ describe("AddModal", () => {
       await screen.findByText("Google Place ID が他の店舗と重複しています"),
     ).toBeInTheDocument();
     expect(placeId).toHaveAttribute("aria-invalid", "true");
-    expect(placeId).toHaveAccessibleDescription(
-      "Google Place ID が他の店舗と重複しています",
+    expect(placeId).toHaveFocus();
+    // Ark links the error text to the input once it has observed it.
+    await waitFor(() =>
+      expect(placeId).toHaveAccessibleDescription(
+        "Google Place ID が他の店舗と重複しています",
+      ),
     );
     expect(screen.queryByText("店舗を追加できませんでした")).toBeNull();
     expect(onClose).not.toHaveBeenCalled();
@@ -117,10 +125,12 @@ describe("AddModal", () => {
     expect(placeId).not.toHaveAttribute("aria-invalid");
   });
 
-  it("clears the errors of fields filled from a picked place", async () => {
+  it("clears the errors of fields a picked place changes", async () => {
     renderAddModal(
       fieldErrorResponse([
         { field: "googlePlaceId", type: "duplicate" },
+        { field: "name", type: "required" },
+        { field: "nameKana", type: "too_long" },
         { field: "category", type: "invalid_format" },
       ]),
     );
@@ -132,11 +142,72 @@ describe("AddModal", () => {
     await userEvent.click(screen.getByRole("button", { name: "場所を選ぶ" }));
 
     expect(inputLabelled("Google Place ID")).toHaveValue("picked-place");
+    expect(inputLabelled("店名")).toHaveValue("麺屋ピック");
     expect(
       screen.queryByText("Google Place ID が他の店舗と重複しています"),
     ).toBeNull();
-    // カテゴリ is not filled from the place, so its error stays.
+    expect(screen.queryByText("入力してください")).toBeNull();
+    // The reading stays empty and カテゴリ is not filled, so their errors stay.
+    expect(
+      screen.getByText("100文字以内で入力してください"),
+    ).toBeInTheDocument();
     expect(screen.getByText("形式が正しくありません")).toBeInTheDocument();
+  });
+
+  it("clears a tag error when changing the category drops the tag", async () => {
+    const shoyu = makeTag({ label: "醤油", category: "ramen" });
+    renderAddModal(fieldErrorResponse([{ field: "tagIds", type: "unknown" }]), [
+      shoyu,
+    ]);
+    await userEvent.click(await screen.findByRole("button", { name: "醤油" }));
+    await fillNameAndSave();
+    expect(
+      await screen.findByText(/^存在しないタグが含まれています/),
+    ).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "うどん" }));
+
+    expect(screen.queryByText(/^存在しないタグが含まれています/)).toBeNull();
+  });
+
+  it("clears old field errors when saving again", async () => {
+    let calls = 0;
+    renderAddModal(() =>
+      calls++ === 0
+        ? fieldErrorResponse([{ field: "category", type: "invalid_format" }])()
+        : HttpResponse.json({ type: "internal_error" }, { status: 500 }),
+    );
+    await fillNameAndSave();
+    expect(
+      await screen.findByText("形式が正しくありません"),
+    ).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "追加" }));
+
+    expect(
+      await screen.findByText("店舗を追加できませんでした"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("形式が正しくありません")).toBeNull();
+  });
+
+  it("cannot be cancelled while saving", async () => {
+    let respond!: () => void;
+    const responded = new Promise<void>((resolve) => (respond = resolve));
+    const { onClose } = renderAddModal(async () => {
+      await responded;
+      return HttpResponse.json({ type: "internal_error" }, { status: 500 });
+    });
+    await fillNameAndSave();
+
+    const cancel = screen.getByRole("button", { name: "キャンセル" });
+    await waitFor(() => expect(cancel).toBeDisabled());
+    respond();
+
+    expect(
+      await screen.findByText("店舗を追加できませんでした"),
+    ).toBeInTheDocument();
+    expect(cancel).toBeEnabled();
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it("toasts a field error the form has no input for", async () => {

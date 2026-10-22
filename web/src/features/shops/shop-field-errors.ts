@@ -26,14 +26,14 @@ export function toShopFieldErrors<F extends UpdateShopField>(
 /** Drops the errors of edited fields; returns the same object when none of them had one. */
 export function clearShopFieldErrors<F extends UpdateShopField>(
   errors: ShopFieldErrors<F>,
-  fields: readonly string[],
+  fields: readonly F[],
 ): ShopFieldErrors<F> {
   if (!fields.some((field) => field in errors)) {
     return errors;
   }
   const next = { ...errors };
   for (const field of fields) {
-    delete next[field as F];
+    delete next[field];
   }
   return next;
 }
