@@ -34,9 +34,9 @@ class MigrationsTest {
 
             conn.version() shouldBe migrations.maxOf { it.version }
             conn.strings("SELECT name FROM sqlite_master WHERE type = 'table'") shouldContainAll
-                listOf("users", "sessions", "shops", "eaten_shops", "tags", "shops_tags", "shop_images")
+                listOf("users", "sessions", "shops", "eaten_shops", "tags", "shops_tags", "shop_images", "shop_links")
             conn.strings("SELECT name FROM sqlite_master WHERE type = 'trigger'") shouldContainAll
-                listOf("update_users_modtime", "update_shops_modtime", "update_tags_modtime")
+                listOf("update_users_modtime", "update_shops_modtime", "update_tags_modtime", "update_shop_links_modtime")
         }
     }
 

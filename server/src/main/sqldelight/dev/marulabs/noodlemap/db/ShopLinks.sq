@@ -1,0 +1,27 @@
+CREATE TABLE shop_links (
+    id         TEXT AS java.util.UUID NOT NULL PRIMARY KEY,
+    shop_id    TEXT AS java.util.UUID NOT NULL,
+    type       TEXT NOT NULL CHECK (type IN ('official', 'twitter', 'instagram', 'facebook', 'tabelog', 'other')),
+    label      TEXT,
+    url        TEXT NOT NULL,
+    sort_order INTEGER NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (shop_id) REFERENCES shops (id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_shop_links_shop_id ON shop_links (shop_id);
+
+-- (modtime trigger omitted; see note in Users.sq)
+
+insertShopLink:
+INSERT INTO shop_links (id, shop_id, type, label, url, sort_order) VALUES (?, ?, ?, ?, ?, ?);
+
+deleteShopLinksByShopId:
+DELETE FROM shop_links WHERE shop_id = ?;
+
+findShopLinksByShopIds:
+SELECT shop_id, type, label, url
+FROM shop_links
+WHERE shop_id IN ?
+ORDER BY shop_id, sort_order;

@@ -6,7 +6,7 @@ import type { components } from "@/generated/api.ts";
 import { renderHookWithProviders } from "@/test/render.tsx";
 import { server } from "@/test/server.ts";
 import { act, screen, waitFor } from "@testing-library/react";
-import { http, HttpResponse } from "msw";
+import { delay, http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
 
 type ApiShop = components["schemas"]["Shop"];
@@ -25,6 +25,7 @@ function apiShop(overrides: Partial<ApiShop>): ApiShop {
     favorite: false,
     category: "ramen",
     tags: [],
+    links: [],
     ...overrides,
   };
 }
@@ -173,6 +174,59 @@ describe("useShops", () => {
 
     expect(outcome!.ok).toBe(true);
     expect(result.current.shops?.map((shop) => shop.name)).toEqual(["kept"]);
+  });
+
+  it("normalizes links in the optimistic update and keeps them when omitted", async () => {
+    let gets = 0;
+    server.use(
+      http.get("/api/v1/shops", async () => {
+        // Hold the revalidation so the optimistic cache stays observable.
+        if (gets++ > 0) {
+          await delay("infinite");
+        }
+        return HttpResponse.json({
+          shops: [
+            apiShop({
+              links: [{ type: "official", url: "https://a.example/" }],
+            }),
+          ],
+        });
+      }),
+      http.put(
+        "/api/v1/auth/shops/00000000-0000-4000-8000-0000000000a1",
+        () => new HttpResponse(null, { status: 200 }),
+      ),
+    );
+    const { result } = renderHookWithProviders(() => useShops());
+    await waitFor(() => expect(result.current.shops).toHaveLength(1));
+    const id = "00000000-0000-4000-8000-0000000000a1";
+
+    await act(async () => {
+      await result.current.updateShop(id, {
+        ...addCommand,
+        eaten: false,
+        rate: 0,
+      });
+    });
+    expect(result.current.shops?.[0].links).toEqual([
+      { type: "official", url: "https://a.example/" },
+    ]);
+
+    await act(async () => {
+      await result.current.updateShop(id, {
+        ...addCommand,
+        eaten: false,
+        rate: 0,
+        links: [
+          { type: "twitter", label: " ", url: " https://x.com/a " },
+          { type: "other", label: " 本店 ", url: "https://b.example/" },
+        ],
+      });
+    });
+    expect(result.current.shops?.[0].links).toStrictEqual([
+      { type: "twitter", label: undefined, url: "https://x.com/a" },
+      { type: "other", label: "本店", url: "https://b.example/" },
+    ]);
   });
 
   it("drops a shop that the update reports as not found", async () => {

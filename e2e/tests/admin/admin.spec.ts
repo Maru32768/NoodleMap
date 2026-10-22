@@ -44,6 +44,45 @@ test("admin edits a shop's tags, visit status and rating", async ({ page, api })
   await expect(dialog.getByRole("spinbutton")).toHaveValue("60");
 });
 
+test("admin adds a shop link that guests see in the shop detail", async ({ page, api, browser, baseURL }) => {
+  const id = uid();
+  const shop = await api.createShop({ name: `${id} リンクのある店` });
+  const url = `https://x.com/${id}`;
+
+  await openAdmin(page);
+  const dialog = await openEditModal(page, shop.name, id);
+  await dialog.getByRole("button", { name: "＋ リンクを追加" }).click();
+  const row = dialog.getByRole("group", { name: "リンク 1" });
+  await row.getByRole("textbox", { name: "URL" }).fill(url);
+  await expect(row.getByRole("combobox", { name: "種類" })).toHaveValue("twitter");
+  await dialog.getByRole("button", { name: "保存", exact: true }).click();
+
+  await expect(page.getByText("保存しました")).toBeVisible();
+  expect((await api.getShop(shop.id)).links).toEqual([{ type: "twitter", url }]);
+
+  const guest = await browser.newContext({ baseURL, storageState: { cookies: [], origins: [] } });
+  try {
+    await guest.route(
+      (u) => u.hostname !== "localhost",
+      (route) => route.abort("blockedbyclient"),
+    );
+    const guestPage = await guest.newPage();
+    await guestPage.goto("/search");
+    const sidebar = guestPage.getByRole("complementary");
+    await sidebar.getByPlaceholder("店名・読み・エリア・タグで検索...").fill(id);
+    await sidebar.getByText(shop.name, { exact: true }).click();
+    const link = guestPage
+      .getByRole("list", { name: "店舗リンク" })
+      .filter({ visible: true })
+      .getByRole("link", { name: "Twitter" });
+    await expect(link).toHaveAttribute("href", url);
+    await expect(link).toHaveAttribute("target", "_blank");
+    await expect(link).toHaveAttribute("rel", "noopener noreferrer");
+  } finally {
+    await guest.close();
+  }
+});
+
 test("admin deletes a shop from the edit modal", async ({ page, api }) => {
   const id = uid();
   const shop = await api.createShop({ name: `${id} 削除する店`, eaten: true, rate: 50 });

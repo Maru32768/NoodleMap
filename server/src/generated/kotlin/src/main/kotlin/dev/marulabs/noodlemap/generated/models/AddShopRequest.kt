@@ -30,4 +30,9 @@ public data class AddShopRequest(
   public val category: CategorySlug,
   @SerialName("tagIds")
   public val tagIds: List<String>,
+  /**
+   * At most 10 links, stored in array order. Omit for none.
+   */
+  @SerialName("links")
+  public val links: List<ShopLinkInput>? = null,
 )

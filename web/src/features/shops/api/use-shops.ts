@@ -20,7 +20,12 @@ import {
   withApiError,
   withApiResult,
 } from "@/utils/request.ts";
-import { toastApiError } from "@/utils/toast.ts";
+import {
+  SHOP_DUPLICATE_PLACE_ID_TITLE,
+  SHOP_LINKS_INVALID_TITLE,
+  SHOP_UPDATE_FAILED_TITLE,
+  toastApiError,
+} from "@/utils/toast.ts";
 import type { Dayjs } from "dayjs";
 import { useCallback } from "react";
 import useSWR, { SWRConfiguration } from "swr";
@@ -81,6 +86,26 @@ export function isDuplicatePlaceIdError(
     );
   }
   return false;
+}
+
+function isInvalidLinksError(body: UpdateShopErrorBody | undefined): boolean {
+  return (
+    body?.type === "invalid_request" &&
+    (body.fieldErrors?.some((fieldError) => fieldError.field === "links") ??
+      false)
+  );
+}
+
+export function updateShopErrorTitle(
+  body: UpdateShopErrorBody | undefined,
+): string {
+  if (isDuplicatePlaceIdError(body)) {
+    return SHOP_DUPLICATE_PLACE_ID_TITLE;
+  }
+  if (isInvalidLinksError(body)) {
+    return SHOP_LINKS_INVALID_TITLE;
+  }
+  return SHOP_UPDATE_FAILED_TITLE;
 }
 
 export function useShops(config?: SWRConfiguration<Shop[]>) {
@@ -191,6 +216,16 @@ export function useShops(config?: SWRConfiguration<Shop[]>) {
                 shopFields.nameKana === undefined
                   ? current[i].nameKana
                   : shopFields.nameKana.trim() || undefined,
+              // Same: omitted keeps the links; sent links are trimmed and a
+              // blank label is dropped.
+              links:
+                shopFields.links === undefined
+                  ? current[i].links
+                  : shopFields.links.map((link) => ({
+                      type: link.type,
+                      label: link.label?.trim() || undefined,
+                      url: link.url.trim(),
+                    })),
             });
             return copy;
           }, true);

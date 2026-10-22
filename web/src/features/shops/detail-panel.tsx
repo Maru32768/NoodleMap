@@ -10,6 +10,7 @@ import {
   ShopActions,
   ShopAddressLink,
 } from "@/features/shops/shop-actions.tsx";
+import { ShopLinkList } from "@/features/shops/shop-link-list.tsx";
 import {
   formatShopDate,
   shopDisplaySystemTags,
@@ -273,6 +274,8 @@ export function DetailPanel({ shop, onAdminEdit, onClose }: DetailPanelProps) {
             </Box>
           ))}
         </Box>
+
+        <ShopLinkList links={shop.links} />
       </Box>
 
       {/* Actions */}

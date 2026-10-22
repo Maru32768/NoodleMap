@@ -1,4 +1,10 @@
 import { toaster } from "@/components/ui/toaster.tsx";
+import {
+  SHOP_LINK_LABEL_MAX_LENGTH,
+  SHOP_LINK_URL_MAX_LENGTH,
+  SHOP_LINKS_MAX,
+  type ShopLinkProblem,
+} from "@/features/shops/shop-links.ts";
 import type { components } from "@/generated/api.ts";
 import { ApiError } from "@/utils/request.ts";
 
@@ -84,6 +90,47 @@ const statusMessages: Readonly<Record<number, UserErrorMessage>> = {
     description: "時間をおいてもう一度お試しください。",
   },
 };
+
+export const SHOP_DUPLICATE_PLACE_ID_TITLE =
+  "Google Place ID が他の店舗と重複しています";
+export const SHOP_ADD_FAILED_TITLE = "店舗を追加できませんでした";
+export const SHOP_UPDATE_FAILED_TITLE = "店舗を更新できませんでした";
+
+// 店舗リンク problems: rejected by the server, or caught before saving.
+export const SHOP_LINKS_INVALID_TITLE = `リンクの内容を確認してください（http(s) の URL は${SHOP_LINK_URL_MAX_LENGTH}文字まで、表示名は${SHOP_LINK_LABEL_MAX_LENGTH}文字まで、最大${SHOP_LINKS_MAX}件）`;
+
+export function shopLinkProblemMessage(
+  problem: ShopLinkProblem,
+): UserErrorMessage {
+  switch (problem.kind) {
+    case "missing_url":
+      return {
+        title: `リンク ${problem.row} の URL が未入力です`,
+        description: "URL を入力するか、そのリンクを削除してください。",
+      };
+    case "invalid_url":
+      return {
+        title: `リンク ${problem.row} の URL が正しくありません`,
+        description:
+          "http:// または https:// で始まる URL を入力してください。",
+      };
+    case "url_too_long":
+      return {
+        title: `リンク ${problem.row} の URL が長すぎます`,
+        description: `URL は${SHOP_LINK_URL_MAX_LENGTH}文字までです。`,
+      };
+    case "label_too_long":
+      return {
+        title: `リンク ${problem.row} の表示名が長すぎます`,
+        description: `表示名は${SHOP_LINK_LABEL_MAX_LENGTH}文字までです。`,
+      };
+    case "too_many":
+      return {
+        title: "リンクが多すぎます",
+        description: `リンクは${SHOP_LINKS_MAX}件までです。`,
+      };
+  }
+}
 
 export function toastApiError(err: ApiError, options?: ApiErrorToastOptions) {
   const message = getApiErrorMessage(err, options);

@@ -54,4 +54,9 @@ public data class Shop(
   public val category: CategorySlug,
   @SerialName("tags")
   public val tags: List<Tag>,
+  /**
+   * External links (official site, SNS, ...) in display order.
+   */
+  @SerialName("links")
+  public val links: List<ShopLink>,
 )

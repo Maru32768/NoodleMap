@@ -10,10 +10,24 @@ import {
 import { CategoryIcon } from "@/features/map/category-icon.tsx";
 import { Shop, useShops, useTags } from "@/features/shops/api/use-shops.ts";
 import { MiniHearts } from "@/features/shops/rating-hearts.tsx";
+import {
+  findShopLinkProblem,
+  savableShopLinks,
+  SHOP_LINK_TYPE_LABEL,
+  SHOP_LINK_TYPES,
+  SHOP_LINKS_MAX,
+  ShopLinkInput,
+  ShopLinkType,
+  withLinkUrl,
+} from "@/features/shops/shop-links.ts";
 import { TagSelector } from "@/features/shops/tag-chips.tsx";
-import { toastApiError } from "@/utils/toast.ts";
-import { Box, Input } from "@chakra-ui/react";
-import { useState } from "react";
+import {
+  shopLinkProblemMessage,
+  toastApiError,
+  toastError,
+} from "@/utils/toast.ts";
+import { Box, Input, NativeSelect } from "@chakra-ui/react";
+import { useEffect, useRef, useState } from "react";
 
 export interface ShopEditDraft {
   id: string;
@@ -31,6 +45,8 @@ export interface ShopEditDraft {
   rate: number;
   images: AdminImage[];
   tagIds: string[];
+  // Omitted when the cached shop has no `links` (older server), so saving keeps them.
+  links?: ShopLinkInput[];
 }
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
@@ -58,6 +74,7 @@ function FormInput({
   step,
   placeholder,
   maxLength,
+  ariaLabel,
 }: {
   value: string | number;
   onChange: (v: string) => void;
@@ -66,9 +83,11 @@ function FormInput({
   step?: number;
   placeholder?: string;
   maxLength?: number;
+  ariaLabel?: string;
 }) {
   return (
     <Input
+      aria-label={ariaLabel}
       value={value}
       onChange={(e) => onChange(e.target.value)}
       type={type}
@@ -168,6 +187,165 @@ function FavPicker({
   );
 }
 
+const linkButtonProps = {
+  variant: "plain",
+  px: "8px",
+  py: "6px",
+  h: "auto",
+  minH: "auto",
+  minW: "auto",
+  fontSize: "12px",
+  color: "nm.inkMuted",
+  border: "1px solid",
+  borderColor: "nm.line",
+  rounded: "nmMd",
+  _hover: { borderColor: "nm.ink", color: "nm.ink" },
+} as const;
+
+// Editor rows carry a stable id so React keys survive reordering.
+type ShopLinkRow = ShopLinkInput & { rowId: number };
+type ShopEditState = Omit<ShopEditDraft, "links"> & {
+  links: ShopLinkRow[];
+};
+
+let nextLinkRowId = 0;
+const toLinkRow = (link: ShopLinkInput): ShopLinkRow => ({
+  ...link,
+  rowId: nextLinkRowId++,
+});
+
+type MoveDirection = "up" | "down";
+
+function ShopLinksEditor({
+  links,
+  onChange,
+}: {
+  links: ShopLinkRow[];
+  onChange: (links: ShopLinkRow[]) => void;
+}) {
+  const listRef = useRef<HTMLDivElement>(null);
+  const pendingFocus = useRef<{ rowId: number; dir: MoveDirection } | null>(
+    null,
+  );
+  // Keep focus on the moved link; at the top/bottom its pressed arrow is
+  // disabled, so fall back to the other one.
+  useEffect(() => {
+    const target = pendingFocus.current;
+    if (!target) {
+      return;
+    }
+    pendingFocus.current = null;
+    const row = listRef.current?.querySelector(
+      `[data-row-id="${target.rowId}"]`,
+    );
+    const same = row?.querySelector<HTMLButtonElement>(
+      `[data-move="${target.dir}"]`,
+    );
+    const other = row?.querySelector<HTMLButtonElement>(
+      `[data-move="${target.dir === "up" ? "down" : "up"}"]`,
+    );
+    (same && !same.disabled ? same : other)?.focus();
+  });
+
+  const update = (i: number, link: ShopLinkRow) =>
+    onChange(links.map((l, j) => (j === i ? link : l)));
+  const move = (i: number, dir: MoveDirection) => {
+    const to = dir === "up" ? i - 1 : i + 1;
+    const next = [...links];
+    [next[i], next[to]] = [next[to], next[i]];
+    pendingFocus.current = { rowId: links[i].rowId, dir };
+    onChange(next);
+  };
+
+  return (
+    <Box ref={listRef} display="flex" flexDirection="column" gap="8px">
+      {links.map((link, i) => (
+        <Box
+          key={link.rowId}
+          data-row-id={link.rowId}
+          role="group"
+          aria-label={`リンク ${i + 1}`}
+          display="flex"
+          flexWrap="wrap"
+          gap="6px"
+          alignItems="center"
+        >
+          <NativeSelect.Root width="120px" size="sm">
+            <NativeSelect.Field
+              aria-label="種類"
+              value={link.type}
+              onChange={(e) =>
+                update(i, { ...link, type: e.target.value as ShopLinkType })
+              }
+            >
+              {SHOP_LINK_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {SHOP_LINK_TYPE_LABEL[type]}
+                </option>
+              ))}
+            </NativeSelect.Field>
+            <NativeSelect.Indicator />
+          </NativeSelect.Root>
+          <Box flex="2 1 220px">
+            <FormInput
+              value={link.url}
+              onChange={(v) => update(i, withLinkUrl(link, v))}
+              mono
+              type="url"
+              placeholder="https://..."
+              ariaLabel="URL"
+            />
+          </Box>
+          <Box flex="1 1 140px">
+            <FormInput
+              value={link.label ?? ""}
+              onChange={(v) => update(i, { ...link, label: v })}
+              placeholder="表示名（任意）"
+              ariaLabel="表示名（任意）"
+            />
+          </Box>
+          <Button
+            {...linkButtonProps}
+            aria-label="上へ"
+            data-move="up"
+            disabled={i === 0}
+            onClick={() => move(i, "up")}
+          >
+            ↑
+          </Button>
+          <Button
+            {...linkButtonProps}
+            aria-label="下へ"
+            data-move="down"
+            disabled={i === links.length - 1}
+            onClick={() => move(i, "down")}
+          >
+            ↓
+          </Button>
+          <Button
+            {...linkButtonProps}
+            aria-label="リンクを削除"
+            onClick={() => onChange(links.filter((_, j) => j !== i))}
+          >
+            削除
+          </Button>
+        </Box>
+      ))}
+      <Box>
+        <Button
+          {...linkButtonProps}
+          disabled={links.length >= SHOP_LINKS_MAX}
+          onClick={() =>
+            onChange([...links, toLinkRow({ type: "other", url: "" })])
+          }
+        >
+          ＋ リンクを追加
+        </Button>
+      </Box>
+    </Box>
+  );
+}
+
 type Tab = "info" | "visit" | "images";
 
 interface ShopEditModalProps {
@@ -188,7 +366,7 @@ export function ShopEditModal({
   onDeleted,
 }: ShopEditModalProps) {
   const [tab, setTab] = useState<Tab>(initialTab);
-  const [draft, setDraft] = useState<ShopEditDraft>(() => ({
+  const [draft, setDraft] = useState<ShopEditState>(() => ({
     id: shop.id,
     name: shop.name,
     nameKana: shop.nameKana,
@@ -204,6 +382,8 @@ export function ShopEditModal({
     rate: shop.rate ?? 0,
     images: [],
     tagIds: shop.tags.map((tag) => tag.id),
+    // `links` is missing while an older server is still deployed.
+    links: (shop.links ?? []).map(toLinkRow),
   }));
   const [saving, setSaving] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
@@ -212,7 +392,7 @@ export function ShopEditModal({
   const { tags } = useTags();
   const { deleteShop } = useShops();
 
-  const set = <K extends keyof ShopEditDraft>(k: K, v: ShopEditDraft[K]) =>
+  const set = <K extends keyof ShopEditState>(k: K, v: ShopEditState[K]) =>
     setDraft((d) => ({ ...d, [k]: v }));
 
   const setCategory = (category: ShopEditDraft["category"]) => {
@@ -227,9 +407,21 @@ export function ShopEditModal({
   };
 
   const handleSave = async () => {
+    const problem = findShopLinkProblem(draft.links);
+    if (problem) {
+      setTab("info");
+      toastError(shopLinkProblemMessage(problem));
+      return;
+    }
+    const links = savableShopLinks(draft.links);
+    const withLinks: ShopEditDraft = {
+      ...draft,
+      // Sending [] for a shop cached without links would delete its links.
+      links: shop.links === undefined && links.length === 0 ? undefined : links,
+    };
     const sanitizedDraft = tags
       ? {
-          ...draft,
+          ...withLinks,
           tagIds: Array.from(
             new Set(
               draft.tagIds.filter((tagId) => {
@@ -241,7 +433,7 @@ export function ShopEditModal({
             ),
           ),
         }
-      : draft;
+      : withLinks;
 
     setSaving(true);
     try {
@@ -503,6 +695,13 @@ export function ShopEditModal({
                     onChange={(v) => set("closedAt", v || undefined)}
                     mono
                     type="date"
+                  />
+                </Box>
+                <Box gridColumn="span 2">
+                  <FieldLabel>リンク（公式サイト・SNS）</FieldLabel>
+                  <ShopLinksEditor
+                    links={draft.links}
+                    onChange={(links) => set("links", links)}
                   />
                 </Box>
               </Box>
