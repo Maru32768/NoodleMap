@@ -143,6 +143,38 @@ describe("useShops", () => {
     ]);
   });
 
+  it("removes a deleted shop from the cached list", async () => {
+    server.use(
+      http.get("/api/v1/shops", () =>
+        HttpResponse.json({
+          shops: [
+            apiShop({ name: "kept" }),
+            apiShop({
+              id: "00000000-0000-4000-8000-0000000000c3",
+              name: "deleted",
+            }),
+          ],
+        }),
+      ),
+      http.delete(
+        "/api/v1/auth/shops/00000000-0000-4000-8000-0000000000c3",
+        () => new HttpResponse(null, { status: 204 }),
+      ),
+    );
+    const { result } = renderHookWithProviders(() => useShops());
+    await waitFor(() => expect(result.current.shops).toHaveLength(2));
+
+    let outcome: Awaited<ReturnType<typeof result.current.deleteShop>>;
+    await act(async () => {
+      outcome = await result.current.deleteShop(
+        "00000000-0000-4000-8000-0000000000c3",
+      );
+    });
+
+    expect(outcome!.ok).toBe(true);
+    expect(result.current.shops?.map((shop) => shop.name)).toEqual(["kept"]);
+  });
+
   it("returns field errors from a rejected add without throwing", async () => {
     server.use(
       http.get("/api/v1/shops", () => HttpResponse.json({ shops: [] })),

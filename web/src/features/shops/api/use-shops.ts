@@ -65,6 +65,7 @@ export type AddShopCommand = components["schemas"]["AddShopRequest"];
 export type UpdateShopCommand = components["schemas"]["UpdateShopRequest"];
 type AddShopErrorBody = ApiErrorBodyFor<"/api/v1/auth/shops", "post">;
 type UpdateShopErrorBody = ApiErrorBodyFor<"/api/v1/auth/shops/{id}", "put">;
+type DeleteShopErrorBody = ApiErrorBodyFor<"/api/v1/auth/shops/{id}", "delete">;
 export type SaveTagsErrorBody = ApiErrorBodyFor<"/api/v1/auth/tags", "put">;
 
 export function isDuplicatePlaceIdError(
@@ -195,6 +196,29 @@ export function useShops(config?: SWRConfiguration<Shop[]>) {
     [mutate],
   );
 
+  const deleteShop = useCallback(
+    (id: string) => {
+      return withApiResult<void, DeleteShopErrorBody>(
+        "/api/v1/auth/shops/{id}",
+        async () => {
+          const res = await apiClient.DELETE("/api/v1/auth/shops/{id}", {
+            params: {
+              path: { id },
+            },
+          });
+          if (res.error) {
+            return apiError("/api/v1/auth/shops/{id}", res.response, res.error);
+          }
+
+          mutate((current) => current?.filter((x) => x.id !== id), false);
+
+          return apiOk(undefined);
+        },
+      );
+    },
+    [mutate],
+  );
+
   return {
     get shops() {
       return resp.data;
@@ -207,6 +231,7 @@ export function useShops(config?: SWRConfiguration<Shop[]>) {
     },
     addShop,
     updateShop,
+    deleteShop,
     mutate,
   };
 }
