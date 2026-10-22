@@ -22,7 +22,27 @@ class ConfigTest {
             cookieSecure = false,
             googlePlacesApiKey = "",
             backup = Config.BackupConfig(snapshotPath = "/data/app.db.bak", s3Bucket = null, s3Prefix = null, awsRegion = null),
+            publicBaseUrl = "http://localhost:8080",
+            ogR2 = null,
         )
+    }
+
+    @Test
+    fun `public base url drops the trailing slash`() {
+        load("PUBLIC_BASE_URL" to " https://noodle.example/ ").publicBaseUrl shouldBe "https://noodle.example"
+    }
+
+    @Test
+    fun `OG R2 settings are all or nothing and hide the secret`() {
+        val r2 = arrayOf(
+            "OG_R2_BUCKET" to "og", "OG_R2_ENDPOINT" to "https://acct.r2.cloudflarestorage.com",
+            "OG_R2_ACCESS_KEY_ID" to "kid", "OG_R2_SECRET_ACCESS_KEY" to "r2-secret", "OG_R2_PUBLIC_BASE_URL" to "https://og.example/",
+        )
+        val cfg = load(*r2)
+
+        cfg.ogR2 shouldBe Config.OgR2Config("og", "https://acct.r2.cloudflarestorage.com", "kid", "r2-secret", "https://og.example")
+        cfg.toString() shouldNotContain "r2-secret"
+        shouldThrow<IllegalStateException> { load(*r2.dropLast(1).toTypedArray()) }.message shouldContain "OG_R2_PUBLIC_BASE_URL"
     }
 
     @Test
