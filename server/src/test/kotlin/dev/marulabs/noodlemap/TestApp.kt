@@ -116,8 +116,8 @@ fun addShopRequest(
     openedAt = openedAt, closedAt = closedAt, googlePlaceId = placeId, category = CategorySlug.RAMEN, tagIds = tagIds,
 )
 
-fun AddShopRequest.toUpdate(eaten: Boolean = false, rate: Double = 0.0, favorite: Boolean = false, tagIds: List<String> = this.tagIds) =
+fun AddShopRequest.toUpdate(eaten: Boolean = false, rate: Double = 0.0, tagIds: List<String> = this.tagIds) =
     UpdateShopRequest(
         name = name, lat = lat, lng = lng, postalCode = postalCode, address = address, openedAt = openedAt, closedAt = closedAt,
-        googlePlaceId = googlePlaceId, category = category, eaten = eaten, rate = rate, favorite = favorite, tagIds = tagIds,
+        googlePlaceId = googlePlaceId, category = category, eaten = eaten, rate = rate, tagIds = tagIds,
     )

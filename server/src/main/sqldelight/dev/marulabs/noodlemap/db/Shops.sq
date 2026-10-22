@@ -16,8 +16,8 @@ CREATE TABLE shops (
 
 -- (modtime trigger omitted; see note in Users.sq)
 
--- eaten / rate / favorite are derived from the eaten_shops left join. The boolean
--- expressions come back as Long (0/1); the mapping layer converts to Boolean.
+-- eaten / rate are derived from the eaten_shops left join. The boolean
+-- expression comes back as Long (0/1); the mapping layer converts to Boolean.
 findAllShops:
 SELECT r.id,
        r.name,
@@ -30,8 +30,7 @@ SELECT r.id,
        r.google_place_id,
        r.category,
        CAST((vs.id IS NOT NULL) AS INTEGER)    AS eaten,
-       CAST(COALESCE(vs.rate, 0.0) AS REAL)    AS rate,
-       CAST(COALESCE(vs.favorite, 0) AS INTEGER) AS favorite
+       CAST(COALESCE(vs.rate, 0.0) AS REAL)    AS rate
 FROM shops r
 LEFT JOIN eaten_shops vs ON r.id = vs.shop_id;
 

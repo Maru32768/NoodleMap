@@ -3,7 +3,6 @@ CREATE TABLE eaten_shops (
     id         TEXT AS java.util.UUID NOT NULL PRIMARY KEY,
     shop_id    TEXT AS java.util.UUID NOT NULL UNIQUE,
     rate       REAL NOT NULL,
-    favorite   INTEGER AS kotlin.Boolean NOT NULL,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (shop_id) REFERENCES shops (id)
@@ -12,10 +11,10 @@ CREATE TABLE eaten_shops (
 -- (modtime trigger omitted; see note in Users.sq)
 
 upsertEatenShop:
-INSERT INTO eaten_shops(id, shop_id, rate, favorite)
-VALUES (?, ?, ?, ?)
+INSERT INTO eaten_shops(id, shop_id, rate)
+VALUES (?, ?, ?)
 ON CONFLICT(shop_id)
-DO UPDATE SET rate = excluded.rate, favorite = excluded.favorite;
+DO UPDATE SET rate = excluded.rate;
 
 deleteEatenShopByShopId:
 DELETE FROM eaten_shops WHERE shop_id = ?;

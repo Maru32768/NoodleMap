@@ -40,6 +40,9 @@ public data class Shop(
   public val eaten: Boolean,
   @SerialName("rate")
   public val rate: Double,
+  /**
+   * Derived on the server: true when the shop is eaten and its rate is 80 or more. Read-only.
+   */
   @SerialName("favorite")
   public val favorite: Boolean,
   @SerialName("category")

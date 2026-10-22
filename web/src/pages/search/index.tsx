@@ -227,7 +227,6 @@ export default function SearchPage() {
         googlePlaceId: draft.googlePlaceId,
         category: draft.category,
         eaten: draft.eaten,
-        favorite: draft.favorite,
         rate: draft.rate,
         tagIds: draft.tagIds,
       };

@@ -91,7 +91,7 @@ class ShopHandler(
                 id = shopId.toString(), name = req.name, lat = req.lat, lng = req.lng,
                 openedAt = ShopDate.encode(req.openedAt), closedAt = ShopDate.encode(req.closedAt),
                 postalCode = req.postalCode, address = req.address, googlePlaceId = req.googlePlaceId,
-                eaten = false, rate = 0.0, favorite = false, category = req.category,
+                eaten = false, rate = 0.0, favorite = isFavorite(eaten = false, rate = 0.0), category = req.category,
                 tags = tagsByShopIds(listOf(shopId))[shopId] ?: emptyList(),
             ),
         )
@@ -116,7 +116,7 @@ class ShopHandler(
                 )
             }
             if (req.eaten) {
-                db.eatenShopsQueries.upsertEatenShop(UUID.randomUUID(), shopId, req.rate, req.favorite)
+                db.eatenShopsQueries.upsertEatenShop(UUID.randomUUID(), shopId, req.rate)
             } else {
                 db.eatenShopsQueries.deleteEatenShopByShopId(shopId)
             }
@@ -128,6 +128,10 @@ class ShopHandler(
 
     // --- Helpers ---
 
+    // The one place the お気に入り rule lives (GLOSSARY.md): an eaten shop rated 80 or more.
+    // TODO: once visit logs exist, base this on the latest visit log's rate.
+    private fun isFavorite(eaten: Boolean, rate: Double): Boolean = eaten && rate >= 80.0
+
     private fun loadShops(): List<Shop> {
         val rows = db.shopsQueries.findAllShops().executeAsList()
         val tagsByShop = tagsByShopIds(rows.map { it.id })
@@ -136,7 +140,7 @@ class ShopHandler(
                 id = r.id.toString(), name = r.name, lat = r.lat, lng = r.lng,
                 openedAt = ShopDate.decode(r.opened_at), closedAt = ShopDate.decode(r.closed_at),
                 postalCode = r.postal_code, address = r.address, googlePlaceId = r.google_place_id,
-                eaten = r.eaten != 0L, rate = r.rate, favorite = r.favorite != 0L,
+                eaten = r.eaten != 0L, rate = r.rate, favorite = isFavorite(r.eaten != 0L, r.rate),
                 category = CategorySlug.fromValue(r.category) ?: CategorySlug.RAMEN,
                 tags = tagsByShop[r.id] ?: emptyList(),
             )

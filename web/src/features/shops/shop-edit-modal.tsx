@@ -24,7 +24,6 @@ export interface ShopEditDraft {
   openedAt?: string;
   closedAt?: string;
   eaten: boolean;
-  favorite: boolean;
   rate: number;
   images: AdminImage[];
   tagIds: string[];
@@ -188,7 +187,6 @@ export function ShopEditModal({
     openedAt: shop.openedAt,
     closedAt: shop.closedAt,
     eaten: shop.eaten,
-    favorite: shop.favorite ?? false,
     rate: shop.rate ?? 0,
     images: [],
     tagIds: shop.tags.map((tag) => tag.id),
@@ -511,27 +509,6 @@ export function ShopEditModal({
                     <FavPicker
                       rate={draft.rate}
                       onChange={(v) => set("rate", v)}
-                    />
-                  </Box>
-                  <Box
-                    display="flex"
-                    alignItems="center"
-                    justifyContent="space-between"
-                  >
-                    <Box
-                      fontSize="12px"
-                      fontFamily="mono"
-                      letterSpacing="0.1em"
-                      color="nm.inkMuted"
-                      textTransform="uppercase"
-                    >
-                      お気に入り登録
-                    </Box>
-                    <Toggle
-                      label="お気に入り登録"
-                      on={draft.favorite}
-                      color="shu"
-                      onClick={() => set("favorite", !draft.favorite)}
                     />
                   </Box>
                 </Box>

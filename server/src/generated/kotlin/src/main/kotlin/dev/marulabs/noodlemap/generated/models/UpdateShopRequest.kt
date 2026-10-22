@@ -31,8 +31,6 @@ public data class UpdateShopRequest(
   public val eaten: Boolean,
   @SerialName("rate")
   public val rate: Double,
-  @SerialName("favorite")
-  public val favorite: Boolean,
   @SerialName("tagIds")
   public val tagIds: List<String>,
 )

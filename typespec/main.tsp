@@ -62,7 +62,6 @@ union UpdateShopField {
   "category",
   "eaten",
   "rate",
-  "favorite",
   "tagIds",
 }
 
@@ -218,7 +217,10 @@ model Shop {
   googlePlaceId: string;
   eaten: boolean;
   rate: float64;
+
+  @doc("Derived on the server: true when the shop is eaten and its rate is 80 or more. Read-only.")
   favorite: boolean;
+
   category: CategorySlug;
   tags: Tag[];
 }
@@ -278,7 +280,6 @@ model UpdateShopRequest {
   category: CategorySlug;
   eaten: boolean;
   rate: float64;
-  favorite: boolean;
   tagIds: uuid[];
 }
 

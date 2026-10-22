@@ -29,15 +29,13 @@ FROM tmp_shops;
 DROP TABLE tmp_shops;
 SQL
 
-# eaten_shops: CSV columns (id,shop_id,rate,favorite) match table order
-# favorite is false/true string
+# eaten_shops: CSV columns (id,shop_id,rate) match table order
 sqlite3 "$DB_PATH" <<SQL
 .mode csv
-CREATE TEMP TABLE tmp_eaten (id, shop_id, rate, favorite);
+CREATE TEMP TABLE tmp_eaten (id, shop_id, rate);
 .import --skip 1 ${DATA_DIR}/eaten_shops.csv tmp_eaten
-INSERT OR IGNORE INTO eaten_shops (id, shop_id, rate, favorite)
-SELECT lower(id), lower(shop_id), CAST(rate AS REAL),
-       CASE WHEN lower(favorite) = 'true' THEN 1 ELSE 0 END
+INSERT OR IGNORE INTO eaten_shops (id, shop_id, rate)
+SELECT lower(id), lower(shop_id), CAST(rate AS REAL)
 FROM tmp_eaten;
 DROP TABLE tmp_eaten;
 SQL
