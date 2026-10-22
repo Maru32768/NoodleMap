@@ -27,4 +27,15 @@ class TimesTest {
     fun `SessionTime formats instants as sortable UTC text`() {
         SessionTime.format(Instant.parse("2024-01-05T23:59:59.900Z")) shouldBe "2024-01-05 23:59:59"
     }
+
+    @Test
+    fun `SessionTime parseOrNull reads only full UTC timestamps`() {
+        val t = Instant.parse("2024-01-05T23:59:59Z")
+        listOf("2024-01-05 23:59:59", "2024-01-05T23:59:59", "2024-01-05T23:59:59Z", "2024-01-05 23:59:59.123")
+            .forEach { SessionTime.parseOrNull(it) shouldBe t }
+        listOf(
+            "", "garbage", "2024-01-05", "2024-01-05 23:59", "2024-13-45 23:59:59",
+            "2024-01-05 23:59:59 +0000 UTC", " 2024-01-05 23:59:59",
+        ).forEach { SessionTime.parseOrNull(it) shouldBe null }
+    }
 }

@@ -17,6 +17,8 @@ public enum class ErrorType(
   GOOGLE_AUTH_FAILED("google_auth_failed"),
   @SerialName("session_creation_failed")
   SESSION_CREATION_FAILED("session_creation_failed"),
+  @SerialName("not_found")
+  NOT_FOUND("not_found"),
   @SerialName("internal_error")
   INTERNAL_ERROR("internal_error"),
   @SerialName("google_places_not_configured")

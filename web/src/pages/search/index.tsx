@@ -9,6 +9,7 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer.tsx";
 import { toaster } from "@/components/ui/toaster.tsx";
+import { AccountLink } from "@/features/auth/account-link.tsx";
 import { FlyToLocationButton } from "@/features/map/fly-to-location-button.tsx";
 import {
   LocationTrackingMode,
@@ -114,6 +115,7 @@ function MobileSearchBar({
       >
         <CiFilter style={{ width: 22, height: 22 }} />
       </Button>
+      <AccountLink />
     </Box>
   );
 }

@@ -21,6 +21,8 @@ import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthGooglePlacesAutocom
 import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthGooglePlacesDetailsController.Companion.apiV1AuthGooglePlacesDetailsRoutes
 import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthLogoutController.Companion.apiV1AuthLogoutRoutes
 import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthMeController.Companion.apiV1AuthMeRoutes
+import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthSessionsController.Companion.apiV1AuthSessionsRoutes
+import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthSessionsRevokeOthersController.Companion.apiV1AuthSessionsRevokeOthersRoutes
 import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthShopsController.Companion.apiV1AuthShopsRoutes
 import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthTagsController.Companion.apiV1AuthTagsRoutes
 import dev.marulabs.noodlemap.generated.controllers.ApiV1ShopsController.Companion.apiV1ShopsRoutes
@@ -77,6 +79,8 @@ fun Application.installApp(authHandler: AuthHandler, shopHandler: ShopHandler, p
         apiV1AuthGoogleRoutes(authHandler)
         apiV1AuthMeRoutes(authHandler)
         apiV1AuthLogoutRoutes(authHandler)
+        apiV1AuthSessionsRoutes(authHandler)
+        apiV1AuthSessionsRevokeOthersRoutes(authHandler)
 
         apiV1AuthGooglePlacesAutocompleteRoutes(placesHandler)
         apiV1AuthGooglePlacesDetailsRoutes(placesHandler)

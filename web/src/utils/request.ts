@@ -205,6 +205,7 @@ const errorTypes = new Set<ErrorType>([
   "permission_denied",
   "google_auth_failed",
   "session_creation_failed",
+  "not_found",
   "internal_error",
   "google_places_not_configured",
   "google_places_failed",

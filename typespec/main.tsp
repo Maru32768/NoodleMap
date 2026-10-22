@@ -16,6 +16,7 @@ union ErrorType {
   "permission_denied",
   "google_auth_failed",
   "session_creation_failed",
+  "not_found",
   "internal_error",
   "google_places_not_configured",
   "google_places_failed",
@@ -145,6 +146,11 @@ model SessionCreationFailedErrorBody {
   message?: string;
 }
 
+model NotFoundErrorBody {
+  type: "not_found";
+  message?: string;
+}
+
 model InternalErrorBody {
   type: "internal_error";
   message?: string;
@@ -171,6 +177,7 @@ alias ErrorBody =
   AuthenticationRequiredErrorBody |
   PermissionDeniedErrorBody |
   SessionCreationFailedErrorBody |
+  NotFoundErrorBody |
   InternalErrorBody |
   GooglePlacesNotConfiguredErrorBody |
   GooglePlacesFailedErrorBody;
@@ -187,6 +194,11 @@ model UnauthorizedResponse<TError> {
 
 model ForbiddenResponse<TError> {
   @statusCode statusCode: 403;
+  @body body: TError;
+}
+
+model NotFoundResponse<TError> {
+  @statusCode statusCode: 404;
   @body body: TError;
 }
 
@@ -226,6 +238,25 @@ model GoogleAuthRequest {
 
 model AuthResponse {
   user: User;
+}
+
+@doc("A signed-in session (device) of the current user. `id` is not the session token.")
+model AuthSession {
+  id: uuid;
+  userAgent?: string;
+
+  @doc("Login time, ISO 8601 UTC.")
+  createdAt: string;
+
+  @doc("Approximate last use (expiry minus TTL; the expiry slides at most every 12 hours), ISO 8601 UTC.")
+  lastUsedAt: string;
+
+  @doc("True for the session that made this request.")
+  current: boolean;
+}
+
+model SessionsResponse {
+  sessions: AuthSession[];
 }
 
 model Shop {
@@ -370,6 +401,22 @@ op me(): OkResponse<User> | BadRequestResponse<InvalidRequestErrorBody> | Unauth
 @post
 @route("/auth/logout")
 op logout(): OkEmptyResponse | BadRequestResponse<InvalidRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
+
+@get
+@route("/auth/sessions")
+op listSessions(): OkResponse<SessionsResponse> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
+
+@doc("Revokes one of the current user's sessions. Revoking the current session also clears the cookie.")
+@delete
+@route("/auth/sessions/{id}")
+op revokeSession(
+  @path id: uuid,
+): OkEmptyResponse | UnauthorizedResponse<AuthenticationRequiredErrorBody> | NotFoundResponse<NotFoundErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
+
+@doc("Revokes every session of the current user except the current one.")
+@post
+@route("/auth/sessions/revoke-others")
+op revokeOtherSessions(): OkEmptyResponse | UnauthorizedResponse<AuthenticationRequiredErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
 
 @post
 @route("/auth/shops")

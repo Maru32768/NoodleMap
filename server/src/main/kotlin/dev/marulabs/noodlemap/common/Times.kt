@@ -15,6 +15,18 @@ object SessionTime {
     private val fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneOffset.UTC)
     fun format(instant: Instant): String = fmt.format(instant)
     fun now(): String = format(Instant.now())
+
+    /**
+     * Reads a stored UTC timestamp: exactly "yyyy-MM-dd HH:mm:ss" (or a `T` separator), with
+     * optional fractional seconds and a trailing `Z`. Null for anything else, so callers can
+     * skip an odd row instead of failing.
+     */
+    fun parseOrNull(stored: String): Instant? {
+        val m = STORED.matchEntire(stored) ?: return null
+        return runCatching { Instant.from(fmt.parse("${m.groupValues[1]} ${m.groupValues[2]}")) }.getOrNull()
+    }
+
+    private val STORED = Regex("""(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})(?:\.\d+)?Z?""")
 }
 
 /**
