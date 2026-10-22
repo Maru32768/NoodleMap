@@ -3,7 +3,7 @@ import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
-const guidelineDirs = [".", "web", "server-kt", "typespec", "db"];
+const guidelineDirs = [".", "web", "server", "typespec", "db"];
 
 for (const dir of guidelineDirs) {
   const source = join(repoRoot, dir, "CLAUDE.md");

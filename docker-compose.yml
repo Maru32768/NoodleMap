@@ -2,7 +2,7 @@ services:
   server:
     image: noodle-map-server
     build:
-      context: ./server-kt
+      context: ./server
       dockerfile: Dockerfile
     volumes:
       - ./db-data:/work/db-data

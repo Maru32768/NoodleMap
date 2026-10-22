@@ -1,6 +1,6 @@
 # Server (Kotlin) Guidelines
 
-`server-kt/` is the API server, a Kotlin/Ktor rewrite of the former Go server (history in
+`server/` is the API server, a Kotlin/Ktor rewrite of the former Go server (history in
 `../MIGRATION.md`).
 
 ## Stack

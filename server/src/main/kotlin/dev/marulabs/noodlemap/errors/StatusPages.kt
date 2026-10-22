@@ -12,7 +12,7 @@ private val log = LoggerFactory.getLogger("StatusPages")
 /**
  * Central error rendering. Any [DomainException] is serialized from the data it carries.
  * Anything else is logged internally and surfaced as a generic `internal_error` — never
- * leaking internal exception strings (server-kt/CLAUDE.md error policy).
+ * leaking internal exception strings (server/CLAUDE.md error policy).
  */
 fun Application.installStatusPages() {
     install(StatusPages) {

@@ -31,11 +31,11 @@ jobs:
       - run: npm run test:storybook
       - run: npm run build-storybook
 
-  server-kt:
+  server:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: server-kt
+        working-directory: server
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-java@v5
@@ -47,10 +47,10 @@ jobs:
       - if: always()
         uses: actions/upload-artifact@v5
         with:
-          name: server-kt-reports
+          name: server-reports
           path: |
-            server-kt/build/reports/tests/test
-            server-kt/build/reports/jacoco/test
+            server/build/reports/tests/test
+            server/build/reports/jacoco/test
 
   e2e:
     runs-on: ubuntu-latest

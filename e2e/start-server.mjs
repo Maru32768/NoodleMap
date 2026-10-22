@@ -1,11 +1,11 @@
-// Playwright webServer entry for server-kt: wipe the E2E database, build the fat
+// Playwright webServer entry for the server: wipe the E2E database, build the fat
 // jar (Gradle no-ops when it is up to date), then run it in the foreground.
 import { spawn, spawnSync } from "node:child_process";
 import { mkdirSync, rmSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const serverDir = resolve(dirname(fileURLToPath(import.meta.url)), "../server-kt");
+const serverDir = resolve(dirname(fileURLToPath(import.meta.url)), "../server");
 const dbPath = process.env.DB_PATH;
 if (!dbPath) {
   throw new Error("DB_PATH must be set by playwright.config.ts");

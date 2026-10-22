@@ -1,6 +1,6 @@
 # End-to-end tests
 
-Playwright tests that drive the real stack: the Kotlin backend (`server-kt`) and a
+Playwright tests that drive the real stack: the Kotlin backend (`server`) and a
 production build of the frontend (`web`). Nothing in the app's API is mocked.
 
 ## Running
@@ -23,7 +23,7 @@ server that is already running, because tests write shops, tags and sessions.
 
 `playwright.config.ts` launches two web servers:
 
-- `server-kt`: `start-server.mjs` deletes the E2E database under `.data/`, runs
+- `server`: `start-server.mjs` deletes the E2E database under `.data/`, runs
   `gradlew buildFatJar` (a no-op when the jar is current), and runs the jar on
   port 8888 with an E2E `ADMIN_EMAIL` and a local-only backup path.
 - `web`: `vite build` into `.data/web-build`, then `vite preview` on port 4180.
@@ -39,7 +39,7 @@ Each test also blocks every request to a host other than `localhost`.
 Google Sign-In cannot be automated. The `setup` project (`tests/auth.setup.ts`)
 waits for the backend to migrate the database, then uses `node:sqlite`
 (`support/db.ts`) to insert the admin user and a session row exactly as
-`server-kt` does after a real sign-in: the cookie holds a random token and the
+`server` does after a real sign-in: the cookie holds a random token and the
 `sessions.token_hash` column holds its lowercase hex SHA-256. It checks the
 session with `GET /api/v1/auth/me` and saves the cookie to
 `.data/admin.storage-state.json`.

@@ -4,7 +4,7 @@ import { DB_PATH } from "./env.ts";
 
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
-// Mirrors server-kt SessionTime: UTC "yyyy-MM-dd HH:mm:ss", compared as text.
+// Mirrors the server SessionTime: UTC "yyyy-MM-dd HH:mm:ss", compared as text.
 function sessionTime(epochMs: number): string {
   return new Date(epochMs).toISOString().slice(0, 19).replace("T", " ");
 }
@@ -13,7 +13,7 @@ function sessionTime(epochMs: number): string {
  * Google Sign-In cannot be automated, so tests log in the way the server would
  * after a successful sign-in: upsert the user and insert a session whose
  * token_hash is the lowercase hex SHA-256 of the raw cookie token
- * (server-kt SessionService/SessionTokens). Returns the raw token for the
+ * (server SessionService/SessionTokens). Returns the raw token for the
  * `noodle_map_session` cookie. The server must have migrated the DB already.
  */
 export function seedSession(email: string): string {

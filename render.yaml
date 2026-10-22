@@ -3,7 +3,7 @@ services:
   - type: web
     name: noodle-map-backend
     runtime: docker
-    rootDir: server-kt
+    rootDir: server
     dockerfilePath: ./Dockerfile
     branch: master
     region: oregon

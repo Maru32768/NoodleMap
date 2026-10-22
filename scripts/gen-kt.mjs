@@ -6,7 +6,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
-const serverKt = join(repoRoot, "server-kt");
-const wrapper = join(serverKt, process.platform === "win32" ? "gradlew.bat" : "gradlew");
+const serverDir = join(repoRoot, "server");
+const wrapper = join(serverDir, process.platform === "win32" ? "gradlew.bat" : "gradlew");
 
-execFileSync(wrapper, ["fabriktGenerate"], { cwd: serverKt, stdio: "inherit", shell: true });
+execFileSync(wrapper, ["fabriktGenerate"], { cwd: serverDir, stdio: "inherit", shell: true });

@@ -56,7 +56,7 @@ export default defineConfig({
   ],
   webServer: [
     {
-      name: "server-kt",
+      name: "server",
       command: "node start-server.mjs",
       url: `http://localhost:${BACKEND_PORT}/health`,
       // Never attach to a developer's server: tests write shops and sessions.

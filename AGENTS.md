@@ -5,7 +5,7 @@
 This repository contains a full-stack noodle map application.
 
 - `web/`: React + TypeScript frontend built with Vite.
-- `server-kt/`: Kotlin/Ktor API server.
+- `server/`: Kotlin/Ktor API server.
 - `typespec/`: TypeSpec API contract source.
 - `api/openapi.yaml`: generated OpenAPI document.
 - `e2e/`: Playwright end-to-end tests against the real backend and frontend.
@@ -23,12 +23,12 @@ Frontend commands run from `web/`:
 - `npm run lint`: run ESLint across the frontend.
 - `npm run format`: format frontend files with Prettier.
 
-Backend commands run from `server-kt/` (JDK 21):
+Backend commands run from `server/` (JDK 21):
 
 - `./gradlew run`: start the API server.
 - `./gradlew test`: run all backend tests.
 
-End-to-end commands run from `e2e/` (Playwright against the real `server-kt` and a `web` production build; needs JDK 21 and free ports 8888 and 4180):
+End-to-end commands run from `e2e/` (Playwright against the real `server` and a `web` production build; needs JDK 21 and free ports 8888 and 4180):
 
 - `npm test`: build and start both servers, then run the suite headless.
 - `npm run test:ui`: run the suite in Playwright UI mode.
@@ -47,7 +47,7 @@ Keep `typespec/main.tsp` as the source of truth for API request and response sha
 
 - `api/openapi.yaml`
 - `web/src/generated/api.ts`
-- `server-kt/src/generated/kotlin/**`
+- `server/src/generated/kotlin/**`
 
 Do not edit generated files directly. Change TypeSpec first, then run `npm run api:generate`.
 
@@ -71,7 +71,7 @@ Current guideline files:
 
 - `CLAUDE.md` -> `AGENTS.md`
 - `web/CLAUDE.md` -> `web/AGENTS.md`
-- `server-kt/CLAUDE.md` -> `server-kt/AGENTS.md`
+- `server/CLAUDE.md` -> `server/AGENTS.md`
 - `typespec/CLAUDE.md` -> `typespec/AGENTS.md`
 - `db/CLAUDE.md` -> `db/AGENTS.md`
 

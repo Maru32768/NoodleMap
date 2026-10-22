@@ -174,3 +174,5 @@ real login during final validation.
 - **Go server removed.** After the post-cutover soak, `server/`, `sqlc.yml`, and
   `db/entrypoint.sh` were deleted; `server-kt` is the only backend. Rolling back now means
   reverting that removal commit and pointing `render.yaml` `rootDir` back to `server`.
+- **`server-kt/` renamed to `server/`.** With Go gone the suffix carried no meaning; paths in
+  this document that say `server-kt/` now live under `server/`.

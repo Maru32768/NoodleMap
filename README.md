@@ -19,7 +19,7 @@ Live app: https://noodle-map.marulabs.dev/
 ## Repository Layout
 
 - `web/`: frontend app
-- `server-kt/`: Kotlin/Ktor API server
+- `server/`: Kotlin/Ktor API server
 - `e2e/`: Playwright end-to-end tests
 - `db/`: seed data and the local seed script
 - `typespec/`: TypeSpec API contract source
@@ -31,7 +31,7 @@ Generated files are committed for reviewability:
 
 - `api/openapi.yaml`
 - `web/src/generated/api.ts`
-- `server-kt/src/generated/kotlin/**`
+- `server/src/generated/kotlin/**`
 
 Do not edit generated files directly. Update `typespec/main.tsp` first, then regenerate.
 
@@ -50,7 +50,7 @@ npm run format
 Backend:
 
 ```sh
-cd server-kt
+cd server
 ./gradlew run
 ./gradlew test
 ```
@@ -84,7 +84,7 @@ The backend now authenticates exclusively via Google Sign-In, so the following v
 flowchart LR
   tsp["typespec/main.tsp"] --> openapi["api/openapi.yaml"]
   openapi --> webtypes["web/src/generated/api.ts"]
-  openapi --> ktapi["server-kt/src/generated/kotlin"]
+  openapi --> ktapi["server/src/generated/kotlin"]
 ```
 
 When changing routes, request/response shapes, or API-facing models:
@@ -92,7 +92,7 @@ When changing routes, request/response shapes, or API-facing models:
 1. Update `typespec/main.tsp`.
 2. Run `npm run api:generate`.
 3. Use generated frontend types from `web/src/generated/api.ts`.
-4. Keep backend route wiring through the generated `server-kt` controller interfaces.
+4. Keep backend route wiring through the generated `server` controller interfaces.
 
 ## mise
 

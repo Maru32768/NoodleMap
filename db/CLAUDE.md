@@ -16,10 +16,10 @@ Normalize UUID values to lowercase when importing seed CSV data or writing data 
 
 ## Schema and Queries
 
-Schema migrations and queries live in `server-kt/` (see `server-kt/CLAUDE.md`): goose-format migrations in `src/main/resources/db/migrations/`, and SQLDelight `.sq` files in `src/main/sqldelight/`, whose `CREATE TABLE`s show the current table structure. `MigrationsTest` keeps the two aligned.
+Schema migrations and queries live in `server/` (see `server/CLAUDE.md`): goose-format migrations in `src/main/resources/db/migrations/`, and SQLDelight `.sq` files in `src/main/sqldelight/`, whose `CREATE TABLE`s show the current table structure. `MigrationsTest` keeps the two aligned.
 
-`db/init.sh` seeds a local database from the CSVs in `db/data/`. Start `server-kt` once first so its migrations create the schema.
+`db/init.sh` seeds a local database from the CSVs in `db/data/`. Start `server` once first so its migrations create the schema.
 
 ## Testing
 
-For database-facing behavior, prefer focused `server-kt` tests against a real migrated SQLite database. Call out migrations, seed data changes, or data compatibility concerns in PR notes.
+For database-facing behavior, prefer focused `server` tests against a real migrated SQLite database. Call out migrations, seed data changes, or data compatibility concerns in PR notes.
