@@ -71,7 +71,8 @@ class PlacesApiTest {
             "structuredFormat":{"mainText":{"text":"ラーメン太郎"},"secondaryText":{"text":"東京都新宿区"}}}},
           {"queryPrediction":{"text":{"text":"ラーメン 近く"}}},
           {"placePrediction":{"placeId":"p2","text":{"text":"麺屋"}}},
-          {"placePrediction":{"placeId":"p3","text":{}}}
+          {"placePrediction":{"placeId":"p3","text":{}}},
+          {"placePrediction":{"placeId":"p4","text":{"text":"麺処"},"structuredFormat":{"mainText":{}}}}
         ]}
         """,
     ).use { google ->
@@ -82,7 +83,7 @@ class PlacesApiTest {
             res.body<PlaceSuggestionsResponse>().suggestions shouldBe listOf(
                 PlaceSuggestion("p1", "ラーメン太郎", "東京都新宿区"),
                 PlaceSuggestion("p2", "麺屋", null),
-                PlaceSuggestion("p3", "", null),
+                PlaceSuggestion("p4", "麺処", null),
             )
             val req = google.requests.single()
             req.method shouldBe "POST"
@@ -133,7 +134,10 @@ class PlacesApiTest {
 
     @Test
     fun `Google errors and unusable responses become 502 google_places_failed`() {
-        for ((status, body) in listOf(403 to """{"error":{"status":"PERMISSION_DENIED"}}""", 200 to "not json", 200 to "{}")) {
+        val keyInvalid = """{"error":{"code":400,"status":"INVALID_ARGUMENT","details":[{"reason":"API_KEY_INVALID"}]}}"""
+        for ((status, body) in listOf(
+            403 to """{"error":{"status":"PERMISSION_DENIED"}}""", 400 to keyInvalid, 200 to "not json", 200 to "{}",
+        )) {
             FakeGoogle(status, body).use { google ->
                 testApp(placesApiKey = "secret", placesBaseUrl = google.url) { t ->
                     val res = client.get(detailsPath) { session(t.adminToken()) }
@@ -147,8 +151,11 @@ class PlacesApiTest {
 
     @Test
     fun `Google rejecting the input becomes 400 invalid_request`() {
-        for (status in listOf(400, 404)) {
-            FakeGoogle(status, """{"error":{"status":"NOT_FOUND"}}""").use { google ->
+        for ((status, body) in listOf(
+            400 to """{"error":{"code":400,"status":"INVALID_ARGUMENT","message":"Not a valid Place ID."}}""",
+            404 to """{"error":{"code":404,"status":"NOT_FOUND"}}""",
+        )) {
+            FakeGoogle(status, body).use { google ->
                 testApp(placesApiKey = "secret", placesBaseUrl = google.url) { t ->
                     val res = client.get(detailsPath) { session(t.adminToken()) }
 
@@ -164,8 +171,10 @@ class PlacesApiTest {
         testApp(placesApiKey = "secret", placesBaseUrl = google.url) { t ->
             val admin = t.adminToken()
             for (token in listOf("a%26b", "x".repeat(37), "")) {
-                val res = client.get("/api/v1/auth/google-places/autocomplete?q=a&sessionToken=$token") { session(admin) }
-                res.status shouldBe HttpStatusCode.BadRequest
+                for (path in listOf("autocomplete?q=a", "details?placeId=ChIJ_abc-1")) {
+                    val res = client.get("/api/v1/auth/google-places/$path&sessionToken=$token") { session(admin) }
+                    res.status shouldBe HttpStatusCode.BadRequest
+                }
             }
             google.requests shouldBe emptyList()
         }

@@ -22,6 +22,7 @@ import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
+import org.slf4j.LoggerFactory
 
 /**
  * Admin-only proxy to Google Places API (New), so the Places key stays on the server.
@@ -65,10 +66,10 @@ class PlacesHandler(
                 res.suggestions.mapNotNull { it.placePrediction }.map {
                     PlaceSuggestion(
                         placeId = it.placeId,
-                        mainText = it.structuredFormat?.mainText?.text ?: it.text?.text.orEmpty(),
-                        secondaryText = it.structuredFormat?.secondaryText?.text,
+                        mainText = it.structuredFormat?.mainText?.text?.ifEmpty { null } ?: it.text?.text.orEmpty(),
+                        secondaryText = it.structuredFormat?.secondaryText?.text?.ifEmpty { null },
                     )
-                },
+                }.filter { it.mainText.isNotEmpty() },
             ),
         )
     }
@@ -81,7 +82,7 @@ class PlacesHandler(
         if (!PLACE_ID.matches(placeId)) throw DomainException.InvalidRequest("invalid place id")
 
         val query = "sessionToken=${URLEncoder.encode(sessionToken, Charsets.UTF_8)}&languageCode=ja&regionCode=JP"
-        val place = send<Place>(request("/v1/places/$placeId?$query", DETAILS_FIELDS).GET())
+        val place = send<Place>(request("/v1/places/$placeId?$query", DETAILS_FIELDS).GET(), notFoundIsClientError = true)
 
         call.respondTyped(
             PlaceDetails(
@@ -110,7 +111,7 @@ class PlacesHandler(
             .header("X-Goog-Api-Key", apiKey)
             .header("X-Goog-FieldMask", fieldMask)
 
-    private suspend inline fun <reified T> send(request: HttpRequest.Builder): T {
+    private suspend inline fun <reified T> send(request: HttpRequest.Builder, notFoundIsClientError: Boolean = false): T {
         val res = try {
             http.sendAsync(request.build(), HttpResponse.BodyHandlers.ofString()).await()
         } catch (e: CancellationException) {
@@ -118,12 +119,14 @@ class PlacesHandler(
         } catch (e: Exception) {
             throw DomainException.GooglePlacesFailed(e)
         }
-        // Google answers 400 INVALID_ARGUMENT / 404 NOT_FOUND for bad input such as an unknown place id.
-        if (res.statusCode() == 400 || res.statusCode() == 404) {
-            throw DomainException.InvalidRequest("google places rejected the request")
-        }
-        if (res.statusCode() !in 200..299) {
-            throw DomainException.GooglePlacesFailed(IllegalStateException("Google Places HTTP ${res.statusCode()}: ${res.body().take(500)}"))
+        val status = res.statusCode()
+        if (status !in 200..299) {
+            // Google's error body never echoes the key, so it is safe to log.
+            log.warn("Google Places HTTP {}: {}", status, res.body().take(500))
+            if (isClientError(status, res.body(), notFoundIsClientError)) {
+                throw DomainException.InvalidRequest("google places rejected the request")
+            }
+            throw DomainException.GooglePlacesFailed(IllegalStateException("Google Places HTTP $status"))
         }
         return try {
             json.decodeFromString<T>(res.body())
@@ -133,6 +136,7 @@ class PlacesHandler(
     }
 
     companion object {
+        private val log = LoggerFactory.getLogger(PlacesHandler::class.java)
         private val json = Json { ignoreUnknownKeys = true }
         private val PLACE_ID = Regex("^[A-Za-z0-9_-]{1,512}$")
         private val SESSION_TOKEN = Regex("^[A-Za-z0-9_-]{1,36}$")
@@ -141,6 +145,14 @@ class PlacesHandler(
         private const val DETAILS_FIELDS = "id,displayName,formattedAddress,addressComponents,location,businessStatus"
         // Not \S: in Java that also matches the full-width space U+3000.
         private val LEADING_POSTAL_CODE = Regex("^〒[0-9０-９\\-－]+[\\s　]+")
+
+        /**
+         * Bad input (an unknown place id, a malformed argument) is the caller's error; key, quota
+         * and permission problems such as 400 API_KEY_INVALID or 403 are ours and stay 502.
+         */
+        private fun isClientError(status: Int, body: String, notFoundIsClientError: Boolean): Boolean =
+            (status == 404 && notFoundIsClientError) ||
+                (status == 400 && "INVALID_ARGUMENT" in body && "API_KEY" !in body)
 
         /** Drops the leading "日本、" and "〒123-4567 " that Places prepends to Japanese addresses. */
         fun normalizeAddress(formatted: String): String =

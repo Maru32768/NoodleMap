@@ -50,6 +50,8 @@ paths:
           description: Client-generated token grouping an autocomplete session with its details call for billing.
           schema:
             type: string
+            pattern: ^[A-Za-z0-9_-]{1,36}$
+            maxLength: 36
           explode: false
       responses:
         '200':
@@ -111,6 +113,8 @@ paths:
           description: The token used by the autocomplete session this selection ends.
           schema:
             type: string
+            pattern: ^[A-Za-z0-9_-]{1,36}$
+            maxLength: 36
           explode: false
       responses:
         '200':

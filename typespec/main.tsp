@@ -390,7 +390,10 @@ op updateShop(
 op googlePlacesAutocomplete(
   @query q: string,
   @doc("Client-generated token grouping an autocomplete session with its details call for billing.")
-  @query sessionToken: string,
+  @maxLength(36)
+  @pattern("^[A-Za-z0-9_-]{1,36}$")
+  @query
+  sessionToken: string,
 ): OkResponse<PlaceSuggestionsResponse> | BadRequestResponse<InvalidRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | InternalServerErrorResponse<InternalErrorBody> | BadGatewayResponse<GooglePlacesFailedErrorBody> | ServiceUnavailableResponse<GooglePlacesNotConfiguredErrorBody>;
 
 @doc("Admin-only Google Places (New) place details proxy.")
@@ -399,5 +402,8 @@ op googlePlacesAutocomplete(
 op googlePlacesDetails(
   @query placeId: string,
   @doc("The token used by the autocomplete session this selection ends.")
-  @query sessionToken: string,
+  @maxLength(36)
+  @pattern("^[A-Za-z0-9_-]{1,36}$")
+  @query
+  sessionToken: string,
 ): OkResponse<PlaceDetails> | BadRequestResponse<InvalidRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | InternalServerErrorResponse<InternalErrorBody> | BadGatewayResponse<GooglePlacesFailedErrorBody> | ServiceUnavailableResponse<GooglePlacesNotConfiguredErrorBody>;
