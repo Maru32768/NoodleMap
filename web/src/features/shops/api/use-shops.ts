@@ -176,6 +176,10 @@ export function useShops(config?: SWRConfiguration<Shop[]>) {
                 shopFields.nameKana === undefined
                   ? current[i].nameKana
                   : shopFields.nameKana.trim() || undefined,
+              googlePlaceId:
+                shopFields.googlePlaceId === undefined
+                  ? current[i].googlePlaceId
+                  : shopFields.googlePlaceId.trim() || undefined,
               // Same: omitted keeps the links; sent links are trimmed and a
               // blank label is dropped.
               links:

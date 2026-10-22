@@ -24,8 +24,11 @@ public data class AddShopRequest(
   public val openedAt: String? = null,
   @SerialName("closedAt")
   public val closedAt: String? = null,
+  /**
+   * Omit (or send a blank string) for a shop entered by hand. Must be unique among shops when set.
+   */
   @SerialName("googlePlaceId")
-  public val googlePlaceId: String,
+  public val googlePlaceId: String? = null,
   @SerialName("category")
   public val category: CategorySlug,
   @SerialName("tagIds")

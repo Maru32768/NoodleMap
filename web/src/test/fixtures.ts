@@ -38,7 +38,6 @@ export function makeShop(overrides: Partial<ApiShop> = {}): Shop {
     lng: 139.7005,
     postalCode: "160-0022",
     address: "東京都新宿区新宿3-1-1",
-    googlePlaceId: "",
     eaten,
     rate,
     favorite: isFavorite(eaten, rate),

@@ -1,5 +1,8 @@
 import { toaster } from "@/components/ui/toaster.tsx";
-import { shareShop } from "@/features/shops/shop-actions.tsx";
+import {
+  buildGoogleMapsUrl,
+  shareShop,
+} from "@/features/shops/shop-actions.tsx";
 import { makeShop } from "@/test/fixtures.ts";
 import { renderWithProviders } from "@/test/render.tsx";
 import { act, screen } from "@testing-library/react";
@@ -30,6 +33,19 @@ function stubPointer(coarse: boolean) {
       }) as MediaQueryList,
   );
 }
+
+describe("buildGoogleMapsUrl", () => {
+  it("searches by name and address alone for a shop without a Place ID", () => {
+    const url = new URL(
+      buildGoogleMapsUrl(
+        makeShop({ name: "麺屋", address: "東京都", googlePlaceId: undefined }),
+      ),
+    );
+
+    expect(url.searchParams.get("query")).toBe("麺屋 東京都");
+    expect(url.searchParams.has("query_place_id")).toBe(false);
+  });
+});
 
 describe("shareShop", () => {
   const writeText = vi.fn<Clipboard["writeText"]>();

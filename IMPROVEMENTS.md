@@ -105,6 +105,7 @@ DB スキーマを大きく変える機能が多いため、タグ・訪問ロ�
 | 未着手 | 画像アップロード        | 実装する場合は `shop_images` と保存先を完成させる                              |
 | 完了  | 店舗一覧取得の小バグ修正    | `FindRegisteredShops` の ID 配列生成を修正する                          |
 | 完了 | お気に入りフラグ廃止 | eaten_shops.favorite を削除し、評価 80 以上をお気に入りとして導出する |
+| 完了 | Google Place ID を任意化 | 手入力の店舗を複数登録できるよう google_place_id を NULL 許容にする |
 
 ここが NoodleMap の主機能拡張。DB・認証・Places API の土台ができてからまとめて入れる。
 

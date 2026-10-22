@@ -408,6 +408,26 @@ describe("ShopEditModal links", () => {
     expect(screen.queryByText(/^リンクの内容を確認してください/)).toBeNull();
   });
 
+  it("trims the Google Place ID and sends a blank one to clear it", async () => {
+    const { requests } = renderEditor(makeShop({ googlePlaceId: "place-1" }));
+    const input = screen.getByDisplayValue("place-1");
+
+    await userEvent.clear(input);
+    await userEvent.type(input, " place-2 ");
+    await userEvent.click(screen.getByRole("button", { name: "保存" }));
+    await waitFor(() => expect(requests).toHaveLength(1));
+    expect(requests[0].googlePlaceId).toBe("place-2");
+  });
+
+  it("sends a blank Google Place ID for a shop without one", async () => {
+    const { requests } = renderEditor(makeShop({ googlePlaceId: undefined }));
+
+    await userEvent.click(screen.getByRole("button", { name: "保存" }));
+
+    await waitFor(() => expect(requests).toHaveLength(1));
+    expect(requests[0].googlePlaceId).toBe("");
+  });
+
   it("omits links for a shop cached without them so saving keeps them", async () => {
     const { requests } = renderEditor(makeShop({ links: undefined }));
 

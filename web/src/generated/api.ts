@@ -244,7 +244,8 @@ export interface components {
             address: string;
             openedAt?: string;
             closedAt?: string;
-            googlePlaceId: string;
+            /** @description Omit (or send a blank string) for a shop entered by hand. Must be unique among shops when set. */
+            googlePlaceId?: string;
             category: components["schemas"]["CategorySlug"];
             tagIds: components["schemas"]["uuid"][];
             /** @description At most 10 links, stored in array order. Omit for none. */
@@ -370,7 +371,8 @@ export interface components {
             closedAt?: string;
             postalCode: string;
             address: string;
-            googlePlaceId: string;
+            /** @description Google Places place id. Absent when the shop was entered by hand. */
+            googlePlaceId?: string;
             eaten: boolean;
             /** Format: double */
             rate: number;
@@ -457,7 +459,8 @@ export interface components {
             address: string;
             openedAt?: string;
             closedAt?: string;
-            googlePlaceId: string;
+            /** @description Omit to keep the stored place id (older clients); a blank string clears it. */
+            googlePlaceId?: string;
             category: components["schemas"]["CategorySlug"];
             eaten: boolean;
             /** Format: double */

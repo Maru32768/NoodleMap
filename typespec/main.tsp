@@ -292,7 +292,10 @@ model Shop {
 
   postalCode: string;
   address: string;
-  googlePlaceId: string;
+
+  @doc("Google Places place id. Absent when the shop was entered by hand.")
+  googlePlaceId?: string;
+
   eaten: boolean;
   rate: float64;
 
@@ -365,7 +368,10 @@ model AddShopRequest {
   address: string;
   openedAt?: string;
   closedAt?: string;
-  googlePlaceId: string;
+
+  @doc("Omit (or send a blank string) for a shop entered by hand. Must be unique among shops when set.")
+  googlePlaceId?: string;
+
   category: CategorySlug;
   tagIds: uuid[];
 
@@ -386,7 +392,10 @@ model UpdateShopRequest {
   address: string;
   openedAt?: string;
   closedAt?: string;
-  googlePlaceId: string;
+
+  @doc("Omit to keep the stored place id (older clients); a blank string clears it.")
+  googlePlaceId?: string;
+
   category: CategorySlug;
   eaten: boolean;
   rate: float64;

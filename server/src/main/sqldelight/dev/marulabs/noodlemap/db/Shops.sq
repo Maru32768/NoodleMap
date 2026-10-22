@@ -6,7 +6,7 @@ CREATE TABLE shops (
     lng             REAL NOT NULL,
     postal_code     TEXT NOT NULL,
     address         TEXT NOT NULL,
-    google_place_id TEXT NOT NULL UNIQUE,
+    google_place_id TEXT UNIQUE,
     created_at      TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at      TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     category        TEXT NOT NULL DEFAULT 'ramen' CHECK (category IN ('ramen', 'udon')),
@@ -51,7 +51,8 @@ SET name            = :name,
     address         = :address,
     opened_at       = :openedAt,
     closed_at       = :closedAt,
-    google_place_id = :googlePlaceId,
+    -- Same for the place id: NULL keeps it, '' clears it.
+    google_place_id = NULLIF(COALESCE(:googlePlaceId, google_place_id), ''),
     category        = :category
 WHERE id = :id;
 

@@ -240,6 +240,49 @@ class ShopApiTest {
     }
 
     @Test
+    fun `any number of shops can be added without a google place id`() = testApp { t ->
+        val admin = t.adminToken()
+        val added = listOf(null, "", "   ").map { placeId ->
+            client.postJson("/api/v1/auth/shops", encode(addShopRequest(placeId = placeId)), admin).let {
+                it.status shouldBe HttpStatusCode.OK
+                it.body<Shop>()
+            }
+        }
+
+        added.map { it.googlePlaceId } shouldBe listOf(null, null, null)
+        client.shops().map { it.googlePlaceId } shouldBe listOf(null, null, null)
+        client.get("/api/v1/shops").bodyAsText() shouldNotContainIgnoringCase "googlePlaceId"
+    }
+
+    @Test
+    fun `google place id is trimmed, kept when omitted, and cleared when blank`() = testApp { t ->
+        val admin = t.adminToken()
+        val req = addShopRequest(placeId = " place-a ")
+        val added = client.postJson("/api/v1/auth/shops", encode(req), admin).body<Shop>()
+        added.googlePlaceId shouldBe "place-a"
+
+        client.putJson("/api/v1/auth/shops/${added.id}", encode(req.toUpdate().copy(googlePlaceId = " place-b ")), admin)
+            .status shouldBe HttpStatusCode.OK
+        client.shops().single().googlePlaceId shouldBe "place-b"
+
+        // Older clients may omit the field; that keeps the stored place id.
+        val withoutPlaceId = JsonObject(testJson.encodeToJsonElement(req.toUpdate()).jsonObject - "googlePlaceId").toString()
+        client.putJson("/api/v1/auth/shops/${added.id}", withoutPlaceId, admin).status shouldBe HttpStatusCode.OK
+        client.shops().single().googlePlaceId shouldBe "place-b"
+
+        client.putJson("/api/v1/auth/shops/${added.id}", encode(req.toUpdate().copy(googlePlaceId = " ")), admin)
+            .status shouldBe HttpStatusCode.OK
+        client.shops().single().googlePlaceId shouldBe null
+
+        // A cleared place id does not collide with another shop that has none.
+        client.postJson("/api/v1/auth/shops", encode(addShopRequest(placeId = null)), admin).status shouldBe HttpStatusCode.OK
+        // A padded copy of a taken id is still a duplicate.
+        client.postJson("/api/v1/auth/shops", encode(addShopRequest(placeId = "taken")), admin)
+        client.putJson("/api/v1/auth/shops/${added.id}", encode(req.toUpdate().copy(googlePlaceId = " taken ")), admin)
+            .body<ErrorBody>() shouldBe duplicatePlaceId
+    }
+
+    @Test
     fun `non-admin cannot add a shop`() = testApp { t ->
         val res = client.postJson("/api/v1/auth/shops", encode(addShopRequest()), t.userToken())
 

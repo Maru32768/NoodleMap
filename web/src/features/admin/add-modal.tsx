@@ -209,7 +209,11 @@ export function AddModal({
     setFieldErrors({});
     setSaving(true);
     try {
-      const result = await addShop(draft);
+      // A blank Place ID (Places unavailable or a shop entered by hand) is omitted.
+      const result = await addShop({
+        ...draft,
+        googlePlaceId: draft.googlePlaceId?.trim() || undefined,
+      });
       if (!result.ok) {
         const errors = invalidRequestFieldErrors(result.error.body);
         if (!errors) {
@@ -479,7 +483,7 @@ export function AddModal({
                 error={errorOf("googlePlaceId")}
               >
                 <FormInput
-                  value={draft.googlePlaceId}
+                  value={draft.googlePlaceId ?? ""}
                   onChange={(v) => set("googlePlaceId", v)}
                   mono
                   placeholder="ChIJ..."

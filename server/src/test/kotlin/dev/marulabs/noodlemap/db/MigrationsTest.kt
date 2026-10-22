@@ -86,6 +86,56 @@ class MigrationsTest {
     }
 
     @Test
+    fun `00013 makes google_place_id nullable without losing child rows`() {
+        withDb { conn ->
+            // Production connections run with foreign_keys ON; a careless rebuild would then
+            // cascade-delete shops_tags and shop_links when the old table is dropped.
+            conn.createStatement().use { it.execute("PRAGMA foreign_keys = ON") }
+            migrate(conn, loadMigrations().filter { it.version <= 12 })
+            conn.createStatement().use { st ->
+                st.executeUpdate(
+                    """
+                    INSERT INTO shops (id, name, lat, lng, postal_code, address, google_place_id, name_kana, closed_at) VALUES
+                        ('s1', 'with-place', 1, 2, '100', 'a', 'p1', 'かな', '2024-01-01'),
+                        ('s2', 'manual', 3, 4, '200', 'b', '', NULL, NULL)
+                    """.trimIndent(),
+                )
+                st.executeUpdate("INSERT INTO shops_tags (id, shop_id, tag_id) VALUES ('st1', 's1', '018ff6e8-5291-7a01-9ab8-000000000001')")
+                st.executeUpdate("INSERT INTO shop_links (id, shop_id, type, url, sort_order) VALUES ('l1', 's1', 'official', 'https://example.com', 0)")
+                st.executeUpdate("INSERT INTO eaten_shops (id, shop_id, rate) VALUES ('e1', 's1', 90)")
+                st.executeUpdate("INSERT INTO shop_images (id, shop_id, path) VALUES ('i1', 's2', 'x.jpg')")
+            }
+
+            migrate(conn, loadMigrations())
+
+            conn.strings(
+                "SELECT id || '|' || ifnull(google_place_id, 'NULL') || '|' || ifnull(name_kana, '') || '|' || ifnull(closed_at, '') FROM shops ORDER BY id",
+            ) shouldBe listOf("s1|p1|かな|2024-01-01", "s2|NULL||")
+            conn.strings("SELECT id FROM shops_tags") shouldBe listOf("st1")
+            conn.strings("SELECT id FROM shop_links") shouldBe listOf("l1")
+            conn.strings("SELECT id FROM eaten_shops") shouldBe listOf("e1")
+            conn.strings("SELECT id FROM shop_images") shouldBe listOf("i1")
+            conn.strings("PRAGMA foreign_keys") shouldBe listOf("1")
+            conn.strings("SELECT name FROM sqlite_master WHERE type = 'trigger' AND tbl_name = 'shops'") shouldBe listOf("update_shops_modtime")
+
+            conn.createStatement().use { st ->
+                // Several shops without a place id fit; a duplicate non-null id still does not.
+                st.executeUpdate("INSERT INTO shops (id, name, lat, lng, postal_code, address) VALUES ('s3', 'manual-2', 0, 0, '', '')")
+                shouldThrow<Exception> {
+                    st.executeUpdate("INSERT INTO shops (id, name, lat, lng, postal_code, address, google_place_id) VALUES ('s4', 'dup', 0, 0, '', '', 'p1')")
+                }
+                // The FK from the children still points at the rebuilt table, with its cascade.
+                st.executeUpdate("DELETE FROM shops WHERE id = 's3'")
+                shouldThrow<Exception> { st.executeUpdate("INSERT INTO shop_links (id, shop_id, type, url, sort_order) VALUES ('l2', 'nope', 'official', 'https://e.com', 0)") }
+                st.executeUpdate("DELETE FROM eaten_shops WHERE shop_id = 's1'")
+                st.executeUpdate("DELETE FROM shops WHERE id = 's1'")
+            }
+            conn.strings("SELECT count(*) FROM shops_tags") shouldBe listOf("0")
+            conn.strings("SELECT count(*) FROM shop_links") shouldBe listOf("0")
+        }
+    }
+
+    @Test
     fun `failed migration rolls back its statements and is not recorded`() {
         withDb { conn ->
             val broken = Migration(1, listOf("CREATE TABLE half_done (id TEXT)", "NOT VALID SQL"), useTransaction = true)

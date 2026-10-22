@@ -11,6 +11,8 @@ import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+type AddShopRequest = components["schemas"]["AddShopRequest"];
+
 // The toaster store is global; clear it so one test's toast never leaks into the next.
 afterEach(() => toaster.remove());
 
@@ -93,6 +95,27 @@ describe("AddModal", () => {
 
     expect(await screen.findByText("店舗を追加しました")).toBeInTheDocument();
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it("omits a blank Google Place ID and trims a typed one", async () => {
+    const bodies: AddShopRequest[] = [];
+    renderAddModal(() => HttpResponse.json(makeShop()));
+    server.use(
+      http.post("/api/v1/auth/shops", async ({ request }) => {
+        bodies.push((await request.json()) as AddShopRequest);
+        return HttpResponse.json(makeShop());
+      }),
+    );
+
+    await userEvent.type(inputLabelled("Google Place ID"), "   ");
+    await fillNameAndSave();
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0]).not.toHaveProperty("googlePlaceId");
+
+    await userEvent.type(inputLabelled("Google Place ID"), " ChIJ-typed ");
+    await userEvent.click(screen.getByRole("button", { name: "追加" }));
+    await waitFor(() => expect(bodies).toHaveLength(2));
+    expect(bodies[1].googlePlaceId).toBe("ChIJ-typed");
   });
 
   it("shows a duplicate Google Place ID under its input until it is edited", async () => {

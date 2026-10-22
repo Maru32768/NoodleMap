@@ -124,12 +124,14 @@ class ShopHandler(
         val shopId = UUID.randomUUID()
         val req = addShopRequest
         val nameKana = normalizeNameKana(req.nameKana)
+        // Blank means "entered by hand": stored as NULL so any number of such shops fit the UNIQUE column.
+        val googlePlaceId = req.googlePlaceId?.trim()?.takeIf { it.isNotEmpty() }
         val links = normalizeLinks(req.links.orEmpty())
         db.transaction {
             rejectingDuplicatePlaceId {
                 db.shopsQueries.insertShop(
                     shopId, req.name, nameKana, req.lat, req.lng, req.postalCode, req.address,
-                    ShopDate.encode(req.openedAt), ShopDate.encode(req.closedAt), req.googlePlaceId, req.category.value,
+                    ShopDate.encode(req.openedAt), ShopDate.encode(req.closedAt), googlePlaceId, req.category.value,
                 )
             }
             replaceShopTags(shopId, req.tagIds)
@@ -140,7 +142,7 @@ class ShopHandler(
             Shop(
                 id = shopId.toString(), name = req.name, nameKana = nameKana, lat = req.lat, lng = req.lng,
                 openedAt = ShopDate.encode(req.openedAt), closedAt = ShopDate.encode(req.closedAt),
-                postalCode = req.postalCode, address = req.address, googlePlaceId = req.googlePlaceId,
+                postalCode = req.postalCode, address = req.address, googlePlaceId = googlePlaceId,
                 eaten = false, rate = 0.0, favorite = false, category = req.category,
                 tags = tagsByShopIds(listOf(shopId))[shopId] ?: emptyList(),
                 links = linksByShopIds(listOf(shopId))[shopId] ?: emptyList(),
@@ -162,6 +164,8 @@ class ShopHandler(
         if (req.eaten && req.rate !in 0.0..100.0) throw DomainException.ShopRateOutOfRange()
         // Missing (older clients) keeps the stored reading; blank clears it ('' -> NULL in SQL).
         val nameKana = req.nameKana?.let { normalizeNameKana(it) ?: "" }
+        // Same for the place id: missing keeps it, blank clears it.
+        val googlePlaceId = req.googlePlaceId?.trim()
         // Missing (older clients) keeps the stored links; an array replaces them all.
         val links = req.links?.let { normalizeLinks(it) }
         db.transaction {
@@ -170,7 +174,7 @@ class ShopHandler(
             val updated = rejectingDuplicatePlaceId {
                 db.shopsQueries.updateShop(
                     req.name, nameKana, req.lat, req.lng, req.postalCode, req.address,
-                    ShopDate.encode(req.openedAt), ShopDate.encode(req.closedAt), req.googlePlaceId, req.category.value, shopId,
+                    ShopDate.encode(req.openedAt), ShopDate.encode(req.closedAt), googlePlaceId, req.category.value, shopId,
                 ).value
             }
             if (updated == 0L) throw DomainException.NotFound()
