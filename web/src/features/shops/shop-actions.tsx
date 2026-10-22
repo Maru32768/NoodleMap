@@ -1,7 +1,11 @@
+import { LoadableButton } from "@/components/loadable-button.tsx";
 import { Button } from "@/components/ui/button.tsx";
+import { toaster } from "@/components/ui/toaster.tsx";
 import { Shop } from "@/features/shops/api/use-shops.ts";
+import { shopShareUrl } from "@/utils/path.ts";
+import { toastError } from "@/utils/toast.ts";
 import { Link } from "@chakra-ui/react";
-import { LuExternalLink, LuSettings } from "react-icons/lu";
+import { LuExternalLink, LuSettings, LuShare2 } from "react-icons/lu";
 
 export function buildGoogleMapsUrl(r: Shop) {
   const url = new URL("https://www.google.com/maps/search/");
@@ -11,6 +15,30 @@ export function buildGoogleMapsUrl(r: Shop) {
     url.searchParams.set("query_place_id", r.googlePlaceId);
   }
   return url.toString();
+}
+
+// Native share sheet on touch devices; desktop browsers that expose
+// navigator.share get a plain clipboard copy instead.
+export async function shareShop(shop: Pick<Shop, "id" | "name">) {
+  const url = shopShareUrl(shop.id);
+  if (navigator.share && matchMedia("(pointer: coarse)").matches) {
+    try {
+      await navigator.share({ title: shop.name, url });
+    } catch (e) {
+      // Cancelling the share sheet rejects with AbortError. Other failures do
+      // not fall back to the clipboard: user activation is gone by now.
+      if (!(e instanceof DOMException && e.name === "AbortError")) {
+        toastError({ title: "共有できませんでした" });
+      }
+    }
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(url);
+    toaster.success({ description: "URLをコピーしました" });
+  } catch {
+    toastError({ title: "URLをコピーできませんでした" });
+  }
 }
 
 const actionBtnBase = {
@@ -30,10 +58,12 @@ const actionBtnBase = {
 } as const;
 
 export function ShopActions({
+  shop,
   mapsUrl,
   mapsLabel,
   onAdminClick,
 }: {
+  shop: Pick<Shop, "id" | "name">;
   mapsUrl: string;
   mapsLabel: string;
   onAdminClick?: () => void;
@@ -54,6 +84,19 @@ export function ShopActions({
       >
         {mapsLabel}
       </Link>
+      <LoadableButton
+        onClick={() => shareShop(shop)}
+        variant="plain"
+        {...actionBtnBase}
+        bg="nm.bg"
+        color="nm.ink"
+        border="1px solid"
+        borderColor="nm.line"
+        _hover={{ borderColor: "nm.ink" }}
+      >
+        <LuShare2 aria-hidden="true" />
+        共有
+      </LoadableButton>
       {onAdminClick && (
         <Button
           onClick={onAdminClick}

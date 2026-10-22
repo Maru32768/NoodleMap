@@ -33,3 +33,12 @@ test("guest searches, filters and opens a shop from the mobile sheet", async ({ 
   await expect(page.getByRole("button", { name: "閉じる" })).toBeVisible();
   await expect(page.getByText(udon.name)).toHaveCount(0);
 });
+
+test("guest opens a shared shop URL in the mobile sheet", async ({ page, api }) => {
+  const shop = await api.createShop({ name: `${uid()} 共有まぜそば` });
+
+  await page.goto(`/search?shop=${shop.id}`);
+  // The desktop detail panel is in the DOM too, hidden by a media query.
+  await expect(page.getByText(shop.name, { exact: true }).filter({ visible: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "閉じる" })).toBeVisible();
+});

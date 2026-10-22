@@ -20,7 +20,7 @@ const meta = {
       </Box>
     ),
   ],
-  args: { mapsUrl, mapsLabel: "Google Maps" },
+  args: { shop, mapsUrl, mapsLabel: "Google Maps" },
 } satisfies Meta<typeof ShopActions>;
 
 export default meta;

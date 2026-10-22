@@ -289,6 +289,7 @@ export function DetailPanel({ shop, onAdminEdit, onClose }: DetailPanelProps) {
         gap="0.625rem"
       >
         <ShopActions
+          shop={shop}
           mapsUrl={mapsUrl}
           mapsLabel="Google Maps"
           onAdminClick={
