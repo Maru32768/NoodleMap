@@ -65,6 +65,7 @@ export type AddShopCommand = components["schemas"]["AddShopRequest"];
 export type UpdateShopCommand = components["schemas"]["UpdateShopRequest"];
 type AddShopErrorBody = ApiErrorBodyFor<"/api/v1/auth/shops", "post">;
 type UpdateShopErrorBody = ApiErrorBodyFor<"/api/v1/auth/shops/{id}", "put">;
+type DeleteShopErrorBody = ApiErrorBodyFor<"/api/v1/auth/shops/{id}", "delete">;
 export type SaveTagsErrorBody = ApiErrorBodyFor<"/api/v1/auth/tags", "put">;
 
 export function isDuplicatePlaceIdError(
@@ -88,7 +89,9 @@ export function useShops(config?: SWRConfiguration<Shop[]>) {
     () => {
       return withApiError("/api/v1/shops", async () => {
         const res = await apiClient.GET("/api/v1/shops");
-        if (res.error) {
+        // openapi-fetch leaves `error` undefined for a non-OK response with an
+        // empty body, so the status is checked too (here and below).
+        if (res.error || !res.response.ok) {
           throwApiError("/api/v1/shops", res.response, res.error);
         }
 
@@ -123,7 +126,7 @@ export function useShops(config?: SWRConfiguration<Shop[]>) {
           const res = await apiClient.POST("/api/v1/auth/shops", {
             body: command,
           });
-          if (res.error) {
+          if (res.error || !res.response.ok) {
             return apiError("/api/v1/auth/shops", res.response, res.error);
           }
 
@@ -154,7 +157,11 @@ export function useShops(config?: SWRConfiguration<Shop[]>) {
             },
             body: command,
           });
-          if (res.error) {
+          if (res.error || !res.response.ok) {
+            if (res.error?.type === "not_found") {
+              // Deleted elsewhere: drop it so the edit modal and selection close.
+              mutate((current) => current?.filter((x) => x.id !== id), false);
+            }
             return apiError("/api/v1/auth/shops/{id}", res.response, res.error);
           }
 
@@ -195,6 +202,33 @@ export function useShops(config?: SWRConfiguration<Shop[]>) {
     [mutate],
   );
 
+  const deleteShop = useCallback(
+    (id: string) => {
+      return withApiResult<void, DeleteShopErrorBody>(
+        "/api/v1/auth/shops/{id}",
+        async () => {
+          const res = await apiClient.DELETE("/api/v1/auth/shops/{id}", {
+            params: {
+              path: { id },
+            },
+          });
+          // A shop that is already gone (e.g. deleted elsewhere) counts as deleted.
+          if (
+            (res.error || !res.response.ok) &&
+            res.error?.type !== "not_found"
+          ) {
+            return apiError("/api/v1/auth/shops/{id}", res.response, res.error);
+          }
+
+          mutate((current) => current?.filter((x) => x.id !== id), false);
+
+          return apiOk(undefined);
+        },
+      );
+    },
+    [mutate],
+  );
+
   return {
     get shops() {
       return resp.data;
@@ -207,6 +241,7 @@ export function useShops(config?: SWRConfiguration<Shop[]>) {
     },
     addShop,
     updateShop,
+    deleteShop,
     mutate,
   };
 }
@@ -217,7 +252,7 @@ export function useTags(config?: SWRConfiguration<Tag[]>) {
     () => {
       return withApiError("/api/v1/tags", async () => {
         const res = await apiClient.GET("/api/v1/tags");
-        if (res.error) {
+        if (res.error || !res.response.ok) {
           throwApiError("/api/v1/tags", res.response, res.error);
         }
 
@@ -246,7 +281,7 @@ export function useTags(config?: SWRConfiguration<Tag[]>) {
           const res = await apiClient.PUT("/api/v1/auth/tags", {
             body: { tags },
           });
-          if (res.error) {
+          if (res.error || !res.response.ok) {
             return apiError("/api/v1/auth/tags", res.response, res.error);
           }
 

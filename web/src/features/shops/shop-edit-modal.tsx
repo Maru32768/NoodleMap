@@ -1,14 +1,17 @@
+import { LoadableButton } from "@/components/loadable-button.tsx";
 import { ModalDialog } from "@/components/modal-dialog.tsx";
 import { Button } from "@/components/ui/button.tsx";
+import { toaster } from "@/components/ui/toaster.tsx";
 import { AdminImage, ImageUploader } from "@/features/admin/image-uploader.tsx";
 import {
   CATEGORY_OPTIONS,
   CategorySlug,
 } from "@/features/categories/categories.ts";
 import { CategoryIcon } from "@/features/map/category-icon.tsx";
-import { Shop, useTags } from "@/features/shops/api/use-shops.ts";
+import { Shop, useShops, useTags } from "@/features/shops/api/use-shops.ts";
 import { MiniHearts } from "@/features/shops/rating-hearts.tsx";
 import { TagSelector } from "@/features/shops/tag-chips.tsx";
+import { toastApiError } from "@/utils/toast.ts";
 import { Box, Input } from "@chakra-ui/react";
 import { useState } from "react";
 
@@ -173,7 +176,7 @@ interface ShopEditModalProps {
   initialTab?: Tab;
   onClose: () => void;
   onSave: (draft: ShopEditDraft) => Promise<void>;
-  onDelete?: (id: string) => void;
+  onDeleted: (id: string) => void;
 }
 
 export function ShopEditModal({
@@ -182,7 +185,7 @@ export function ShopEditModal({
   initialTab = "info",
   onClose,
   onSave,
-  onDelete,
+  onDeleted,
 }: ShopEditModalProps) {
   const [tab, setTab] = useState<Tab>(initialTab);
   const [draft, setDraft] = useState<ShopEditDraft>(() => ({
@@ -203,12 +206,14 @@ export function ShopEditModal({
     tagIds: shop.tags.map((tag) => tag.id),
   }));
   const [saving, setSaving] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  // Locks closing and saving while the DELETE is in flight.
+  const [deleting, setDeleting] = useState(false);
   const { tags } = useTags();
+  const { deleteShop } = useShops();
 
-  const set = <K extends keyof ShopEditDraft>(
-    k: K,
-    v: ShopEditDraft[K],
-  ) => setDraft((d) => ({ ...d, [k]: v }));
+  const set = <K extends keyof ShopEditDraft>(k: K, v: ShopEditDraft[K]) =>
+    setDraft((d) => ({ ...d, [k]: v }));
 
   const setCategory = (category: ShopEditDraft["category"]) => {
     setDraft((current) => ({
@@ -246,6 +251,28 @@ export function ShopEditModal({
     }
   };
 
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      const result = await deleteShop(shop.id);
+      if (!result.ok) {
+        toastApiError(result.error, {
+          fallbackTitle: "店舗を削除できませんでした",
+        });
+        return;
+      }
+
+      setConfirmDeleteOpen(false);
+      onDeleted(shop.id);
+      onClose();
+      toaster.success({ description: "店舗を削除しました" });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const displayName = shop.name || "(名称未設定)";
+
   const TAB_LABELS: Record<Tab, string> = {
     info: "店舗情報",
     visit: "食べた記録",
@@ -253,313 +280,313 @@ export function ShopEditModal({
   };
 
   return (
-    <ModalDialog
-      open={open}
-      onOpenChange={(o) => !o && onClose()}
-      width="100%"
-      maxWidth="1040px"
-      height="80vh"
-      title={shop.name || "(名称未設定)"}
-      subtitle={`EDIT · ${shop.id}`}
-      icon={
-        <CategoryIcon
-          category={shop.category}
-          size={18}
-          strokeWidth={1.4}
-          color="white"
-        />
-      }
-      iconBg={shop.category === "udon" ? "nm.kincha" : "nm.shu"}
-      bodyProps={{
-        p: 0,
-        overflow: "visible",
-        display: "flex",
-        flexDirection: "column",
-      }}
-      contentProps={{
-        animation: "adm-modal-in 0.16s cubic-bezier(0.2, 0.8, 0.2, 1)",
-      }}
-    >
-      <>
-        {/* Tabs */}
-        <Box
-          display="flex"
-          borderBottom="1px solid"
-          borderBottomColor="nm.lineFaint"
-          px="22px"
-        >
-          {(["info", "visit", "images"] as Tab[]).map((t) => (
-            <Button
-              key={t}
-              variant="plain"
-              px="14px"
-              py="11px"
-              h="auto"
-              minH="auto"
-              fontSize="13px"
-              fontWeight={tab === t ? 600 : 400}
-              color={tab === t ? "nm.ink" : "nm.inkMuted"}
-              borderBottom="2px solid"
-              borderBottomColor={tab === t ? "nm.shu" : "transparent"}
-              borderRadius="0"
-              display="flex"
-              alignItems="center"
-              gap="6px"
-              _hover={{ color: "nm.ink" }}
-              onClick={() => setTab(t)}
-            >
-              {TAB_LABELS[t]}
-              {t === "images" && (
-                <>
-                  <Box
-                    as="span"
-                    bg="nm.bg"
-                    color="nm.inkMuted"
-                    borderRadius="full"
-                    px="8px"
-                    py="1px"
-                    minWidth={0}
-                    minHeight={0}
-                    fontSize="10px"
-                    fontFamily="mono"
-                  >
-                    {draft.images.length}
-                  </Box>
-                  {draft.images.length === 0 && (
-                    <Box
-                      boxSize="6px"
-                      rounded="full"
-                      bg="nm.shu"
-                      flexShrink={0}
-                    />
-                  )}
-                </>
-              )}
-            </Button>
-          ))}
-        </Box>
-
-        {/* Content */}
-        <Box px="22px" py="20px" flex="1" minH="0" overflowY="auto">
-          {tab === "info" && (
-            <Box display="grid" gridTemplateColumns="1fr 1fr" gap="16px">
-              <Box gridColumn="span 2">
-                <FieldLabel>カテゴリ</FieldLabel>
-                <Box display="flex" gap="6px" flexWrap="wrap">
-                  {CATEGORY_OPTIONS.map((cat) => (
-                    <Button
-                      key={cat.id}
-                      variant="plain"
-                      px="10px"
-                      py="5px"
-                      h="auto"
-                      minH="auto"
-                      fontSize="12px"
-                      fontWeight={draft.category === cat.id ? 600 : 400}
-                      bg={draft.category === cat.id ? "nm.ink" : "nm.bg"}
-                      color={
-                        draft.category === cat.id ? "nm.paper" : "nm.inkMuted"
-                      }
-                      border="1px solid"
-                      borderColor={
-                        draft.category === cat.id ? "nm.ink" : "nm.line"
-                      }
-                      rounded="nmMd"
-                      _hover={{ borderColor: "nm.ink" }}
-                      onClick={() => setCategory(cat.id)}
-                    >
-                      {cat.label}
-                    </Button>
-                  ))}
-                </Box>
-              </Box>
-              {tags && (
-                <Box gridColumn="span 2">
-                  <FieldLabel>タグ</FieldLabel>
-                  <TagSelector
-                    tags={tags}
-                    selectedIds={draft.tagIds}
-                    category={draft.category}
-                    onChange={(ids) => set("tagIds", ids)}
-                  />
-                </Box>
-              )}
-              <Box gridColumn="span 2">
-                <FieldLabel>
-                  店名{" "}
-                  <Box as="span" color="nm.shu">
-                    *
-                  </Box>
-                </FieldLabel>
-                <FormInput
-                  value={draft.name}
-                  onChange={(v) => set("name", v)}
-                />
-              </Box>
-              <Box gridColumn="span 2">
-                <FieldLabel>読み（ひらがな）</FieldLabel>
-                <FormInput
-                  value={draft.nameKana ?? ""}
-                  onChange={(v) => set("nameKana", v)}
-                  maxLength={100}
-                />
-              </Box>
-              <Box gridColumn="span 2">
-                <FieldLabel>住所</FieldLabel>
-                <FormInput
-                  value={draft.address}
-                  onChange={(v) => set("address", v)}
-                />
-              </Box>
-              <Box>
-                <FieldLabel>郵便番号</FieldLabel>
-                <FormInput
-                  value={draft.postalCode}
-                  onChange={(v) => set("postalCode", v)}
-                  mono
-                  placeholder="000-0000"
-                />
-              </Box>
-              <Box>
-                <FieldLabel>Google Place ID</FieldLabel>
-                <FormInput
-                  value={draft.googlePlaceId}
-                  onChange={(v) => set("googlePlaceId", v)}
-                  mono
-                  placeholder="ChIJ..."
-                />
-              </Box>
-              <Box>
-                <FieldLabel>
-                  緯度{" "}
-                  <Box as="span" color="nm.shu">
-                    *
-                  </Box>
-                </FieldLabel>
-                <FormInput
-                  value={draft.lat}
-                  onChange={(v) => set("lat", parseFloat(v))}
-                  mono
-                  type="number"
-                  step={0.000001}
-                />
-              </Box>
-              <Box>
-                <FieldLabel>
-                  経度{" "}
-                  <Box as="span" color="nm.shu">
-                    *
-                  </Box>
-                </FieldLabel>
-                <FormInput
-                  value={draft.lng}
-                  onChange={(v) => set("lng", parseFloat(v))}
-                  mono
-                  type="number"
-                  step={0.000001}
-                />
-              </Box>
-              <Box>
-                <FieldLabel>開店日</FieldLabel>
-                <FormInput
-                  value={draft.openedAt ?? ""}
-                  onChange={(v) => set("openedAt", v || undefined)}
-                  mono
-                  type="date"
-                />
-              </Box>
-              <Box>
-                <FieldLabel>閉店日</FieldLabel>
-                <FormInput
-                  value={draft.closedAt ?? ""}
-                  onChange={(v) => set("closedAt", v || undefined)}
-                  mono
-                  type="date"
-                />
-              </Box>
-            </Box>
-          )}
-
-          {tab === "visit" && (
-            <Box>
-              <Box
+    <>
+      <ModalDialog
+        open={open}
+        onOpenChange={(o) => !o && onClose()}
+        width="100%"
+        maxWidth="1040px"
+        height="80vh"
+        title={displayName}
+        subtitle={`EDIT · ${shop.id}`}
+        icon={
+          <CategoryIcon
+            category={shop.category}
+            size={18}
+            strokeWidth={1.4}
+            color="white"
+          />
+        }
+        iconBg={shop.category === "udon" ? "nm.kincha" : "nm.shu"}
+        bodyProps={{
+          p: 0,
+          overflow: "visible",
+          display: "flex",
+          flexDirection: "column",
+        }}
+        contentProps={{
+          animation: "adm-modal-in 0.16s cubic-bezier(0.2, 0.8, 0.2, 1)",
+        }}
+      >
+        <>
+          {/* Tabs */}
+          <Box
+            display="flex"
+            borderBottom="1px solid"
+            borderBottomColor="nm.lineFaint"
+            px="22px"
+          >
+            {(["info", "visit", "images"] as Tab[]).map((t) => (
+              <Button
+                key={t}
+                variant="plain"
+                px="14px"
+                py="11px"
+                h="auto"
+                minH="auto"
+                fontSize="13px"
+                fontWeight={tab === t ? 600 : 400}
+                color={tab === t ? "nm.ink" : "nm.inkMuted"}
+                borderBottom="2px solid"
+                borderBottomColor={tab === t ? "nm.shu" : "transparent"}
+                borderRadius="0"
                 display="flex"
                 alignItems="center"
-                justifyContent="space-between"
-                py="12px"
+                gap="6px"
+                _hover={{ color: "nm.ink" }}
+                onClick={() => setTab(t)}
               >
-                <Box>
-                  <Box fontSize="13px" fontWeight={500} color="nm.ink">
-                    食べた
+                {TAB_LABELS[t]}
+                {t === "images" && (
+                  <>
+                    <Box
+                      as="span"
+                      bg="nm.bg"
+                      color="nm.inkMuted"
+                      borderRadius="full"
+                      px="8px"
+                      py="1px"
+                      minWidth={0}
+                      minHeight={0}
+                      fontSize="10px"
+                      fontFamily="mono"
+                    >
+                      {draft.images.length}
+                    </Box>
+                    {draft.images.length === 0 && (
+                      <Box
+                        boxSize="6px"
+                        rounded="full"
+                        bg="nm.shu"
+                        flexShrink={0}
+                      />
+                    )}
+                  </>
+                )}
+              </Button>
+            ))}
+          </Box>
+
+          {/* Content */}
+          <Box px="22px" py="20px" flex="1" minH="0" overflowY="auto">
+            {tab === "info" && (
+              <Box display="grid" gridTemplateColumns="1fr 1fr" gap="16px">
+                <Box gridColumn="span 2">
+                  <FieldLabel>カテゴリ</FieldLabel>
+                  <Box display="flex" gap="6px" flexWrap="wrap">
+                    {CATEGORY_OPTIONS.map((cat) => (
+                      <Button
+                        key={cat.id}
+                        variant="plain"
+                        px="10px"
+                        py="5px"
+                        h="auto"
+                        minH="auto"
+                        fontSize="12px"
+                        fontWeight={draft.category === cat.id ? 600 : 400}
+                        bg={draft.category === cat.id ? "nm.ink" : "nm.bg"}
+                        color={
+                          draft.category === cat.id ? "nm.paper" : "nm.inkMuted"
+                        }
+                        border="1px solid"
+                        borderColor={
+                          draft.category === cat.id ? "nm.ink" : "nm.line"
+                        }
+                        rounded="nmMd"
+                        _hover={{ borderColor: "nm.ink" }}
+                        onClick={() => setCategory(cat.id)}
+                      >
+                        {cat.label}
+                      </Button>
+                    ))}
                   </Box>
                 </Box>
-                <Toggle
-                  label="食べた"
-                  on={draft.eaten}
-                  color="shu"
-                  onClick={() => set("eaten", !draft.eaten)}
-                />
-              </Box>
-
-              {draft.eaten && (
-                <Box
-                  bg="nm.bg"
-                  borderRadius="nmMd"
-                  p="16px"
-                  mt="12px"
-                  display="flex"
-                  flexDirection="column"
-                  gap="14px"
-                >
-                  <Box
-                    display="flex"
-                    alignItems="center"
-                    justifyContent="space-between"
-                  >
-                    <Box>
-                      <Box
-                        fontSize="12px"
-                        fontFamily="mono"
-                        letterSpacing="0.1em"
-                        color="nm.inkMuted"
-                        textTransform="uppercase"
-                      >
-                        評価
-                      </Box>
-                      <Box fontSize="11px" color="nm.inkMuted" mt="2px">
-                        80以上でお気に入り
-                      </Box>
-                    </Box>
-                    <FavPicker
-                      rate={draft.rate}
-                      onChange={(v) => set("rate", v)}
+                {tags && (
+                  <Box gridColumn="span 2">
+                    <FieldLabel>タグ</FieldLabel>
+                    <TagSelector
+                      tags={tags}
+                      selectedIds={draft.tagIds}
+                      category={draft.category}
+                      onChange={(ids) => set("tagIds", ids)}
                     />
                   </Box>
+                )}
+                <Box gridColumn="span 2">
+                  <FieldLabel>
+                    店名{" "}
+                    <Box as="span" color="nm.shu">
+                      *
+                    </Box>
+                  </FieldLabel>
+                  <FormInput
+                    value={draft.name}
+                    onChange={(v) => set("name", v)}
+                  />
                 </Box>
-              )}
-            </Box>
-          )}
+                <Box gridColumn="span 2">
+                  <FieldLabel>読み（ひらがな）</FieldLabel>
+                  <FormInput
+                    value={draft.nameKana ?? ""}
+                    onChange={(v) => set("nameKana", v)}
+                    maxLength={100}
+                  />
+                </Box>
+                <Box gridColumn="span 2">
+                  <FieldLabel>住所</FieldLabel>
+                  <FormInput
+                    value={draft.address}
+                    onChange={(v) => set("address", v)}
+                  />
+                </Box>
+                <Box>
+                  <FieldLabel>郵便番号</FieldLabel>
+                  <FormInput
+                    value={draft.postalCode}
+                    onChange={(v) => set("postalCode", v)}
+                    mono
+                    placeholder="000-0000"
+                  />
+                </Box>
+                <Box>
+                  <FieldLabel>Google Place ID</FieldLabel>
+                  <FormInput
+                    value={draft.googlePlaceId}
+                    onChange={(v) => set("googlePlaceId", v)}
+                    mono
+                    placeholder="ChIJ..."
+                  />
+                </Box>
+                <Box>
+                  <FieldLabel>
+                    緯度{" "}
+                    <Box as="span" color="nm.shu">
+                      *
+                    </Box>
+                  </FieldLabel>
+                  <FormInput
+                    value={draft.lat}
+                    onChange={(v) => set("lat", parseFloat(v))}
+                    mono
+                    type="number"
+                    step={0.000001}
+                  />
+                </Box>
+                <Box>
+                  <FieldLabel>
+                    経度{" "}
+                    <Box as="span" color="nm.shu">
+                      *
+                    </Box>
+                  </FieldLabel>
+                  <FormInput
+                    value={draft.lng}
+                    onChange={(v) => set("lng", parseFloat(v))}
+                    mono
+                    type="number"
+                    step={0.000001}
+                  />
+                </Box>
+                <Box>
+                  <FieldLabel>開店日</FieldLabel>
+                  <FormInput
+                    value={draft.openedAt ?? ""}
+                    onChange={(v) => set("openedAt", v || undefined)}
+                    mono
+                    type="date"
+                  />
+                </Box>
+                <Box>
+                  <FieldLabel>閉店日</FieldLabel>
+                  <FormInput
+                    value={draft.closedAt ?? ""}
+                    onChange={(v) => set("closedAt", v || undefined)}
+                    mono
+                    type="date"
+                  />
+                </Box>
+              </Box>
+            )}
 
-          {tab === "images" && (
-            <ImageUploader
-              images={draft.images}
-              onChange={(imgs) => set("images", imgs)}
-            />
-          )}
-        </Box>
+            {tab === "visit" && (
+              <Box>
+                <Box
+                  display="flex"
+                  alignItems="center"
+                  justifyContent="space-between"
+                  py="12px"
+                >
+                  <Box>
+                    <Box fontSize="13px" fontWeight={500} color="nm.ink">
+                      食べた
+                    </Box>
+                  </Box>
+                  <Toggle
+                    label="食べた"
+                    on={draft.eaten}
+                    color="shu"
+                    onClick={() => set("eaten", !draft.eaten)}
+                  />
+                </Box>
 
-        {/* Footer */}
-        <Box
-          display="flex"
-          alignItems="center"
-          gap="8px"
-          px="22px"
-          py="14px"
-          borderTop="1px solid"
-          borderTopColor="nm.lineFaint"
-          bg="nm.bg"
-        >
-          {onDelete && (
+                {draft.eaten && (
+                  <Box
+                    bg="nm.bg"
+                    borderRadius="nmMd"
+                    p="16px"
+                    mt="12px"
+                    display="flex"
+                    flexDirection="column"
+                    gap="14px"
+                  >
+                    <Box
+                      display="flex"
+                      alignItems="center"
+                      justifyContent="space-between"
+                    >
+                      <Box>
+                        <Box
+                          fontSize="12px"
+                          fontFamily="mono"
+                          letterSpacing="0.1em"
+                          color="nm.inkMuted"
+                          textTransform="uppercase"
+                        >
+                          評価
+                        </Box>
+                        <Box fontSize="11px" color="nm.inkMuted" mt="2px">
+                          80以上でお気に入り
+                        </Box>
+                      </Box>
+                      <FavPicker
+                        rate={draft.rate}
+                        onChange={(v) => set("rate", v)}
+                      />
+                    </Box>
+                  </Box>
+                )}
+              </Box>
+            )}
+
+            {tab === "images" && (
+              <ImageUploader
+                images={draft.images}
+                onChange={(imgs) => set("images", imgs)}
+              />
+            )}
+          </Box>
+
+          {/* Footer */}
+          <Box
+            display="flex"
+            alignItems="center"
+            gap="8px"
+            px="22px"
+            py="14px"
+            borderTop="1px solid"
+            borderTopColor="nm.lineFaint"
+            bg="nm.bg"
+          >
             <Button
               variant="plain"
               px="14px"
@@ -574,16 +601,62 @@ export function ShopEditModal({
               border="1px solid"
               borderColor="nm.shu"
               _hover={{ bg: "nm.shu", color: "white" }}
-              onClick={() => {
-                if (confirm("この店舗を削除します。よろしいですか?")) {
-                  onDelete(shop.id);
-                }
-              }}
+              disabled={saving || deleting}
+              onClick={() => setConfirmDeleteOpen(true)}
             >
               削除
             </Button>
-          )}
-          <Box flex="1" />
+            <Box flex="1" />
+            <Button
+              variant="plain"
+              px="14px"
+              py="9px"
+              h="auto"
+              minH="auto"
+              fontSize="13px"
+              fontWeight={500}
+              rounded="nmMd"
+              bg="nm.paper"
+              color="nm.inkMuted"
+              border="1px solid"
+              borderColor="nm.line"
+              _hover={{ borderColor: "nm.ink", color: "nm.ink" }}
+              onClick={onClose}
+            >
+              キャンセル
+            </Button>
+            <Button
+              variant="plain"
+              px="18px"
+              py="9px"
+              h="auto"
+              minH="auto"
+              fontSize="13px"
+              fontWeight={600}
+              rounded="nmMd"
+              bg="nm.ink"
+              color="nm.paper"
+              opacity={saving || deleting ? 0.6 : 1}
+              _hover={{ bg: "nm.inkSoft" }}
+              disabled={saving || deleting}
+              onClick={handleSave}
+            >
+              保存{" "}
+            </Button>
+          </Box>
+        </>
+      </ModalDialog>
+      <ModalDialog
+        open={confirmDeleteOpen}
+        onOpenChange={(o) => !deleting && setConfirmDeleteOpen(o)}
+        width="100%"
+        maxWidth="420px"
+        title="店舗を削除"
+      >
+        <Box fontSize="13px" color="nm.ink">
+          「{displayName}」を削除しますか？この操作は取り消せません。
+        </Box>
+        <Box display="flex" justifyContent="flex-end" gap="8px" mt="20px">
           <Button
             variant="plain"
             px="14px"
@@ -598,11 +671,12 @@ export function ShopEditModal({
             border="1px solid"
             borderColor="nm.line"
             _hover={{ borderColor: "nm.ink", color: "nm.ink" }}
-            onClick={onClose}
+            disabled={deleting}
+            onClick={() => setConfirmDeleteOpen(false)}
           >
             キャンセル
           </Button>
-          <Button
+          <LoadableButton
             variant="plain"
             px="18px"
             py="9px"
@@ -611,17 +685,15 @@ export function ShopEditModal({
             fontSize="13px"
             fontWeight={600}
             rounded="nmMd"
-            bg="nm.ink"
-            color="nm.paper"
-            opacity={saving ? 0.6 : 1}
-            _hover={{ bg: "nm.inkSoft" }}
-            disabled={saving}
-            onClick={handleSave}
+            bg="nm.shu"
+            color="white"
+            _hover={{ opacity: 0.9 }}
+            onClick={handleDelete}
           >
-            保存{" "}
-          </Button>
+            削除
+          </LoadableButton>
         </Box>
-      </>
-    </ModalDialog>
+      </ModalDialog>
+    </>
   );
 }

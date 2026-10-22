@@ -226,6 +226,10 @@ model OkEmptyResponse {
   @statusCode statusCode: 200;
 }
 
+model NoContentResponse {
+  @statusCode statusCode: 204;
+}
+
 model User {
   id: uuid;
   email: string;
@@ -429,7 +433,13 @@ op addShop(
 op updateShop(
   @path id: uuid,
   @body body: UpdateShopRequest,
-): OkEmptyResponse | BadRequestResponse<UpdateShopBadRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
+): OkEmptyResponse | BadRequestResponse<UpdateShopBadRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | NotFoundResponse<NotFoundErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
+
+@delete
+@route("/auth/shops/{id}")
+op deleteShop(
+  @path id: uuid,
+): NoContentResponse | BadRequestResponse<InvalidRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | NotFoundResponse<NotFoundErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
 
 @doc("Admin-only Google Places (New) autocomplete proxy. A blank query returns no suggestions.")
 @get

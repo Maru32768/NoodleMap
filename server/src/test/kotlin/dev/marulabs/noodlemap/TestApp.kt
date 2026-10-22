@@ -17,6 +17,7 @@ import dev.marulabs.noodlemap.shops.ShopHandler
 import io.ktor.client.HttpClient
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.cookie
+import io.ktor.client.request.delete
 import io.ktor.client.request.post
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
@@ -114,6 +115,9 @@ suspend fun HttpClient.postJson(path: String, body: String, token: String? = nul
 
 suspend fun HttpClient.putJson(path: String, body: String, token: String? = null): HttpResponse =
     put(path) { json(body); token?.let { session(it) } }
+
+suspend fun HttpClient.deleteWithSession(path: String, token: String? = null): HttpResponse =
+    delete(path) { token?.let { session(it) } }
 
 suspend inline fun <reified T> HttpResponse.body(): T = testJson.decodeFromString(bodyAsText())
 

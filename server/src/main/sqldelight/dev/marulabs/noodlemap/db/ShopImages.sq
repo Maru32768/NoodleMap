@@ -1,5 +1,4 @@
--- Schema-only: present in the prod DB but no handler reads/writes it today.
--- Kept so SQLDelight's declared schema matches the live database.
+-- Present in the prod DB; no handler reads/writes images today, only shop deletion clears them.
 CREATE TABLE shop_images (
     id         TEXT AS java.util.UUID NOT NULL PRIMARY KEY,
     shop_id    TEXT AS java.util.UUID NOT NULL,
@@ -9,3 +8,6 @@ CREATE TABLE shop_images (
     FOREIGN KEY (shop_id) REFERENCES shops (id)
 );
 -- (modtime trigger omitted; see note in Users.sq)
+
+deleteShopImagesByShopId:
+DELETE FROM shop_images WHERE shop_id = ?;

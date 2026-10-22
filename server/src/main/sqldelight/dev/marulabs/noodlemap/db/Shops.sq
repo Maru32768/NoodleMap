@@ -54,3 +54,6 @@ SET name            = :name,
     google_place_id = :googlePlaceId,
     category        = :category
 WHERE id = :id;
+
+deleteShop:
+DELETE FROM shops WHERE id = ?;

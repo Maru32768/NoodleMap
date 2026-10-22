@@ -216,6 +216,10 @@ export default function SearchPage() {
     setEditId(id);
   }, []);
 
+  const handleShopDeleted = useCallback((id: string) => {
+    setSelectedId((current) => (current === id ? null : current));
+  }, []);
+
   const handleEditSave = useCallback(
     async (draft: ShopEditDraft) => {
       const cmd: UpdateShopCommand = {
@@ -235,6 +239,14 @@ export default function SearchPage() {
       };
       const result = await updateShop(draft.id, cmd);
       if (!result.ok) {
+        if (result.error.type === "not_found") {
+          handleShopDeleted(draft.id);
+          setEditId(null);
+          toastApiError(result.error, {
+            fallbackTitle: "この店舗はすでに削除されています",
+          });
+          return;
+        }
         toastApiError(result.error, {
           fallbackTitle: isDuplicatePlaceIdError(result.error.body)
             ? "Google Place ID が他の店舗と重複しています"
@@ -246,7 +258,7 @@ export default function SearchPage() {
       setEditId(null);
       toaster.success({ description: "保存しました" });
     },
-    [updateShop],
+    [updateShop, handleShopDeleted],
   );
 
   return (
@@ -405,6 +417,7 @@ export default function SearchPage() {
           initialTab="info"
           onClose={() => setEditId(null)}
           onSave={handleEditSave}
+          onDeleted={handleShopDeleted}
         />
       )}
     </Box>

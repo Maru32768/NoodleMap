@@ -143,6 +143,83 @@ describe("useShops", () => {
     ]);
   });
 
+  it("removes a deleted shop from the cached list", async () => {
+    server.use(
+      http.get("/api/v1/shops", () =>
+        HttpResponse.json({
+          shops: [
+            apiShop({ name: "kept" }),
+            apiShop({
+              id: "00000000-0000-4000-8000-0000000000c3",
+              name: "deleted",
+            }),
+          ],
+        }),
+      ),
+      http.delete(
+        "/api/v1/auth/shops/00000000-0000-4000-8000-0000000000c3",
+        () => new HttpResponse(null, { status: 204 }),
+      ),
+    );
+    const { result } = renderHookWithProviders(() => useShops());
+    await waitFor(() => expect(result.current.shops).toHaveLength(2));
+
+    let outcome: Awaited<ReturnType<typeof result.current.deleteShop>>;
+    await act(async () => {
+      outcome = await result.current.deleteShop(
+        "00000000-0000-4000-8000-0000000000c3",
+      );
+    });
+
+    expect(outcome!.ok).toBe(true);
+    expect(result.current.shops?.map((shop) => shop.name)).toEqual(["kept"]);
+  });
+
+  it("drops a shop that the update reports as not found", async () => {
+    server.use(
+      http.get("/api/v1/shops", () =>
+        HttpResponse.json({ shops: [apiShop({ name: "gone" })] }),
+      ),
+      http.put("/api/v1/auth/shops/00000000-0000-4000-8000-0000000000a1", () =>
+        HttpResponse.json({ type: "not_found" }, { status: 404 }),
+      ),
+    );
+    const { result } = renderHookWithProviders(() => useShops());
+    await waitFor(() => expect(result.current.shops).toHaveLength(1));
+
+    let outcome: Awaited<ReturnType<typeof result.current.updateShop>>;
+    await act(async () => {
+      outcome = await result.current.updateShop(
+        "00000000-0000-4000-8000-0000000000a1",
+        { ...addCommand, eaten: false, rate: 0 },
+      );
+    });
+
+    expect(outcome!).toMatchObject({ ok: false, error: { type: "not_found" } });
+    expect(result.current.shops).toEqual([]);
+  });
+
+  it("reports a non-OK response with an empty body as an error", async () => {
+    server.use(
+      http.get("/api/v1/shops", () =>
+        HttpResponse.json({ shops: [apiShop({ name: "kept" })] }),
+      ),
+      http.delete(
+        "/api/v1/auth/shops/00000000-0000-4000-8000-0000000000a1",
+        () => new HttpResponse(null, { status: 500 }),
+      ),
+    );
+    const { result } = renderHookWithProviders(() => useShops());
+    await waitFor(() => expect(result.current.shops).toHaveLength(1));
+
+    const outcome = await result.current.deleteShop(
+      "00000000-0000-4000-8000-0000000000a1",
+    );
+
+    expect(outcome).toMatchObject({ ok: false, error: { status: 500 } });
+    expect(result.current.shops).toHaveLength(1);
+  });
+
   it("returns field errors from a rejected add without throwing", async () => {
     server.use(
       http.get("/api/v1/shops", () => HttpResponse.json({ shops: [] })),
