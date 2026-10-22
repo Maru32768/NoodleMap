@@ -1,19 +1,3 @@
-const loader = new Loader({
-  apiKey: import.meta.env.VITE_GOOGLE_API_KEY,
-  version: "weekly",
-  language: "ja",
-  region: "JP",
-  libraries: ["places", "maps", "core", "marker"],
-});
-await loader.load();
-
-import Map = google.maps.Map;
-import PlacesService = google.maps.places.PlacesService;
-import Marker = google.maps.Marker;
-import Place = google.maps.Place;
-import PlacesServiceStatus = google.maps.places.PlacesServiceStatus;
-import QueryAutocompletePrediction = google.maps.places.QueryAutocompletePrediction;
-import AutocompleteService = google.maps.places.AutocompleteService;
 import { toastError } from "@/utils/toast.ts";
 import { Box, VStack } from "@chakra-ui/react";
 import { Loader } from "@googlemaps/js-api-loader";
@@ -21,7 +5,14 @@ import { memo, useEffect, useRef, useState } from "react";
 import Select from "react-select/base";
 import { useDebouncedCallback } from "use-debounce";
 
-const autocompleteService = new AutocompleteService();
+// Loaded on mount, not at import, so the admin page still renders when the Maps JS is blocked.
+const loader = new Loader({
+  apiKey: import.meta.env.VITE_GOOGLE_API_KEY,
+  version: "weekly",
+  language: "ja",
+  region: "JP",
+  libraries: ["places", "maps", "core", "marker"],
+});
 
 // https://developers.google.com/maps/documentation/javascript/reference/places-service?hl=ja#PlaceResult
 const fields = [
@@ -44,18 +35,48 @@ export interface FindResult {
 }
 
 interface Props {
-  initialPlace?: Place;
+  initialPlace?: google.maps.Place;
   onSelect: (res: FindResult) => void;
 }
 
-export const GooglePlaceFinder = memo(function GooglePlaceFinder({
-  initialPlace,
-  onSelect,
-}: Props) {
+export const GooglePlaceFinder = memo(function GooglePlaceFinder(
+  props: Props,
+) {
+  const [status, setStatus] = useState<"loading" | "ready" | "failed">(
+    "loading",
+  );
+
+  useEffect(() => {
+    let active = true;
+    loader.load().then(
+      () => active && setStatus("ready"),
+      () => active && setStatus("failed"),
+    );
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  if (status === "ready") {
+    return <PlaceFinder {...props} />;
+  }
+  return (
+    <Box p="16px" fontSize="12px" color="nm.inkMuted">
+      {status === "loading"
+        ? "Google マップを読み込み中..."
+        : "Google マップを読み込めませんでした。店舗情報はフォームに直接入力できます。"}
+    </Box>
+  );
+});
+
+function PlaceFinder({ initialPlace, onSelect }: Props) {
+  const [autocompleteService] = useState(
+    () => new google.maps.places.AutocompleteService(),
+  );
   const [inputText, setInputText] = useState("");
   const [isSelectMenuOpen, setIsSelectMenuOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [predictions, setPredictions] = useState<QueryAutocompletePrediction[]>(
+  const [predictions, setPredictions] = useState<google.maps.places.QueryAutocompletePrediction[]>(
     [],
   );
   const options = predictions.map((x) => {
@@ -75,7 +96,7 @@ export const GooglePlaceFinder = memo(function GooglePlaceFinder({
       (res, status) => {
         setIsLoading(false);
 
-        if (status !== PlacesServiceStatus.OK) {
+        if (status !== google.maps.places.PlacesServiceStatus.OK) {
           toastError({
             description: status.toString(),
           });
@@ -95,11 +116,11 @@ export const GooglePlaceFinder = memo(function GooglePlaceFinder({
   }, 200);
 
   const mapWrapperRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<Map>(null);
-  const placesServiceRef = useRef<PlacesService>(null);
-  const markerRef = useRef<Marker | undefined>(
+  const mapRef = useRef<google.maps.Map>(null);
+  const placesServiceRef = useRef<google.maps.places.PlacesService>(null);
+  const markerRef = useRef<google.maps.Marker | undefined>(
     initialPlace
-      ? new Marker({
+      ? new google.maps.Marker({
           position: initialPlace.location,
         })
       : undefined,
@@ -109,12 +130,12 @@ export const GooglePlaceFinder = memo(function GooglePlaceFinder({
     if (!mapWrapperRef.current) {
       return;
     }
-    const map = new Map(mapWrapperRef.current, {
+    const map = new google.maps.Map(mapWrapperRef.current, {
       center: { lat: 35.6895315, lng: 139.700492 },
       zoom: 17,
     });
     mapRef.current = map;
-    placesServiceRef.current = new PlacesService(map);
+    placesServiceRef.current = new google.maps.places.PlacesService(map);
 
     if (markerRef.current && initialPlace?.location) {
       markerRef.current.setMap(map);
@@ -141,7 +162,7 @@ export const GooglePlaceFinder = memo(function GooglePlaceFinder({
                 fields: [...fields],
               },
               (res, status) => {
-                if (status !== PlacesServiceStatus.OK) {
+                if (status !== google.maps.places.PlacesServiceStatus.OK) {
                   toastError({
                     description: status.toString(),
                   });
@@ -217,7 +238,7 @@ export const GooglePlaceFinder = memo(function GooglePlaceFinder({
                   placeId: placeId ?? "",
                 });
 
-                markerRef.current = new Marker({
+                markerRef.current = new google.maps.Marker({
                   position: {
                     lat: lat ?? 0,
                     lng: lng ?? 0,
@@ -252,4 +273,4 @@ export const GooglePlaceFinder = memo(function GooglePlaceFinder({
       <Box ref={mapWrapperRef} boxSize="full" />
     </VStack>
   );
-});
+}
