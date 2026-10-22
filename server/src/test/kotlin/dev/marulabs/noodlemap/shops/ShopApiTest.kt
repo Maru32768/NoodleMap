@@ -2,6 +2,7 @@ package dev.marulabs.noodlemap.shops
 
 import dev.marulabs.noodlemap.addShopRequest
 import dev.marulabs.noodlemap.body
+import dev.marulabs.noodlemap.deleteWithSession
 import dev.marulabs.noodlemap.encode
 import dev.marulabs.noodlemap.errors.ErrorBody
 import dev.marulabs.noodlemap.errors.ErrorType
@@ -232,6 +233,63 @@ class ShopApiTest {
 
         client.putJson("/api/v1/auth/shops/$id", encode(req.toUpdate(eaten = true, rate = 100.0)), admin)
             .status shouldBe HttpStatusCode.OK
+    }
+
+    @Test
+    fun `updating an unknown shop is not found and writes nothing`() = testApp { t ->
+        val res = client.putJson("/api/v1/auth/shops/${UUID.randomUUID()}", encode(addShopRequest().toUpdate(eaten = true)), t.adminToken())
+
+        res.status shouldBe HttpStatusCode.NotFound
+        res.body<ErrorBody>() shouldBe ErrorBody(ErrorType.NOT_FOUND, "not found")
+    }
+
+    @Test
+    fun `admin deletes a shop with its eaten row, tags and images`() = testApp { t ->
+        val admin = t.adminToken()
+        val req = addShopRequest(tagIds = listOf(SHOYU, MISO))
+        val id = client.postJson("/api/v1/auth/shops", encode(req), admin).body<Shop>().id
+        val kept = client.postJson("/api/v1/auth/shops", encode(addShopRequest(placeId = "kept", tagIds = listOf(SHOYU))), admin).body<Shop>()
+        client.putJson("/api/v1/auth/shops/$id", encode(req.toUpdate(eaten = true, rate = 4.0)), admin)
+        t.dataSource.connection.use { c ->
+            c.prepareStatement("INSERT INTO shop_images (id, shop_id, path) VALUES (?, ?, 'a.jpg')").use {
+                it.setString(1, UUID.randomUUID().toString())
+                it.setString(2, id)
+                it.executeUpdate()
+            }
+        }
+
+        client.deleteWithSession("/api/v1/auth/shops/$id", admin).status shouldBe HttpStatusCode.NoContent
+
+        client.shops() shouldContainExactly listOf(kept)
+        for (table in listOf("eaten_shops", "shops_tags", "shop_images")) {
+            t.dataSource.connection.use { c ->
+                c.prepareStatement("SELECT count(*) FROM $table WHERE shop_id = ?").use {
+                    it.setString(1, id)
+                    it.executeQuery().use { rs -> rs.getLong(1) } shouldBe 0L
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `delete requires an admin and an existing shop`() = testApp { t ->
+        val admin = t.adminToken()
+        val id = client.postJson("/api/v1/auth/shops", encode(addShopRequest()), admin).body<Shop>().id
+
+        client.deleteWithSession("/api/v1/auth/shops/$id").let {
+            it.status shouldBe HttpStatusCode.Unauthorized
+            it.body<ErrorBody>().type shouldBe ErrorType.AUTHENTICATION_REQUIRED
+        }
+        client.deleteWithSession("/api/v1/auth/shops/$id", t.userToken()).let {
+            it.status shouldBe HttpStatusCode.Forbidden
+            it.body<ErrorBody>().type shouldBe ErrorType.PERMISSION_DENIED
+        }
+        client.deleteWithSession("/api/v1/auth/shops/${UUID.randomUUID()}", admin).let {
+            it.status shouldBe HttpStatusCode.NotFound
+            it.body<ErrorBody>() shouldBe ErrorBody(ErrorType.NOT_FOUND, "not found")
+        }
+        client.deleteWithSession("/api/v1/auth/shops/not-a-uuid", admin).status shouldBe HttpStatusCode.BadRequest
+        client.shops().map { it.id } shouldContainExactly listOf(id)
     }
 
     @Test

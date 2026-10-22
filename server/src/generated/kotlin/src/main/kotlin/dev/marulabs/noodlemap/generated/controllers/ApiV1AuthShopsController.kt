@@ -12,6 +12,7 @@ import io.ktor.server.plugins.MissingRequestParameterException
 import io.ktor.server.plugins.ParameterConversionException
 import io.ktor.server.request.receive
 import io.ktor.server.routing.Route
+import io.ktor.server.routing.delete
 import io.ktor.server.routing.post
 import io.ktor.server.routing.put
 import io.ktor.util.converters.ConversionService
@@ -45,12 +46,22 @@ public interface ApiV1AuthShopsController {
     call: ApplicationCall,
   )
 
+  /**
+   * Route is expected to respond with status 204.
+   * Use [io.ktor.server.response.respond] to send the response.
+   *
+   * @param id 
+   * @param call The Ktor application call
+   */
+  public suspend fun deleteShop(id: String, call: ApplicationCall)
+
   public companion object {
     /**
      * Mounts all routes for the ApiV1AuthShops resource
      *
      * - POST /api/v1/auth/shops 
      * - PUT /api/v1/auth/shops/{id} 
+     * - DELETE /api/v1/auth/shops/{id} 
      */
     public fun Route.apiV1AuthShopsRoutes(controller: ApiV1AuthShopsController) {
       post("/api/v1/auth/shops") {
@@ -61,6 +72,10 @@ public interface ApiV1AuthShopsController {
         val id = call.parameters.getTypedOrFail<kotlin.String>("id")
         val updateShopRequest = call.receive<UpdateShopRequest>()
         controller.updateShop(id, updateShopRequest, call)
+      }
+      delete("/api/v1/auth/shops/{id}") {
+        val id = call.parameters.getTypedOrFail<kotlin.String>("id")
+        controller.deleteShop(id, call)
       }
     }
 

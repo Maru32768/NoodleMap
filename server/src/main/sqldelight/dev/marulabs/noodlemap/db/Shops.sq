@@ -40,6 +40,9 @@ insertShop:
 INSERT INTO shops (id, name, name_kana, lat, lng, postal_code, address, opened_at, closed_at, google_place_id, category)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
+findShopId:
+SELECT id FROM shops WHERE id = ?;
+
 updateShop:
 UPDATE shops
 SET name            = :name,
@@ -54,3 +57,6 @@ SET name            = :name,
     google_place_id = :googlePlaceId,
     category        = :category
 WHERE id = :id;
+
+deleteShop:
+DELETE FROM shops WHERE id = ?;

@@ -50,6 +50,6 @@ fun buildDatabase(dataSource: DataSource): NoodleMapDb {
             shop_idAdapter = UuidAdapter,
             tag_idAdapter = UuidAdapter,
         ),
-        // shop_images has no queries, so SQLDelight generates no adapter for it.
+        shop_imagesAdapter = Shop_images.Adapter(idAdapter = UuidAdapter, shop_idAdapter = UuidAdapter),
     )
 }

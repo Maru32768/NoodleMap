@@ -117,6 +117,7 @@ class ShopHandler(
         // Missing (older clients) keeps the stored reading; blank clears it ('' -> NULL in SQL).
         val nameKana = req.nameKana?.let { normalizeNameKana(it) ?: "" }
         db.transaction {
+            requireShopExists(shopId)
             rejectingDuplicatePlaceId {
                 db.shopsQueries.updateShop(
                     req.name, nameKana, req.lat, req.lng, req.postalCode, req.address,
@@ -132,6 +133,27 @@ class ShopHandler(
         }
 
         call.respond(HttpStatusCode.OK)
+    }
+
+    override suspend fun deleteShop(id: String, call: ApplicationCall) {
+        sessions.requireAdmin(call)
+        val shopId = try {
+            UUID.fromString(id)
+        } catch (_: IllegalArgumentException) {
+            throw DomainException.InvalidRequest("invalid id")
+        }
+
+        // TODO: 訪問ログ実装時、訪問ログを持つ店舗は削除不可 (409) にする
+        db.transaction {
+            requireShopExists(shopId)
+            // eaten_shops / shop_images have no ON DELETE CASCADE, so children go first.
+            db.eatenShopsQueries.deleteEatenShopByShopId(shopId)
+            db.shopsTagsQueries.deleteShopTagsByShopId(shopId)
+            db.shopImagesQueries.deleteShopImagesByShopId(shopId)
+            db.shopsQueries.deleteShop(shopId)
+        }
+
+        call.respond(HttpStatusCode.NoContent)
     }
 
     // --- Helpers ---
@@ -185,6 +207,10 @@ class ShopHandler(
             )
         }
         return kana
+    }
+
+    private fun requireShopExists(shopId: UUID) {
+        if (db.shopsQueries.findShopId(shopId).executeAsOneOrNull() == null) throw DomainException.NotFound()
     }
 
     /** `google_place_id` is the only UNIQUE column on `shops`, so a UNIQUE violation there is a duplicate place id. */
