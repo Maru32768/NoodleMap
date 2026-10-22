@@ -1,7 +1,9 @@
 import {
   displayableShopLinks,
+  findShopLinkProblem,
   inferShopLinkType,
   isHttpUrl,
+  savableShopLinks,
   type ShopLink,
   shopLinkText,
   withLinkUrl,
@@ -32,6 +34,9 @@ describe("isHttpUrl", () => {
     "https://a.example:0/",
     "https://a.example:65536/",
     "https://a b.example/",
+    "https://a.example:+80/",
+    "https://shop.123/",
+    "https://1.2.3.256/",
   ])("rejects %s", (url) => {
     expect(isHttpUrl(url)).toBe(false);
   });
@@ -115,5 +120,50 @@ describe("displayableShopLinks", () => {
       ]),
     ).toEqual([ok, secure]);
     expect(displayableShopLinks(undefined)).toEqual([]);
+  });
+});
+
+describe("findShopLinkProblem", () => {
+  const ok = { type: "other", url: "https://a.example/" } as const;
+
+  it("accepts valid rows and ignores rows without URL and label", () => {
+    expect(
+      findShopLinkProblem([ok, { type: "twitter", url: " " }, ok]),
+    ).toBeNull();
+    expect(
+      findShopLinkProblem([
+        ok,
+        { ...ok, url: "https://a.example/" + "a".repeat(2030) },
+        { ...ok, label: "あ".repeat(100) },
+      ]),
+    ).toBeNull();
+  });
+
+  it.each([
+    [{ ...ok, url: "", label: "公式" }, "missing_url"],
+    [{ ...ok, url: "javascript:alert(1)" }, "invalid_url"],
+    [{ ...ok, url: "a.example" }, "invalid_url"],
+    [{ ...ok, url: "https://a.example/" + "a".repeat(2031) }, "url_too_long"],
+    [{ ...ok, label: "あ".repeat(101) }, "label_too_long"],
+  ] as const)("reports %o as %s with its row", (row, kind) => {
+    expect(findShopLinkProblem([ok, row])).toEqual({ kind, row: 2 });
+  });
+
+  it("reports more than the maximum number of links", () => {
+    expect(findShopLinkProblem(Array(10).fill(ok))).toBeNull();
+    expect(findShopLinkProblem(Array(11).fill(ok))).toEqual({
+      kind: "too_many",
+    });
+  });
+});
+
+describe("savableShopLinks", () => {
+  it("drops rows without a URL and editor-only fields", () => {
+    expect(
+      savableShopLinks([
+        { type: "twitter", url: "https://x.com/a", rowId: 3 } as never,
+        { type: "other", url: " " },
+      ]),
+    ).toEqual([{ type: "twitter", url: "https://x.com/a" }]);
   });
 });

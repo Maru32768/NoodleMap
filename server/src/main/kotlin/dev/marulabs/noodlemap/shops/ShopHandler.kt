@@ -35,12 +35,15 @@ private const val SHOP_LINKS_MAX = 10
 private const val SHOP_LINK_URL_MAX_LENGTH = 2048
 private const val SHOP_LINK_LABEL_MAX_LENGTH = 100
 
+// WHATWG parses a host whose last label looks numeric (decimal or 0x hex) as IPv4.
+private val NUMERIC_LABEL = Regex("^(0x[0-9a-f]*|[0-9]+)$", RegexOption.IGNORE_CASE)
 private val HTTP_URL = Regex("^(?i:https?)://([^/?#]*)(.*)$", RegexOption.DOT_MATCHES_ALL)
 private const val FORBIDDEN_HOST_CHARS = " #%/:<>?@[\\]^|"
 
 /**
  * Accepts what browsers accept as an http(s) URL with a host (path, query and fragment are free text,
- * IDN and underscore hosts are fine) but rejects other schemes, userinfo and ports outside 1..65535.
+ * IDN and underscore hosts are fine) but rejects other schemes, userinfo, ports other than ASCII 1..65535
+ * and numeric-looking hosts that are not a dotted-decimal IPv4 address.
  * Mirrored by `isHttpUrl` in web/src/features/shops/shop-links.ts.
  * shortcut: no IPv6 literal hosts; add them if a shop ever links to one.
  */
@@ -51,14 +54,21 @@ internal fun isHttpUrl(url: String): Boolean {
     val colon = authority.lastIndexOf(':')
     val host = if (colon < 0) authority else authority.substring(0, colon)
     val port = if (colon < 0) "" else authority.substring(colon + 1)
-    if (port.isNotEmpty() && port.toIntOrNull() !in 1..65535) return false
+    if (port.isNotEmpty() && (!port.all { it in '0'..'9' } || port.toIntOrNull() !in 1..65535)) return false
     if (host.isEmpty()) return false
     val ascii = try {
         IDN.toASCII(host, IDN.ALLOW_UNASSIGNED)
     } catch (_: IllegalArgumentException) {
         return false
     }
-    return ascii.isNotEmpty() && ascii.none { it in FORBIDDEN_HOST_CHARS }
+    return ascii.isNotEmpty() && ascii.none { it in FORBIDDEN_HOST_CHARS } && isValidIpv4IfNumeric(ascii)
+}
+
+private fun isValidIpv4IfNumeric(host: String): Boolean {
+    val labels = host.split('.').let { if (it.size > 1 && it.last().isEmpty()) it.dropLast(1) else it }
+    if (!NUMERIC_LABEL.matches(labels.last())) return true
+    // shortcut: browsers also accept short (1.2) and hex/octal IPv4 forms; extend if a link ever needs one.
+    return labels.size == 4 && labels.all { l -> l.length in 1..3 && l.all { it in '0'..'9' } && l.toInt() <= 255 }
 }
 
 /** Shop and tag endpoints, ported from Go `shops/handler.go`. */

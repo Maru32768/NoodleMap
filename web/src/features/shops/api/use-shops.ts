@@ -20,7 +20,12 @@ import {
   withApiError,
   withApiResult,
 } from "@/utils/request.ts";
-import { SHOP_LINKS_INVALID_TITLE, toastApiError } from "@/utils/toast.ts";
+import {
+  SHOP_DUPLICATE_PLACE_ID_TITLE,
+  SHOP_LINKS_INVALID_TITLE,
+  SHOP_UPDATE_FAILED_TITLE,
+  toastApiError,
+} from "@/utils/toast.ts";
 import type { Dayjs } from "dayjs";
 import { useCallback } from "react";
 import useSWR, { SWRConfiguration } from "swr";
@@ -95,12 +100,12 @@ export function updateShopErrorTitle(
   body: UpdateShopErrorBody | undefined,
 ): string {
   if (isDuplicatePlaceIdError(body)) {
-    return "Google Place ID が他の店舗と重複しています";
+    return SHOP_DUPLICATE_PLACE_ID_TITLE;
   }
   if (isInvalidLinksError(body)) {
     return SHOP_LINKS_INVALID_TITLE;
   }
-  return "店舗を更新できませんでした";
+  return SHOP_UPDATE_FAILED_TITLE;
 }
 
 export function useShops(config?: SWRConfiguration<Shop[]>) {

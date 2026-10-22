@@ -192,9 +192,63 @@ describe("ShopEditModal links", () => {
     await userEvent.click(screen.getByRole("button", { name: "保存" }));
 
     expect(
-      await screen.findByText("URL が未入力のリンクがあります"),
+      await screen.findByText("リンク 1 の URL が未入力です"),
     ).toBeInTheDocument();
     expect(onSave).not.toHaveBeenCalled();
     toaster.remove();
+  });
+
+  it("blocks saving an invalid URL and says which link", async () => {
+    server.use(http.get("/api/v1/tags", () => HttpResponse.json({ tags: [] })));
+    const onSave = vi.fn(() => Promise.resolve());
+    renderWithProviders(
+      <ShopEditModal
+        shop={makeShop({
+          links: [{ type: "official", url: "https://aoba.example/" }],
+        })}
+        open
+        onClose={vi.fn()}
+        onSave={onSave}
+        onDeleted={vi.fn()}
+      />,
+    );
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "＋ リンクを追加" }),
+    );
+    await userEvent.type(
+      within(screen.getByRole("group", { name: "リンク 2" })).getByRole(
+        "textbox",
+        { name: "URL" },
+      ),
+      "javascript:alert(1)",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "保存" }));
+
+    expect(
+      await screen.findByText("リンク 2 の URL が正しくありません"),
+    ).toBeInTheDocument();
+    expect(onSave).not.toHaveBeenCalled();
+    toaster.remove();
+  });
+
+  it("omits links for a shop cached without them so saving keeps them", async () => {
+    server.use(http.get("/api/v1/tags", () => HttpResponse.json({ tags: [] })));
+    const onSave = vi.fn(() => Promise.resolve());
+    renderWithProviders(
+      <ShopEditModal
+        shop={makeShop({ links: undefined })}
+        open
+        onClose={vi.fn()}
+        onSave={onSave}
+        onDeleted={vi.fn()}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "保存" }));
+
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({ links: undefined }),
+    );
   });
 });

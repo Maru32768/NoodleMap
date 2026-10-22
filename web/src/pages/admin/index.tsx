@@ -19,7 +19,11 @@ import {
   ShopEditModal,
 } from "@/features/shops/shop-edit-modal.tsx";
 import { ShopsLoadState } from "@/features/shops/shops-load-state.tsx";
-import { toastApiError } from "@/utils/toast.ts";
+import {
+  SHOP_ADD_FAILED_TITLE,
+  SHOP_DUPLICATE_PLACE_ID_TITLE,
+  toastApiError,
+} from "@/utils/toast.ts";
 import { Box, Input, Span } from "@chakra-ui/react";
 import { useCallback, useDeferredValue, useState } from "react";
 import { CiLocationOn, CiSearch } from "react-icons/ci";
@@ -242,8 +246,8 @@ export default function AdminPage() {
     if (!result.ok) {
       toastApiError(result.error, {
         fallbackTitle: isDuplicatePlaceIdError(result.error.body)
-          ? "Google Place ID が他の店舗と重複しています"
-          : "店舗を追加できませんでした",
+          ? SHOP_DUPLICATE_PLACE_ID_TITLE
+          : SHOP_ADD_FAILED_TITLE,
       });
       return;
     }

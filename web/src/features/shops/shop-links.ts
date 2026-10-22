@@ -4,8 +4,10 @@ export type ShopLink = components["schemas"]["ShopLink"];
 export type ShopLinkInput = components["schemas"]["ShopLinkInput"];
 export type ShopLinkType = components["schemas"]["ShopLinkType"];
 
-// Mirrors the server limit (ShopHandler SHOP_LINKS_MAX).
+// Mirror the server limits (ShopHandler SHOP_LINKS_MAX etc.).
 export const SHOP_LINKS_MAX = 10;
+export const SHOP_LINK_URL_MAX_LENGTH = 2048;
+export const SHOP_LINK_LABEL_MAX_LENGTH = 100;
 
 export const SHOP_LINK_TYPE_LABEL: Readonly<Record<ShopLinkType, string>> = {
   official: "公式",
@@ -30,8 +32,10 @@ const DOMAIN_TYPES: ReadonlyArray<[string, ShopLinkType]> = [
   ["tabelog.com", "tabelog"],
 ];
 
-// Same rules as the server (ShopHandler isHttpUrl): http(s) with a host, no
-// userinfo, port 1..65535 (WHATWG URL already rejects ports above 65535).
+// WHATWG URL plus the server's extra rules: http(s) with a host, no userinfo,
+// no port 0. The server (ShopHandler isHttpUrl) is stricter in places (it
+// needs "//", has no IPv6 hosts, only dotted-decimal IPv4), so everything it
+// stores passes here, but a URL passing here can still be rejected on save.
 function parseHttpUrl(url: string): URL | null {
   let parsed: URL;
   try {
@@ -90,4 +94,53 @@ export function displayableShopLinks(
   links: readonly ShopLink[] | undefined,
 ): ShopLink[] {
   return (links ?? []).filter((link) => isHttpUrl(link.url));
+}
+
+export type ShopLinkProblem =
+  | {
+      kind: "missing_url" | "invalid_url" | "url_too_long" | "label_too_long";
+      // 1-based, as the edit modal labels its rows.
+      row: number;
+    }
+  | { kind: "too_many" };
+
+const isBlank = (value: string | undefined) => !value?.trim();
+
+// The first problem in the edited rows, or null. Rows without a URL or label
+// are not a problem; they are dropped on save.
+export function findShopLinkProblem(
+  links: readonly ShopLinkInput[],
+): ShopLinkProblem | null {
+  for (const [i, link] of links.entries()) {
+    const row = i + 1;
+    if (isBlank(link.url)) {
+      if (!isBlank(link.label)) {
+        return { kind: "missing_url", row };
+      }
+      continue;
+    }
+    const url = link.url.trim();
+    if (url.length > SHOP_LINK_URL_MAX_LENGTH) {
+      return { kind: "url_too_long", row };
+    }
+    if (!isHttpUrl(url)) {
+      return { kind: "invalid_url", row };
+    }
+    if ((link.label?.trim().length ?? 0) > SHOP_LINK_LABEL_MAX_LENGTH) {
+      return { kind: "label_too_long", row };
+    }
+  }
+  if (links.filter((link) => !isBlank(link.url)).length > SHOP_LINKS_MAX) {
+    return { kind: "too_many" };
+  }
+  return null;
+}
+
+// What the edit modal sends: rows without a URL dropped, editor-only fields stripped.
+export function savableShopLinks(
+  links: readonly ShopLinkInput[],
+): ShopLinkInput[] {
+  return links
+    .filter((link) => !isBlank(link.url))
+    .map(({ type, label, url }) => ({ type, label, url }));
 }

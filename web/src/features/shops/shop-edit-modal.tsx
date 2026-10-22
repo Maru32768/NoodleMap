@@ -11,6 +11,8 @@ import { CategoryIcon } from "@/features/map/category-icon.tsx";
 import { Shop, useShops, useTags } from "@/features/shops/api/use-shops.ts";
 import { MiniHearts } from "@/features/shops/rating-hearts.tsx";
 import {
+  findShopLinkProblem,
+  savableShopLinks,
   SHOP_LINK_TYPE_LABEL,
   SHOP_LINK_TYPES,
   SHOP_LINKS_MAX,
@@ -20,7 +22,7 @@ import {
 } from "@/features/shops/shop-links.ts";
 import { TagSelector } from "@/features/shops/tag-chips.tsx";
 import {
-  SHOP_LINK_URL_MISSING,
+  shopLinkProblemMessage,
   toastApiError,
   toastError,
 } from "@/utils/toast.ts";
@@ -43,7 +45,8 @@ export interface ShopEditDraft {
   rate: number;
   images: AdminImage[];
   tagIds: string[];
-  links: ShopLinkInput[];
+  // Omitted when the cached shop has no `links` (older server), so saving keeps them.
+  links?: ShopLinkInput[];
 }
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
@@ -201,7 +204,9 @@ const linkButtonProps = {
 
 // Editor rows carry a stable id so React keys survive reordering.
 type ShopLinkRow = ShopLinkInput & { rowId: number };
-type ShopEditState = Omit<ShopEditDraft, "links"> & { links: ShopLinkRow[] };
+type ShopEditState = Omit<ShopEditDraft, "links"> & {
+  links: ShopLinkRow[];
+};
 
 let nextLinkRowId = 0;
 const toLinkRow = (link: ShopLinkInput): ShopLinkRow => ({
@@ -288,7 +293,6 @@ function ShopLinksEditor({
               mono
               type="url"
               placeholder="https://..."
-              maxLength={2048}
               ariaLabel="URL"
             />
           </Box>
@@ -297,7 +301,6 @@ function ShopLinksEditor({
               value={link.label ?? ""}
               onChange={(v) => update(i, { ...link, label: v })}
               placeholder="表示名（任意）"
-              maxLength={100}
               ariaLabel="表示名（任意）"
             />
           </Box>
@@ -404,18 +407,17 @@ export function ShopEditModal({
   };
 
   const handleSave = async () => {
-    const isBlank = (value: string | undefined) => !value?.trim();
-    if (draft.links.some((link) => isBlank(link.url) && !isBlank(link.label))) {
+    const problem = findShopLinkProblem(draft.links);
+    if (problem) {
       setTab("info");
-      toastError(SHOP_LINK_URL_MISSING);
+      toastError(shopLinkProblemMessage(problem));
       return;
     }
-    // Rows left entirely empty are dropped instead of failing validation.
+    const links = savableShopLinks(draft.links);
     const withLinks: ShopEditDraft = {
       ...draft,
-      links: draft.links
-        .filter((link) => !isBlank(link.url))
-        .map(({ type, label, url }) => ({ type, label, url })),
+      // Sending [] for a shop cached without links would delete its links.
+      links: shop.links === undefined && links.length === 0 ? undefined : links,
     };
     const sanitizedDraft = tags
       ? {
