@@ -9,7 +9,7 @@ import tseslint from "typescript-eslint";
 const tsconfigRootDir = import.meta.dirname;
 
 export default tseslint.config(
-  { ignores: ["dist", ".react-router"] },
+  { ignores: ["dist", ".react-router", "coverage", "storybook-static"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],

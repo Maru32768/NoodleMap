@@ -4,10 +4,7 @@ React + TypeScript frontend built with Vite.
 
 ## Requirements
 
-- Node.js 22.12.0
-- npm 10.9.2
-
-This project has Volta settings in `package.json`, so using Volta is recommended.
+- Node.js 24.22.1 (pinned in the repository root `.mise.toml`; run `mise install`)
 
 ## Development Server
 
@@ -57,3 +54,23 @@ npm run build
 ```
 
 The build runs mojibake checks, ESLint, TypeScript checks, and the Vite production build.
+
+## Tests
+
+```powershell
+npm test               # unit and component tests (Vitest + Testing Library, jsdom)
+npm run test:watch     # watch mode
+npm run test:coverage  # V8 coverage report in coverage/
+npm run test:storybook # render every story in headless Chromium and run play functions
+```
+
+`test:storybook` uses Playwright's Chromium. Install it once with `npx playwright install chromium`.
+
+API calls in tests are mocked at the network boundary with MSW (`src/test/server.ts`). Shared `Shop`/`Tag` fixtures live in `src/test/fixtures.ts`.
+
+## Storybook
+
+```powershell
+npm run storybook        # dev server on http://localhost:6006
+npm run build-storybook  # static build in storybook-static/
+```

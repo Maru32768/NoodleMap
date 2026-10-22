@@ -2,7 +2,7 @@ import react from "@vitejs/plugin-react";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { defineConfig, loadEnv } from "vite";
+import { defineConfig, loadEnv, type PluginOption } from "vite";
 import checker from "vite-plugin-checker";
 import { VitePWA } from "vite-plugin-pwa";
 
@@ -18,6 +18,21 @@ const readDevHttpsFile = (path: string) => {
 
   return readFileSync(absolutePath);
 };
+
+// The type-check overlay and the service worker only make sense for the real app;
+// Vitest and Storybook reuse this config without them.
+export function withoutAppOnlyPlugins(plugins: PluginOption[] = []) {
+  return plugins
+    .flat()
+    .filter(
+      (plugin) =>
+        !(
+          plugin &&
+          "name" in plugin &&
+          /^vite-plugin-(checker|pwa)/.test(plugin.name)
+        ),
+    );
+}
 
 // https://vite.dev/config/
 export default defineConfig(({ command, mode }) => {
@@ -80,13 +95,12 @@ export default defineConfig(({ command, mode }) => {
       alias: [{ find: "@", replacement: "/src" }],
     },
     server: {
-      https:
-        useHttps
-          ? {
-              key: readDevHttpsFile(httpsKey),
-              cert: readDevHttpsFile(httpsCert),
-            }
-          : undefined,
+      https: useHttps
+        ? {
+            key: readDevHttpsFile(httpsKey),
+            cert: readDevHttpsFile(httpsCert),
+          }
+        : undefined,
       proxy: {
         "/api": {
           target: "http://localhost:8888",

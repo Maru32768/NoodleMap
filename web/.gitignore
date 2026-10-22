@@ -36,3 +36,7 @@ certs/
 
 # Locally generated basemap archives
 public/maps/*.pmtiles
+
+# Test coverage and Storybook build output
+coverage/
+storybook-static/

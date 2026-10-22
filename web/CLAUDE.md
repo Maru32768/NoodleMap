@@ -23,8 +23,22 @@ Run these from `web/`:
 - `npm run lint`: run ESLint.
 - `npm run format`: format with Prettier.
 - `npm run check:mojibake`: check Japanese text for mojibake.
+- `npm test`: run unit and component tests with Vitest (jsdom).
+- `npm run test:watch`: run Vitest in watch mode.
+- `npm run test:coverage`: run unit tests with V8 coverage (report in `coverage/`).
+- `npm run test:storybook`: render every story in headless Chromium and run its `play` function (needs `npx playwright install chromium` once).
+- `npm run storybook`: start Storybook on port 6006.
+- `npm run build-storybook`: build static Storybook into `storybook-static/`.
 
-Use `volta run npm run build` if the ambient Node version is older than the version in `package.json`.
+Node.js is pinned in the root `.mise.toml`. Run `mise install` and use the mise-activated `node`/`npm`.
+
+## Tests and Stories
+
+- Tests live next to the code as `*.test.ts(x)`; stories as `*.stories.tsx`.
+- Build `Shop`/`Tag` data with `makeShop`/`makeTag` from `src/test/fixtures.ts` in both tests and stories.
+- Render components with `renderWithProviders` / `renderHookWithProviders` from `src/test/render.tsx` (Chakra `Provider`, `Toaster`, isolated SWR cache).
+- Mock the API at the network boundary with MSW: `server.use(http.get("/api/v1/...", ...))` using `server` from `src/test/server.ts`. Unhandled requests fail. Do not `vi.mock` app modules.
+- Map and Google-dependent components (`map.tsx`, `google-place-finder.tsx`, `image-uploader.tsx`) have no stories.
 
 ## API Client and Error Handling
 

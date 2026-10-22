@@ -1,13 +1,13 @@
+import type {
+  ShopEatenStatus,
+  ShopLifecycleStatus,
+  ShopRecencyStatus,
+} from "@/features/shops/status.ts";
 import {
   parseShopDate,
   shopEatenStatus,
   shopLifecycleStatus,
   shopRecencyStatus,
-} from "@/features/shops/status.ts";
-import type {
-  ShopEatenStatus,
-  ShopLifecycleStatus,
-  ShopRecencyStatus,
 } from "@/features/shops/status.ts";
 import type { components } from "@/generated/api.ts";
 import {
@@ -40,7 +40,7 @@ export type Shop = ApiShop & {
 
 // Attaches the cached parsed dates used by the status helpers. Run wherever a
 // raw API shop enters the SWR cache (fetch, optimistic add, optimistic update).
-function decorateShop(shop: ApiShop): Shop {
+export function decorateShop(shop: ApiShop): Shop {
   const datedShop = {
     ...shop,
     openedAtDate: parseShopDate(shop.openedAt),

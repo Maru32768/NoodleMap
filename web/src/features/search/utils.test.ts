@@ -1,0 +1,193 @@
+import {
+  favToHearts,
+  filterShops,
+  SearchFilters,
+  sortShops,
+} from "@/features/search/utils.ts";
+import { SYSTEM_TAGS } from "@/features/shops/status.ts";
+import { makeShop, makeTag } from "@/test/fixtures.ts";
+import dayjs from "dayjs";
+import { describe, expect, it } from "vitest";
+
+const ALL_SYSTEM_TAGS = SYSTEM_TAGS.map((tag) => tag.slug);
+
+const showEverything: SearchFilters = {
+  eaten: true,
+  wish: true,
+  ramen: true,
+  udon: true,
+  favMin: 0,
+  tagIds: ALL_SYSTEM_TAGS,
+};
+
+function names(shops: { name: string }[]) {
+  return shops.map((shop) => shop.name);
+}
+
+function filterNames(
+  shops: ReturnType<typeof makeShop>[],
+  filters: Partial<SearchFilters>,
+  query = "",
+) {
+  return names(
+    filterShops(shops, { query, filters: { ...showEverything, ...filters } }),
+  );
+}
+
+describe("favToHearts", () => {
+  it.each([
+    [undefined, 0],
+    [0, 0],
+    [-10, 0],
+    [10, 0.5],
+    [50, 2.5],
+    [100, 5],
+    [140, 5],
+  ])("maps rate %s to %s hearts", (rate, hearts) => {
+    expect(favToHearts(rate)).toBe(hearts);
+  });
+});
+
+describe("filterShops", () => {
+  it("keeps every shop when every facet is selected", () => {
+    const shops = [
+      makeShop({ name: "A", eaten: true, category: "ramen" }),
+      makeShop({ name: "B", eaten: false, category: "udon" }),
+    ];
+
+    expect(filterNames(shops, {})).toEqual(["A", "B"]);
+  });
+
+  it("ORs the visit toggles and hides a visit status that is off", () => {
+    const shops = [
+      makeShop({ name: "eaten", eaten: true }),
+      makeShop({ name: "wish", eaten: false }),
+    ];
+
+    expect(filterNames(shops, { wish: false })).toEqual(["eaten"]);
+    expect(filterNames(shops, { eaten: false })).toEqual(["wish"]);
+    expect(filterNames(shops, { eaten: false, wish: false })).toEqual([]);
+  });
+
+  it("ORs the category toggles", () => {
+    const shops = [
+      makeShop({ name: "ramen", category: "ramen" }),
+      makeShop({ name: "udon", category: "udon" }),
+    ];
+
+    expect(filterNames(shops, { udon: false })).toEqual(["ramen"]);
+    expect(filterNames(shops, { ramen: false })).toEqual(["udon"]);
+  });
+
+  it("drops shops rated below favMin and ignores the rating at favMin 0", () => {
+    const shops = [
+      makeShop({ name: "60", rate: 60 }),
+      makeShop({ name: "80", rate: 80 }),
+      makeShop({ name: "0", rate: 0 }),
+    ];
+
+    expect(filterNames(shops, { favMin: 80 })).toEqual(["80"]);
+    expect(filterNames(shops, { favMin: 0 })).toEqual(["60", "80", "0"]);
+  });
+
+  describe("system tag (status) facet", () => {
+    const recentOpening = dayjs().subtract(30, "day").format("YYYY-MM-DD");
+    const shops = [
+      makeShop({ name: "open" }),
+      makeShop({ name: "closed", closedAt: "2000-01-01" }),
+      makeShop({ name: "upcoming", openedAt: "2999-01-01" }),
+      makeShop({ name: "closingSoon", closedAt: "2999-12-31" }),
+      makeShop({ name: "new", openedAt: recentOpening }),
+    ];
+
+    it("shows nothing when no status is selected", () => {
+      expect(filterNames(shops, { tagIds: [] })).toEqual([]);
+    });
+
+    it("spotlights a single lifecycle state", () => {
+      expect(filterNames(shops, { tagIds: ["system:closed"] })).toEqual([
+        "closed",
+      ]);
+      expect(filterNames(shops, { tagIds: ["system:upcoming"] })).toEqual([
+        "upcoming",
+      ]);
+    });
+
+    it("matches a new shop through either its lifecycle or the new flag", () => {
+      expect(filterNames(shops, { tagIds: ["system:new"] })).toEqual(["new"]);
+      expect(filterNames(shops, { tagIds: ["system:open"] })).toEqual([
+        "open",
+        "new",
+      ]);
+    });
+  });
+
+  describe("user tag facet", () => {
+    const spicy = makeTag({ label: "辛い" });
+    const rich = makeTag({ label: "濃厚" });
+    const shops = [
+      makeShop({ name: "spicy", tags: [spicy] }),
+      makeShop({ name: "rich", tags: [rich] }),
+      makeShop({ name: "plain", tags: [] }),
+    ];
+
+    it("does not narrow when only system tags are selected", () => {
+      expect(filterNames(shops, {})).toEqual(["spicy", "rich", "plain"]);
+    });
+
+    it("keeps shops having any selected user tag", () => {
+      expect(
+        filterNames(shops, { tagIds: [...ALL_SYSTEM_TAGS, spicy.id] }),
+      ).toEqual(["spicy"]);
+      expect(
+        filterNames(shops, {
+          tagIds: [...ALL_SYSTEM_TAGS, spicy.id, rich.id],
+        }),
+      ).toEqual(["spicy", "rich"]);
+    });
+
+    it("still requires a status match when a user tag is selected", () => {
+      expect(filterNames(shops, { tagIds: [spicy.id] })).toEqual([]);
+    });
+  });
+
+  it("matches the trimmed query case-insensitively against name and address", () => {
+    const shops = [
+      makeShop({ name: "Ramen Taro", address: "東京都渋谷区" }),
+      makeShop({ name: "うどん花子", address: "香川県高松市" }),
+    ];
+
+    expect(filterNames(shops, {}, "  ramen ")).toEqual(["Ramen Taro"]);
+    expect(filterNames(shops, {}, "高松")).toEqual(["うどん花子"]);
+    expect(filterNames(shops, {}, "大阪")).toEqual([]);
+  });
+});
+
+describe("sortShops", () => {
+  const center = { lat: 35, lng: 139 };
+
+  it("orders by distance when shops are more than 1 km apart", () => {
+    const far = makeShop({ name: "far", lat: 35.1, lng: 139, rate: 100 });
+    const near = makeShop({ name: "near", lat: 35.001, lng: 139, rate: 10 });
+
+    expect(names(sortShops([far, near], center))).toEqual(["near", "far"]);
+  });
+
+  it("orders by rating when shops are within 1 km of each other", () => {
+    const low = makeShop({ name: "low", lat: 35.001, lng: 139, rate: 40 });
+    const high = makeShop({ name: "high", lat: 35.004, lng: 139, rate: 90 });
+
+    expect(names(sortShops([low, high], center))).toEqual(["high", "low"]);
+  });
+
+  it("does not mutate the input array", () => {
+    const shops = [
+      makeShop({ name: "far", lat: 36, lng: 139 }),
+      makeShop({ name: "near", lat: 35, lng: 139 }),
+    ];
+
+    sortShops(shops, center);
+
+    expect(names(shops)).toEqual(["far", "near"]);
+  });
+});
