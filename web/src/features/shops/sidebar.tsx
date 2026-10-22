@@ -473,7 +473,7 @@ export function ShopFilters({ filters, onFilterChange }: ShopFiltersProps) {
       </Box>
 
       <Box pt="0.875rem" pb="0.625rem">
-        <SectionLabel>お気に入り度 — Favorite</SectionLabel>
+        <SectionLabel>評価 — Rating</SectionLabel>
         <HeartFilter
           value={filters.favMin}
           onChange={(n) => onFilterChange("favMin", n)}

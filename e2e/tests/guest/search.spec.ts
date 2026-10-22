@@ -48,12 +48,12 @@ test("guest searches, filters and opens a shop on the search page", async ({ pag
 
   await sidebar.getByPlaceholder("店名・読み・エリア・タグで検索...").fill(id);
   await card(eatenRamen.name).click();
-  const favorite = page.getByText("お気に入り度 - Favorite");
-  await expect(favorite).toBeVisible();
+  const rating = page.getByText("評価 - Rating");
+  await expect(rating).toBeVisible();
   await expect(page.getByRole("button", { name: "編集" })).toHaveCount(0);
 
   await page.getByRole("button", { name: "閉じる" }).click();
-  await expect(favorite).toBeHidden();
+  await expect(rating).toBeHidden();
 });
 
 test("guest opens a shared shop URL even when filters hide the shop", async ({ page, api }) => {
@@ -68,7 +68,7 @@ test("guest opens a shared shop URL even when filters hide the shop", async ({ p
 
   await page.goto(`/search?shop=${shop.id}`);
   await expect(page.getByText(shop.name, { exact: true }).filter({ visible: true })).toBeVisible();
-  await expect(page.getByText("お気に入り度 - Favorite")).toBeVisible();
+  await expect(page.getByText("評価 - Rating")).toBeVisible();
 
   await page.getByRole("button", { name: "閉じる" }).click();
   await expect(page.getByText(shop.name, { exact: true })).toBeHidden();
