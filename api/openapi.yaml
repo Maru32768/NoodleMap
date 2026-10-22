@@ -213,6 +213,80 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/InternalErrorBody'
+  /api/v1/auth/sessions:
+    get:
+      operationId: listSessions
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionsResponse'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthenticationRequiredErrorBody'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalErrorBody'
+  /api/v1/auth/sessions/revoke-others:
+    post:
+      operationId: revokeOtherSessions
+      description: Revokes every session of the current user except the current one.
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthenticationRequiredErrorBody'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalErrorBody'
+  /api/v1/auth/sessions/{id}:
+    delete:
+      operationId: revokeSession
+      description: Revokes one of the current user's sessions. Revoking the current session also clears the cookie.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '200':
+          description: The request has succeeded.
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthenticationRequiredErrorBody'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorBody'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalErrorBody'
   /api/v1/auth/shops:
     post:
       operationId: addShop
@@ -459,6 +533,28 @@ components:
       properties:
         user:
           $ref: '#/components/schemas/User'
+    AuthSession:
+      type: object
+      required:
+        - id
+        - createdAt
+        - lastUsedAt
+        - current
+      properties:
+        id:
+          $ref: '#/components/schemas/uuid'
+        userAgent:
+          type: string
+        createdAt:
+          type: string
+          description: Login time, ISO 8601 UTC.
+        lastUsedAt:
+          type: string
+          description: Approximate last use (expiry minus TTL; the expiry slides at most every 12 hours), ISO 8601 UTC.
+        current:
+          type: boolean
+          description: True for the session that made this request.
+      description: A signed-in session (device) of the current user. `id` is not the session token.
     AuthenticationRequiredErrorBody:
       type: object
       required:
@@ -483,6 +579,7 @@ components:
         - permission_denied
         - google_auth_failed
         - session_creation_failed
+        - not_found
         - internal_error
         - google_places_not_configured
         - google_places_failed
@@ -580,6 +677,17 @@ components:
             - invalid_request
         message:
           type: string
+    NotFoundErrorBody:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum:
+            - not_found
+        message:
+          type: string
     PermissionDeniedErrorBody:
       type: object
       required:
@@ -661,6 +769,15 @@ components:
             - session_creation_failed
         message:
           type: string
+    SessionsResponse:
+      type: object
+      required:
+        - sessions
+      properties:
+        sessions:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuthSession'
     Shop:
       type: object
       required:

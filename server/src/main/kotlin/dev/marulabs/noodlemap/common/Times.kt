@@ -15,6 +15,9 @@ object SessionTime {
     private val fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneOffset.UTC)
     fun format(instant: Instant): String = fmt.format(instant)
     fun now(): String = format(Instant.now())
+
+    /** Reads the leading "yyyy-MM-dd HH:mm:ss" (also the prefix of legacy Go values) as UTC. */
+    fun parse(stored: String): Instant = Instant.from(fmt.parse(stored.take(19)))
 }
 
 /**

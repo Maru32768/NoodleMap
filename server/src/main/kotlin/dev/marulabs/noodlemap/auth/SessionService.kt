@@ -5,8 +5,10 @@ import io.ktor.server.application.ApplicationCall
 import io.ktor.server.request.userAgent
 import dev.marulabs.noodlemap.Config
 import dev.marulabs.noodlemap.common.SessionTime
+import dev.marulabs.noodlemap.db.FindValidSessionByTokenHash
 import dev.marulabs.noodlemap.db.NoodleMapDb
 import dev.marulabs.noodlemap.errors.DomainException
+import dev.marulabs.noodlemap.generated.models.AuthSession
 import dev.marulabs.noodlemap.generated.models.User
 import java.time.Duration
 import java.time.Instant
@@ -26,7 +28,42 @@ class SessionService(
     private val sessions = db.sessionsQueries
 
     /** Resolves the current user from the session cookie, sliding the expiry. Null if unauthenticated. */
-    fun authenticate(call: ApplicationCall): User? {
+    fun authenticate(call: ApplicationCall): User? =
+        currentSession(call)?.let { toUser(it.user_id, it.email) }
+
+    /** Lists the caller's live sessions, flagging the one that made this request. */
+    fun listSessions(call: ApplicationCall): List<AuthSession> {
+        val current = requireSession(call)
+        return sessions.findValidSessionsByUserId(userId = current.user_id, now = SessionTime.now()).executeAsList().map {
+            AuthSession(
+                id = it.id.toString(),
+                userAgent = it.user_agent,
+                createdAt = SessionTime.parse(it.created_at).toString(),
+                lastUsedAt = SessionTime.parse(it.expires_at).minus(TTL).toString(),
+                current = it.id == current.id,
+            )
+        }
+    }
+
+    /** Deletes one of the caller's sessions; another user's or an unknown id is 404. */
+    fun revokeSession(call: ApplicationCall, id: String) {
+        val current = requireSession(call)
+        val sessionId = runCatching { UUID.fromString(id) }.getOrNull() ?: throw DomainException.NotFound()
+        if (sessions.deleteSessionOfUser(id = sessionId, userId = current.user_id).value == 0L) {
+            throw DomainException.NotFound()
+        }
+        if (sessionId == current.id) clearCookie(call)
+    }
+
+    fun revokeOtherSessions(call: ApplicationCall) {
+        val current = requireSession(call)
+        sessions.deleteOtherSessionsOfUser(userId = current.user_id, keepId = current.id)
+    }
+
+    private fun requireSession(call: ApplicationCall) =
+        currentSession(call) ?: throw DomainException.AuthenticationRequired()
+
+    private fun currentSession(call: ApplicationCall): FindValidSessionByTokenHash? {
         val token = call.request.cookies[COOKIE] ?: return null
         val now = Instant.now()
         val session = sessions.findValidSessionByTokenHash(
@@ -43,7 +80,7 @@ class SessionService(
             setCookie(call, token, TTL)
         }
 
-        return toUser(session.user_id, session.email)
+        return session
     }
 
     fun requireUser(call: ApplicationCall): User =

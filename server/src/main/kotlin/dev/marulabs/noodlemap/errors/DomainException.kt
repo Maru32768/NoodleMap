@@ -12,6 +12,7 @@ enum class ErrorType {
     @SerialName("permission_denied") PERMISSION_DENIED,
     @SerialName("google_auth_failed") GOOGLE_AUTH_FAILED,
     @SerialName("session_creation_failed") SESSION_CREATION_FAILED,
+    @SerialName("not_found") NOT_FOUND,
     @SerialName("internal_error") INTERNAL_ERROR,
     @SerialName("google_places_not_configured") GOOGLE_PLACES_NOT_CONFIGURED,
     @SerialName("google_places_failed") GOOGLE_PLACES_FAILED,
@@ -72,6 +73,9 @@ sealed class DomainException(
 
     class PermissionDenied :
         DomainException(HttpStatusCode.Forbidden, ErrorType.PERMISSION_DENIED, "permission denied")
+
+    class NotFound :
+        DomainException(HttpStatusCode.NotFound, ErrorType.NOT_FOUND, "not found")
 
     class InvalidRequest(message: String = "invalid request") :
         DomainException(HttpStatusCode.BadRequest, ErrorType.INVALID_REQUEST, message)

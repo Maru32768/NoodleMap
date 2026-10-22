@@ -8,9 +8,12 @@ import dev.marulabs.noodlemap.errors.DomainException
 import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthGoogleController
 import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthLogoutController
 import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthMeController
+import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthSessionsController
+import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthSessionsRevokeOthersController
 import dev.marulabs.noodlemap.generated.controllers.TypedApplicationCall
 import dev.marulabs.noodlemap.generated.models.AuthResponse
 import dev.marulabs.noodlemap.generated.models.GoogleAuthRequest
+import dev.marulabs.noodlemap.generated.models.SessionsResponse
 import dev.marulabs.noodlemap.generated.models.User
 import java.util.UUID
 
@@ -19,7 +22,8 @@ class AuthHandler(
     private val db: NoodleMapDb,
     private val google: GoogleVerifier,
     private val sessions: SessionService,
-) : ApiV1AuthGoogleController, ApiV1AuthMeController, ApiV1AuthLogoutController {
+) : ApiV1AuthGoogleController, ApiV1AuthMeController, ApiV1AuthLogoutController,
+    ApiV1AuthSessionsController, ApiV1AuthSessionsRevokeOthersController {
 
     override suspend fun googleAuth(googleAuthRequest: GoogleAuthRequest, call: TypedApplicationCall<AuthResponse>) {
         val googleUser = google.verify(googleAuthRequest.credential)
@@ -38,6 +42,20 @@ class AuthHandler(
 
     override suspend fun logout(call: ApplicationCall) {
         sessions.logout(call)
+        call.respond(HttpStatusCode.OK)
+    }
+
+    override suspend fun listSessions(call: TypedApplicationCall<SessionsResponse>) {
+        call.respondTyped(SessionsResponse(sessions = sessions.listSessions(call)))
+    }
+
+    override suspend fun revokeSession(id: String, call: ApplicationCall) {
+        sessions.revokeSession(call, id)
+        call.respond(HttpStatusCode.OK)
+    }
+
+    override suspend fun revokeOtherSessions(call: ApplicationCall) {
+        sessions.revokeOtherSessions(call)
         call.respond(HttpStatusCode.OK)
     }
 
