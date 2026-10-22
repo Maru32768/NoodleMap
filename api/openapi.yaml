@@ -33,6 +33,132 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/GoogleAuthRequest'
+  /api/v1/auth/google-places/autocomplete:
+    get:
+      operationId: googlePlacesAutocomplete
+      description: Admin-only Google Places (New) autocomplete proxy. A blank query returns no suggestions.
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+          explode: false
+        - name: sessionToken
+          in: query
+          required: true
+          description: Client-generated token grouping an autocomplete session with its details call for billing.
+          schema:
+            type: string
+            pattern: ^[A-Za-z0-9_-]{1,36}$
+            maxLength: 36
+          explode: false
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlaceSuggestionsResponse'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvalidRequestErrorBody'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthenticationRequiredErrorBody'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionDeniedErrorBody'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalErrorBody'
+        '502':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GooglePlacesFailedErrorBody'
+        '503':
+          description: Service unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GooglePlacesNotConfiguredErrorBody'
+  /api/v1/auth/google-places/details:
+    get:
+      operationId: googlePlacesDetails
+      description: Admin-only Google Places (New) place details proxy.
+      parameters:
+        - name: placeId
+          in: query
+          required: true
+          schema:
+            type: string
+          explode: false
+        - name: sessionToken
+          in: query
+          required: true
+          description: The token used by the autocomplete session this selection ends.
+          schema:
+            type: string
+            pattern: ^[A-Za-z0-9_-]{1,36}$
+            maxLength: 36
+          explode: false
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlaceDetails'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvalidRequestErrorBody'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthenticationRequiredErrorBody'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionDeniedErrorBody'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalErrorBody'
+        '502':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GooglePlacesFailedErrorBody'
+        '503':
+          description: Service unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GooglePlacesNotConfiguredErrorBody'
   /api/v1/auth/logout:
     post:
       operationId: logout
@@ -358,6 +484,8 @@ components:
         - google_auth_failed
         - session_creation_failed
         - internal_error
+        - google_places_not_configured
+        - google_places_failed
     FieldErrorType:
       type: string
       enum:
@@ -406,6 +534,30 @@ components:
       properties:
         credential:
           type: string
+    GooglePlacesFailedErrorBody:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum:
+            - google_places_failed
+        message:
+          type: string
+      description: The Google Places API request failed or returned an unusable response.
+    GooglePlacesNotConfiguredErrorBody:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum:
+            - google_places_not_configured
+        message:
+          type: string
+      description: The server has no Google Places API key configured.
     InternalErrorBody:
       type: object
       required:
@@ -439,6 +591,56 @@ components:
             - permission_denied
         message:
           type: string
+    PlaceDetails:
+      type: object
+      required:
+        - placeId
+        - name
+        - postalCode
+        - address
+        - lat
+        - lng
+        - closed
+      properties:
+        placeId:
+          type: string
+        name:
+          type: string
+        postalCode:
+          type: string
+        address:
+          type: string
+          description: Formatted address without the leading country name and postal code.
+        lat:
+          type: number
+          format: double
+        lng:
+          type: number
+          format: double
+        closed:
+          type: boolean
+          description: True when Google reports the place as permanently closed.
+    PlaceSuggestion:
+      type: object
+      required:
+        - placeId
+        - mainText
+      properties:
+        placeId:
+          type: string
+        mainText:
+          type: string
+        secondaryText:
+          type: string
+    PlaceSuggestionsResponse:
+      type: object
+      required:
+        - suggestions
+      properties:
+        suggestions:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlaceSuggestion'
     SaveTagsRequest:
       type: object
       required:

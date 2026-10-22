@@ -91,4 +91,4 @@ Pull requests should include a short summary, affected areas, verification comma
 
 Do not commit secrets or local environment files. Keep generated build output, local IDE files, and runtime logs out of commits unless explicitly required.
 
-Non-secret Render values live in `render.yaml`. Secret values such as `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `VITE_GOOGLE_API_KEY`, and `VITE_GOOGLE_OAUTH_CLIENT_ID` are configured outside the repository.
+Non-secret Render values live in `render.yaml`. Secret values such as `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `GOOGLE_PLACES_API_KEY`, and `VITE_GOOGLE_OAUTH_CLIENT_ID` are configured outside the repository.

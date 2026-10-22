@@ -62,4 +62,24 @@ describe("toastApiError", () => {
     const toast = await findToast("店舗一覧を読み込めませんでした");
     expect(toast.getByText(RETRY_LATER)).toBeInTheDocument();
   });
+
+  it("explains Google Places failures in Japanese", async () => {
+    const places = "/api/v1/auth/google-places/autocomplete";
+    showToast(
+      toApiError(places, new Response(null, { status: 502 }), {
+        type: "google_places_failed" as const,
+      }),
+    );
+    await findToast("Google Place 検索に失敗しました");
+
+    showToast(
+      toApiError(places, new Response(null, { status: 503 }), {
+        type: "google_places_not_configured" as const,
+      }),
+    );
+    const toast = await findToast("Google Place 検索を利用できません");
+    expect(
+      toast.getByText("店舗情報はフォームに直接入力してください。"),
+    ).toBeInTheDocument();
+  });
 });

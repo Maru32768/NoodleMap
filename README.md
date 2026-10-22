@@ -78,6 +78,10 @@ The backend now authenticates exclusively via Google Sign-In, so the following v
 - `VITE_GOOGLE_OAUTH_CLIENT_ID` (frontend) — same value as above; the Sign-In button does not render without it.
 - `ADMIN_EMAIL` (server) — Google account email that should receive admin rights. Without it, **no user can access `/admin`**. The first Google login from this address provisions the admin account.
 
+Optional:
+
+- `GOOGLE_PLACES_API_KEY` (server) — Places API (New) key for the admin add form's Google Place search. Without it, the search shows a fallback and shop details are entered by hand.
+
 ## API Contract Flow
 
 ```mermaid
@@ -129,7 +133,7 @@ Render service configuration is defined in `render.yaml`.
 - Public domains: `noodle-map.marulab.jp` and `noodle-map.marulabs.dev`.
 - API traffic from the frontend is rewritten to the Render backend.
 
-Secrets such as `GOOGLE_OAUTH_CLIENT_ID`, `ADMIN_EMAIL`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `VITE_GOOGLE_API_KEY`, and `VITE_GOOGLE_OAUTH_CLIENT_ID` are configured outside the repository.
+Secrets such as `GOOGLE_OAUTH_CLIENT_ID`, `ADMIN_EMAIL`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `GOOGLE_PLACES_API_KEY`, and `VITE_GOOGLE_OAUTH_CLIENT_ID` are configured outside the repository.
 
 ## Editing Notes
 

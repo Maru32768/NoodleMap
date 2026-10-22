@@ -13,6 +13,7 @@ data class Config(
     val googleOAuthClientId: String,
     val adminEmail: String,
     val cookieSecure: Boolean,
+    val googlePlacesApiKey: String,
     val backup: BackupConfig,
 ) {
     data class BackupConfig(
@@ -23,6 +24,11 @@ data class Config(
     ) {
         val s3Enabled: Boolean get() = !s3Bucket.isNullOrBlank()
     }
+
+    // Keep the Places key out of logs and error messages.
+    override fun toString(): String =
+        "Config(dbPath=$dbPath, serverPort=$serverPort, googleOAuthClientId=$googleOAuthClientId, adminEmail=$adminEmail, " +
+            "cookieSecure=$cookieSecure, googlePlacesApiKey=${if (googlePlacesApiKey.isEmpty()) "" else "***"}, backup=$backup)"
 
     companion object {
         private val log = LoggerFactory.getLogger(Config::class.java)
@@ -43,6 +49,11 @@ data class Config(
                 it.toBooleanStrictOrNull() ?: error("AUTH_COOKIE_SECURE must be a boolean: $it")
             } ?: false
 
+            val googlePlacesApiKey = env("GOOGLE_PLACES_API_KEY").orEmpty().trim()
+            if (googlePlacesApiKey.isEmpty()) {
+                log.warn("GOOGLE_PLACES_API_KEY is empty; Google Place search for admins is disabled")
+            }
+
             val snapshotPath = env("BACKUP_PATH")?.takeIf { it.isNotBlank() } ?: "$dbPath.bak"
 
             return Config(
@@ -51,6 +62,7 @@ data class Config(
                 googleOAuthClientId = googleOAuthClientId,
                 adminEmail = adminEmail.lowercase(),
                 cookieSecure = cookieSecure,
+                googlePlacesApiKey = googlePlacesApiKey,
                 backup = BackupConfig(
                     snapshotPath = snapshotPath,
                     s3Bucket = env("S3_BUCKET")?.takeIf { it.isNotBlank() },

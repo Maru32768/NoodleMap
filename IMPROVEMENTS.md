@@ -83,10 +83,10 @@ DB スキーマを大きく変える機能が多いため、タグ・訪問ロ�
 
 | 状態  | 項目              | 内容                                                        |
 |-----|-----------------|-----------------------------------------------------------|
-| 未着手 | APIキー分離         | フロント用 Maps JS キーとバックエンド用 Places キーを分離                     |
-| 未着手 | Places 検索補助 API | `/api/v1/auth/google-places/autocomplete`, `/details` を追加 |
-| 未着手 | 管理者限定・レート制限     | 店舗追加/編集時だけ利用できるようにする                                      |
-| 未着手 | フロント置き換え        | `google-place-finder.tsx` が Google Places を直接叩かないようにする    |
+| 完了 | APIキー分離         | フロント用 Maps JS キーとバックエンド用 Places キーを分離                     |
+| 完了 | Places 検索補助 API | `/api/v1/auth/google-places/autocomplete`, `/details` を追加 |
+| 完了 | 管理者限定・レート制限     | 店舗追加/編集時だけ利用できるようにする。管理者限定のみ。レート制限は不要と判断                                      |
+| 完了 | フロント置き換え        | `google-place-finder.tsx` が Google Places を直接叩かないようにする    |
 
 目的は API キー保護・課金管理・濫用対策。自動収集ツール化はしない。
 

@@ -12,6 +12,7 @@ import {
   useTags,
 } from "@/features/shops/api/use-shops.ts";
 import { TagChips } from "@/features/shops/tag-chips.tsx";
+import { randomId } from "@/utils/random-id.ts";
 import { toastApiError } from "@/utils/toast.ts";
 import { useIsPc } from "@/utils/use-is-pc.ts";
 import { Box, Input } from "@chakra-ui/react";
@@ -314,7 +315,7 @@ function TagManagementEditor({
     }
 
     const nextTag: Tag = {
-      id: draft.id ?? `${TEMP_ID_PREFIX}${crypto.randomUUID()}`,
+      id: draft.id ?? `${TEMP_ID_PREFIX}${randomId()}`,
       category: command.category,
       label: command.label,
       slug: command.slug,

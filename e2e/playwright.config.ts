@@ -70,6 +70,8 @@ export default defineConfig({
         AUTH_COOKIE_SECURE: "false",
         BACKUP_PATH: `${DB_PATH}.bak`,
         S3_BUCKET: "",
+        // No Places key: the add form's Google Place search shows its manual-entry fallback.
+        GOOGLE_PLACES_API_KEY: "",
       },
     },
     {
@@ -85,7 +87,6 @@ export default defineConfig({
         // Override web/.env so the build never talks to Google or the tile CDN.
         // A blank PMTiles URL selects the offline background-only basemap.
         VITE_BASEMAP_PMTILES_URL: " ",
-        VITE_GOOGLE_API_KEY: "e2e-no-google-api-key",
         VITE_GOOGLE_OAUTH_CLIENT_ID: "e2e-google-client-id",
       },
     },

@@ -17,6 +17,8 @@ import dev.marulabs.noodlemap.db.buildDataSource
 import dev.marulabs.noodlemap.db.buildDatabase
 import dev.marulabs.noodlemap.errors.installStatusPages
 import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthGoogleController.Companion.apiV1AuthGoogleRoutes
+import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthGooglePlacesAutocompleteController.Companion.apiV1AuthGooglePlacesAutocompleteRoutes
+import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthGooglePlacesDetailsController.Companion.apiV1AuthGooglePlacesDetailsRoutes
 import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthLogoutController.Companion.apiV1AuthLogoutRoutes
 import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthMeController.Companion.apiV1AuthMeRoutes
 import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthShopsController.Companion.apiV1AuthShopsRoutes
@@ -25,6 +27,7 @@ import dev.marulabs.noodlemap.generated.controllers.ApiV1ShopsController.Compani
 import dev.marulabs.noodlemap.generated.controllers.ApiV1TagsController.Companion.apiV1TagsRoutes
 import dev.marulabs.noodlemap.http.NoCache
 import dev.marulabs.noodlemap.jobs.startBackgroundJobs
+import dev.marulabs.noodlemap.places.PlacesHandler
 import dev.marulabs.noodlemap.shops.ShopHandler
 import kotlinx.serialization.json.Json
 
@@ -43,13 +46,14 @@ fun Application.module(config: Config) {
     val google = GoogleVerifier(config.googleOAuthClientId)
     val authHandler = AuthHandler(db, google, sessions)
     val shopHandler = ShopHandler(db, sessions)
+    val placesHandler = PlacesHandler(sessions, config.googlePlacesApiKey)
 
     startBackgroundJobs(config, dataSource, db, sessions)
-    installApp(authHandler, shopHandler)
+    installApp(authHandler, shopHandler, placesHandler)
 }
 
 /** Installs plugins and routes. Separated from [module] so tests can wire test handlers. */
-fun Application.installApp(authHandler: AuthHandler, shopHandler: ShopHandler) {
+fun Application.installApp(authHandler: AuthHandler, shopHandler: ShopHandler, placesHandler: PlacesHandler) {
     install(ContentNegotiation) {
         // ignoreUnknownKeys matches Gin's BindJSON tolerance for extra fields.
         json(Json { ignoreUnknownKeys = true })
@@ -73,5 +77,8 @@ fun Application.installApp(authHandler: AuthHandler, shopHandler: ShopHandler) {
         apiV1AuthGoogleRoutes(authHandler)
         apiV1AuthMeRoutes(authHandler)
         apiV1AuthLogoutRoutes(authHandler)
+
+        apiV1AuthGooglePlacesAutocompleteRoutes(placesHandler)
+        apiV1AuthGooglePlacesDetailsRoutes(placesHandler)
     }
 }

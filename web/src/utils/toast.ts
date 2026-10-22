@@ -43,6 +43,15 @@ const apiErrorMessages: Readonly<Record<ErrorType, UserErrorMessage>> = {
     title: "サーバーで問題が発生しました",
     description: "時間をおいてもう一度お試しください。",
   },
+  google_places_not_configured: {
+    title: "Google Place 検索を利用できません",
+    description: "店舗情報はフォームに直接入力してください。",
+  },
+  google_places_failed: {
+    title: "Google Place 検索に失敗しました",
+    description:
+      "時間をおいてもう一度お試しください。店舗情報はフォームに直接入力することもできます。",
+  },
 };
 
 const statusMessages: Readonly<Record<number, UserErrorMessage>> = {

@@ -19,6 +19,10 @@ public enum class ErrorType(
   SESSION_CREATION_FAILED("session_creation_failed"),
   @SerialName("internal_error")
   INTERNAL_ERROR("internal_error"),
+  @SerialName("google_places_not_configured")
+  GOOGLE_PLACES_NOT_CONFIGURED("google_places_not_configured"),
+  @SerialName("google_places_failed")
+  GOOGLE_PLACES_FAILED("google_places_failed"),
   ;
 
   override fun toString(): String = value

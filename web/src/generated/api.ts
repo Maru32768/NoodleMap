@@ -20,6 +20,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/google-places/autocomplete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Admin-only Google Places (New) autocomplete proxy. A blank query returns no suggestions. */
+        get: operations["googlePlacesAutocomplete"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/google-places/details": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Admin-only Google Places (New) place details proxy. */
+        get: operations["googlePlacesDetails"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/logout": {
         parameters: {
             query?: never;
@@ -175,7 +209,7 @@ export interface components {
         /** @enum {string} */
         CategorySlug: "ramen" | "udon";
         /** @enum {string} */
-        ErrorType: "invalid_request" | "authentication_required" | "permission_denied" | "google_auth_failed" | "session_creation_failed" | "internal_error";
+        ErrorType: "invalid_request" | "authentication_required" | "permission_denied" | "google_auth_failed" | "session_creation_failed" | "internal_error" | "google_places_not_configured" | "google_places_failed";
         /** @enum {string} */
         FieldErrorType: "required" | "invalid_format" | "out_of_range" | "too_long" | "duplicate" | "unknown";
         GoogleAuthBadRequestErrorBody: {
@@ -194,6 +228,18 @@ export interface components {
         GoogleAuthRequest: {
             credential: string;
         };
+        /** @description The Google Places API request failed or returned an unusable response. */
+        GooglePlacesFailedErrorBody: {
+            /** @enum {string} */
+            type: "google_places_failed";
+            message?: string;
+        };
+        /** @description The server has no Google Places API key configured. */
+        GooglePlacesNotConfiguredErrorBody: {
+            /** @enum {string} */
+            type: "google_places_not_configured";
+            message?: string;
+        };
         InternalErrorBody: {
             /** @enum {string} */
             type: "internal_error";
@@ -208,6 +254,27 @@ export interface components {
             /** @enum {string} */
             type: "permission_denied";
             message?: string;
+        };
+        PlaceDetails: {
+            placeId: string;
+            name: string;
+            postalCode: string;
+            /** @description Formatted address without the leading country name and postal code. */
+            address: string;
+            /** Format: double */
+            lat: number;
+            /** Format: double */
+            lng: number;
+            /** @description True when Google reports the place as permanently closed. */
+            closed: boolean;
+        };
+        PlaceSuggestion: {
+            placeId: string;
+            mainText: string;
+            secondaryText?: string;
+        };
+        PlaceSuggestionsResponse: {
+            suggestions: components["schemas"]["PlaceSuggestion"][];
         };
         SaveTagsRequest: {
             tags: components["schemas"]["TagInput"][];
@@ -364,6 +431,162 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SessionCreationFailedErrorBody"];
+                };
+            };
+        };
+    };
+    googlePlacesAutocomplete: {
+        parameters: {
+            query: {
+                q: string;
+                /** @description Client-generated token grouping an autocomplete session with its details call for billing. */
+                sessionToken: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlaceSuggestionsResponse"];
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvalidRequestErrorBody"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthenticationRequiredErrorBody"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PermissionDeniedErrorBody"];
+                };
+            };
+            /** @description Server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InternalErrorBody"];
+                };
+            };
+            /** @description Server error */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GooglePlacesFailedErrorBody"];
+                };
+            };
+            /** @description Service unavailable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GooglePlacesNotConfiguredErrorBody"];
+                };
+            };
+        };
+    };
+    googlePlacesDetails: {
+        parameters: {
+            query: {
+                placeId: string;
+                /** @description The token used by the autocomplete session this selection ends. */
+                sessionToken: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlaceDetails"];
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvalidRequestErrorBody"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthenticationRequiredErrorBody"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PermissionDeniedErrorBody"];
+                };
+            };
+            /** @description Server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InternalErrorBody"];
+                };
+            };
+            /** @description Server error */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GooglePlacesFailedErrorBody"];
+                };
+            };
+            /** @description Service unavailable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GooglePlacesNotConfiguredErrorBody"];
                 };
             };
         };

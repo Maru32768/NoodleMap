@@ -68,7 +68,7 @@ test("admin adds a shop by typing its details into the add form", async ({ page,
   const name = `${uid()} 手入力で追加`;
   await openAdmin(page);
 
-  // Google is blocked, so the Google Place search pane shows its fallback; the form still works.
+  // The E2E backend has no Places key, so the Google Place search is unavailable; the form still works.
   await page.getByRole("button", { name: "店舗追加" }).click();
   await page.getByRole("button", { name: /Googleで検索して追加/ }).click();
   const dialog = page.getByRole("dialog").filter({ hasText: "新しい店舗を追加" });
@@ -84,19 +84,60 @@ test("admin adds a shop by typing its details into the add form", async ({ page,
   expect(added).toMatchObject({ category: "udon", lat: 35.6812, lng: 139.7671, eaten: false });
 });
 
-test("admin page works when the Google Maps JS cannot load", async ({ page, api }) => {
-  const id = uid();
-  const shop = await api.createShop({ name: `${id} Maps なしで表示` });
-  await page.route(/maps\.googleapis\.com/, (route) => route.abort("blockedbyclient"));
+test("add form falls back to manual entry when Google Places is not configured", async ({ page }) => {
+  // No route stub: the E2E backend runs without GOOGLE_PLACES_API_KEY and answers 503.
   await openAdmin(page);
-
-  await page.getByPlaceholder("店名・読み・住所・タグで絞り込み...").filter({ visible: true }).fill(id);
-  await expect(page.getByRole("row").filter({ hasText: shop.name })).toHaveCount(1);
   await page.getByRole("button", { name: "店舗追加" }).click();
   await page.getByRole("button", { name: /Googleで検索して追加/ }).click();
+  const dialog = page.getByRole("dialog").filter({ hasText: "新しい店舗を追加" });
+  await dialog.getByRole("combobox", { name: "Google Place を検索" }).fill("ラーメン");
+
   await expect(
-    page.getByRole("dialog").getByText("Google マップを読み込めませんでした", { exact: false }),
+    dialog.getByText("Google Place 検索を利用できません。店舗情報はフォームに直接入力できます。"),
   ).toBeVisible();
+  const name = dialog.locator('label:has-text("店名") + input');
+  await name.fill("手入力できる");
+  await expect(name).toHaveValue("手入力できる");
+});
+
+test("admin fills the add form from a Google Place search", async ({ page }) => {
+  const sessionTokens: string[] = [];
+  await page.route("**/api/v1/auth/google-places/autocomplete?*", (route) => {
+    sessionTokens.push(new URL(route.request().url()).searchParams.get("sessionToken") ?? "");
+    return route.fulfill({
+      json: { suggestions: [{ placeId: "e2e-place", mainText: "麺屋テスト", secondaryText: "東京都千代田区" }] },
+    });
+  });
+  await page.route("**/api/v1/auth/google-places/details?*", (route) => {
+    sessionTokens.push(new URL(route.request().url()).searchParams.get("sessionToken") ?? "");
+    return route.fulfill({
+      json: {
+        placeId: "e2e-place",
+        name: "麺屋テスト",
+        postalCode: "100-0005",
+        address: "東京都千代田区丸の内１丁目",
+        lat: 35.6812,
+        lng: 139.7671,
+        closed: false,
+      },
+    });
+  });
+  await openAdmin(page);
+  await page.getByRole("button", { name: "店舗追加" }).click();
+  await page.getByRole("button", { name: /Googleで検索して追加/ }).click();
+  const dialog = page.getByRole("dialog").filter({ hasText: "新しい店舗を追加" });
+
+  await dialog.getByRole("combobox", { name: "Google Place を検索" }).fill("麺屋");
+  await dialog.getByText("麺屋テスト 東京都千代田区").click();
+
+  await expect(dialog.locator('label:has-text("店名") + input')).toHaveValue("麺屋テスト");
+  await expect(dialog.locator('label:has-text("住所") + input')).toHaveValue("東京都千代田区丸の内１丁目");
+  await expect(dialog.locator('label:has-text("郵便番号") + input')).toHaveValue("100-0005");
+  await expect(dialog.locator('label:has-text("Google Place ID") + input')).toHaveValue("e2e-place");
+  await expect(dialog.locator('label:has-text("緯度") + input')).toHaveValue("35.6812");
+  // The details call closes the autocomplete billing session it belongs to.
+  expect(new Set(sessionTokens).size).toBe(1);
+  expect(sessionTokens[0]).not.toBe("");
 });
 
 test("admin adds a shop by dropping a pin on the map", async ({ page }) => {
