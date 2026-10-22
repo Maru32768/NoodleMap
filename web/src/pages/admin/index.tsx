@@ -1,11 +1,15 @@
 import { Button } from "@/components/ui/button.tsx";
 import { toaster } from "@/components/ui/toaster.tsx";
 import { AddDraft, AddModal } from "@/features/admin/add-modal.tsx";
-import { AdminFilters, VisitFilter } from "@/features/admin/admin-filters.tsx";
+import { AdminFilters } from "@/features/admin/admin-filters.tsx";
 import { AdminMap } from "@/features/admin/admin-map.tsx";
 import { AdminTable } from "@/features/admin/admin-table.tsx";
 import { MobileShopList } from "@/features/admin/mobile-shop-list.tsx";
 import { TagManagementModal } from "@/features/admin/tag-management-modal.tsx";
+import {
+  matchesVisitFilter,
+  VisitFilter,
+} from "@/features/admin/visit-filter.ts";
 import { AccountLink } from "@/features/auth/account-link.tsx";
 import { CategoryType, createQueryMatcher } from "@/features/search/utils.ts";
 import {
@@ -166,16 +170,7 @@ export default function AdminPage() {
           return false;
         }
       }
-      if (visitFilter === "eaten") {
-        return shop.eaten && shop.lifecycleStatus !== "closed";
-      }
-      if (visitFilter === "wish") {
-        return !shop.eaten && shop.lifecycleStatus !== "closed";
-      }
-      if (visitFilter === "closed") {
-        return shop.lifecycleStatus !== "closed";
-      }
-      return true;
+      return matchesVisitFilter(shop, visitFilter);
     }) ?? [];
 
   // Counts stay undefined until the shops load so the UI shows a placeholder, not 0.
