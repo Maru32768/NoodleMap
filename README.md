@@ -78,6 +78,10 @@ The backend now authenticates exclusively via Google Sign-In, so the following v
 - `VITE_GOOGLE_OAUTH_CLIENT_ID` (frontend) — same value as above; the Sign-In button does not render without it.
 - `ADMIN_EMAIL` (server) — Google account email that should receive admin rights. Without it, **no user can access `/admin`**. The first Google login from this address provisions the admin account.
 
+Optional:
+
+- `GOOGLE_PLACES_API_KEY` (server) — Places API (New) key for the admin add form's Google Place search. Without it, the search shows a fallback and shop details are entered by hand.
+
 ## API Contract Flow
 
 ```mermaid

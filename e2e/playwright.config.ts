@@ -70,6 +70,8 @@ export default defineConfig({
         AUTH_COOKIE_SECURE: "false",
         BACKUP_PATH: `${DB_PATH}.bak`,
         S3_BUCKET: "",
+        // No Places key: the add form's Google Place search shows its manual-entry fallback.
+        GOOGLE_PLACES_API_KEY: "",
       },
     },
     {

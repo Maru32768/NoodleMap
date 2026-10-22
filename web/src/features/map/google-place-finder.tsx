@@ -1,4 +1,5 @@
 import { Map, MapHandle } from "@/features/map/map.tsx";
+import { DEFAULT_MAP_VIEW } from "@/features/search/search-state-storage.ts";
 import type { Shop } from "@/features/shops/api/use-shops.ts";
 import type { components } from "@/generated/api.ts";
 import {
@@ -21,7 +22,6 @@ type PlaceSuggestion = components["schemas"]["PlaceSuggestion"];
 const AUTOCOMPLETE = "/api/v1/auth/google-places/autocomplete";
 const DETAILS = "/api/v1/auth/google-places/details";
 
-const PREVIEW_CENTER: [number, number] = [35.6895315, 139.700492];
 const NO_SHOPS: Shop[] = [];
 const noop = () => {};
 
@@ -55,13 +55,27 @@ function fetchDetails(placeId: string, sessionToken: string) {
   );
 }
 
+// randomUUID needs a secure context (e.g. not plain-HTTP LAN dev); fall back to random hex there.
+function newSessionToken(): string {
+  return (
+    crypto.randomUUID?.() ??
+    Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) =>
+      b.toString(16).padStart(2, "0"),
+    ).join("")
+  );
+}
+
 interface Props {
   onSelect: (res: FindResult) => void;
 }
 
 export function GooglePlaceFinder({ onSelect }: Props) {
   // Groups the autocomplete calls and the closing details call into one Google billing session.
-  const sessionTokenRef = useRef(crypto.randomUUID());
+  const [initialSessionToken] = useState(newSessionToken);
+  const sessionTokenRef = useRef(initialSessionToken);
+  // Only the latest request may update state, so slow stale responses are dropped.
+  const latestQueryRef = useRef(0);
+  const latestSelectionRef = useRef(0);
   const mapRef = useRef<MapHandle>(null);
   const [inputText, setInputText] = useState("");
   const [isSelectMenuOpen, setIsSelectMenuOpen] = useState(false);
@@ -86,7 +100,11 @@ export function GooglePlaceFinder({ onSelect }: Props) {
   };
 
   const querySuggestions = useDebouncedCallback(async (input: string) => {
+    const query = ++latestQueryRef.current;
     const res = await fetchSuggestions(input, sessionTokenRef.current);
+    if (query !== latestQueryRef.current) {
+      return;
+    }
     setIsLoading(false);
     if (!res.ok) {
       handleError(res.error);
@@ -96,9 +114,14 @@ export function GooglePlaceFinder({ onSelect }: Props) {
   }, 200);
 
   const selectPlace = async (placeId: string) => {
-    const res = await fetchDetails(placeId, sessionTokenRef.current);
+    const selection = ++latestSelectionRef.current;
     // A details call ends the session; the next search starts a new one.
-    sessionTokenRef.current = crypto.randomUUID();
+    const sessionToken = sessionTokenRef.current;
+    sessionTokenRef.current = newSessionToken();
+    const res = await fetchDetails(placeId, sessionToken);
+    if (selection !== latestSelectionRef.current) {
+      return;
+    }
     if (!res.ok) {
       handleError(res.error);
       return;
@@ -120,6 +143,8 @@ export function GooglePlaceFinder({ onSelect }: Props) {
           aria-label="Google Place を検索"
           isLoading={isLoading}
           options={options}
+          // Google already matched these; react-select's text filter would hide valid hits.
+          filterOption={null}
           value={selectedOption}
           onChange={(x) => {
             setSelectedPlaceId(x?.value);
@@ -147,7 +172,7 @@ export function GooglePlaceFinder({ onSelect }: Props) {
       <Box flex="1" minH="200px">
         <Map
           ref={mapRef}
-          initialCenter={PREVIEW_CENTER}
+          initialCenter={DEFAULT_MAP_VIEW.center}
           initialZoom={16}
           shops={NO_SHOPS}
           selectedId={null}
