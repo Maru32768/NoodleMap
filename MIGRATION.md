@@ -17,7 +17,7 @@ toward that, it's not worth the churn.
 | API contract | **TypeSpec stays source of truth.** `Fabrikt` generates kotlinx.serialization models (`ENFORCE_*` nullability on, sealed interfaces for `oneOf`) **and** Ktor server interfaces. Implementations hand-written. **Generated Kotlin is committed.** |
 | Errors | Sealed `DomainException` hierarchy; **each error owns its `status` / `type` / `fieldErrors`**, rendered generically in `StatusPages`. Collapses the three Go `switch errors.Is` blocks into one. Malformed JSON → generic `invalid_request`. |
 | Persistence | **SQLDelight** (the sqlc twin) over `sqlite-jdbc` (xerial). |
-| SQLite access | **Mirror Go**: WAL + `busy_timeout=5000` + `foreign_keys=ON` via Hikari `connectionInitSql`; modest pool (max 4–8). Drop to pool max=1 if `SQLITE_BUSY` appears. |
+| SQLite access | **Mirror Go**: WAL + `busy_timeout=5000` + `foreign_keys=ON` as sqlite-jdbc `SQLiteConfig` driver properties, applied to every pooled connection (not Hikari `connectionInitSql`: sqlite-jdbc runs only its first statement); modest pool (max 4–8). Drop to pool max=1 if `SQLITE_BUSY` appears. |
 | Migrations | **goose-format SQL files** in `server-kt/src/main/resources/db/migrations`, applied at startup by a small runner (`db/Migrations.kt`) that tracks them in goose's own `goose_db_version` table. The prod DB needs no reconciliation, and fresh DBs match prod exactly (modtime triggers included). Not SQLDelight `.sqm`, because SQLDelight's dialect can't parse the prod triggers. |
 | Auth — sessions | Keep opaque-token-in-DB model via a **custom Ktor `Authentication` provider** (not Ktor's cookie-Sessions plugin — preserves server-side revocation). |
 | Auth — Google | Replace the ~220-line hand-rolled JWKS/JWT verifier with **`google-auth-library`'s `GoogleIdTokenVerifier`** + explicit `email_verified` check. |
@@ -66,7 +66,7 @@ and `/auth/logout` requires a valid session. Admin gate (`isAdmin`) applies to
 - [ ] No-cache on every response: `Cache-Control: no-store`, `Pragma: no-cache`, `Expires: 0`.
 - [ ] `GET /health` → `200 "ok"`.
 - [ ] UUIDs stored lowercase (`UUID.toString()`); seed/import paths lowercase.
-- [ ] `foreign_keys=ON` on every pooled connection.
+- [x] `foreign_keys=ON` on every pooled connection (`DatabaseTest`).
 - [ ] `User` JSON shape `{ id, email, isAdmin }`.
 - [ ] Request-scoped user via call attributes (was gin context key `"user"`).
 - [ ] No CORS today (same-origin via `/api/*` rewrite). **Revisit at Fly.io move** if frontend calls backend cross-origin.

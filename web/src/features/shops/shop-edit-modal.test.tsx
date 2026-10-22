@@ -419,6 +419,21 @@ describe("ShopEditModal links", () => {
     expect(requests[0].googlePlaceId).toBe("place-2");
   });
 
+  it("saves a shop that has no Google Place ID", async () => {
+    const { requests, onClose } = renderEditor(
+      makeShop({ name: "手入力の店", googlePlaceId: undefined }),
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "保存" }));
+
+    expect(await screen.findByText("保存しました")).toBeInTheDocument();
+    expect(onClose).toHaveBeenCalled();
+    expect(requests[0]).toMatchObject({
+      name: "手入力の店",
+      googlePlaceId: "",
+    });
+  });
+
   it("sends a blank Google Place ID to clear an existing one", async () => {
     const { requests } = renderEditor(makeShop({ googlePlaceId: "place-1" }));
 

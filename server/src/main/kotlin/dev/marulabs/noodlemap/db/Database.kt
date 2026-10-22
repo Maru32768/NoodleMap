@@ -68,19 +68,24 @@ fun buildDatabase(dataSource: DataSource): NoodleMapDb {
     )
 }
 
+private const val VIOLATION_ROWIDS_LOGGED = 5
+
 /**
- * Logs rows whose foreign key points at nothing. Enforcement used to be silently off, so an
- * existing database may hold such orphans; they are reported rather than failing boot.
+ * Logs one WARN summarising rows whose foreign key points at nothing, per table. Enforcement
+ * used to be silently off, so an existing database may hold such orphans; they are reported,
+ * never deleted, and do not fail boot.
  */
 private fun warnForeignKeyViolations(conn: Connection) {
+    val rowIdsByTable = linkedMapOf<String, MutableList<Long>>()
     conn.createStatement().use { st ->
         st.executeQuery("PRAGMA foreign_key_check").use { rs ->
-            while (rs.next()) {
-                log.warn(
-                    "foreign key violation: {} rowid {} references a missing {} row",
-                    rs.getString("table"), rs.getLong("rowid"), rs.getString("parent"),
-                )
-            }
+            while (rs.next()) rowIdsByTable.getOrPut(rs.getString("table")) { mutableListOf() } += rs.getLong("rowid")
         }
     }
+    if (rowIdsByTable.isEmpty()) return
+    val summary = rowIdsByTable.entries.joinToString("; ") { (table, rowIds) ->
+        val shown = rowIds.take(VIOLATION_ROWIDS_LOGGED).joinToString(", ")
+        "$table: ${rowIds.size} (rowid $shown${if (rowIds.size > VIOLATION_ROWIDS_LOGGED) ", ..." else ""})"
+    }
+    log.warn("foreign key violations (rows referencing missing parents, left in place): {}", summary)
 }

@@ -109,7 +109,9 @@ class MigrationsTest {
                         ('s1', 'with-place', 1, 2, '100', 'a', 'p1', 'かな', '2024-01-01'),
                         ('s2', 'manual', 3, 4, '200', 'b', '', NULL, NULL),
                         ('s5', 'manual-padded', 0, 0, '', '', '  ', NULL, NULL),
-                        ('s6', 'padded-place', 0, 0, '', '', ' p2 ', NULL, NULL)
+                        ('s6', 'padded-place', 0, 0, '', '', ' p2 ', NULL, NULL),
+                        ('s7', 'manual-whitespace', 0, 0, '', '', char(9, 10, 13, 160, 12288, 32), NULL, NULL),
+                        ('s8', 'tab-padded-place', 0, 0, '', '', char(9) || 'p3' || char(12288), NULL, NULL)
                     """.trimIndent(),
                 )
                 st.executeUpdate("INSERT INTO shops_tags (id, shop_id, tag_id) VALUES ('st1', 's1', '018ff6e8-5291-7a01-9ab8-000000000001')")
@@ -122,7 +124,7 @@ class MigrationsTest {
 
             conn.strings(
                 "SELECT id || '|' || ifnull(google_place_id, 'NULL') || '|' || ifnull(name_kana, '') || '|' || ifnull(closed_at, '') FROM shops ORDER BY id",
-            ) shouldBe listOf("s1|p1|かな|2024-01-01", "s2|NULL||", "s5|NULL||", "s6| p2 ||")
+            ) shouldBe listOf("s1|p1|かな|2024-01-01", "s2|NULL||", "s5|NULL||", "s6| p2 ||", "s7|NULL||", "s8|\tp3　||")
             conn.strings("SELECT id FROM shops_tags") shouldBe listOf("st1")
             conn.strings("SELECT id FROM shop_links") shouldBe listOf("l1")
             conn.strings("SELECT id FROM eaten_shops") shouldBe listOf("e1")
