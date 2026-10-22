@@ -108,6 +108,7 @@ class ShopHandler(
         if (!user.isAdmin) throw DomainException.PermissionDenied()
 
         val req = updateShopRequest
+        if (req.rate !in 0.0..100.0) throw DomainException.ShopRateOutOfRange()
         db.transaction {
             rejectingDuplicatePlaceId {
                 db.shopsQueries.updateShop(

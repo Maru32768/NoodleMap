@@ -170,6 +170,24 @@ class ShopApiTest {
     }
 
     @Test
+    fun `update rejects a rate outside 0 to 100`() = testApp { t ->
+        val admin = t.adminToken()
+        val req = addShopRequest()
+        val id = client.postJson("/api/v1/auth/shops", encode(req), admin).body<Shop>().id
+        val rateOutOfRange = ErrorBody(ErrorType.INVALID_REQUEST, "rate out of range", listOf(FieldError("rate", FieldErrorType.OUT_OF_RANGE)))
+
+        for (rate in listOf(-0.5, 100.5)) {
+            val res = client.putJson("/api/v1/auth/shops/$id", encode(req.toUpdate(eaten = true, rate = rate)), admin)
+            res.status shouldBe HttpStatusCode.BadRequest
+            res.body<ErrorBody>() shouldBe rateOutOfRange
+        }
+        client.shops().single().eaten shouldBe false
+
+        client.putJson("/api/v1/auth/shops/$id", encode(req.toUpdate(eaten = true, rate = 100.0)), admin)
+            .status shouldBe HttpStatusCode.OK
+    }
+
+    @Test
     fun `update checks authentication, then the id, then admin`() = testApp { t ->
         val body = encode(addShopRequest().toUpdate())
         val validId = UUID.randomUUID()
