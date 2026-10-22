@@ -44,6 +44,24 @@ test("admin edits a shop's tags, visit status and rating", async ({ page, api })
   await expect(dialog.getByRole("spinbutton")).toHaveValue("60");
 });
 
+test("admin deletes a shop from the edit modal", async ({ page, api }) => {
+  const id = uid();
+  const shop = await api.createShop({ name: `${id} 削除する店`, eaten: true, rate: 50 });
+
+  await openAdmin(page);
+  const dialog = await openEditModal(page, shop.name, id);
+  await dialog.getByRole("button", { name: "削除", exact: true }).click();
+  const confirm = page
+    .getByRole("dialog")
+    .filter({ hasText: `「${shop.name}」を削除しますか？この操作は取り消せません。` });
+  await confirm.getByRole("button", { name: "削除", exact: true }).click();
+
+  await expect(page.getByText("店舗を削除しました")).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByRole("row").filter({ hasText: shop.name })).toHaveCount(0);
+  expect((await api.listShops()).map((s) => s.id)).not.toContain(shop.id);
+});
+
 test("admin adds a tag in tag management", async ({ page, api }) => {
   const id = uid();
   await openAdmin(page);
