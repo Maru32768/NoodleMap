@@ -42,9 +42,16 @@ class ConfigTest {
 
         cfg.ogR2 shouldBe Config.OgR2Config("og", "https://acct.r2.cloudflarestorage.com", "kid", "r2-secret", "https://og.example")
         cfg.toString() shouldNotContain "r2-secret"
-        shouldThrow<IllegalStateException> { load(*r2.dropLast(1).toTypedArray()) }.message shouldContain "OG_R2_PUBLIC_BASE_URL"
+        load(*r2, "OG_R2_ENDPOINT" to "https://acct.r2.cloudflarestorage.com/").ogR2?.endpoint shouldBe
+            "https://acct.r2.cloudflarestorage.com"
+        shouldThrow<IllegalStateException> { load(*r2.drop(1).dropLast(1).toTypedArray()) }.message.let {
+            it shouldContain "missing: OG_R2_BUCKET, OG_R2_PUBLIC_BASE_URL"
+            it shouldNotContain "OG_R2_ENDPOINT"
+        }
         shouldThrow<IllegalStateException> { load(*r2, "OG_R2_ENDPOINT" to "acct.r2.cloudflarestorage.com") }
             .message shouldContain "OG_R2_ENDPOINT"
+        shouldThrow<IllegalStateException> { load(*r2, "OG_R2_ENDPOINT" to "https://acct.r2.cloudflarestorage.com/og") }
+            .message shouldContain "OG_R2_ENDPOINT must be the account endpoint without a path"
         shouldThrow<IllegalStateException> { load(*r2, "OG_R2_PUBLIC_BASE_URL" to "ftp://og.example") }
             .message shouldContain "OG_R2_PUBLIC_BASE_URL"
     }

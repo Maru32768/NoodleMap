@@ -83,9 +83,10 @@ data class Config(
             val r2 = r2Keys.map { env(it)?.trim().orEmpty() }
             val ogR2 = when {
                 r2.all { it.isEmpty() } -> null
-                r2.any { it.isEmpty() } -> error("${r2Keys.joinToString()} must be set together")
+                r2.any { it.isEmpty() } ->
+                    error("Set all OG_R2_* variables or none; missing: ${r2Keys.filterIndexed { i, _ -> r2[i].isEmpty() }.joinToString()}")
                 else -> OgR2Config(
-                    r2[0], httpUrl("OG_R2_ENDPOINT", r2[1]), r2[2], r2[3], httpUrl("OG_R2_PUBLIC_BASE_URL", r2[4].trimEnd('/')),
+                    r2[0], r2Endpoint(r2[1]), r2[2], r2[3], httpUrl("OG_R2_PUBLIC_BASE_URL", r2[4].trimEnd('/')),
                 )
             }
             if (ogR2 == null) log.info("OG_R2_* not set; OGP images are rendered on every request")
@@ -118,6 +119,15 @@ data class Config(
                 error("$key must be an absolute http(s) URL: $value")
             }
             return value
+        }
+
+        /** The account-level S3 endpoint; the dashboard's bucket-suffixed URL would double the bucket in every key. */
+        private fun r2Endpoint(value: String): String {
+            val endpoint = httpUrl("OG_R2_ENDPOINT", value.trimEnd('/'))
+            if (!URI(endpoint).rawPath.isNullOrEmpty()) {
+                error("OG_R2_ENDPOINT must be the account endpoint without a path (https://<account_id>.r2.cloudflarestorage.com): $value")
+            }
+            return endpoint
         }
     }
 }

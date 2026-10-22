@@ -5,9 +5,10 @@ import dev.marulabs.noodlemap.generated.models.Shop
 import java.security.MessageDigest
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
+import kotlin.math.floor
 
 /** Bump whenever the image layout changes, so every OGP image URL changes with it. */
-private const val TEMPLATE_VERSION = 2
+private const val TEMPLATE_VERSION = 3
 
 /** A pill label with its background color (`#rrggbb`). */
 data class Chip(val label: String, val color: String)
@@ -21,7 +22,7 @@ data class OgCard(
     val category: String,
     val statuses: List<Chip>,
     val tags: List<Chip>,
-    /** 0-5 like the web's favToHearts; 0 draws nothing. */
+    /** 0-5 in half steps (the web's favToHearts as drawn); 0 draws nothing. */
     val hearts: Double,
     val area: String,
 ) {
@@ -50,11 +51,15 @@ data class OgCard(
     companion object {
         fun of(shop: Shop, today: LocalDate) = OgCard(
             name = shop.name,
-            category = if (shop.category == CategorySlug.UDON) "うどん" else "ラーメン",
+            category = when (shop.category) {
+                CategorySlug.RAMEN -> "ラーメン"
+                CategorySlug.UDON -> "うどん"
+            },
             statuses = listOf(if (shop.eaten) Chip("食べた", "#b54a3c") else Chip("気になる", "#6b5e52")) +
                 lifecycleChips(shop.openedAt, shop.closedAt, today),
             tags = shop.tags.take(3).map { Chip(it.label, it.color) },
-            hearts = if (shop.rate > 0) minOf(5.0, shop.rate / 20) else 0.0,
+            // Down to the half heart the image can show, so rates drawn alike share one hash.
+            hearts = if (shop.rate > 0) floor(minOf(5.0, shop.rate / 20) * 2) / 2 else 0.0,
             area = areaOf(shop.address),
         )
     }
@@ -83,7 +88,8 @@ internal fun lifecycleChips(openedAt: String?, closedAt: String?, today: LocalDa
 private fun name(except: String = "") = """[^\s\d０-９、,，〒\-－‐−$except]"""
 
 // Tried in order after the prefecture:
-//  1. 郡 + 町村, with no 市 inside (so 大和郡山市 is not read as a 郡);
+//  1. 郡 + 町村 (余市郡余市町, 中新川郡上市町, 芳賀郡市貝町); the town may hold 市 only first or last before
+//     its 町/村, so a city such as 大和郡山市 is not read as a 郡;
 //  2. a city up to its first 市 (東村山市, 十日町市), never across a 区 (新宿区市谷), plus a designated city's ward;
 //     cities whose name already contains 市 are listed;
 //  3. a ward with no city before it (東京23区);
@@ -91,8 +97,8 @@ private fun name(except: String = "") = """[^\s\d０-９、,，〒\-－‐−$ex
 // shortcut: a town/village name containing 町 or 村 before its end (大町町) is cut short when the address omits its 郡.
 private val AREA = Regex(
     "(東京都|北海道|(?:京都|大阪)府|${name()}{2,3}県)(" +
-        "${name("市")}+?郡${name("市")}+?[町村]" +
-        "|(?:四日市|廿日市|野々市|${name("区")}+?)市(?:${name("町村市")}{1,4}区)?" +
+        "${name("郡区")}+?郡(?:市${name("市郡")}*?|${name("市郡")}+?)市?[町村]" +
+        "|(?:四日市|廿日市|野々市|${name("区")}+?)市(?:${name("市")}{1,4}区)?" +
         "|${name()}+?区" +
         "|${name()}+?[町村])",
 )

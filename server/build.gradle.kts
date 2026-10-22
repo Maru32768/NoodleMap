@@ -27,7 +27,6 @@ dependencies {
     implementation(libs.ktor.serialization.json)
     implementation(libs.ktor.server.status.pages)
     implementation(libs.ktor.server.call.logging)
-    implementation(libs.ktor.server.auto.head.response)
     implementation(libs.ktor.server.auth)
 
     implementation(libs.kotlinx.serialization.json)

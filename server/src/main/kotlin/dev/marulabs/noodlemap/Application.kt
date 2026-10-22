@@ -3,7 +3,6 @@ package dev.marulabs.noodlemap
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationStopped
-import io.ktor.server.plugins.autohead.AutoHeadResponse
 import javax.imageio.ImageIO
 import io.ktor.server.application.install
 import io.ktor.server.engine.embeddedServer
@@ -79,8 +78,6 @@ fun Application.installApp(
         json(Json { ignoreUnknownKeys = true })
     }
     install(CallLogging)
-    // Crawlers probe share pages and OGP images with HEAD.
-    install(AutoHeadResponse)
     install(NoCache)
     installStatusPages()
 

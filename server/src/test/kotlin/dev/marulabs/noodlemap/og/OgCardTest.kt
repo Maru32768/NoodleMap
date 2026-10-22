@@ -40,6 +40,8 @@ class OgCardTest {
         hash(shop).length shouldBe 16
         // Inputs the image does not show do not change it.
         hash(shop) shouldBe hash(shop.copy(lat = 1.0, nameKana = "めんや", postalCode = "000-0000", address = "東京都新宿区歌舞伎町"))
+        // Rates drawn with the same hearts (70 and 79 are both 3.5) keep the hash.
+        hash(shop) shouldBe hash(shop.copy(rate = 79.0))
         // A later day with the same derived statuses keeps the hash.
         hash(shop, today.plusDays(30)) shouldBe hash(shop)
     }
@@ -108,6 +110,11 @@ class OgCardTest {
             "千葉県市川市市川1-1-1" to "千葉県市川市",
             "宮城県柴田郡村田町村田" to "宮城県柴田郡村田町",
             "北海道ニセコ町富士見" to "北海道ニセコ町",
+            "北海道余市郡余市町黒川町1-1" to "北海道余市郡余市町",
+            "富山県中新川郡上市町法音寺1" to "富山県中新川郡上市町",
+            "栃木県芳賀郡市貝町市塙1280" to "栃木県芳賀郡市貝町",
+            "奈良県大和郡山市筒井町800" to "奈良県大和郡山市",
+            "愛知県名古屋市中村区名駅1-1-4" to "愛知県名古屋市中村区",
             "Tokyo" to "",
             "" to "",
         ).forEach { (address, area) -> areaOf(address) shouldBe area }

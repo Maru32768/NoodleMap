@@ -29,7 +29,12 @@ import java.io.ByteArrayInputStream
 import java.net.InetSocketAddress
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 import javax.imageio.ImageIO
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 
@@ -40,11 +45,14 @@ class OgApiTest {
         val objects = ConcurrentHashMap<String, ByteArray>()
         val requests = CopyOnWriteArrayList<String>()
         @Volatile var fail = false
+        @Volatile var headDelayMs = 0L
 
         private val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0).apply {
+            executor = Executors.newCachedThreadPool()
             createContext("/") { ex ->
                 val path = ex.requestURI.path
                 requests += "${ex.requestMethod} $path"
+                if (ex.requestMethod == "HEAD") Thread.sleep(headDelayMs)
                 val body = ex.requestBody.readBytes()
                 val status = when {
                     fail -> 500
@@ -65,7 +73,10 @@ class OgApiTest {
             ),
         )
 
-        fun stop() = server.stop(0)
+        fun stop() {
+            server.stop(0)
+            (server.executor as ExecutorService).shutdownNow()
+        }
     }
 
     private val s3 = FakeS3()
@@ -144,14 +155,50 @@ class OgApiTest {
     }
 
     @Test
-    fun `share page and image answer HEAD`() = testApp { t ->
+    fun `share page and image answer HEAD, and image HEAD never renders`() = testApp(ogMaxPendingRenders = 0) { t ->
         val shop = addShop("醤油", t.adminToken())
-        noRedirects().head("/r/${shop.id}").status shouldBe HttpStatusCode.OK
+        noRedirects().head("/r/${shop.id}").let {
+            it.status shouldBe HttpStatusCode.OK
+            it.contentType()?.withoutParameters() shouldBe ContentType.Text.Html
+            it.headers[HttpHeaders.ContentLength]!!.toLong() shouldBe client.get("/r/${shop.id}").readRawBytes().size.toLong()
+        }
+        noRedirects().head("/r/not-a-uuid").headers[HttpHeaders.Location] shouldBe "/search"
+        // A render here would answer 503 (no render slots).
         client.head(client.imagePath(shop.id)).let {
             it.status shouldBe HttpStatusCode.OK
             it.contentType() shouldBe ContentType.Image.PNG
+            it.headers.getAll(HttpHeaders.CacheControl) shouldBe listOf("public, max-age=31536000, immutable")
         }
     }
+
+    @Test
+    fun `image HEAD with R2 redirects to a stored image and otherwise does not upload`() = testApp(ogStore = store) { t ->
+        val shop = addShop("塩", t.adminToken())
+        val path = client.imagePath(shop.id)
+        val key = "og/shops/${shop.id}/${path.substringAfterLast('/')}"
+
+        noRedirects().head(path).status shouldBe HttpStatusCode.OK
+        s3.requests shouldContainExactly listOf("HEAD /og/$key")
+
+        s3.objects["/og/$key"] = byteArrayOf(1)
+        noRedirects().head(path).headers[HttpHeaders.Location] shouldBe "https://og.example/$key"
+    }
+
+    @Test
+    fun `concurrent requests for a new image share one render and one upload`() =
+        testApp(ogStore = store, ogMaxPendingRenders = 1) { t ->
+            val shop = addShop("行列", t.adminToken())
+            val path = client.imagePath(shop.id)
+            val key = "og/shops/${shop.id}/${path.substringAfterLast('/')}"
+            // Slow lookups make every request miss together and reach the render at once.
+            s3.headDelayMs = 300
+
+            val client = noRedirects()
+            val responses = coroutineScope { List(5) { async { client.get(path) } }.awaitAll() }
+
+            responses.map { it.status } shouldBe List(5) { HttpStatusCode.Found }
+            s3.requests.count { it == "PUT /og/$key" } shouldBe 1
+        }
 
     @Test
     fun `stale image hash redirects to the current image and errors are not cached`() = testApp { t ->
