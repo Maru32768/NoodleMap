@@ -1,3 +1,4 @@
+import { toaster } from "@/components/ui/toaster.tsx";
 import { ShopEditModal } from "@/features/shops/shop-edit-modal.tsx";
 import { makeShop } from "@/test/fixtures.ts";
 import { renderWithProviders } from "@/test/render.tsx";
@@ -5,7 +6,7 @@ import { server } from "@/test/server.ts";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 const shop = makeShop({ name: "中華そば 青葉" });
 
@@ -39,6 +40,9 @@ async function confirmDelete() {
 }
 
 describe("ShopEditModal delete", () => {
+  // The toaster store is global; clear it so one test's toast never leaks into the next.
+  afterEach(() => toaster.remove());
+
   it("deletes the shop after confirmation and closes", async () => {
     const { onClose, onDeleted } = renderModal(
       () => new HttpResponse(null, { status: 204 }),
@@ -58,10 +62,7 @@ describe("ShopEditModal delete", () => {
 
     await confirmDelete();
 
-    // The toaster store is global, so the previous test's toast may still be shown.
-    expect(await screen.findAllByText("店舗を削除しました")).not.toHaveLength(
-      0,
-    );
+    expect(await screen.findByText("店舗を削除しました")).toBeInTheDocument();
     expect(onDeleted).toHaveBeenCalledWith(shop.id);
     expect(onClose).toHaveBeenCalled();
   });
@@ -74,7 +75,7 @@ describe("ShopEditModal delete", () => {
     await confirmDelete();
 
     expect(
-      await screen.findByText("この操作を行う権限がありません"),
+      await screen.findByText("店舗を削除できませんでした"),
     ).toBeInTheDocument();
     await waitFor(() => expect(onClose).not.toHaveBeenCalled());
     expect(onDeleted).not.toHaveBeenCalled();

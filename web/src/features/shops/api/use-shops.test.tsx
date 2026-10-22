@@ -175,6 +175,30 @@ describe("useShops", () => {
     expect(result.current.shops?.map((shop) => shop.name)).toEqual(["kept"]);
   });
 
+  it("drops a shop that the update reports as not found", async () => {
+    server.use(
+      http.get("/api/v1/shops", () =>
+        HttpResponse.json({ shops: [apiShop({ name: "gone" })] }),
+      ),
+      http.put("/api/v1/auth/shops/00000000-0000-4000-8000-0000000000a1", () =>
+        HttpResponse.json({ type: "not_found" }, { status: 404 }),
+      ),
+    );
+    const { result } = renderHookWithProviders(() => useShops());
+    await waitFor(() => expect(result.current.shops).toHaveLength(1));
+
+    let outcome: Awaited<ReturnType<typeof result.current.updateShop>>;
+    await act(async () => {
+      outcome = await result.current.updateShop(
+        "00000000-0000-4000-8000-0000000000a1",
+        { ...addCommand, eaten: false, rate: 0 },
+      );
+    });
+
+    expect(outcome!).toMatchObject({ ok: false, error: { type: "not_found" } });
+    expect(result.current.shops).toEqual([]);
+  });
+
   it("reports a non-OK response with an empty body as an error", async () => {
     server.use(
       http.get("/api/v1/shops", () =>

@@ -256,7 +256,9 @@ export function ShopEditModal({
     try {
       const result = await deleteShop(shop.id);
       if (!result.ok) {
-        toastApiError(result.error);
+        toastApiError(result.error, {
+          fallbackTitle: "店舗を削除できませんでした",
+        });
         return;
       }
 
@@ -281,7 +283,7 @@ export function ShopEditModal({
     <>
       <ModalDialog
         open={open}
-        onOpenChange={(o) => !o && !deleting && onClose()}
+        onOpenChange={(o) => !o && onClose()}
         width="100%"
         maxWidth="1040px"
         height="80vh"
@@ -599,6 +601,7 @@ export function ShopEditModal({
               border="1px solid"
               borderColor="nm.shu"
               _hover={{ bg: "nm.shu", color: "white" }}
+              disabled={saving || deleting}
               onClick={() => setConfirmDeleteOpen(true)}
             >
               削除

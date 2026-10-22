@@ -195,6 +195,10 @@ export default function AdminPage() {
     setMobileView("list");
   }, []);
 
+  const handleShopDeleted = useCallback((id: string) => {
+    setSelectedId((current) => (current === id ? null : current));
+  }, []);
+
   const handleSave = async (draft: ShopEditDraft) => {
     const cmd: UpdateShopCommand = {
       name: draft.name,
@@ -213,6 +217,14 @@ export default function AdminPage() {
     };
     const result = await updateShop(draft.id, cmd);
     if (!result.ok) {
+      if (result.error.type === "not_found") {
+        handleShopDeleted(draft.id);
+        setEditId(null);
+        toastApiError(result.error, {
+          fallbackTitle: "この店舗はすでに削除されています",
+        });
+        return;
+      }
       toastApiError(result.error, {
         fallbackTitle: isDuplicatePlaceIdError(result.error.body)
           ? "Google Place ID が他の店舗と重複しています"
@@ -711,9 +723,7 @@ export default function AdminPage() {
           initialTab={editTab}
           onClose={() => setEditId(null)}
           onSave={handleSave}
-          onDeleted={(id) =>
-            setSelectedId((current) => (current === id ? null : current))
-          }
+          onDeleted={handleShopDeleted}
         />
       )}
 

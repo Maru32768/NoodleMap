@@ -158,6 +158,10 @@ export function useShops(config?: SWRConfiguration<Shop[]>) {
             body: command,
           });
           if (res.error || !res.response.ok) {
+            if (res.error?.type === "not_found") {
+              // Deleted elsewhere: drop it so the edit modal and selection close.
+              mutate((current) => current?.filter((x) => x.id !== id), false);
+            }
             return apiError("/api/v1/auth/shops/{id}", res.response, res.error);
           }
 
