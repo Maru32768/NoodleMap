@@ -106,6 +106,11 @@ export default defineConfig(({ command, mode }) => {
           target: "http://localhost:8888",
           changeOrigin: true,
         },
+        // Share pages (OGP HTML) come from the backend; a regex so /robots.txt etc. stay local.
+        "^/r/": {
+          target: "http://localhost:8888",
+          changeOrigin: true,
+        },
         "/maps": {
           target: basemapOrigin,
           changeOrigin: true,

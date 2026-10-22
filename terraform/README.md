@@ -65,3 +65,17 @@ By default, the generate/upload scripts derive the object name from the
 Protomaps source build date, for example `maps/japan-light-20251201-v1.pmtiles`.
 Use a new object name for updates because the object is served with long-lived
 immutable caching.
+
+## OGP images
+
+`module.og_images_r2` creates the `noodle-map-og-images` bucket served at
+`https://og.noodle-map.marulabs.dev`. The backend writes share-card PNGs there
+under `og/shops/<id>/<hash>.png`. Create an R2 API token with Object Read & Write
+on that bucket only, then set on the Render backend:
+
+- `OG_R2_BUCKET=noodle-map-og-images`
+- `OG_R2_ENDPOINT=https://<account_id>.r2.cloudflarestorage.com`
+- `OG_R2_ACCESS_KEY_ID` / `OG_R2_SECRET_ACCESS_KEY` from the token
+- `OG_R2_PUBLIC_BASE_URL=https://og.noodle-map.marulabs.dev`
+
+Set all five or none; with none the backend renders each image on request.

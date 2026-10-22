@@ -210,6 +210,10 @@ class ShopHandler(
         call.respond(HttpStatusCode.NoContent)
     }
 
+    /** One shop as the public list returns it, or null. */
+    // shortcut: scans the whole (personal-log sized) list; add a by-id query if shops grow to many thousands.
+    fun findShop(id: UUID): Shop? = loadShops().firstOrNull { it.id == id.toString() }
+
     // --- Helpers ---
 
     // The one place the お気に入り rule lives (GLOSSARY.md): an eaten shop rated 80 or more.

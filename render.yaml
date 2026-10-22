@@ -38,6 +38,23 @@ services:
         value: noodle-map-bucket
       - key: S3_PREFIX
         value: db-backup
+      - key: PUBLIC_BASE_URL
+        value: https://noodle-map.marulabs.dev
+      # OGP image cache (terraform/modules/cloudflare-r2-og-images). All five or none (none renders
+      # per request); the server refuses to boot on a partial set, so the non-secret ones are not
+      # pinned here either: OG_R2_BUCKET=noodle-map-og-images,
+      # OG_R2_ENDPOINT=https://<account_id>.r2.cloudflarestorage.com,
+      # OG_R2_PUBLIC_BASE_URL=https://og.noodle-map.marulabs.dev
+      - key: OG_R2_BUCKET
+        sync: false
+      - key: OG_R2_ENDPOINT
+        sync: false
+      - key: OG_R2_ACCESS_KEY_ID
+        sync: false
+      - key: OG_R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: OG_R2_PUBLIC_BASE_URL
+        sync: false
 
   - type: web
     runtime: static
@@ -80,6 +97,10 @@ services:
       - type: rewrite
         source: /api/*
         destination: https://noodle-map-backend.onrender.com/api/*
+      # Share pages with OGP meta; must stay above the SPA catch-all.
+      - type: rewrite
+        source: /r/*
+        destination: https://noodle-map-backend.onrender.com/r/*
       - type: rewrite
         source: /admin
         destination: /admin/index.html

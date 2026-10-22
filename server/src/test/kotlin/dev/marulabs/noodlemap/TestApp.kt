@@ -12,6 +12,8 @@ import dev.marulabs.noodlemap.db.buildDatabase
 import dev.marulabs.noodlemap.generated.models.AddShopRequest
 import dev.marulabs.noodlemap.generated.models.CategorySlug
 import dev.marulabs.noodlemap.generated.models.UpdateShopRequest
+import dev.marulabs.noodlemap.og.OgHandler
+import dev.marulabs.noodlemap.og.R2OgImageStore
 import dev.marulabs.noodlemap.places.PlacesHandler
 import dev.marulabs.noodlemap.shops.ShopHandler
 import io.ktor.client.HttpClient
@@ -68,7 +70,11 @@ fun testConfig(dbPath: String, adminEmail: String = ADMIN_EMAIL, cookieSecure: B
     cookieSecure = cookieSecure,
     googlePlacesApiKey = "",
     backup = Config.BackupConfig(snapshotPath = "$dbPath.bak", s3Bucket = null, s3Prefix = null, awsRegion = null),
+    publicBaseUrl = PUBLIC_BASE_URL,
+    ogR2 = null,
 )
+
+const val PUBLIC_BASE_URL = "https://noodle.example"
 
 fun withTestDb(adminEmail: String = ADMIN_EMAIL, cookieSecure: Boolean = false, block: (TestDb) -> Unit) {
     val dir = Files.createTempDirectory("noodlemap-test")
@@ -89,14 +95,18 @@ fun testApp(
     placesApiKey: String = "",
     // Nothing listens on port 9; tests that reach Google pass a local fake server's URL.
     placesBaseUrl: String = "http://127.0.0.1:9",
+    ogStore: R2OgImageStore? = null,
+    ogMaxPendingRenders: Int = 4,
     block: suspend ApplicationTestBuilder.(TestDb) -> Unit,
 ) = withTestDb(adminEmail, cookieSecure) { t ->
     testApplication {
         application {
+            val shopHandler = ShopHandler(t.db, t.sessions)
             installApp(
                 AuthHandler(t.db, GoogleVerifier(t.config.googleOAuthClientId), t.sessions),
-                ShopHandler(t.db, t.sessions),
+                shopHandler,
                 PlacesHandler(t.sessions, placesApiKey, placesBaseUrl, placesHttp),
+                OgHandler(shopHandler, t.config.publicBaseUrl, ogStore, ogMaxPendingRenders),
             )
         }
         block(t)

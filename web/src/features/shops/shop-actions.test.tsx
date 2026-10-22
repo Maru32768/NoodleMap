@@ -6,7 +6,7 @@ import { act, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const shop = makeShop({ name: "中華そば 青葉" });
-const shareUrl = () => `${location.origin}/search?shop=${shop.id}`;
+const shareUrl = () => `${location.origin}/r/${shop.id}`;
 
 function stubNavigator(stubs: {
   share?: Navigator["share"];

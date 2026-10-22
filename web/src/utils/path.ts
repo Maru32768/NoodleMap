@@ -6,7 +6,10 @@ export const ACCOUNT_PATH = "/account";
 /** Search-page query param that holds the selected shop's id. */
 export const SHOP_PARAM = "shop";
 
-/** The single source for a shop's shareable URL. */
+/**
+ * The single source for a shop's shareable URL: the backend's share page, which
+ * carries OGP tags and redirects to `/search?shop=<id>`.
+ */
 export function shopShareUrl(id: string) {
-  return `${location.origin}${SEARCH_PATH}?${SHOP_PARAM}=${encodeURIComponent(id)}`;
+  return `${location.origin}/r/${encodeURIComponent(id)}`;
 }

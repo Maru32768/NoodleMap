@@ -102,6 +102,15 @@ test("guest copies a shop's share URL", async ({ page, api, baseURL }) => {
   await page.getByRole("button", { name: "共有" }).click();
   await expect(page.getByText("URLをコピーしました")).toBeVisible();
   expect(await page.evaluate(() => (window as unknown as { copied: string }).copied)).toBe(
-    `${baseURL}/search?shop=${shop.id}`,
+    `${baseURL}/r/${shop.id}`,
   );
+});
+
+test("guest opening a share URL lands on the shop's detail", async ({ page, api }) => {
+  const shop = await api.createShop({ name: `${uid()} 共有まぜそば`, eaten: true, rate: 80 });
+
+  await page.goto(`/r/${shop.id}`);
+  await expect(page).toHaveURL(new RegExp(`/search\\?shop=${shop.id}$`));
+  await expect(page.getByText(shop.name, { exact: true }).filter({ visible: true })).toBeVisible();
+  await expect(page.getByText("お気に入り度 - Favorite")).toBeVisible();
 });

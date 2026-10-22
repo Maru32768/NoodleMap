@@ -2,6 +2,8 @@ package dev.marulabs.noodlemap
 
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
+import io.ktor.server.application.ApplicationStopped
+import javax.imageio.ImageIO
 import io.ktor.server.application.install
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
@@ -29,11 +31,18 @@ import dev.marulabs.noodlemap.generated.controllers.ApiV1ShopsController.Compani
 import dev.marulabs.noodlemap.generated.controllers.ApiV1TagsController.Companion.apiV1TagsRoutes
 import dev.marulabs.noodlemap.http.NoCache
 import dev.marulabs.noodlemap.jobs.startBackgroundJobs
+import dev.marulabs.noodlemap.og.OgHandler
+import dev.marulabs.noodlemap.og.R2OgImageStore
+import dev.marulabs.noodlemap.og.ogRoutes
 import dev.marulabs.noodlemap.places.PlacesHandler
 import dev.marulabs.noodlemap.shops.ShopHandler
 import kotlinx.serialization.json.Json
 
 fun main() {
+    // OGP images are drawn with Java2D; the container has no display.
+    System.setProperty("java.awt.headless", "true")
+    // PNG encoding stays in memory instead of writing ImageIO temp files.
+    ImageIO.setUseCache(false)
     val config = Config.fromEnv()
     embeddedServer(Netty, port = config.serverPort) {
         module(config)
@@ -49,13 +58,21 @@ fun Application.module(config: Config) {
     val authHandler = AuthHandler(db, google, sessions)
     val shopHandler = ShopHandler(db, sessions)
     val placesHandler = PlacesHandler(sessions, config.googlePlacesApiKey)
+    val ogStore = config.ogR2?.let(::R2OgImageStore)
+    ogStore?.let { store -> monitor.subscribe(ApplicationStopped) { store.close() } }
+    val ogHandler = OgHandler(shopHandler, config.publicBaseUrl, ogStore)
 
     startBackgroundJobs(config, dataSource, db, sessions)
-    installApp(authHandler, shopHandler, placesHandler)
+    installApp(authHandler, shopHandler, placesHandler, ogHandler)
 }
 
 /** Installs plugins and routes. Separated from [module] so tests can wire test handlers. */
-fun Application.installApp(authHandler: AuthHandler, shopHandler: ShopHandler, placesHandler: PlacesHandler) {
+fun Application.installApp(
+    authHandler: AuthHandler,
+    shopHandler: ShopHandler,
+    placesHandler: PlacesHandler,
+    ogHandler: OgHandler,
+) {
     install(ContentNegotiation) {
         // ignoreUnknownKeys matches Gin's BindJSON tolerance for extra fields.
         json(Json { ignoreUnknownKeys = true })
@@ -84,5 +101,8 @@ fun Application.installApp(authHandler: AuthHandler, shopHandler: ShopHandler, p
 
         apiV1AuthGooglePlacesAutocompleteRoutes(placesHandler)
         apiV1AuthGooglePlacesDetailsRoutes(placesHandler)
+
+        // Plain routes, not TypeSpec: they answer HTML/PNG/redirects for crawlers, not a JSON API the web client calls.
+        ogRoutes(ogHandler)
     }
 }
