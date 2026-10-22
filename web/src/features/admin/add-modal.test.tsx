@@ -97,7 +97,7 @@ describe("AddModal", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it("omits a blank Google Place ID and trims a typed one", async () => {
+  it("sends a blank Google Place ID as empty and trims a typed one", async () => {
     const bodies: AddShopRequest[] = [];
     renderAddModal(() => HttpResponse.json(makeShop()));
     server.use(
@@ -110,7 +110,7 @@ describe("AddModal", () => {
     await userEvent.type(inputLabelled("Google Place ID"), "   ");
     await fillNameAndSave();
     await waitFor(() => expect(bodies).toHaveLength(1));
-    expect(bodies[0]).not.toHaveProperty("googlePlaceId");
+    expect(bodies[0].googlePlaceId).toBe("");
 
     await userEvent.type(inputLabelled("Google Place ID"), " ChIJ-typed ");
     await userEvent.click(screen.getByRole("button", { name: "追加" }));

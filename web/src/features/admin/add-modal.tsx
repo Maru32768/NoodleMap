@@ -209,10 +209,11 @@ export function AddModal({
     setFieldErrors({});
     setSaving(true);
     try {
-      // A blank Place ID (Places unavailable or a shop entered by hand) is omitted.
+      // A blank Place ID (Places unavailable or a shop entered by hand) is sent as "", which
+      // the server stores as none; older servers still require the field.
       const result = await addShop({
         ...draft,
-        googlePlaceId: draft.googlePlaceId?.trim() || undefined,
+        googlePlaceId: draft.googlePlaceId?.trim() ?? "",
       });
       if (!result.ok) {
         const errors = invalidRequestFieldErrors(result.error.body);

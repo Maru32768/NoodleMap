@@ -26,10 +26,12 @@ CREATE TABLE shops_new
     name_kana       TEXT
 );
 
--- '' was the stand-in for "no place id" and allowed only one such shop.
+-- '' was the stand-in for "no place id" and allowed only one such shop. Other values are copied
+-- untouched: trimming them could make two collide on UNIQUE.
 INSERT INTO shops_new (id, name, lat, lng, postal_code, address, google_place_id, created_at, updated_at,
                        category, opened_at, closed_at, name_kana)
-SELECT id, name, lat, lng, postal_code, address, NULLIF(google_place_id, ''), created_at, updated_at,
+SELECT id, name, lat, lng, postal_code, address,
+       CASE WHEN trim(google_place_id) = '' THEN NULL ELSE google_place_id END, created_at, updated_at,
        category, opened_at, closed_at, name_kana
 FROM shops;
 

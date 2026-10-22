@@ -103,7 +103,22 @@ fun migrate(conn: Connection, migrations: List<Migration>) {
     }
     for (m in pending) {
         log.info("applying migration {}", m.version)
-        if (m.useTransaction) inTransaction(conn) { apply(conn, m) } else apply(conn, m)
+        if (m.useTransaction) inTransaction(conn) { apply(conn, m) } else applyWithoutTransaction(conn, m)
+    }
+}
+
+/**
+ * A NO TRANSACTION migration opens its own transaction and toggles foreign_keys around it.
+ * On failure, roll back whatever it left open and restore enforcement, so the connection
+ * does not go back to the pool mid-transaction or with foreign keys OFF.
+ */
+private fun applyWithoutTransaction(conn: Connection, m: Migration) {
+    try {
+        apply(conn, m)
+    } catch (e: Throwable) {
+        runCatching { conn.createStatement().use { it.execute("ROLLBACK") } }
+        runCatching { conn.createStatement().use { it.execute("PRAGMA foreign_keys = ON") } }
+        throw e
     }
 }
 

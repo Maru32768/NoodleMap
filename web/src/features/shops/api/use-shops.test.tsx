@@ -1,5 +1,6 @@
-import { useShops } from "@/features/shops/api/use-shops.ts";
+import { Shop, useShops } from "@/features/shops/api/use-shops.ts";
 import type { components } from "@/generated/api.ts";
+import { makeShop } from "@/test/fixtures.ts";
 import { renderHookWithProviders } from "@/test/render.tsx";
 import { server } from "@/test/server.ts";
 import { act, screen, waitFor } from "@testing-library/react";
@@ -8,23 +9,14 @@ import { describe, expect, it } from "vitest";
 
 type ApiShop = components["schemas"]["Shop"];
 
-function apiShop(overrides: Partial<ApiShop>): ApiShop {
-  return {
+// A not-eaten shop with a fixed id, so the update tests can address it.
+function apiShop(overrides: Partial<ApiShop>): Shop {
+  return makeShop({
     id: "00000000-0000-4000-8000-0000000000a1",
-    name: "麺屋 まる",
-    lat: 35.69,
-    lng: 139.7,
-    postalCode: "160-0022",
-    address: "東京都新宿区",
-    googlePlaceId: "",
     eaten: false,
     rate: 0,
-    favorite: false,
-    category: "ramen",
-    tags: [],
-    links: [],
     ...overrides,
-  };
+  });
 }
 
 const addCommand = {
@@ -33,7 +25,6 @@ const addCommand = {
   lng: 139.7,
   postalCode: "160-0022",
   address: "東京都新宿区",
-  googlePlaceId: "",
   category: "udon" as const,
   tagIds: [],
 };

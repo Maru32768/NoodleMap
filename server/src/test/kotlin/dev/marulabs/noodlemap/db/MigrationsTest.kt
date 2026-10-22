@@ -20,6 +20,16 @@ class MigrationsTest {
         }
     }
 
+    /** A connection from the production pool, so its per-connection PRAGMAs (foreign_keys=ON) are real. */
+    private fun <T> withPooledDb(block: (Connection) -> T): T {
+        val dir = Files.createTempDirectory("noodlemap-migrations")
+        try {
+            return buildDataSource(dir.resolve("test.db").toString()).use { ds -> ds.connection.use(block) }
+        } finally {
+            dir.toFile().deleteRecursively()
+        }
+    }
+
     private fun Connection.strings(sql: String): List<String> =
         createStatement().use { st -> st.executeQuery(sql).use { rs -> buildList { while (rs.next()) add(rs.getString(1)) } } }
 
@@ -87,17 +97,19 @@ class MigrationsTest {
 
     @Test
     fun `00013 makes google_place_id nullable without losing child rows`() {
-        withDb { conn ->
-            // Production connections run with foreign_keys ON; a careless rebuild would then
-            // cascade-delete shops_tags and shop_links when the old table is dropped.
-            conn.createStatement().use { it.execute("PRAGMA foreign_keys = ON") }
+        // A pooled connection has foreign_keys ON, under which a careless rebuild would
+        // cascade-delete shops_tags and shop_links when the old table is dropped.
+        withPooledDb { conn ->
+            conn.strings("PRAGMA foreign_keys") shouldBe listOf("1")
             migrate(conn, loadMigrations().filter { it.version <= 12 })
             conn.createStatement().use { st ->
                 st.executeUpdate(
                     """
                     INSERT INTO shops (id, name, lat, lng, postal_code, address, google_place_id, name_kana, closed_at) VALUES
                         ('s1', 'with-place', 1, 2, '100', 'a', 'p1', 'かな', '2024-01-01'),
-                        ('s2', 'manual', 3, 4, '200', 'b', '', NULL, NULL)
+                        ('s2', 'manual', 3, 4, '200', 'b', '', NULL, NULL),
+                        ('s5', 'manual-padded', 0, 0, '', '', '  ', NULL, NULL),
+                        ('s6', 'padded-place', 0, 0, '', '', ' p2 ', NULL, NULL)
                     """.trimIndent(),
                 )
                 st.executeUpdate("INSERT INTO shops_tags (id, shop_id, tag_id) VALUES ('st1', 's1', '018ff6e8-5291-7a01-9ab8-000000000001')")
@@ -110,7 +122,7 @@ class MigrationsTest {
 
             conn.strings(
                 "SELECT id || '|' || ifnull(google_place_id, 'NULL') || '|' || ifnull(name_kana, '') || '|' || ifnull(closed_at, '') FROM shops ORDER BY id",
-            ) shouldBe listOf("s1|p1|かな|2024-01-01", "s2|NULL||")
+            ) shouldBe listOf("s1|p1|かな|2024-01-01", "s2|NULL||", "s5|NULL||", "s6| p2 ||")
             conn.strings("SELECT id FROM shops_tags") shouldBe listOf("st1")
             conn.strings("SELECT id FROM shop_links") shouldBe listOf("l1")
             conn.strings("SELECT id FROM eaten_shops") shouldBe listOf("e1")
@@ -144,6 +156,25 @@ class MigrationsTest {
 
             conn.strings("SELECT name FROM sqlite_master WHERE name = 'half_done'") shouldBe emptyList()
             conn.version() shouldBe 0
+        }
+    }
+
+    @Test
+    fun `failed NO TRANSACTION migration rolls back and turns foreign keys back on`() {
+        withPooledDb { conn ->
+            val broken = Migration(
+                1,
+                listOf("PRAGMA foreign_keys = OFF", "BEGIN", "CREATE TABLE half_done (id TEXT)", "NOT VALID SQL", "COMMIT", "PRAGMA foreign_keys = ON"),
+                useTransaction = false,
+            )
+
+            shouldThrow<Exception> { migrate(conn, listOf(broken)) }
+
+            conn.strings("SELECT name FROM sqlite_master WHERE name = 'half_done'") shouldBe emptyList()
+            conn.strings("PRAGMA foreign_keys") shouldBe listOf("1")
+            conn.version() shouldBe 0
+            // No transaction is left open: starting a new one would fail otherwise.
+            conn.createStatement().use { it.execute("BEGIN"); it.execute("ROLLBACK") }
         }
     }
 

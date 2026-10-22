@@ -419,9 +419,10 @@ describe("ShopEditModal links", () => {
     expect(requests[0].googlePlaceId).toBe("place-2");
   });
 
-  it("sends a blank Google Place ID for a shop without one", async () => {
-    const { requests } = renderEditor(makeShop({ googlePlaceId: undefined }));
+  it("sends a blank Google Place ID to clear an existing one", async () => {
+    const { requests } = renderEditor(makeShop({ googlePlaceId: "place-1" }));
 
+    await userEvent.clear(screen.getByDisplayValue("place-1"));
     await userEvent.click(screen.getByRole("button", { name: "保存" }));
 
     await waitFor(() => expect(requests).toHaveLength(1));
