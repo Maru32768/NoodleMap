@@ -34,7 +34,7 @@ function fetchSuggestions(q: string, sessionToken: string) {
     const res = await apiClient.GET(AUTOCOMPLETE, {
       params: { query: { q, sessionToken } },
     });
-    if (res.error) {
+    if (res.error || !res.response.ok) {
       return apiError(AUTOCOMPLETE, res.response, res.error);
     }
     return apiOk(res.data.suggestions);
@@ -48,7 +48,7 @@ function fetchDetails(placeId: string, sessionToken: string) {
       const res = await apiClient.GET(DETAILS, {
         params: { query: { placeId, sessionToken } },
       });
-      if (res.error) {
+      if (res.error || !res.response.ok) {
         return apiError(DETAILS, res.response, res.error);
       }
       return apiOk(res.data);

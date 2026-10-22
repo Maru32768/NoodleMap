@@ -85,4 +85,48 @@ describe("useAuth", () => {
 
     expect(result.current.currentUser).toBeUndefined();
   });
+
+  // openapi-fetch leaves `error` undefined for a non-OK response with an empty body.
+  it("fails a sign-in answered with an empty-body error", async () => {
+    server.use(
+      http.get("/api/v1/auth/me", () =>
+        HttpResponse.json({ type: "authentication_required" }, { status: 401 }),
+      ),
+      http.post(
+        "/api/v1/auth/google",
+        () => new HttpResponse(null, { status: 502 }),
+      ),
+    );
+    const { result } = renderAuth();
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let outcome: Awaited<ReturnType<typeof result.current.loginWithGoogle>>;
+    await act(async () => {
+      outcome = await result.current.loginWithGoogle("google-id-token");
+    });
+
+    expect(outcome!.ok).toBe(false);
+    expect(!outcome!.ok && outcome!.error.status).toBe(502);
+    expect(result.current.currentUser).toBeUndefined();
+  });
+
+  it("keeps the user signed in when logout fails with an empty body", async () => {
+    server.use(
+      http.get("/api/v1/auth/me", () => HttpResponse.json(user)),
+      http.post(
+        "/api/v1/auth/logout",
+        () => new HttpResponse(null, { status: 500 }),
+      ),
+    );
+    const { result } = renderAuth();
+    await waitFor(() => expect(result.current.currentUser).toEqual(user));
+
+    let outcome: Awaited<ReturnType<typeof result.current.logout>>;
+    await act(async () => {
+      outcome = await result.current.logout();
+    });
+
+    expect(outcome!.ok).toBe(false);
+    expect(result.current.currentUser).toEqual(user);
+  });
 });

@@ -26,7 +26,7 @@ export function useAuth() {
     () => {
       return withApiError("/api/v1/auth/me", async () => {
         const res = await apiClient.GET("/api/v1/auth/me");
-        if (res.error) {
+        if (res.error || !res.response.ok) {
           throwApiError("/api/v1/auth/me", res.response, res.error);
         }
 
@@ -57,7 +57,7 @@ export function useAuth() {
           const res = await apiClient.POST("/api/v1/auth/google", {
             body: { credential },
           });
-          if (res.error) {
+          if (res.error || !res.response.ok) {
             return apiError("/api/v1/auth/google", res.response, res.error);
           }
 
@@ -74,7 +74,7 @@ export function useAuth() {
       "/api/v1/auth/logout",
       async () => {
         const res = await apiClient.POST("/api/v1/auth/logout");
-        if (res.error) {
+        if (res.error || !res.response.ok) {
           return apiError("/api/v1/auth/logout", res.response, res.error);
         }
 
