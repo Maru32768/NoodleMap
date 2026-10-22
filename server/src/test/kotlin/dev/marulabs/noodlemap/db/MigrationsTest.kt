@@ -62,6 +62,30 @@ class MigrationsTest {
     }
 
     @Test
+    fun `00010 raises existing favorites to rate 80 before dropping the flag`() {
+        withDb { conn ->
+            migrate(conn, loadMigrations().filter { it.version <= 9 })
+            conn.createStatement().use { st ->
+                st.executeUpdate(
+                    """
+                    INSERT INTO shops (id, name, lat, lng, postal_code, address, google_place_id) VALUES
+                        ('s1', 'fav', 0, 0, '', '', 'p1'), ('s2', 'plain', 0, 0, '', '', 'p2'), ('s3', 'fav-high', 0, 0, '', '', 'p3')
+                    """.trimIndent(),
+                )
+                st.executeUpdate(
+                    "INSERT INTO eaten_shops (id, shop_id, rate, favorite) VALUES ('e1', 's1', 5, 1), ('e2', 's2', 5, 0), ('e3', 's3', 95, 1)",
+                )
+            }
+
+            migrate(conn, loadMigrations())
+
+            conn.strings("SELECT shop_id || '=' || rate FROM eaten_shops ORDER BY shop_id") shouldBe
+                listOf("s1=80.0", "s2=5.0", "s3=95.0")
+            conn.strings("SELECT name FROM pragma_table_info('eaten_shops') WHERE name = 'favorite'") shouldBe emptyList()
+        }
+    }
+
+    @Test
     fun `failed migration rolls back its statements and is not recorded`() {
         withDb { conn ->
             val broken = Migration(1, listOf("CREATE TABLE half_done (id TEXT)", "NOT VALID SQL"), useTransaction = true)

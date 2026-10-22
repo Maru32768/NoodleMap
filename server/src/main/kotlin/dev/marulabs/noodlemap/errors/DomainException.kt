@@ -103,6 +103,12 @@ sealed class DomainException(
             listOf(FieldError("tagIds", FieldErrorType.UNKNOWN)),
         )
 
+    class ShopRateOutOfRange :
+        DomainException(
+            HttpStatusCode.BadRequest, ErrorType.INVALID_REQUEST, "rate out of range",
+            listOf(FieldError("rate", FieldErrorType.OUT_OF_RANGE)),
+        )
+
     class InvalidTagCommand :
         DomainException(HttpStatusCode.BadRequest, ErrorType.INVALID_REQUEST, "invalid tag")
 }

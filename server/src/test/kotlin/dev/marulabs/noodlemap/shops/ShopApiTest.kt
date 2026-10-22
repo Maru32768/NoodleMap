@@ -128,23 +128,23 @@ class ShopApiTest {
         val req = addShopRequest(tagIds = listOf(SHOYU))
         val id = client.postJson("/api/v1/auth/shops", encode(req), admin).body<Shop>().id
 
-        client.putJson("/api/v1/auth/shops/$id", encode(req.toUpdate(eaten = true, rate = 4.5, favorite = true, tagIds = listOf(MISO, SHIO, MISO))), admin)
+        client.putJson("/api/v1/auth/shops/$id", encode(req.toUpdate(eaten = true, rate = 80.0, tagIds = listOf(MISO, SHIO, MISO))), admin)
             .status shouldBe HttpStatusCode.OK
         client.shops().single().let {
             it.eaten shouldBe true
-            it.rate shouldBe 4.5
+            it.rate shouldBe 80.0
             it.favorite shouldBe true
             it.tags.map { tag -> tag.id } shouldContainExactly listOf(SHIO, MISO)
         }
 
-        client.putJson("/api/v1/auth/shops/$id", encode(req.toUpdate(eaten = true, rate = 3.0, favorite = false)), admin)
+        client.putJson("/api/v1/auth/shops/$id", encode(req.toUpdate(eaten = true, rate = 79.5)), admin)
         client.shops().single().let {
-            it.rate shouldBe 3.0
+            it.rate shouldBe 79.5
             it.favorite shouldBe false
             it.tags.map { tag -> tag.id } shouldContainExactly listOf(SHOYU)
         }
 
-        client.putJson("/api/v1/auth/shops/$id", encode(req.toUpdate(eaten = false, rate = 5.0, favorite = true, tagIds = emptyList())), admin)
+        client.putJson("/api/v1/auth/shops/$id", encode(req.toUpdate(eaten = false, rate = 100.0, tagIds = emptyList())), admin)
         client.shops().single().let {
             it.eaten shouldBe false
             it.rate shouldBe 0.0
@@ -167,6 +167,28 @@ class ShopApiTest {
             it.eaten shouldBe false
             it.tags.map { tag -> tag.id } shouldContainExactly listOf(SHOYU)
         }
+    }
+
+    @Test
+    fun `update rejects a rate outside 0 to 100 only for eaten shops`() = testApp { t ->
+        val admin = t.adminToken()
+        val req = addShopRequest()
+        val id = client.postJson("/api/v1/auth/shops", encode(req), admin).body<Shop>().id
+        val rateOutOfRange = ErrorBody(ErrorType.INVALID_REQUEST, "rate out of range", listOf(FieldError("rate", FieldErrorType.OUT_OF_RANGE)))
+
+        for (rate in listOf(-0.5, 100.5)) {
+            val res = client.putJson("/api/v1/auth/shops/$id", encode(req.toUpdate(eaten = true, rate = rate)), admin)
+            res.status shouldBe HttpStatusCode.BadRequest
+            res.body<ErrorBody>() shouldBe rateOutOfRange
+        }
+        client.shops().single().eaten shouldBe false
+
+        // The rate is discarded when the shop is not eaten, so it is not validated.
+        client.putJson("/api/v1/auth/shops/$id", encode(req.toUpdate(eaten = false, rate = 150.0)), admin)
+            .status shouldBe HttpStatusCode.OK
+
+        client.putJson("/api/v1/auth/shops/$id", encode(req.toUpdate(eaten = true, rate = 100.0)), admin)
+            .status shouldBe HttpStatusCode.OK
     }
 
     @Test

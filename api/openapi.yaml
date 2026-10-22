@@ -501,6 +501,7 @@ components:
           format: double
         favorite:
           type: boolean
+          description: 'Derived on the server: true when the shop is eaten and its rate is 80 or more. Read-only.'
         category:
           $ref: '#/components/schemas/CategorySlug'
         tags:
@@ -632,7 +633,6 @@ components:
         - category
         - eaten
         - rate
-        - favorite
         - tagIds
     UpdateShopFieldError:
       type: object
@@ -658,7 +658,6 @@ components:
         - category
         - eaten
         - rate
-        - favorite
         - tagIds
       properties:
         name:
@@ -686,8 +685,6 @@ components:
         rate:
           type: number
           format: double
-        favorite:
-          type: boolean
         tagIds:
           type: array
           items:

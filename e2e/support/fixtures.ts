@@ -87,7 +87,6 @@ export class Api {
       category: shop.category,
       eaten: shop.eaten,
       rate: shop.rate,
-      favorite: shop.favorite,
       tagIds: shop.tags.map((t) => t.id),
       ...patch,
     };

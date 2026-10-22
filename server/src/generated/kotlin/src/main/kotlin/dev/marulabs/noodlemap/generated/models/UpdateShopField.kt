@@ -29,8 +29,6 @@ public enum class UpdateShopField(
   EATEN("eaten"),
   @SerialName("rate")
   RATE("rate"),
-  @SerialName("favorite")
-  FAVORITE("favorite"),
   @SerialName("tagIds")
   TAG_IDS("tagIds"),
   ;

@@ -108,6 +108,7 @@ class ShopHandler(
         if (!user.isAdmin) throw DomainException.PermissionDenied()
 
         val req = updateShopRequest
+        if (req.eaten && req.rate !in 0.0..100.0) throw DomainException.ShopRateOutOfRange()
         db.transaction {
             rejectingDuplicatePlaceId {
                 db.shopsQueries.updateShop(
@@ -116,7 +117,7 @@ class ShopHandler(
                 )
             }
             if (req.eaten) {
-                db.eatenShopsQueries.upsertEatenShop(UUID.randomUUID(), shopId, req.rate, req.favorite)
+                db.eatenShopsQueries.upsertEatenShop(UUID.randomUUID(), shopId, req.rate)
             } else {
                 db.eatenShopsQueries.deleteEatenShopByShopId(shopId)
             }
@@ -128,6 +129,10 @@ class ShopHandler(
 
     // --- Helpers ---
 
+    // The one place the お気に入り rule lives (GLOSSARY.md): an eaten shop rated 80 or more.
+    // TODO: once visit logs exist, base this on the latest visit log's rate.
+    private fun isFavorite(eaten: Boolean, rate: Double): Boolean = eaten && rate >= 80.0
+
     private fun loadShops(): List<Shop> {
         val rows = db.shopsQueries.findAllShops().executeAsList()
         val tagsByShop = tagsByShopIds(rows.map { it.id })
@@ -136,7 +141,7 @@ class ShopHandler(
                 id = r.id.toString(), name = r.name, lat = r.lat, lng = r.lng,
                 openedAt = ShopDate.decode(r.opened_at), closedAt = ShopDate.decode(r.closed_at),
                 postalCode = r.postal_code, address = r.address, googlePlaceId = r.google_place_id,
-                eaten = r.eaten != 0L, rate = r.rate, favorite = r.favorite != 0L,
+                eaten = r.eaten != 0L, rate = r.rate, favorite = isFavorite(r.eaten != 0L, r.rate),
                 category = CategorySlug.fromValue(r.category) ?: CategorySlug.RAMEN,
                 tags = tagsByShop[r.id] ?: emptyList(),
             )

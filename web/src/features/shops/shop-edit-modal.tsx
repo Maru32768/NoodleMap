@@ -24,7 +24,6 @@ export interface ShopEditDraft {
   openedAt?: string;
   closedAt?: string;
   eaten: boolean;
-  favorite: boolean;
   rate: number;
   images: AdminImage[];
   tagIds: string[];
@@ -146,7 +145,11 @@ function FavPicker({
         max={100}
         step={1}
         value={rate}
-        onChange={(e) => onChange(Number(e.target.value))}
+        onChange={(e) => {
+          // An empty or partial entry keeps the previous rate instead of becoming 0.
+          const v = e.target.valueAsNumber;
+          if (!Number.isNaN(v)) onChange(Math.min(100, Math.max(0, v)));
+        }}
         width="72px"
         fontFamily="mono"
         fontSize="13px"
@@ -188,7 +191,6 @@ export function ShopEditModal({
     openedAt: shop.openedAt,
     closedAt: shop.closedAt,
     eaten: shop.eaten,
-    favorite: shop.favorite ?? false,
     rate: shop.rate ?? 0,
     images: [],
     tagIds: shop.tags.map((tag) => tag.id),
@@ -499,39 +501,23 @@ export function ShopEditModal({
                     alignItems="center"
                     justifyContent="space-between"
                   >
-                    <Box
-                      fontSize="12px"
-                      fontFamily="mono"
-                      letterSpacing="0.1em"
-                      color="nm.inkMuted"
-                      textTransform="uppercase"
-                    >
-                      お気に入り度
+                    <Box>
+                      <Box
+                        fontSize="12px"
+                        fontFamily="mono"
+                        letterSpacing="0.1em"
+                        color="nm.inkMuted"
+                        textTransform="uppercase"
+                      >
+                        評価
+                      </Box>
+                      <Box fontSize="11px" color="nm.inkMuted" mt="2px">
+                        80以上でお気に入り
+                      </Box>
                     </Box>
                     <FavPicker
                       rate={draft.rate}
                       onChange={(v) => set("rate", v)}
-                    />
-                  </Box>
-                  <Box
-                    display="flex"
-                    alignItems="center"
-                    justifyContent="space-between"
-                  >
-                    <Box
-                      fontSize="12px"
-                      fontFamily="mono"
-                      letterSpacing="0.1em"
-                      color="nm.inkMuted"
-                      textTransform="uppercase"
-                    >
-                      お気に入り登録
-                    </Box>
-                    <Toggle
-                      label="お気に入り登録"
-                      on={draft.favorite}
-                      color="shu"
-                      onClick={() => set("favorite", !draft.favorite)}
                     />
                   </Box>
                 </Box>

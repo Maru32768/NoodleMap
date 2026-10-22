@@ -233,6 +233,7 @@ export interface components {
             eaten: boolean;
             /** Format: double */
             rate: number;
+            /** @description Derived on the server: true when the shop is eaten and its rate is 80 or more. Read-only. */
             favorite: boolean;
             category: components["schemas"]["CategorySlug"];
             tags: components["schemas"]["Tag"][];
@@ -281,7 +282,7 @@ export interface components {
             fieldErrors?: components["schemas"]["UpdateShopFieldError"][];
         };
         /** @enum {string} */
-        UpdateShopField: "name" | "lat" | "lng" | "postalCode" | "address" | "openedAt" | "closedAt" | "googlePlaceId" | "category" | "eaten" | "rate" | "favorite" | "tagIds";
+        UpdateShopField: "name" | "lat" | "lng" | "postalCode" | "address" | "openedAt" | "closedAt" | "googlePlaceId" | "category" | "eaten" | "rate" | "tagIds";
         UpdateShopFieldError: {
             field: components["schemas"]["UpdateShopField"];
             type: components["schemas"]["FieldErrorType"];
@@ -302,7 +303,6 @@ export interface components {
             eaten: boolean;
             /** Format: double */
             rate: number;
-            favorite: boolean;
             tagIds: components["schemas"]["uuid"][];
         };
         User: {
