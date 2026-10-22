@@ -523,6 +523,7 @@ components:
         - googlePlaceId
         - category
         - tagIds
+        - links
     AddShopFieldError:
       type: object
       required:
@@ -573,6 +574,11 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/uuid'
+        links:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShopLinkInput'
+          description: At most 10 links, stored in array order. Omit for none.
     AuthResponse:
       type: object
       required:
@@ -840,6 +846,7 @@ components:
         - favorite
         - category
         - tags
+        - links
       properties:
         id:
           $ref: '#/components/schemas/uuid'
@@ -880,6 +887,46 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Tag'
+        links:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShopLink'
+          description: External links (official site, SNS, ...) in display order.
+    ShopLink:
+      type: object
+      required:
+        - type
+        - url
+      properties:
+        type:
+          $ref: '#/components/schemas/ShopLinkType'
+        label:
+          type: string
+          description: Display text. Absent when not set; clients fall back to the type name.
+        url:
+          type: string
+    ShopLinkInput:
+      type: object
+      required:
+        - type
+        - url
+      properties:
+        type:
+          $ref: '#/components/schemas/ShopLinkType'
+        label:
+          type: string
+        url:
+          type: string
+      description: An http(s) URL of at most 2048 characters with an optional label of at most 100 characters.
+    ShopLinkType:
+      type: string
+      enum:
+        - official
+        - twitter
+        - instagram
+        - facebook
+        - tabelog
+        - other
     ShopsResponse:
       type: object
       required:
@@ -1007,6 +1054,7 @@ components:
         - eaten
         - rate
         - tagIds
+        - links
     UpdateShopFieldError:
       type: object
       required:
@@ -1065,6 +1113,11 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/uuid'
+        links:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShopLinkInput'
+          description: Omit to keep the stored links (older clients); an array replaces them all, in array order. At most 10.
     User:
       type: object
       required:

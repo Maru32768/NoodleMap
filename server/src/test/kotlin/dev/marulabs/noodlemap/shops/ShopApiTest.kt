@@ -10,6 +10,9 @@ import dev.marulabs.noodlemap.errors.ErrorType
 import dev.marulabs.noodlemap.errors.FieldError
 import dev.marulabs.noodlemap.errors.FieldErrorType
 import dev.marulabs.noodlemap.generated.models.Shop
+import dev.marulabs.noodlemap.generated.models.ShopLink
+import dev.marulabs.noodlemap.generated.models.ShopLinkInput
+import dev.marulabs.noodlemap.generated.models.ShopLinkType
 import dev.marulabs.noodlemap.generated.models.ShopsResponse
 import dev.marulabs.noodlemap.postJson
 import dev.marulabs.noodlemap.putJson
@@ -119,6 +122,77 @@ class ShopApiTest {
         client.putJson("/api/v1/auth/shops/$id", encode(req.toUpdate().copy(nameKana = "い".repeat(101))), admin)
             .body<ErrorBody>() shouldBe tooLong
         client.shops().single().nameKana shouldBe "あ".repeat(100)
+    }
+
+    @Test
+    fun `links keep their order, are kept when omitted on update, and replaced when sent`() = testApp { t ->
+        val admin = t.adminToken()
+        val req = addShopRequest().copy(
+            links = listOf(
+                ShopLinkInput(ShopLinkType.TWITTER, url = " https://x.com/taro "),
+                ShopLinkInput(ShopLinkType.OFFICIAL, label = " 本店 ", url = "https://taro.example/"),
+                ShopLinkInput(ShopLinkType.OTHER, label = " ", url = "http://blog.example/ラーメン"),
+            ),
+        )
+        val stored = listOf(
+            ShopLink(ShopLinkType.TWITTER, url = "https://x.com/taro"),
+            ShopLink(ShopLinkType.OFFICIAL, label = "本店", url = "https://taro.example/"),
+            ShopLink(ShopLinkType.OTHER, url = "http://blog.example/ラーメン"),
+        )
+        val added = client.postJson("/api/v1/auth/shops", encode(req), admin).body<Shop>()
+        added.links shouldBe stored
+        client.shops().single().links shouldBe stored
+
+        // Older clients don't send the field; that must keep the stored links.
+        val withoutLinks = JsonObject(testJson.encodeToJsonElement(req.toUpdate()).jsonObject - "links").toString()
+        client.putJson("/api/v1/auth/shops/${added.id}", withoutLinks, admin).status shouldBe HttpStatusCode.OK
+        client.shops().single().links shouldBe stored
+
+        val tabelog = ShopLinkInput(ShopLinkType.TABELOG, url = "https://tabelog.com/x")
+        client.putJson("/api/v1/auth/shops/${added.id}", encode(req.toUpdate().copy(links = listOf(req.links!![2], tabelog))), admin)
+            .status shouldBe HttpStatusCode.OK
+        client.shops().single().links shouldBe listOf(stored[2], ShopLink(ShopLinkType.TABELOG, url = "https://tabelog.com/x"))
+
+        client.putJson("/api/v1/auth/shops/${added.id}", encode(req.toUpdate().copy(links = emptyList())), admin)
+            .status shouldBe HttpStatusCode.OK
+        client.shops().single().links.shouldBeEmpty()
+    }
+
+    @Test
+    fun `invalid links are field errors and nothing is written`() = testApp { t ->
+        val admin = t.adminToken()
+        fun linkError(message: String, type: FieldErrorType) =
+            ErrorBody(ErrorType.INVALID_REQUEST, message, listOf(FieldError("links", type)))
+        val ok = ShopLinkInput(ShopLinkType.OFFICIAL, url = "https://a.example")
+        val cases = listOf(
+            listOf(ok.copy(url = "javascript:alert(1)")) to linkError("invalid link url", FieldErrorType.INVALID_FORMAT),
+            listOf(ok.copy(url = "data:text/html,hi")) to linkError("invalid link url", FieldErrorType.INVALID_FORMAT),
+            listOf(ok.copy(url = "a.example")) to linkError("invalid link url", FieldErrorType.INVALID_FORMAT),
+            listOf(ok.copy(url = "https://")) to linkError("invalid link url", FieldErrorType.INVALID_FORMAT),
+            listOf(ok.copy(url = "https://a.example/" + "a".repeat(2031))) to linkError("link url too long", FieldErrorType.TOO_LONG),
+            listOf(ok.copy(label = "あ".repeat(101))) to linkError("link label too long", FieldErrorType.TOO_LONG),
+            List(11) { ok } to linkError("too many links", FieldErrorType.OUT_OF_RANGE),
+        )
+        for ((links, error) in cases) {
+            client.postJson("/api/v1/auth/shops", encode(addShopRequest().copy(links = links)), admin).let {
+                it.status shouldBe HttpStatusCode.BadRequest
+                it.body<ErrorBody>() shouldBe error
+            }
+        }
+        client.shops().shouldBeEmpty()
+
+        // The limits themselves are allowed.
+        val atLimit = ok.copy(url = "https://a.example/" + "a".repeat(2030), label = "あ".repeat(100))
+        val req = addShopRequest().copy(links = List(10) { atLimit })
+        val id = client.postJson("/api/v1/auth/shops", encode(req), admin).body<Shop>().id
+        for ((links, error) in cases) {
+            client.putJson("/api/v1/auth/shops/$id", encode(req.toUpdate().copy(name = "changed", links = links)), admin)
+                .body<ErrorBody>() shouldBe error
+        }
+        client.shops().single().let {
+            it.name shouldBe "Ramen Taro"
+            it.links shouldBe List(10) { ShopLink(atLimit.type, atLimit.label, atLimit.url) }
+        }
     }
 
     @Test
@@ -259,9 +333,9 @@ class ShopApiTest {
     }
 
     @Test
-    fun `admin deletes a shop with its eaten row, tags and images`() = testApp { t ->
+    fun `admin deletes a shop with its eaten row, tags, images and links`() = testApp { t ->
         val admin = t.adminToken()
-        val req = addShopRequest(tagIds = listOf(SHOYU, MISO))
+        val req = addShopRequest(tagIds = listOf(SHOYU, MISO)).copy(links = listOf(ShopLinkInput(ShopLinkType.OFFICIAL, url = "https://a.example")))
         val id = client.postJson("/api/v1/auth/shops", encode(req), admin).body<Shop>().id
         val kept = client.postJson("/api/v1/auth/shops", encode(addShopRequest(placeId = "kept", tagIds = listOf(SHOYU))), admin).body<Shop>()
         client.putJson("/api/v1/auth/shops/$id", encode(req.toUpdate(eaten = true, rate = 40.0)), admin).status shouldBe HttpStatusCode.OK
@@ -275,11 +349,12 @@ class ShopApiTest {
         t.countRows("eaten_shops", id) shouldBe 1L
         t.countRows("shops_tags", id) shouldBe 2L
         t.countRows("shop_images", id) shouldBe 1L
+        t.countRows("shop_links", id) shouldBe 1L
 
         client.deleteWithSession("/api/v1/auth/shops/$id", admin).status shouldBe HttpStatusCode.NoContent
 
         client.shops() shouldContainExactly listOf(kept)
-        for (table in listOf("eaten_shops", "shops_tags", "shop_images")) t.countRows(table, id) shouldBe 0L
+        for (table in listOf("eaten_shops", "shops_tags", "shop_images", "shop_links")) t.countRows(table, id) shouldBe 0L
         t.countRows("shops_tags", kept.id) shouldBe 1L
     }
 

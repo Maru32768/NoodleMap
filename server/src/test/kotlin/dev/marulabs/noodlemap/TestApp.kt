@@ -136,5 +136,5 @@ fun addShopRequest(
 fun AddShopRequest.toUpdate(eaten: Boolean = false, rate: Double = 0.0, tagIds: List<String> = this.tagIds) =
     UpdateShopRequest(
         name = name, nameKana = nameKana, lat = lat, lng = lng, postalCode = postalCode, address = address, openedAt = openedAt, closedAt = closedAt,
-        googlePlaceId = googlePlaceId, category = category, eaten = eaten, rate = rate, tagIds = tagIds,
+        googlePlaceId = googlePlaceId, category = category, eaten = eaten, rate = rate, tagIds = tagIds, links = links,
     )

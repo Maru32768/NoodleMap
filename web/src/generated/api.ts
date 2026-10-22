@@ -227,7 +227,7 @@ export interface components {
             fieldErrors?: components["schemas"]["AddShopFieldError"][];
         };
         /** @enum {string} */
-        AddShopField: "name" | "nameKana" | "lat" | "lng" | "postalCode" | "address" | "openedAt" | "closedAt" | "googlePlaceId" | "category" | "tagIds";
+        AddShopField: "name" | "nameKana" | "lat" | "lng" | "postalCode" | "address" | "openedAt" | "closedAt" | "googlePlaceId" | "category" | "tagIds" | "links";
         AddShopFieldError: {
             field: components["schemas"]["AddShopField"];
             type: components["schemas"]["FieldErrorType"];
@@ -247,6 +247,8 @@ export interface components {
             googlePlaceId: string;
             category: components["schemas"]["CategorySlug"];
             tagIds: components["schemas"]["uuid"][];
+            /** @description At most 10 links, stored in array order. Omit for none. */
+            links?: components["schemas"]["ShopLinkInput"][];
         };
         AuthResponse: {
             user: components["schemas"]["User"];
@@ -376,7 +378,23 @@ export interface components {
             favorite: boolean;
             category: components["schemas"]["CategorySlug"];
             tags: components["schemas"]["Tag"][];
+            /** @description External links (official site, SNS, ...) in display order. */
+            links: components["schemas"]["ShopLink"][];
         };
+        ShopLink: {
+            type: components["schemas"]["ShopLinkType"];
+            /** @description Display text. Absent when not set; clients fall back to the type name. */
+            label?: string;
+            url: string;
+        };
+        /** @description An http(s) URL of at most 2048 characters with an optional label of at most 100 characters. */
+        ShopLinkInput: {
+            type: components["schemas"]["ShopLinkType"];
+            label?: string;
+            url: string;
+        };
+        /** @enum {string} */
+        ShopLinkType: "official" | "twitter" | "instagram" | "facebook" | "tabelog" | "other";
         ShopsResponse: {
             shops: components["schemas"]["Shop"][];
         };
@@ -421,7 +439,7 @@ export interface components {
             fieldErrors?: components["schemas"]["UpdateShopFieldError"][];
         };
         /** @enum {string} */
-        UpdateShopField: "name" | "nameKana" | "lat" | "lng" | "postalCode" | "address" | "openedAt" | "closedAt" | "googlePlaceId" | "category" | "eaten" | "rate" | "tagIds";
+        UpdateShopField: "name" | "nameKana" | "lat" | "lng" | "postalCode" | "address" | "openedAt" | "closedAt" | "googlePlaceId" | "category" | "eaten" | "rate" | "tagIds" | "links";
         UpdateShopFieldError: {
             field: components["schemas"]["UpdateShopField"];
             type: components["schemas"]["FieldErrorType"];
@@ -445,6 +463,8 @@ export interface components {
             /** Format: double */
             rate: number;
             tagIds: components["schemas"]["uuid"][];
+            /** @description Omit to keep the stored links (older clients); an array replaces them all, in array order. At most 10. */
+            links?: components["schemas"]["ShopLinkInput"][];
         };
         User: {
             id: components["schemas"]["uuid"];

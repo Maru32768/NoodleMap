@@ -29,6 +29,8 @@ public enum class AddShopField(
   CATEGORY("category"),
   @SerialName("tagIds")
   TAG_IDS("tagIds"),
+  @SerialName("links")
+  LINKS("links"),
   ;
 
   override fun toString(): String = value

@@ -38,4 +38,10 @@ public data class UpdateShopRequest(
   public val rate: Double,
   @SerialName("tagIds")
   public val tagIds: List<String>,
+  /**
+   * Omit to keep the stored links (older clients); an array replaces them all, in array order. At
+   * most 10.
+   */
+  @SerialName("links")
+  public val links: List<ShopLinkInput>? = null,
 )

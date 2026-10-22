@@ -17,16 +17,24 @@ import dev.marulabs.noodlemap.generated.controllers.TypedApplicationCall
 import dev.marulabs.noodlemap.generated.models.AddShopRequest
 import dev.marulabs.noodlemap.generated.models.CategorySlug
 import dev.marulabs.noodlemap.generated.models.Shop
+import dev.marulabs.noodlemap.generated.models.ShopLink
+import dev.marulabs.noodlemap.generated.models.ShopLinkInput
+import dev.marulabs.noodlemap.generated.models.ShopLinkType
 import dev.marulabs.noodlemap.generated.models.SaveTagsRequest
 import dev.marulabs.noodlemap.generated.models.ShopsResponse
 import dev.marulabs.noodlemap.generated.models.Tag
 import dev.marulabs.noodlemap.generated.models.TagsResponse
 import dev.marulabs.noodlemap.generated.models.UpdateShopRequest
+import java.net.URI
+import java.net.URISyntaxException
 import java.util.UUID
 import org.sqlite.SQLiteErrorCode
 import org.sqlite.SQLiteException
 
 private const val NAME_KANA_MAX_LENGTH = 100
+private const val SHOP_LINKS_MAX = 10
+private const val SHOP_LINK_URL_MAX_LENGTH = 2048
+private const val SHOP_LINK_LABEL_MAX_LENGTH = 100
 
 /** Shop and tag endpoints, ported from Go `shops/handler.go`. */
 class ShopHandler(
@@ -81,6 +89,7 @@ class ShopHandler(
         val shopId = UUID.randomUUID()
         val req = addShopRequest
         val nameKana = normalizeNameKana(req.nameKana)
+        val links = normalizeLinks(req.links.orEmpty())
         db.transaction {
             rejectingDuplicatePlaceId {
                 db.shopsQueries.insertShop(
@@ -89,6 +98,7 @@ class ShopHandler(
                 )
             }
             replaceShopTags(shopId, req.tagIds)
+            replaceShopLinks(shopId, links)
         }
 
         call.respondTyped(
@@ -98,6 +108,7 @@ class ShopHandler(
                 postalCode = req.postalCode, address = req.address, googlePlaceId = req.googlePlaceId,
                 eaten = false, rate = 0.0, favorite = false, category = req.category,
                 tags = tagsByShopIds(listOf(shopId))[shopId] ?: emptyList(),
+                links = linksByShopIds(listOf(shopId))[shopId] ?: emptyList(),
             ),
         )
     }
@@ -116,6 +127,8 @@ class ShopHandler(
         if (req.eaten && req.rate !in 0.0..100.0) throw DomainException.ShopRateOutOfRange()
         // Missing (older clients) keeps the stored reading; blank clears it ('' -> NULL in SQL).
         val nameKana = req.nameKana?.let { normalizeNameKana(it) ?: "" }
+        // Missing (older clients) keeps the stored links; an array replaces them all.
+        val links = req.links?.let { normalizeLinks(it) }
         db.transaction {
             // Write first and judge existence by rows affected: a SELECT before the first write
             // in a deferred WAL transaction can fail with SQLITE_BUSY_SNAPSHOT under contention.
@@ -132,6 +145,7 @@ class ShopHandler(
                 db.eatenShopsQueries.deleteEatenShopByShopId(shopId)
             }
             replaceShopTags(shopId, req.tagIds)
+            links?.let { replaceShopLinks(shopId, it) }
         }
 
         call.respond(HttpStatusCode.OK)
@@ -154,6 +168,7 @@ class ShopHandler(
             db.eatenShopsQueries.deleteEatenShopByShopId(shopId)
             db.shopsTagsQueries.deleteShopTagsByShopId(shopId)
             db.shopImagesQueries.deleteShopImagesByShopId(shopId)
+            db.shopLinksQueries.deleteShopLinksByShopId(shopId)
             if (db.shopsQueries.deleteShop(shopId).value == 0L) throw DomainException.NotFound()
         }
 
@@ -169,6 +184,7 @@ class ShopHandler(
     private fun loadShops(): List<Shop> {
         val rows = db.shopsQueries.findAllShops().executeAsList()
         val tagsByShop = tagsByShopIds(rows.map { it.id })
+        val linksByShop = linksByShopIds(rows.map { it.id })
         return rows.map { r ->
             Shop(
                 id = r.id.toString(), name = r.name, nameKana = r.name_kana, lat = r.lat, lng = r.lng,
@@ -177,6 +193,7 @@ class ShopHandler(
                 eaten = r.eaten != 0L, rate = r.rate, favorite = isFavorite(r.eaten != 0L, r.rate),
                 category = CategorySlug.fromValue(r.category) ?: CategorySlug.RAMEN,
                 tags = tagsByShop[r.id] ?: emptyList(),
+                links = linksByShop[r.id] ?: emptyList(),
             )
         }
     }
@@ -199,6 +216,47 @@ class ShopHandler(
                 )
             },
         )
+    }
+
+    private fun linksByShopIds(ids: List<UUID>): Map<UUID, List<ShopLink>> {
+        if (ids.isEmpty()) return emptyMap()
+        return db.shopLinksQueries.findShopLinksByShopIds(ids).executeAsList().groupBy(
+            keySelector = { it.shop_id },
+            valueTransform = { ShopLink(type = ShopLinkType.fromValue(it.type) ?: ShopLinkType.OTHER, label = it.label, url = it.url) },
+        )
+    }
+
+    /** Trims URLs and labels (blank label = not set) and rejects anything but short http(s) URLs. */
+    private fun normalizeLinks(links: List<ShopLinkInput>): List<ShopLinkInput> {
+        fun invalid(message: String, type: FieldErrorType): Nothing =
+            throw DomainException.InvalidRequestWithFields(message, listOf(FieldError("links", type)))
+
+        if (links.size > SHOP_LINKS_MAX) invalid("too many links", FieldErrorType.OUT_OF_RANGE)
+        return links.map { link ->
+            val url = link.url.trim()
+            if (url.length > SHOP_LINK_URL_MAX_LENGTH) invalid("link url too long", FieldErrorType.TOO_LONG)
+            if (!isHttpUrl(url)) invalid("invalid link url", FieldErrorType.INVALID_FORMAT)
+            val label = link.label?.trim()?.takeIf { it.isNotEmpty() }
+            if (label != null && label.length > SHOP_LINK_LABEL_MAX_LENGTH) invalid("link label too long", FieldErrorType.TOO_LONG)
+            link.copy(url = url, label = label)
+        }
+    }
+
+    // Only http(s) with a host: rejects javascript:, data:, relative and scheme-less input.
+    private fun isHttpUrl(url: String): Boolean {
+        val uri = try {
+            URI(url)
+        } catch (_: URISyntaxException) {
+            return false
+        }
+        return uri.scheme?.lowercase() in setOf("http", "https") && !uri.host.isNullOrEmpty()
+    }
+
+    private fun replaceShopLinks(shopId: UUID, links: List<ShopLinkInput>) {
+        db.shopLinksQueries.deleteShopLinksByShopId(shopId)
+        links.forEachIndexed { i, link ->
+            db.shopLinksQueries.insertShopLink(UUID.randomUUID(), shopId, link.type.value, link.label, link.url, i.toLong())
+        }
     }
 
     /** Trims the reading; blank means "not set". */

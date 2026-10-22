@@ -33,6 +33,8 @@ public enum class UpdateShopField(
   RATE("rate"),
   @SerialName("tagIds")
   TAG_IDS("tagIds"),
+  @SerialName("links")
+  LINKS("links"),
   ;
 
   override fun toString(): String = value

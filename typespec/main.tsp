@@ -47,11 +47,21 @@ union AddShopField {
   "googlePlaceId",
   "category",
   "tagIds",
+  "links",
 }
 
 union CategorySlug {
   "ramen",
   "udon",
+}
+
+union ShopLinkType {
+  "official",
+  "twitter",
+  "instagram",
+  "facebook",
+  "tabelog",
+  "other",
 }
 
 union UpdateShopField {
@@ -68,6 +78,7 @@ union UpdateShopField {
   "eaten",
   "rate",
   "tagIds",
+  "links",
 }
 
 union TagField {
@@ -290,6 +301,25 @@ model Shop {
 
   category: CategorySlug;
   tags: Tag[];
+
+  @doc("External links (official site, SNS, ...) in display order.")
+  links: ShopLink[];
+}
+
+model ShopLink {
+  type: ShopLinkType;
+
+  @doc("Display text. Absent when not set; clients fall back to the type name.")
+  label?: string;
+
+  url: string;
+}
+
+@doc("An http(s) URL of at most 2048 characters with an optional label of at most 100 characters.")
+model ShopLinkInput {
+  type: ShopLinkType;
+  label?: string;
+  url: string;
 }
 
 model Tag {
@@ -334,6 +364,9 @@ model AddShopRequest {
   googlePlaceId: string;
   category: CategorySlug;
   tagIds: uuid[];
+
+  @doc("At most 10 links, stored in array order. Omit for none.")
+  links?: ShopLinkInput[];
 }
 
 model UpdateShopRequest {
@@ -353,6 +386,9 @@ model UpdateShopRequest {
   eaten: boolean;
   rate: float64;
   tagIds: uuid[];
+
+  @doc("Omit to keep the stored links (older clients); an array replaces them all, in array order. At most 10.")
+  links?: ShopLinkInput[];
 }
 
 model PlaceSuggestion {
