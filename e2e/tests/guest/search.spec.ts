@@ -67,7 +67,7 @@ test("guest opens a shared shop URL even when filters hide the shop", async ({ p
     .toContain('"ramen":false');
 
   await page.goto(`/search?shop=${shop.id}`);
-  await expect(page.getByText(shop.name, { exact: true })).toBeVisible();
+  await expect(page.getByText(shop.name, { exact: true }).filter({ visible: true })).toBeVisible();
   await expect(page.getByText("お気に入り度 - Favorite")).toBeVisible();
 
   await page.getByRole("button", { name: "閉じる" }).click();
