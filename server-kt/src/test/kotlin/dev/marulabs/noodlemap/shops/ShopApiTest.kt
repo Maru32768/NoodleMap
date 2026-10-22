@@ -12,12 +12,15 @@ import dev.marulabs.noodlemap.generated.models.ShopsResponse
 import dev.marulabs.noodlemap.postJson
 import dev.marulabs.noodlemap.putJson
 import dev.marulabs.noodlemap.testApp
+import dev.marulabs.noodlemap.testJson
 import dev.marulabs.noodlemap.toUpdate
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldNotContainIgnoringCase
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import java.util.UUID
 import org.junit.jupiter.api.Test
@@ -31,6 +34,8 @@ suspend fun HttpClient.shops(): List<Shop> = get("/api/v1/shops").body<ShopsResp
 class ShopApiTest {
 
     private val invalidTagIds = ErrorBody(ErrorType.INVALID_REQUEST, "invalid tag ids", listOf(FieldError("tagIds", FieldErrorType.UNKNOWN)))
+    private val duplicatePlaceId =
+        ErrorBody(ErrorType.INVALID_REQUEST, "duplicate google place id", listOf(FieldError("googlePlaceId", FieldErrorType.DUPLICATE)))
 
     @Test
     fun `admin adds a shop and it is listed with its tags`() = testApp { t ->
@@ -73,6 +78,39 @@ class ShopApiTest {
             res.body<ErrorBody>() shouldBe invalidTagIds
         }
         client.shops().shouldBeEmpty()
+    }
+
+    @Test
+    fun `adding a duplicate google place id is a field error and nothing is written`() = testApp { t ->
+        val admin = t.adminToken()
+        client.postJson("/api/v1/auth/shops", encode(addShopRequest(placeId = "dup")), admin).status shouldBe HttpStatusCode.OK
+
+        val res = client.postJson("/api/v1/auth/shops", encode(addShopRequest(placeId = "dup", tagIds = listOf(SHOYU))), admin)
+
+        res.status shouldBe HttpStatusCode.BadRequest
+        val text = res.bodyAsText()
+        testJson.decodeFromString<ErrorBody>(text) shouldBe duplicatePlaceId
+        text shouldNotContainIgnoringCase "sqlite"
+        client.shops().single().tags.shouldBeEmpty()
+    }
+
+    @Test
+    fun `updating to another shop's google place id is a field error and rolls back`() = testApp { t ->
+        val admin = t.adminToken()
+        client.postJson("/api/v1/auth/shops", encode(addShopRequest(placeId = "taken")), admin)
+        val req = addShopRequest(placeId = "mine")
+        val id = client.postJson("/api/v1/auth/shops", encode(req), admin).body<Shop>().id
+
+        val res = client.putJson("/api/v1/auth/shops/$id", encode(req.toUpdate(eaten = true).copy(googlePlaceId = "taken")), admin)
+
+        res.status shouldBe HttpStatusCode.BadRequest
+        res.body<ErrorBody>() shouldBe duplicatePlaceId
+        client.shops().single { it.id == id }.let {
+            it.googlePlaceId shouldBe "mine"
+            it.eaten shouldBe false
+        }
+        // Keeping its own place id is not a conflict.
+        client.putJson("/api/v1/auth/shops/$id", encode(req.toUpdate()), admin).status shouldBe HttpStatusCode.OK
     }
 
     @Test

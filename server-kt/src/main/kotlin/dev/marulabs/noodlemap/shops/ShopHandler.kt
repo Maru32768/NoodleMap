@@ -21,6 +21,8 @@ import dev.marulabs.noodlemap.generated.models.Tag
 import dev.marulabs.noodlemap.generated.models.TagsResponse
 import dev.marulabs.noodlemap.generated.models.UpdateShopRequest
 import java.util.UUID
+import org.sqlite.SQLiteErrorCode
+import org.sqlite.SQLiteException
 
 /** Shop and tag endpoints, ported from Go `shops/handler.go`. */
 class ShopHandler(
@@ -75,10 +77,12 @@ class ShopHandler(
         val shopId = UUID.randomUUID()
         val req = addShopRequest
         db.transaction {
-            db.shopsQueries.insertShop(
-                shopId, req.name, req.lat, req.lng, req.postalCode, req.address,
-                ShopDate.encode(req.openedAt), ShopDate.encode(req.closedAt), req.googlePlaceId, req.category.value,
-            )
+            rejectingDuplicatePlaceId {
+                db.shopsQueries.insertShop(
+                    shopId, req.name, req.lat, req.lng, req.postalCode, req.address,
+                    ShopDate.encode(req.openedAt), ShopDate.encode(req.closedAt), req.googlePlaceId, req.category.value,
+                )
+            }
             replaceShopTags(shopId, req.tagIds)
         }
 
@@ -105,10 +109,12 @@ class ShopHandler(
 
         val req = updateShopRequest
         db.transaction {
-            db.shopsQueries.updateShop(
-                req.name, req.lat, req.lng, req.postalCode, req.address,
-                ShopDate.encode(req.openedAt), ShopDate.encode(req.closedAt), req.googlePlaceId, req.category.value, shopId,
-            )
+            rejectingDuplicatePlaceId {
+                db.shopsQueries.updateShop(
+                    req.name, req.lat, req.lng, req.postalCode, req.address,
+                    ShopDate.encode(req.openedAt), ShopDate.encode(req.closedAt), req.googlePlaceId, req.category.value, shopId,
+                )
+            }
             if (req.eaten) {
                 db.eatenShopsQueries.upsertEatenShop(UUID.randomUUID(), shopId, req.rate, req.favorite)
             } else {
@@ -155,6 +161,16 @@ class ShopHandler(
                 )
             },
         )
+    }
+
+    /** `google_place_id` is the only UNIQUE column on `shops`, so a UNIQUE violation there is a duplicate place id. */
+    private inline fun rejectingDuplicatePlaceId(write: () -> Unit) {
+        try {
+            write()
+        } catch (e: SQLiteException) {
+            if (e.resultCode == SQLiteErrorCode.SQLITE_CONSTRAINT_UNIQUE) throw DomainException.DuplicateGooglePlaceId()
+            throw e
+        }
     }
 
     /** Replaces a shop's tag links. Rejects unknown tag ids; dedupes preserving order. */

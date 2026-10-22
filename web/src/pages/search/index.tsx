@@ -19,7 +19,11 @@ import {
 } from "@/features/map/map.tsx";
 import { useSearchState } from "@/features/search/use-search-state.ts";
 import { filterShops, sortShops } from "@/features/search/utils.ts";
-import { UpdateShopCommand, useShops } from "@/features/shops/api/use-shops.ts";
+import {
+  isDuplicatePlaceIdError,
+  UpdateShopCommand,
+  useShops,
+} from "@/features/shops/api/use-shops.ts";
 import { DetailPanel } from "@/features/shops/detail-panel.tsx";
 import { MobileSheet } from "@/features/shops/mobile-sheet.tsx";
 import {
@@ -230,7 +234,9 @@ export default function SearchPage() {
       const result = await updateShop(draft.id, cmd);
       if (!result.ok) {
         toastApiError(result.error, {
-          fallbackTitle: "店舗を更新できませんでした",
+          fallbackTitle: isDuplicatePlaceIdError(result.error.body)
+            ? "Google Place ID が他の店舗と重複しています"
+            : "店舗を更新できませんでした",
         });
         return;
       }

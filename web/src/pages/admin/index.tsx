@@ -7,7 +7,11 @@ import { AdminTable } from "@/features/admin/admin-table.tsx";
 import { MobileShopList } from "@/features/admin/mobile-shop-list.tsx";
 import { TagManagementModal } from "@/features/admin/tag-management-modal.tsx";
 import type { CategoryType } from "@/features/search/utils.ts";
-import { UpdateShopCommand, useShops } from "@/features/shops/api/use-shops.ts";
+import {
+  isDuplicatePlaceIdError,
+  UpdateShopCommand,
+  useShops,
+} from "@/features/shops/api/use-shops.ts";
 import {
   ShopEditDraft,
   ShopEditModal,
@@ -208,7 +212,9 @@ export default function AdminPage() {
     const result = await updateShop(draft.id, cmd);
     if (!result.ok) {
       toastApiError(result.error, {
-        fallbackTitle: "店舗を更新できませんでした",
+        fallbackTitle: isDuplicatePlaceIdError(result.error.body)
+          ? "Google Place ID が他の店舗と重複しています"
+          : "店舗を更新できませんでした",
       });
       return;
     }
@@ -221,7 +227,9 @@ export default function AdminPage() {
     const result = await addShop(draft);
     if (!result.ok) {
       toastApiError(result.error, {
-        fallbackTitle: "店舗を追加できませんでした",
+        fallbackTitle: isDuplicatePlaceIdError(result.error.body)
+          ? "Google Place ID が他の店舗と重複しています"
+          : "店舗を追加できませんでした",
       });
       return;
     }

@@ -91,6 +91,12 @@ sealed class DomainException(
             listOf(FieldError("slug", FieldErrorType.DUPLICATE)),
         )
 
+    class DuplicateGooglePlaceId :
+        DomainException(
+            HttpStatusCode.BadRequest, ErrorType.INVALID_REQUEST, "duplicate google place id",
+            listOf(FieldError("googlePlaceId", FieldErrorType.DUPLICATE)),
+        )
+
     class InvalidShopTagIds :
         DomainException(
             HttpStatusCode.BadRequest, ErrorType.INVALID_REQUEST, "invalid tag ids",

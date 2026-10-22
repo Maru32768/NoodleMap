@@ -62,6 +62,21 @@ type AddShopErrorBody = ApiErrorBodyFor<"/api/v1/auth/shops", "post">;
 type UpdateShopErrorBody = ApiErrorBodyFor<"/api/v1/auth/shops/{id}", "put">;
 export type SaveTagsErrorBody = ApiErrorBodyFor<"/api/v1/auth/tags", "put">;
 
+export function isDuplicatePlaceIdError(
+  body: AddShopErrorBody | UpdateShopErrorBody | undefined,
+): boolean {
+  if (body?.type === "invalid_request") {
+    return (
+      body.fieldErrors?.some(
+        (fieldError) =>
+          fieldError.field === "googlePlaceId" &&
+          fieldError.type === "duplicate",
+      ) ?? false
+    );
+  }
+  return false;
+}
+
 export function useShops(config?: SWRConfiguration<Shop[]>) {
   const resp = useSWR(
     ["/api/v1/shops"],
