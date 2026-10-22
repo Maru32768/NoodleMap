@@ -5,7 +5,7 @@
 # is public by design). They are not secrets, so the SecretsUsedInArgOrEnv check
 # is intentionally skipped here.
 
-FROM node:24.22.1 AS build-stage
+FROM node:24 AS build-stage
 
 WORKDIR /work
 

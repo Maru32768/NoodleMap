@@ -100,7 +100,7 @@ When changing routes, request/response shapes, or API-facing models:
 
 Current responsibilities:
 
-- Pin Node.js to `24.22.1` and Terraform to `1.15.5`.
+- Pin Node.js to the latest `24.x` (run `mise up node` for new patches) and Terraform to `1.15.5`.
 - Load local environment values from `.env`.
 - Set AWS checksum options required by the current R2/S3-compatible tooling.
 

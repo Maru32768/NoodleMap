@@ -4,7 +4,7 @@ React + TypeScript frontend built with Vite.
 
 ## Requirements
 
-- Node.js 24.22.1 (pinned in the repository root `.mise.toml`; run `mise install`)
+- Node.js 24.x (pinned in the repository root `.mise.toml`; run `mise install`)
 
 ## Development Server
 

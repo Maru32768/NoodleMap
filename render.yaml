@@ -90,6 +90,9 @@ services:
         source: /*
         destination: /index.html
     envVars:
+      # Render static sites don't read .mise.toml; keep in step with it.
+      - key: NODE_VERSION
+        value: "24"
       - key: VITE_GOOGLE_API_KEY
         sync: false
       - key: VITE_GOOGLE_OAUTH_CLIENT_ID
