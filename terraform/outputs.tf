@@ -17,3 +17,11 @@ output "og_images_bucket_name" {
 output "og_images_public_base_url" {
   value = module.og_images_r2.public_base_url
 }
+
+output "visit_images_bucket_name" {
+  value = module.visit_images_r2.bucket_name
+}
+
+output "visit_images_public_base_url" {
+  value = module.visit_images_r2.public_base_url
+}

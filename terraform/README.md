@@ -79,3 +79,18 @@ on that bucket only, then set on the Render backend:
 - `OG_R2_PUBLIC_BASE_URL=https://og.noodle-map.marulabs.dev`
 
 Set all five or none; with none the backend renders each image on request.
+
+## Visit images
+
+`module.visit_images_r2` creates the `noodle-map-visit-images` bucket served at
+`https://images.noodle-map.marulabs.dev`. The backend stores the photos of visit
+logs there as JPEGs under `visits/<visit_id>/<image_id>.jpg`. Create an R2 API
+token with Object Read & Write on that bucket only, then set on the Render backend:
+
+- `VISIT_IMAGES_R2_BUCKET=noodle-map-visit-images`
+- `VISIT_IMAGES_R2_ENDPOINT=https://<account_id>.r2.cloudflarestorage.com`
+- `VISIT_IMAGES_R2_ACCESS_KEY_ID` / `VISIT_IMAGES_R2_SECRET_ACCESS_KEY` from the token
+- `VISIT_IMAGES_R2_PUBLIC_BASE_URL=https://images.noodle-map.marulabs.dev`
+
+Set all five or none; with none the backend stores the images on its local disk
+next to the database and serves them itself (meant for local development).
