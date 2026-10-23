@@ -16,8 +16,16 @@ mise exec -- npm run test:ui # Playwright UI mode
 mise exec -- npm run report  # open the last HTML report
 ```
 
-Ports 8888 (backend) and 4180 (frontend) must be free. The suite never reuses a
-server that is already running, because tests write shops, tags and sessions.
+Ports 18888 (backend) and 14180 (frontend) must be free. They differ from the dev
+server's 8888, so the suite runs while `mise run dev` is up. To run several
+checkouts at once, give each its own ports:
+
+```sh
+E2E_BACKEND_PORT=28888 E2E_WEB_PORT=24180 mise exec -- npm test
+```
+
+The suite never reuses a server that is already running, because tests write
+shops, tags and sessions.
 
 ## What `npm test` starts
 
@@ -25,9 +33,10 @@ server that is already running, because tests write shops, tags and sessions.
 
 - `server`: `start-server.mjs` deletes the E2E database under `.data/`, runs
   `gradlew buildFatJar` (a no-op when the jar is current), and runs the jar on
-  port 8888 with an E2E `ADMIN_EMAIL` and a local-only backup path.
-- `web`: `vite build` into `.data/web-build`, then `vite preview` on port 4180.
-  Preview reuses the dev proxy, so `/api` goes to port 8888. A production build
+  the backend port with an E2E `ADMIN_EMAIL` and a local-only backup path.
+- `web`: `vite build` into `.data/web-build`, then `vite preview` on the web port.
+  Preview reuses the dev proxy, and `API_PROXY_TARGET` points it at the E2E
+  backend, so `/api` never reaches the dev server. A production build
   avoids dev-server dependency re-optimization reloads and the type-checker
   overlay. The build overrides `web/.env` so it never talks to Google or the
   tile CDN; the map renders the offline background-only style.

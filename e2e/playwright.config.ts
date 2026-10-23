@@ -102,6 +102,7 @@ export default defineConfig({
         // A blank PMTiles URL selects the offline background-only basemap.
         VITE_BASEMAP_PMTILES_URL: " ",
         VITE_GOOGLE_OAUTH_CLIENT_ID: "e2e-google-client-id",
+        API_PROXY_TARGET: `http://localhost:${BACKEND_PORT}`,
       },
     },
   ],

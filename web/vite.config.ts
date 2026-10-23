@@ -40,6 +40,8 @@ export default defineConfig(({ command, mode }) => {
   const httpsKey = env.DEV_HTTPS_KEY;
   const httpsCert = env.DEV_HTTPS_CERT;
   const useHttps = mode === "https";
+  // Where /api and /r/ go in dev and preview; e2e points it at its own backend port.
+  const apiProxyTarget = env.API_PROXY_TARGET || "http://localhost:8888";
 
   if (useHttps && (!httpsKey || !httpsCert)) {
     throw new Error(
@@ -103,12 +105,12 @@ export default defineConfig(({ command, mode }) => {
         : undefined,
       proxy: {
         "/api": {
-          target: "http://localhost:8888",
+          target: apiProxyTarget,
           changeOrigin: true,
         },
         // Share pages (OGP HTML) come from the backend; a regex so /robots.txt etc. stay local.
         "^/r/": {
-          target: "http://localhost:8888",
+          target: apiProxyTarget,
           changeOrigin: true,
         },
         "/maps": {
