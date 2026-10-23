@@ -268,8 +268,8 @@ export function AdminTable({
     }),
     createSortableColumn({
       property: "favoriteSort",
-      header: "評価",
-      width: "100px",
+      header: "お気に入り度",
+      width: "120px",
       render: (_favoriteSort, shop) => <MiniHearts rate={shop.rate} />,
     }),
     createSortableColumn({

@@ -50,7 +50,7 @@ function SortableShopTable({ data }: { data: Shop[] }) {
         }),
         createSortableColumn({
           property: "rate",
-          header: "評価",
+          header: "お気に入り度",
           width: "20%",
           render: (rate) => rate,
         }),

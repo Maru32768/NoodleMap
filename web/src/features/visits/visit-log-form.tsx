@@ -295,7 +295,7 @@ export function VisitLogForm({
         />
       </FormField>
       <FormField
-        label={<FieldLabel>評価（0〜100、空欄で未評価）</FieldLabel>}
+        label={<FieldLabel>お気に入り度（0〜100、空欄で未設定）</FieldLabel>}
         error={errorOf("rate")}
       >
         <Box display="flex" alignItems="center" gap="8px">
@@ -306,8 +306,8 @@ export function VisitLogForm({
             max={100}
             step={1}
             fontFamily="mono"
-            aria-label="評価"
-            placeholder="未評価"
+            aria-label="お気に入り度"
+            placeholder="未設定"
             ref={rateRef}
             value={draft.rate}
             onChange={(e) => set("rate", e.target.value)}

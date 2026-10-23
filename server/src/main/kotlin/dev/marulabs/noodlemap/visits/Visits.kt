@@ -15,7 +15,7 @@ internal fun <T> latestFirst(visitedOn: (T) -> String?, createdAt: (T) -> String
         .thenByDescending { createdAt(it) }
         .thenByDescending { id(it).toString() }
 
-/** What a shop derives from its visit logs: 食べた and its 評価. */
+/** What a shop derives from its visit logs: 食べた and its お気に入り度. */
 data class VisitSummary(val visitCount: Int, val rate: Double?) {
     /** 食べた: at least one visit log. */
     val eaten: Boolean get() = visitCount > 0
@@ -27,7 +27,7 @@ data class VisitSummary(val visitCount: Int, val rate: Double?) {
 
 private val SUMMARY_ORDER = latestFirst<FindAllVisitSummaries>({ it.visited_on }, { it.created_at }, { it.id })
 
-/** The shop's 評価 is the rate of its latest visit log that has one. */
+/** The shop's お気に入り度 is the rate of its latest visit log that has one. */
 internal fun summarize(visits: List<FindAllVisitSummaries>): VisitSummary =
     VisitSummary(visits.size, visits.filter { it.rate != null }.minWithOrNull(SUMMARY_ORDER)?.rate)
 

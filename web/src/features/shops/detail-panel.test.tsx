@@ -62,7 +62,7 @@ describe("DetailPanel", () => {
     expect(screen.getByText("1996/10/1")).toBeInTheDocument();
     expect(screen.getByText("2999/3/31")).toBeInTheDocument();
     expect(screen.getByText("閉店予定")).toBeInTheDocument();
-    expect(screen.getByText("評価 - Rating")).toBeInTheDocument();
+    expect(screen.getByText("お気に入り度 - Favorite")).toBeInTheDocument();
 
     const mapsUrl = new URL(
       screen
@@ -135,10 +135,12 @@ describe("DetailPanel", () => {
     expect(links[0]).toHaveAttribute("rel", "noopener noreferrer");
   });
 
-  it("shows the rating only for visited shops", () => {
+  it("shows the お気に入り度 only for visited shops", () => {
     renderPanel(makeShop({ eaten: false, rate: 0 }));
 
-    expect(screen.queryByText("評価 - Rating")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("お気に入り度 - Favorite"),
+    ).not.toBeInTheDocument();
   });
 
   it("shows a not-eaten shop's 気になる度", () => {
@@ -191,7 +193,7 @@ describe("DetailPanel visit logs", () => {
     expect(first).toHaveTextContent("スープが濃厚");
     expect(first).not.toHaveTextContent("メモ（自分用）");
     expect(second).toHaveTextContent("日付不明");
-    expect(second).toHaveTextContent("未評価");
+    expect(second).toHaveTextContent("お気に入り度 未設定");
   });
 
   it("shows メモ（自分用） when the API returns it (admin)", async () => {
@@ -215,12 +217,13 @@ describe("DetailPanel visit logs", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows 未評価 instead of a 0 rating when no visit is rated", async () => {
+  it("shows 未設定 instead of a 0 お気に入り度 when no visit has one", async () => {
     serveVisits([visits[1]]);
     renderPanel(makeShop({ eaten: true, rate: 0, visitCount: 1 }));
 
     await screen.findByRole("list", { ...hidden, name: "訪問ログ" });
-    expect(screen.getAllByText("未評価")).toHaveLength(2);
+    expect(screen.getByText("未設定")).toBeInTheDocument();
+    expect(screen.getByText("お気に入り度 未設定")).toBeInTheDocument();
     expect(screen.queryByText("/ 100")).not.toBeInTheDocument();
   });
 

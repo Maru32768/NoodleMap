@@ -136,7 +136,7 @@ describe("VisitLogEditor", () => {
       "1200",
     );
     await userEvent.type(
-      within(form()).getByRole("spinbutton", { name: "評価" }),
+      within(form()).getByRole("spinbutton", { name: "お気に入り度" }),
       "85",
     );
     await save();
@@ -160,7 +160,7 @@ describe("VisitLogEditor", () => {
     expect(screen.queryByRole("group", { name: /訪問/ })).toBeNull();
   });
 
-  it("omits a cleared date and a blank rate (日付不明, 未評価)", async () => {
+  it("omits a cleared date and a blank rate (日付不明, 未設定)", async () => {
     const { posted } = renderVisits({ visits: [] });
 
     await userEvent.click(
@@ -192,13 +192,13 @@ describe("VisitLogEditor", () => {
       await screen.findByRole("button", { name: "訪問を記録" }),
     );
     await userEvent.type(
-      within(form()).getByRole("spinbutton", { name: "評価" }),
+      within(form()).getByRole("spinbutton", { name: "お気に入り度" }),
       "85",
     );
     await save();
 
     const rate = await within(form()).findByRole("spinbutton", {
-      name: "評価",
+      name: "お気に入り度",
       description: "0〜100の範囲で入力してください",
     });
     expect(rate).toHaveAttribute("aria-invalid", "true");

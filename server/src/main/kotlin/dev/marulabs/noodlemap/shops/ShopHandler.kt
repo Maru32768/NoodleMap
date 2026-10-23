@@ -172,7 +172,7 @@ class ShopHandler(
         }
         if (!user.isAdmin) throw DomainException.PermissionDenied()
 
-        // eaten / rate are deprecated and ignored: 食べた and 評価 come from visit logs.
+        // eaten / rate are deprecated and ignored: 食べた and お気に入り度 come from visit logs.
         val req = updateShopRequest
         // Missing (older clients) keeps the stored reading; blank clears it ('' -> NULL in SQL).
         val nameKana = req.nameKana?.let { normalizeNameKana(it) ?: "" }
@@ -232,8 +232,8 @@ class ShopHandler(
 
     // --- Helpers ---
 
-    // The one place the お気に入り rule lives (GLOSSARY.md): the shop's 評価 is 80 or more. A shop
-    // only has a 評価 through a rated visit log, so a favorite is always eaten.
+    // The one place the お気に入り rule lives (GLOSSARY.md): the shop's お気に入り度 is 80 or more. A shop
+    // only gets お気に入り度 from a rated visit log, so a favorite is always eaten.
     private fun isFavorite(rate: Double?): Boolean = rate != null && rate >= 80.0
 
     private fun loadShops(): List<ShopRecord> {
@@ -249,7 +249,7 @@ class ShopHandler(
                 id = r.id.toString(), name = r.name, nameKana = r.name_kana, lat = r.lat, lng = r.lng,
                 openedAt = ShopDate.decode(r.opened_at), closedAt = ShopDate.decode(r.closed_at),
                 postalCode = r.postal_code, address = r.address, googlePlaceId = r.google_place_id,
-                // Older clients read a missing 評価 as 0.
+                // Older clients read a missing お気に入り度 as 0.
                 eaten = visits.eaten, rate = visits.rate ?: 0.0, favorite = isFavorite(visits.rate),
                 visitCount = visits.visitCount, wishLevel = r.wish_level,
                 category = CategorySlug.fromValue(r.category) ?: CategorySlug.RAMEN,

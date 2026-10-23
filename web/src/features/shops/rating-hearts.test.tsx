@@ -17,7 +17,7 @@ describe("FavoriteRating", () => {
     expect(container).toHaveTextContent("85 /100");
   });
 
-  it("omits the score when the shop is unrated", () => {
+  it("omits the number when there is no お気に入り度", () => {
     const { container } = renderWithProviders(
       <FavoriteRating rate={undefined} />,
     );

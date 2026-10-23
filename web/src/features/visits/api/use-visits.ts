@@ -93,7 +93,7 @@ export function useVisits(shopId: string | null) {
 
 /**
  * Refetches every cached visits entry of the shop (`visits`), the shop list
- * (`shops`: 食べた, 評価, visitCount, 代表写真) or both (`all`).
+ * (`shops`: 食べた, お気に入り度, visitCount, 代表写真) or both (`all`).
  */
 export function useRevalidateShopVisits(shopId: string) {
   const { mutate } = useSWRConfig();
@@ -109,7 +109,7 @@ export function useRevalidateShopVisits(shopId: string) {
   return useMemo(() => ({ visits, shops, all }), [visits, shops, all]);
 }
 
-/** Admin writes to a shop's 訪問ログ. Each success refetches the visits and the shop list (食べた, 評価, visitCount). */
+/** Admin writes to a shop's 訪問ログ. Each success refetches the visits and the shop list (食べた, お気に入り度, visitCount). */
 export function useVisitMutations(shopId: string) {
   const revalidate = useRevalidateShopVisits(shopId).all;
 

@@ -108,7 +108,7 @@ describe("filterShops", () => {
     expect(filterNames(shops, { ramen: false })).toEqual(["udon"]);
   });
 
-  it("drops shops rated below favMin and ignores the rating at favMin 0", () => {
+  it("drops shops whose お気に入り度 is below favMin and ignores it at favMin 0", () => {
     const shops = [
       makeShop({ name: "60", rate: 60 }),
       makeShop({ name: "80", rate: 80 }),
@@ -254,7 +254,7 @@ describe("sortShops", () => {
     expect(names(sortShops([far, near], center))).toEqual(["near", "far"]);
   });
 
-  it("orders by rating when shops are within 1 km of each other", () => {
+  it("orders by お気に入り度 when shops are within 1 km of each other", () => {
     const low = makeShop({ name: "low", lat: 35.001, lng: 139, rate: 40 });
     const high = makeShop({ name: "high", lat: 35.004, lng: 139, rate: 90 });
 

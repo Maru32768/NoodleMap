@@ -323,6 +323,7 @@ function HeartFilter({
         })}
         <input
           type="range"
+          aria-label="お気に入り度"
           min={0}
           max={100}
           step={10}
@@ -509,7 +510,7 @@ export function ShopFilters({ filters, onFilterChange }: ShopFiltersProps) {
       </Box>
 
       <Box pt="0.875rem" pb="0.625rem">
-        <SectionLabel>評価 — Rating</SectionLabel>
+        <SectionLabel>お気に入り度 — Favorite</SectionLabel>
         <HeartFilter
           value={filters.favMin}
           onChange={(n) => onFilterChange("favMin", n)}
