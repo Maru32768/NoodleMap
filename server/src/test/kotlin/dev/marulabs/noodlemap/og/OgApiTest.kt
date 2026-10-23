@@ -6,34 +6,53 @@ import dev.marulabs.noodlemap.addShopRequest
 import dev.marulabs.noodlemap.body
 import dev.marulabs.noodlemap.encode
 import dev.marulabs.noodlemap.generated.models.Shop
+import dev.marulabs.noodlemap.generated.models.VisitImage
+import dev.marulabs.noodlemap.generated.models.VisitLog
 import dev.marulabs.noodlemap.postJson
 import dev.marulabs.noodlemap.putJson
+import dev.marulabs.noodlemap.session
 import dev.marulabs.noodlemap.shops.MISO
 import dev.marulabs.noodlemap.shops.SHOYU
 import dev.marulabs.noodlemap.testApp
 import dev.marulabs.noodlemap.toUpdate
+import dev.marulabs.noodlemap.visits.LOCAL_VISIT_IMAGES_PATH
+import dev.marulabs.noodlemap.visits.R2VisitImageStore
+import dev.marulabs.noodlemap.visits.jpeg
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldContainExactly
+import io.kotest.matchers.ints.shouldBeLessThan
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 import io.ktor.client.HttpClient
+import io.ktor.client.request.forms.formData
+import io.ktor.client.request.forms.submitFormWithBinaryData
 import io.ktor.client.request.get
 import io.ktor.client.request.head
+import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsText
 import io.ktor.client.statement.readRawBytes
 import io.ktor.http.ContentType
+import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
+import java.awt.Color
+import java.awt.image.BufferedImage
 import java.io.ByteArrayInputStream
+import java.nio.file.Files
 import javax.imageio.ImageIO
+import kotlin.math.abs
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
+
+private val PHOTO = Color(40, 120, 200)
+private val TEXT_CARD_BG = Color(0xf4ede0)
 
 class OgApiTest {
 
@@ -63,6 +82,36 @@ class OgApiTest {
     }
 
     private fun png(bytes: ByteArray) = ImageIO.read(ByteArrayInputStream(bytes))
+
+    /** Logs a rated visit with one solid [PHOTO]-colored image, which becomes the shop's 代表写真. */
+    private suspend fun ApplicationTestBuilder.addCover(shopId: String, admin: String): VisitImage {
+        val visit = client.postJson("/api/v1/auth/shops/$shopId/visits", """{"isLimitedMenu":false,"rate":90}""", admin).body<VisitLog>()
+        val photo = BufferedImage(64, 32, BufferedImage.TYPE_INT_RGB).apply {
+            createGraphics().run { color = PHOTO; fillRect(0, 0, width, height); dispose() }
+        }
+        val res = client.submitFormWithBinaryData(
+            "/api/v1/auth/visits/${visit.id}/images",
+            formData {
+                append("file", jpeg(photo), Headers.build {
+                    append(HttpHeaders.ContentType, "image/jpeg")
+                    append(HttpHeaders.ContentDisposition, "filename=\"photo.jpg\"")
+                })
+            },
+        ) {
+            session(admin)
+            header(HttpHeaders.Origin, PUBLIC_BASE_URL)
+        }
+        res.status shouldBe HttpStatusCode.OK
+        return res.body()
+    }
+
+    /** The top of a photo card is the photo itself (the scrim starts lower), give or take JPEG noise. */
+    private fun BufferedImage.shouldShowPhotoOnTop() {
+        for (x in listOf(5, OG_WIDTH - 6)) {
+            val c = Color(getRGB(x, 5))
+            listOf(c.red - PHOTO.red, c.green - PHOTO.green, c.blue - PHOTO.blue).all { abs(it) <= 8 } shouldBe true
+        }
+    }
 
     @Test
     fun `share page carries escaped OGP meta with absolute URLs and redirects by script`() = testApp { t ->
@@ -109,6 +158,73 @@ class OgApiTest {
         png(res.readRawBytes()).let {
             it.width shouldBe 1200
             it.height shouldBe 630
+            // Without a 代表写真: the text card on its paper background.
+            Color(it.getRGB(5, 5)) shouldBe TEXT_CARD_BG
+        }
+    }
+
+    @Test
+    fun `a cover photo becomes the full-bleed background`() = testApp { t ->
+        val admin = t.adminToken()
+        val shop = addShop("写真の店", admin)
+        val textPath = client.imagePath(shop.id)
+
+        addCover(shop.id, admin)
+
+        val photoPath = client.imagePath(shop.id)
+        photoPath shouldNotBe textPath
+        val res = client.get(photoPath)
+        res.status shouldBe HttpStatusCode.OK
+        res.headers.getAll(HttpHeaders.CacheControl) shouldBe listOf("public, max-age=31536000, immutable")
+        png(res.readRawBytes()).let {
+            it.width shouldBe 1200
+            it.height shouldBe 630
+            it.shouldShowPhotoOnTop()
+            // The scrim darkens the photo under the text.
+            Color(it.getRGB(5, 625)).blue shouldBeLessThan PHOTO.blue / 2
+        }
+    }
+
+    @Test
+    fun `an unreadable cover falls back to the text card, uncached and unstored, until it reads again`() =
+        testApp(ogStore = store) { t ->
+            val admin = t.adminToken()
+            val shop = addShop("消えた写真", admin)
+            val key = addCover(shop.id, admin).url.substringAfter("$LOCAL_VISIT_IMAGES_PATH/")
+            val file = t.localVisitImages.file(key)!!
+            val jpeg = Files.readAllBytes(file)
+            val path = client.imagePath(shop.id)
+            val ogKey = "og/shops/${shop.id}/${path.substringAfterLast('/')}"
+
+            // Missing from storage, then not a JPEG.
+            for (stored in listOf(null, byteArrayOf(1, 2, 3))) {
+                if (stored == null) Files.delete(file) else Files.write(file, stored)
+                val res = noRedirects().get(path)
+                res.status shouldBe HttpStatusCode.OK
+                res.headers.getAll(HttpHeaders.CacheControl) shouldBe listOf("no-store")
+                Color(png(res.readRawBytes()).getRGB(5, 5)) shouldBe TEXT_CARD_BG
+            }
+            s3.requests.none { it.startsWith("PUT") } shouldBe true
+
+            Files.write(file, jpeg)
+            noRedirects().get(path).headers[HttpHeaders.Location] shouldBe "https://og.example/$ogKey"
+            png(s3.objects.getValue("/og/$ogKey")).shouldShowPhotoOnTop()
+        }
+
+    @Test
+    fun `the cover is read from R2 by its storage key`() {
+        R2VisitImageStore(s3.r2Config("images", "https://images.example")).use { images ->
+            testApp(ogStore = store, visitImageStore = images) { t ->
+                val admin = t.adminToken()
+                val shop = addShop("R2の店", admin)
+                val key = addCover(shop.id, admin).url.removePrefix("https://images.example/")
+                val path = client.imagePath(shop.id)
+                val ogKey = "og/shops/${shop.id}/${path.substringAfterLast('/')}"
+
+                noRedirects().get(path).headers[HttpHeaders.Location] shouldBe "https://og.example/$ogKey"
+                s3.requests shouldContain "GET /images/$key"
+                png(s3.objects.getValue("/og/$ogKey")).shouldShowPhotoOnTop()
+            }
         }
     }
 

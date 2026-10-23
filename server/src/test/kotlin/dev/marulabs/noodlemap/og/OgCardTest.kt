@@ -18,18 +18,18 @@ class OgCardTest {
         eaten = true, rate = 70.0, favorite = false, visitCount = 3, category = CategorySlug.RAMEN, tags = listOf(tag), links = emptyList(),
     )
 
-    private fun hash(s: Shop, day: LocalDate = today) = OgCard.of(s, day).hash()
+    private fun hash(s: Shop, day: LocalDate = today) = OgCard.of(s, null, day).hash()
 
     @Test
     fun `card reflects the shop`() {
-        val card = OgCard.of(shop.copy(openedAt = "2026-06-01"), today)
+        val card = OgCard.of(shop.copy(openedAt = "2026-06-01"), null, today)
         card.statuses.map { it.label } shouldBe listOf("食べた", "新店")
         card.hearts shouldBe 3.5
         card.visitCountLabel shouldBe "3回訪問"
         card.area shouldBe "東京都新宿区"
         card.description() shouldBe "ラーメン・家系・食べた・新店・3回訪問・東京都新宿区"
         val wish = shop.copy(eaten = false, rate = 0.0, visitCount = 0, wishLevel = "high", category = CategorySlug.UDON)
-        OgCard.of(wish, today).let {
+        OgCard.of(wish, null, today).let {
             it.category shouldBe "うどん"
             // The 気になる度 replaces the plain 気になる status.
             it.statuses.map { s -> s.label } shouldBe listOf("絶対行きたい")
@@ -37,9 +37,9 @@ class OgCardTest {
             it.visitCountLabel shouldBe null
             it.description() shouldBe "うどん・家系・絶対行きたい・東京都新宿区"
         }
-        fun status(s: Shop) = OgCard.of(s, today).statuses.first().label
+        fun status(s: Shop) = OgCard.of(s, null, today).statuses.first().label
         status(wish.copy(wishLevel = "medium")) shouldBe "気になる"
-        OgCard.of(wish.copy(wishLevel = "medium"), today).description() shouldBe "うどん・家系・気になる・東京都新宿区"
+        OgCard.of(wish.copy(wishLevel = "medium"), null, today).description() shouldBe "うどん・家系・気になる・東京都新宿区"
         status(wish.copy(wishLevel = "low")) shouldBe "ちょっと気になる"
         status(wish.copy(wishLevel = null)) shouldBe "気になる"
         // 気になる度 only means something before the shop is eaten.
@@ -78,6 +78,15 @@ class OgCardTest {
         listOf(wish.copy(wishLevel = "low"), wish.copy(wishLevel = "high"), wish).map { hash(it) }.toSet().size shouldBe 3
         // Medium is drawn as the plain 気になる, so it shares the unset shop's image.
         hash(wish.copy(wishLevel = "medium")) shouldBe hash(wish)
+    }
+
+    @Test
+    fun `hash changes when the cover photo changes`() {
+        fun hash(coverPhotoKey: String?) = OgCard.of(shop, coverPhotoKey, today).hash()
+        val first = "visits/0f8e5d0c-1111-4222-8333-444455556666/11111111-1111-4111-8111-111111111111.jpg"
+        val second = "visits/0f8e5d0c-1111-4222-8333-444455556666/22222222-2222-4222-8222-222222222222.jpg"
+        hash(first) shouldBe hash(first)
+        setOf(hash(null), hash(first), hash(second)).size shouldBe 3
     }
 
     @Test

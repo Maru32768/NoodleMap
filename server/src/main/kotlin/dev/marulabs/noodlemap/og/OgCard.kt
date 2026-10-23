@@ -9,7 +9,7 @@ import java.time.temporal.ChronoUnit
 import kotlin.math.floor
 
 /** Bump whenever the image layout changes, so every OGP image URL changes with it. */
-private const val TEMPLATE_VERSION = 4
+private const val TEMPLATE_VERSION = 5
 
 /** A pill label with its background color (`#rrggbb`). */
 data class Chip(val label: String, val color: String)
@@ -28,6 +28,8 @@ data class OgCard(
     /** Number of visit logs; 0 for a shop not eaten, and then nothing is drawn. */
     val visitCount: Int,
     val area: String,
+    /** Storage key of the shop's 代表写真, drawn as the background; null draws the text-only card. */
+    val coverPhotoKey: String?,
 ) {
     /** 「3回訪問」, or null for a shop not eaten. */
     val visitCountLabel: String? get() = if (visitCount > 0) "${visitCount}回訪問" else null
@@ -46,6 +48,8 @@ data class OgCard(
             field(hearts)
             field(visitCount)
             field(area)
+            // The key holds the image id, so a new 代表写真 always gets a new image.
+            field(coverPhotoKey.orEmpty())
         }
         return MessageDigest.getInstance("SHA-256").digest(input.toByteArray())
             .joinToString("") { "%02x".format(it) }
@@ -57,7 +61,7 @@ data class OgCard(
             .filter { it.isNotEmpty() }.joinToString("・")
 
     companion object {
-        fun of(shop: Shop, today: LocalDate) = OgCard(
+        fun of(shop: Shop, coverPhotoKey: String?, today: LocalDate) = OgCard(
             name = shop.name,
             category = when (shop.category) {
                 CategorySlug.RAMEN -> "ラーメン"
@@ -69,6 +73,7 @@ data class OgCard(
             hearts = if (shop.rate > 0) floor(minOf(5.0, shop.rate / 20) * 2) / 2 else 0.0,
             visitCount = shop.visitCount,
             area = areaOf(shop.address),
+            coverPhotoKey = coverPhotoKey,
         )
     }
 }

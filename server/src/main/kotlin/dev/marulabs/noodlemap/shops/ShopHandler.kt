@@ -76,6 +76,9 @@ private fun isValidIpv4IfNumeric(host: String): Boolean {
     return labels.size == 4 && labels.all { l -> l.length in 1..3 && l.all { it in '0'..'9' } && l.toInt() <= 255 }
 }
 
+/** A shop as the public list returns it, with the storage key of its 代表写真 (null when it has none). */
+class ShopRecord(val shop: Shop, val coverPhotoKey: String?)
+
 /** Shop and tag endpoints, ported from Go `shops/handler.go`. */
 class ShopHandler(
     private val db: NoodleMapDb,
@@ -86,7 +89,7 @@ class ShopHandler(
     // --- Public reads ---
 
     override suspend fun listShops(call: TypedApplicationCall<ShopsResponse>) {
-        call.respondTyped(ShopsResponse(shops = loadShops()))
+        call.respondTyped(ShopsResponse(shops = loadShops().map { it.shop }))
     }
 
     override suspend fun listTags(call: TypedApplicationCall<TagsResponse>) {
@@ -225,7 +228,7 @@ class ShopHandler(
 
     /** One shop as the public list returns it, or null. */
     // shortcut: scans the whole (personal-log sized) list; add a by-id query if shops grow to many thousands.
-    fun findShop(id: UUID): Shop? = loadShops().firstOrNull { it.id == id.toString() }
+    fun findShop(id: UUID): ShopRecord? = loadShops().firstOrNull { it.shop.id == id.toString() }
 
     // --- Helpers ---
 
@@ -233,7 +236,7 @@ class ShopHandler(
     // only has a 評価 through a rated visit log, so a favorite is always eaten.
     private fun isFavorite(rate: Double?): Boolean = rate != null && rate >= 80.0
 
-    private fun loadShops(): List<Shop> {
+    private fun loadShops(): List<ShopRecord> {
         val rows = db.shopsQueries.findAllShops().executeAsList()
         val tagsByShop = tagsByShopIds(rows.map { it.id })
         val linksByShop = linksByShopIds(rows.map { it.id })
@@ -241,7 +244,8 @@ class ShopHandler(
         val coversByShop = coverPhotoKeysByShop(db)
         return rows.map { r ->
             val visits = visitsByShop[r.id] ?: VisitSummary.NONE
-            Shop(
+            val coverKey = coversByShop[r.id]
+            val shop = Shop(
                 id = r.id.toString(), name = r.name, nameKana = r.name_kana, lat = r.lat, lng = r.lng,
                 openedAt = ShopDate.decode(r.opened_at), closedAt = ShopDate.decode(r.closed_at),
                 postalCode = r.postal_code, address = r.address, googlePlaceId = r.google_place_id,
@@ -251,8 +255,9 @@ class ShopHandler(
                 category = CategorySlug.fromValue(r.category) ?: CategorySlug.RAMEN,
                 tags = tagsByShop[r.id] ?: emptyList(),
                 links = linksByShop[r.id] ?: emptyList(),
-                coverPhotoUrl = coversByShop[r.id]?.let(visitImages::publicUrl),
+                coverPhotoUrl = coverKey?.let(visitImages::publicUrl),
             )
+            ShopRecord(shop, coverKey)
         }
     }
 

@@ -131,7 +131,7 @@ fun testApp(
                 VisitLogHandler(t.db, t.sessions, images),
                 VisitImageHandler(t.db, t.sessions, images, bitmapWork, t.config.publicBaseUrl),
                 PlacesHandler(t.sessions, placesApiKey, placesBaseUrl, placesHttp),
-                OgHandler(shopHandler, t.config.publicBaseUrl, ogStore, bitmapWork),
+                OgHandler(shopHandler, t.config.publicBaseUrl, ogStore, images, bitmapWork),
             )
         }
         block(t)

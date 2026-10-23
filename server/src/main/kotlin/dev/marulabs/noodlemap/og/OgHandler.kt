@@ -4,8 +4,9 @@ import dev.marulabs.noodlemap.common.BitmapWorkGate
 import dev.marulabs.noodlemap.common.JST
 import dev.marulabs.noodlemap.common.retrySoon
 import dev.marulabs.noodlemap.errors.DomainException
-import dev.marulabs.noodlemap.generated.models.Shop
 import dev.marulabs.noodlemap.shops.ShopHandler
+import dev.marulabs.noodlemap.shops.ShopRecord
+import dev.marulabs.noodlemap.visits.VisitImageStore
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -45,8 +46,14 @@ fun Route.ogRoutes(og: OgHandler) {
 /** The headers of a GET response without its body, for HEAD (crawlers probe with it). */
 private class HeadOnly(override val contentType: ContentType, override val contentLength: Long? = null) : OutgoingContent.NoContent()
 
+/**
+ * A rendered image. [fallback]: the card has a 代表写真 that could not be read, so the text card was drawn
+ * instead; it is neither stored nor cached under the photo card's hash, and the next request tries again.
+ */
+private class Rendered(val png: ByteArray, val fallback: Boolean)
+
 /** A rendered image and whether it is now in the store. */
-private class Produced(val png: ByteArray, val stored: Boolean)
+private class Produced(val rendered: Rendered, val stored: Boolean)
 
 /** Share pages (`/r/{id}`) carrying OGP tags, and the OGP images they point at. Public, no auth. */
 class OgHandler(
@@ -54,6 +61,8 @@ class OgHandler(
     private val publicBaseUrl: String,
     /** Null renders the image on every request (local dev, tests). */
     private val store: R2OgImageStore?,
+    /** Where the 代表写真 drawn behind the card is read from, by storage key (never over HTTP). */
+    private val visitImages: VisitImageStore,
     /** Shared with visit image processing; a full gate answers 503, bounding unauthenticated render work. */
     private val bitmapWork: BitmapWorkGate,
 ) {
@@ -64,8 +73,9 @@ class OgHandler(
      * search page (headers only for HEAD). An unknown shop redirects to the search page directly.
      */
     suspend fun sharePage(call: ApplicationCall, head: Boolean) {
-        val shop = findShop(call) ?: return call.respondRedirect(SEARCH_PATH)
-        val card = OgCard.of(shop, LocalDate.now(JST))
+        val record = findShop(call) ?: return call.respondRedirect(SEARCH_PATH)
+        val shop = record.shop
+        val card = cardOf(record)
         val html = sharePageHtml(
             card = card,
             shareUrl = "$publicBaseUrl/r/${shop.id}",
@@ -79,8 +89,9 @@ class OgHandler(
 
     /** HEAD never renders: it redirects to a stored image or answers with the headers a render would get. */
     suspend fun image(call: ApplicationCall, head: Boolean) {
-        val shop = findShop(call) ?: throw DomainException.NotFound()
-        val card = OgCard.of(shop, LocalDate.now(JST))
+        val record = findShop(call) ?: throw DomainException.NotFound()
+        val shop = record.shop
+        val card = cardOf(record)
         val hash = card.hash()
         // An old hash (the shop changed since the page was shared) gets the current image.
         if (call.parameters["hash"] != hash) return call.respondRedirect(imagePath(shop.id, hash))
@@ -98,8 +109,9 @@ class OgHandler(
         }
         if (store != null && produced.stored) return call.respondRedirect(store.publicUrl(key))
 
-        call.response.header(HttpHeaders.CacheControl, IMMUTABLE)
-        call.respondBytes(produced.png, ContentType.Image.PNG)
+        // A fallback keeps the default no-store, so the photo card replaces it once the cover reads again.
+        if (!produced.rendered.fallback) call.response.header(HttpHeaders.CacheControl, IMMUTABLE)
+        call.respondBytes(produced.rendered.png, ContentType.Image.PNG)
     }
 
     /**
@@ -110,8 +122,10 @@ class OgHandler(
         val mine = CompletableDeferred<Produced?>()
         inFlight.putIfAbsent(key, mine)?.let { return it.await() }
         try {
-            val produced = renderOrNull(card)?.let { png ->
-                Produced(png, stored = store != null && storageOrNull("upload") { store.put(key, png) } != null)
+            val produced = renderOrNull(card)?.let { rendered ->
+                val stored = store != null && !rendered.fallback &&
+                    storageOrNull("upload") { store.put(key, rendered.png) } != null
+                Produced(rendered, stored)
             }
             mine.complete(produced)
             return produced
@@ -123,9 +137,27 @@ class OgHandler(
         }
     }
 
-    /** The PNG, or null when the bitmap work gate is full. */
-    private suspend fun renderOrNull(card: OgCard): ByteArray? =
-        bitmapWork.withSlotOrNull { bitmapWork.exclusive { renderOgImage(card) } }
+    /**
+     * The image, or null when the bitmap work gate is full. The cover is read inside the slot, so the bytes of
+     * waiting renders are bounded too, and decoded inside the exclusive section; no bitmap outlives a render.
+     */
+    private suspend fun renderOrNull(card: OgCard): Rendered? = bitmapWork.withSlotOrNull {
+        val key = card.coverPhotoKey
+        val jpeg = key?.let { coverOrNull("read", it) { visitImages.read(it) } }
+        bitmapWork.exclusive {
+            val cover = jpeg?.let { bytes -> coverOrNull("decode", key) { decodeCover(bytes) } }
+            Rendered(renderOgImage(card, cover), fallback = key != null && cover == null)
+        }
+    }
+
+    /** One step of getting the cover; a failure is logged and gives null, and the text card is drawn instead. */
+    private inline fun <T> coverOrNull(action: String, key: String, block: () -> T): T? = try {
+        block()
+    } catch (e: Exception) {
+        if (e is CancellationException) throw e
+        log.warn("og: cover {} failed for {}; drawing the text card", action, key, e)
+        null
+    }
 
     /** Runs one storage call; a failure is logged and gives null, and the image is then served directly. */
     private suspend fun <T> storageOrNull(action: String, block: suspend () -> T): T? = try {
@@ -136,8 +168,10 @@ class OgHandler(
         null
     }
 
-    private fun findShop(call: ApplicationCall): Shop? =
+    private fun findShop(call: ApplicationCall): ShopRecord? =
         call.parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }?.let(shops::findShop)
+
+    private fun cardOf(record: ShopRecord) = OgCard.of(record.shop, record.coverPhotoKey, LocalDate.now(JST))
 
     private fun imagePath(id: String, hash: String) = "$OG_IMAGE_PATH$id/$hash.png"
 }
