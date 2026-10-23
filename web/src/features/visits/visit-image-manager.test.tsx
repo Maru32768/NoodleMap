@@ -144,7 +144,7 @@ function renderImages({
 
 const imageList = () => screen.findByRole("list", { name: "訪問画像" });
 const fileInput = () => screen.getByLabelText("追加する画像ファイル");
-const dropArea = () => screen.getByRole("group", { name: "画像の追加" });
+const dropArea = () => screen.getByRole("group", { name: /^画像の追加/ });
 
 async function upload(...files: File[]) {
   await screen.findByRole("list", { name: "訪問ログ" });
@@ -551,14 +551,16 @@ describe("VisitImageManager", () => {
     await imageList();
 
     expect(
-      screen.getByText("ドラッグ＆ドロップ・貼り付けでも追加できます"),
+      screen.getByText("この欄にドラッグ＆ドロップ・貼り付けでも追加できます"),
     ).toBeInTheDocument();
     await upload(jpeg("a.jpg"));
     await waitFor(() =>
       expect(screen.getByText("画像は10枚までです")).toBeInTheDocument(),
     );
     expect(
-      screen.queryByText("ドラッグ＆ドロップ・貼り付けでも追加できます"),
+      screen.queryByText(
+        "この欄にドラッグ＆ドロップ・貼り付けでも追加できます",
+      ),
     ).toBeNull();
   });
 
@@ -604,7 +606,7 @@ describe("VisitImageManager", () => {
     expect(traffic.uploads).toBe(2);
   });
 
-  it("drops only up to 10 images and refuses a drop when full", async () => {
+  it("drops only up to 10 images and refuses dragging in when full", async () => {
     const nine = Array.from({ length: 9 }, (_, i) => image(i + 1));
     const traffic = renderImages({ images: nine });
     await imageList();
@@ -630,18 +632,78 @@ describe("VisitImageManager", () => {
     };
     fireEvent.dragOver(dropArea(), { dataTransfer });
     expect(dataTransfer.dropEffect).toBe("none");
+    // Should a drop still arrive, the file fails with the limit message
+    // without being queued.
     fireEvent.drop(dropArea(), { dataTransfer });
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    const pending = screen.getByRole("list", { name: "追加中の画像" });
+    const [, dropped] = within(pending).getAllByRole("listitem");
+    expect(dropped).toHaveTextContent("c.jpg");
+    expect(within(dropped).getByRole("alert")).toHaveTextContent(
+      "1つの訪問ログに追加できる画像は10枚までです",
+    );
+    expect(within(pending).queryByRole("status")).toBeNull();
     expect(traffic.uploads).toBe(1);
-    expect(
-      screen.getByRole("list", { name: "追加中の画像" }),
-    ).not.toHaveTextContent("c.jpg");
+  });
+
+  it("highlights the area while files are dragged anywhere over it", async () => {
+    renderImages({ images: [image(1)] });
+    const list = await imageList();
+    const area = dropArea();
+    const dataTransfer = { types: ["Files"], files: [jpeg("a.jpg")] };
+
+    fireEvent.dragEnter(area, { dataTransfer });
+    // Entering a child leaves the area only for the browser, not the user.
+    fireEvent.dragEnter(list, { dataTransfer });
+    fireEvent.dragLeave(area, { dataTransfer });
+    expect(area).toHaveAttribute("data-dragging");
+    fireEvent.dragLeave(list, { dataTransfer });
+    expect(area).not.toHaveAttribute("data-dragging");
+  });
+
+  it("never uploads a thumbnail dragged within the page", async () => {
+    const traffic = renderImages({ images: [image(1)] });
+    const thumb = within(await imageList()).getByRole("img", {
+      name: "画像 1",
+    });
+    expect(thumb).toHaveAttribute("draggable", "false");
+    const dataTransfer = {
+      types: ["Files"],
+      files: [jpeg("1.jpg")],
+      dropEffect: "copy",
+    };
+
+    fireEvent.dragStart(thumb, { dataTransfer });
+    fireEvent.dragOver(dropArea(), { dataTransfer });
+    // Refused by the modal, so the browser neither opens nor drops it.
+    expect(dataTransfer.dropEffect).toBe("none");
+    fireEvent.drop(dropArea(), { dataTransfer });
+    fireEvent.dragEnd(thumb, { dataTransfer });
+
+    expect(screen.queryByRole("list", { name: "追加中の画像" })).toBeNull();
+    expect(traffic.uploads).toBe(0);
+  });
+
+  it("refuses a file dropped elsewhere in the modal instead of opening it", async () => {
+    renderImages();
+    const visits = await screen.findByRole("list", { name: "訪問ログ" });
+    const dataTransfer = {
+      types: ["Files"],
+      files: [jpeg("a.jpg")],
+      dropEffect: "copy",
+    };
+
+    expect(fireEvent.dragOver(visits, { dataTransfer })).toBe(false);
+    expect(dataTransfer.dropEffect).toBe("none");
+    expect(fireEvent.drop(visits, { dataTransfer })).toBe(false);
+    expect(screen.queryByRole("list", { name: "追加中の画像" })).toBeNull();
   });
 
   it("uploads an image pasted while focus is in the image area", async () => {
     const traffic = renderImages();
     await screen.findByRole("list", { name: "訪問ログ" });
     const area = dropArea();
+    // Each visit's area is named by its date.
+    expect(area).toHaveAccessibleName("画像の追加（2026/9/30）");
     // The area itself takes focus, so a paste reaches it.
     area.focus();
     expect(area).toHaveFocus();
@@ -680,9 +742,28 @@ describe("VisitImageManager", () => {
     );
 
     expect(pasted).toBe(true);
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    expect(traffic.uploads).toBe(0);
+    // Queued files would be listed by now.
     expect(screen.queryByRole("list", { name: "追加中の画像" })).toBeNull();
+    expect(traffic.uploads).toBe(0);
+  });
+
+  it("says a paste is over the limit when the visit is full", async () => {
+    const ten = Array.from({ length: 10 }, (_, i) => image(i + 1));
+    const traffic = renderImages({ images: ten });
+    await imageList();
+
+    fireEvent.paste(dropArea(), {
+      clipboardData: {
+        files: [new File(["png"], "image.png", { type: "image/png" })],
+      },
+    });
+
+    const pending = screen.getByRole("list", { name: "追加中の画像" });
+    expect(pending).toHaveTextContent("image.png");
+    expect(within(pending).getByRole("alert")).toHaveTextContent(
+      "1つの訪問ログに追加できる画像は10枚までです",
+    );
+    expect(traffic.uploads).toBe(0);
   });
 
   it("asks to save a new visit before adding images", async () => {

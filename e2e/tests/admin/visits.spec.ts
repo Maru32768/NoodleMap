@@ -174,7 +174,7 @@ test("admin adds a visit image by dropping the file onto the image area", async 
     transfer.items.add(new File([bytes], "dropped.jpg", { type: "image/jpeg" }));
     return transfer;
   }, jpeg);
-  const area = dialog.getByRole("group", { name: "画像の追加" });
+  const area = dialog.getByRole("group", { name: /^画像の追加/ });
   await area.dispatchEvent("dragenter", { dataTransfer });
   await area.dispatchEvent("dragover", { dataTransfer });
   await area.dispatchEvent("drop", { dataTransfer });

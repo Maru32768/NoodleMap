@@ -404,6 +404,29 @@ export function ShopEditModal({
   const { ref: formRef, reveal: revealFirstError } =
     useRevealFirstError<HTMLDivElement>();
 
+  // A file dropped beside a visit's image area would make the browser open it
+  // and leave the page.
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    const refuseFileDrop = (event: DragEvent) => {
+      if (
+        !event.defaultPrevented &&
+        event.dataTransfer?.types.includes("Files")
+      ) {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "none";
+      }
+    };
+    window.addEventListener("dragover", refuseFileDrop);
+    window.addEventListener("drop", refuseFileDrop);
+    return () => {
+      window.removeEventListener("dragover", refuseFileDrop);
+      window.removeEventListener("drop", refuseFileDrop);
+    };
+  }, [open]);
+
   const errorOf = (field: UpdateShopField) => {
     const type = fieldErrors[field];
     return type && shopFieldErrorMessage(field, type);

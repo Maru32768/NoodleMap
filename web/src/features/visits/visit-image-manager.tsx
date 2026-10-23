@@ -3,6 +3,7 @@ import { LoadableButton } from "@/components/loadable-button.tsx";
 import { ModalDialog } from "@/components/modal-dialog.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { toaster } from "@/components/ui/toaster.tsx";
+import { formatShopDate } from "@/features/shops/status.ts";
 import {
   useVisitImageMutations,
   VisitImage,
@@ -66,16 +67,39 @@ const smallButtonProps = {
   _disabled: { opacity: 0.4, cursor: "default" },
 } as const;
 
-// What the file input accepts: HEIC may come without a MIME type.
-const isImageFile = (file: File) =>
-  file.type.startsWith("image/") || /\.hei[cf]$/i.test(file.name);
+// HEIC and others are converted to JPEG in the browser when it can decode
+// them. HEIC may come without a MIME type, hence the extensions.
+const IMAGE_ACCEPT = ["image/*", ".heic", ".heif"];
+
+/** Whether the file input would offer `file`; drops and pastes take the same. */
+function isImageFile(file: File) {
+  const name = file.name.toLowerCase();
+  return IMAGE_ACCEPT.some((accept) =>
+    accept.startsWith(".")
+      ? name.endsWith(accept)
+      : file.type.startsWith(accept.slice(0, -1)),
+  );
+}
 
 // React events bubble out of portals: the delete dialog is not the area.
 const fromArea = (event: DragEvent | ClipboardEvent) =>
   event.currentTarget.contains(event.target as Node);
 
+// A drag started in the page (a thumbnail) is never an upload.
+let pageDragging = false;
+if (typeof window !== "undefined") {
+  window.addEventListener("dragstart", () => {
+    pageDragging = true;
+  });
+  window.addEventListener("dragend", () => {
+    pageDragging = false;
+  });
+}
+
 const hasFiles = (event: DragEvent) =>
-  fromArea(event) && event.dataTransfer.types.includes("Files");
+  !pageDragging &&
+  fromArea(event) &&
+  event.dataTransfer.types.includes("Files");
 
 const isTextInput = (target: EventTarget) =>
   target instanceof HTMLElement &&
@@ -113,6 +137,9 @@ export function VisitImageManager({
   const [reordering, setReordering] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // dragenter/dragleave fire for every child crossed; Safari gives no
+  // relatedTarget, so the highlight counts the levels entered.
+  const dragDepth = useRef(0);
   const [dragging, setDragging] = useState(false);
   const hintId = useId();
 
@@ -133,6 +160,15 @@ export function VisitImageManager({
 
   const canAdd = remaining > 0;
 
+  const handleDragEnter = (event: DragEvent) => {
+    if (!hasFiles(event)) {
+      return;
+    }
+    event.preventDefault();
+    dragDepth.current++;
+    setDragging(canAdd);
+  };
+
   const handleDragOver = (event: DragEvent) => {
     if (!hasFiles(event)) {
       return;
@@ -140,11 +176,14 @@ export function VisitImageManager({
     // Without this the browser opens a file dropped here.
     event.preventDefault();
     event.dataTransfer.dropEffect = canAdd ? "copy" : "none";
-    setDragging(canAdd);
   };
 
   const handleDragLeave = (event: DragEvent) => {
-    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+    if (!hasFiles(event)) {
+      return;
+    }
+    dragDepth.current = Math.max(0, dragDepth.current - 1);
+    if (dragDepth.current === 0) {
       setDragging(false);
     }
   };
@@ -154,9 +193,11 @@ export function VisitImageManager({
       return;
     }
     event.preventDefault();
+    dragDepth.current = 0;
     setDragging(false);
     const files = Array.from(event.dataTransfer.files).filter(isImageFile);
-    if (canAdd && files.length > 0) {
+    if (files.length > 0) {
+      // Past the limit the queue marks them failed with the limit message.
       addFiles(files);
     }
   };
@@ -167,11 +208,8 @@ export function VisitImageManager({
       return;
     }
     const files = Array.from(event.clipboardData.files).filter(isImageFile);
-    if (files.length === 0) {
-      return;
-    }
-    event.preventDefault();
-    if (canAdd) {
+    if (files.length > 0) {
+      event.preventDefault();
       addFiles(files);
     }
   };
@@ -216,7 +254,7 @@ export function VisitImageManager({
   return (
     <Box
       role="group"
-      aria-label="画像の追加"
+      aria-label={`画像の追加（${formatShopDate(visit.visitedOn) ?? "日付不明"}）`}
       aria-describedby={canAdd ? hintId : undefined}
       // Focusable so a paste reaches it.
       tabIndex={0}
@@ -228,8 +266,9 @@ export function VisitImageManager({
       outlineColor="nm.shu"
       outlineOffset="2px"
       bg={dragging ? "nm.bg" : undefined}
+      data-dragging={dragging || undefined}
       _focusVisible={{ outline: "2px solid", outlineColor: "nm.ink" }}
-      onDragEnter={handleDragOver}
+      onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -264,6 +303,7 @@ export function VisitImageManager({
               <Box position="relative">
                 <VisitImageThumb
                   image={image}
+                  draggable={false}
                   alt={image.caption ?? `画像 ${index + 1}`}
                   size={118}
                 />
@@ -418,15 +458,22 @@ export function VisitImageManager({
             : `画像は${VISIT_IMAGES_MAX}枚までです`}
         </Box>
         {canAdd && (
-          <Box as="span" id={hintId} fontSize="11px" color="nm.inkFaint">
-            ドラッグ＆ドロップ・貼り付けでも追加できます
+          <Box
+            as="span"
+            id={hintId}
+            fontSize="11px"
+            color="nm.inkFaint"
+            // Touch screens can neither drag a file in nor paste one here.
+            display="none"
+            css={{ "@media (pointer: fine)": { display: "inline" } }}
+          >
+            この欄にドラッグ＆ドロップ・貼り付けでも追加できます
           </Box>
         )}
         <input
           ref={fileInputRef}
           type="file"
-          // HEIC and others are converted to JPEG in the browser when it can decode them.
-          accept="image/*,.heic,.heif"
+          accept={IMAGE_ACCEPT.join(",")}
           multiple
           hidden
           aria-label="追加する画像ファイル"
