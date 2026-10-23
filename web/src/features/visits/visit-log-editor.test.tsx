@@ -331,6 +331,100 @@ describe("VisitLogEditor", () => {
     expect(name).not.toHaveAttribute("aria-invalid");
   });
 
+  it("blocks saving a 限定 menu item without a name", async () => {
+    const { posted } = renderVisits({ visits: [] });
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "訪問を記録" }),
+    );
+    await userEvent.click(
+      within(form()).getByRole("checkbox", { name: "限定" }),
+    );
+    await save();
+
+    expect(
+      await within(form()).findByRole("textbox", {
+        name: "メニュー名",
+        description: "メニュー名を入力してください",
+      }),
+    ).toHaveAttribute("aria-invalid", "true");
+    expect(posted).toHaveLength(0);
+  });
+
+  it("does not count adding and removing a blank menu row as unsaved", async () => {
+    const { onClose } = renderVisits();
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "訪問ログを編集" }),
+    );
+    await userEvent.click(
+      within(form()).getByRole("button", { name: "＋ メニューを追加" }),
+    );
+    await userEvent.click(
+      within(
+        within(form()).getByRole("group", { name: "メニュー 2" }),
+      ).getByRole("button", { name: "メニューを削除" }),
+    );
+    // A blank row left behind is no change either.
+    await userEvent.click(
+      within(form()).getByRole("button", { name: "＋ メニューを追加" }),
+    );
+    await userEvent.click(
+      screen
+        .getAllByRole("button", { name: "キャンセル" })
+        .find((button) => !form().contains(button))!,
+    );
+
+    expect(onClose).toHaveBeenCalled();
+    expect(
+      screen.queryByText("保存していない訪問ログがあります。破棄しますか？"),
+    ).toBeNull();
+  });
+
+  it("names the menu item a server error is about, and tells too many items apart", async () => {
+    let fieldErrors = [
+      {
+        field: "menuItems",
+        type: "out_of_range",
+        message: "menuItems[1].price",
+      },
+    ];
+    renderVisits({
+      visits: [],
+      saveResponse: () =>
+        HttpResponse.json(
+          { type: "invalid_request", fieldErrors },
+          { status: 400 },
+        ),
+    });
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "訪問を記録" }),
+    );
+    await userEvent.type(
+      within(form()).getByRole("textbox", { name: "メニュー名" }),
+      "つけ麺",
+    );
+    await save();
+    expect(
+      await within(form()).findByText(
+        "メニュー 2 の価格は0〜10,000,000の範囲で入力してください",
+      ),
+    ).toBeInTheDocument();
+
+    fieldErrors = [
+      {
+        field: "menuItems",
+        type: "out_of_range",
+        message: "at most 10 menu items",
+      },
+    ];
+    await save();
+    expect(
+      await within(form()).findByText("メニューは10品まで記録できます"),
+    ).toBeInTheDocument();
+  });
+
   it("allows at most 10 menu items", async () => {
     renderVisits({ visits: [] });
 
@@ -379,7 +473,7 @@ describe("VisitLogEditor", () => {
 
     expect(
       await within(form()).findByText(
-        "メニュー名は200文字以内で入力してください",
+        "メニュー 1 のメニュー名は200文字以内で入力してください",
       ),
     ).toBeInTheDocument();
   });
@@ -418,7 +512,7 @@ describe("VisitLogEditor", () => {
     expect(
       await within(form()).findByRole("spinbutton", {
         name: "価格",
-        description: "整数で入力してください",
+        description: "価格は整数で入力してください",
       }),
     ).toHaveAttribute("aria-invalid", "true");
 
@@ -426,7 +520,9 @@ describe("VisitLogEditor", () => {
     await userEvent.type(price, "20000000");
     await save();
     expect(
-      await within(form()).findByText("0〜10,000,000の範囲で入力してください"),
+      await within(form()).findByText(
+        "価格は0〜10,000,000の範囲で入力してください",
+      ),
     ).toBeInTheDocument();
     expect(posted).toHaveLength(0);
   });
@@ -608,7 +704,7 @@ describe("VisitLogEditor", () => {
     await save();
 
     expect(
-      await within(form()).findByText("整数で入力してください"),
+      await within(form()).findByText("価格は整数で入力してください"),
     ).toBeInTheDocument();
     expect(posted).toHaveLength(0);
   });

@@ -22,11 +22,13 @@ import {
   toMenuItemInputs,
   validateMenuItems,
 } from "@/features/visits/menu-items-editor.tsx";
+import { visitInputProps as inputProps } from "@/features/visits/visit-input-props.ts";
 import {
   ApiMutationResult,
   invalidRequestFieldErrors,
 } from "@/utils/request.ts";
 import {
+  menuItemsServerErrorMessage,
   toastApiError,
   toastError,
   VISIT_INPUT_INVALID_DESCRIPTION,
@@ -162,22 +164,6 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-const inputProps = {
-  w: "100%",
-  px: "12px",
-  py: "8px",
-  h: "auto",
-  bg: "nm.paper",
-  border: "1px solid",
-  borderColor: "nm.line",
-  borderRadius: "nmMd",
-  fontSize: "13px",
-  color: "nm.ink",
-  _focus: { borderColor: "nm.shu", bg: "white", boxShadow: "none" },
-  // Field.Root marks the input invalid; the borderColor above would hide it.
-  _invalid: { borderColor: "border.error" },
-} as const;
-
 /**
  * Adds or edits one 訪問ログ. `onSave` resolves to the API result; field errors
  * appear under their inputs, anything else is toasted.
@@ -199,7 +185,8 @@ export function VisitLogForm({
 }) {
   const [initialDraft] = useState<VisitDraft>(() => toDraft(visit));
   const [draft, setDraft] = useState<VisitDraft>(initialDraft);
-  const dirty = !isEqual(draft, initialDraft);
+  // Compared as saved, so e.g. adding and removing a blank menu row is no change.
+  const dirty = !isEqual(toInput(draft), toInput(initialDraft));
   useEffect(() => {
     onDirtyChange?.(dirty);
   }, [dirty, onDirtyChange]);
@@ -211,21 +198,22 @@ export function VisitLogForm({
   const [menuItemErrors, setMenuItemErrors] = useState<
     Record<number, MenuItemErrors>
   >({});
+  // A server error on the menu items, shown under the list.
+  const [menuItemsError, setMenuItemsError] = useState<string>();
   const { ref, reveal } = useRevealFirstError<HTMLDivElement>();
   const visitedOnRef = useRef<HTMLInputElement>(null);
   const rateRef = useRef<HTMLInputElement>(null);
-  // Each menu item's price input by row id.
-  const priceInputs = useRef(new Map<number, HTMLInputElement>());
-  const priceRef = useCallback(
-    (rowId: number, input: HTMLInputElement | null) => {
-      if (input) {
-        priceInputs.current.set(rowId, input);
-      } else {
-        priceInputs.current.delete(rowId);
-      }
-    },
-    [],
-  );
+  // The menu items' price inputs, each with its row id in `data-price-row`.
+  const priceInputs = useRef(new Set<HTMLInputElement>());
+  const priceRef = useCallback((input: HTMLInputElement | null) => {
+    if (!input) {
+      return;
+    }
+    priceInputs.current.add(input);
+    return () => {
+      priceInputs.current.delete(input);
+    };
+  }, []);
 
   const set = <K extends Exclude<keyof VisitDraft, "menuItems">>(
     k: K,
@@ -235,27 +223,30 @@ export function VisitLogForm({
     setFieldErrors((errors) => clearShopFieldErrors(errors, [k]));
   };
 
-  const setMenuItems = (
-    menuItems: MenuItemRow[],
-    edited?: { rowId: number; field: keyof MenuItemErrors },
-  ) => {
-    setDraft((d) => ({ ...d, menuItems }));
-    setFieldErrors((errors) => clearShopFieldErrors(errors, ["menuItems"]));
-    if (edited) {
-      setMenuItemErrors((errors) => {
-        if (!errors[edited.rowId]?.[edited.field]) {
-          return errors;
-        }
-        return {
-          ...errors,
-          [edited.rowId]: {
-            ...errors[edited.rowId],
-            [edited.field]: undefined,
-          },
-        };
-      });
-    }
-  };
+  const setMenuItems = useCallback(
+    (
+      menuItems: MenuItemRow[],
+      edited?: { rowId: number; field: keyof MenuItemErrors },
+    ) => {
+      setDraft((d) => ({ ...d, menuItems }));
+      setMenuItemsError(undefined);
+      if (edited) {
+        setMenuItemErrors((errors) => {
+          if (!errors[edited.rowId]?.[edited.field]) {
+            return errors;
+          }
+          return {
+            ...errors,
+            [edited.rowId]: {
+              ...errors[edited.rowId],
+              [edited.field]: undefined,
+            },
+          };
+        });
+      }
+    },
+    [],
+  );
 
   const errorOf = (field: VisitLogField) => {
     const type = fieldErrors[field];
@@ -270,12 +261,13 @@ export function VisitLogForm({
     const invalid = validate(draft, unparsable);
     const unparsablePrices = new Set(
       [...priceInputs.current]
-        .filter(([, input]) => input.validity.badInput)
-        .map(([rowId]) => rowId),
+        .filter((input) => input.validity.badInput)
+        .map((input) => Number(input.dataset.priceRow)),
     );
     const invalidItems = validateMenuItems(draft.menuItems, unparsablePrices);
     setFieldErrors(invalid);
     setMenuItemErrors(invalidItems);
+    setMenuItemsError(undefined);
     if (
       Object.keys(invalid).length > 0 ||
       Object.keys(invalidItems).length > 0
@@ -294,7 +286,17 @@ export function VisitLogForm({
     }
     const shown = errors.filter((e) => isVisitField(e.field));
     if (shown.length > 0) {
-      setFieldErrors(toShopFieldErrors(shown));
+      setFieldErrors(
+        toShopFieldErrors(shown.filter((e) => e.field !== "menuItems")),
+      );
+      const menuItemsErrors = shown.filter((e) => e.field === "menuItems");
+      setMenuItemsError(
+        menuItemsErrors.length > 0
+          ? [...new Set(menuItemsErrors.map(menuItemsServerErrorMessage))].join(
+              "、",
+            )
+          : undefined,
+      );
       reveal();
     }
     if (shown.length < errors.length) {
@@ -365,7 +367,7 @@ export function VisitLogForm({
         <MenuItemsEditor
           rows={draft.menuItems}
           errors={menuItemErrors}
-          listError={errorOf("menuItems")}
+          listError={menuItemsError}
           onChange={setMenuItems}
           priceRef={priceRef}
         />

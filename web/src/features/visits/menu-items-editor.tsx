@@ -5,15 +5,16 @@ import type {
   MenuItem,
   MenuItemInput,
 } from "@/features/visits/api/use-visits.ts";
+import { visitInputProps } from "@/features/visits/visit-input-props.ts";
 import { formatPrice } from "@/features/visits/visit-log-list.tsx";
-import { menuItemFieldErrorMessage } from "@/utils/toast.ts";
+import {
+  MENU_ITEM_NAME_MAX_LENGTH,
+  MENU_ITEM_PRICE_MAX,
+  MENU_ITEMS_MAX,
+  menuItemFieldErrorMessage,
+} from "@/utils/toast.ts";
 import { Box, Input, Switch } from "@chakra-ui/react";
-import { useEffect, useRef } from "react";
-
-// Mirrors @maxItems on VisitLogInput.menuItems in typespec/main.tsp.
-export const MENU_ITEMS_MAX = 10;
-// Mirrors @maxValue on MenuItemInput.price in typespec/main.tsp.
-const PRICE_MAX = 10_000_000;
+import { RefCallback, useEffect, useRef } from "react";
 
 /** One 食べたメニュー as typed; the price stays a string so a cleared input stays blank. */
 export interface MenuItemRow {
@@ -34,8 +35,12 @@ export const newMenuItemRow = (item?: MenuItem): MenuItemRow => ({
   price: item?.price?.toString() ?? "",
 });
 
+// 限定 alone is content too: it needs a name like a price does.
 const isBlankRow = (row: MenuItemRow, priceUnparsable: boolean) =>
-  row.name.trim() === "" && row.price.trim() === "" && !priceUnparsable;
+  row.name.trim() === "" &&
+  row.price.trim() === "" &&
+  !row.isLimited &&
+  !priceUnparsable;
 
 function priceError(
   price: string,
@@ -51,12 +56,12 @@ function priceError(
   if (!Number.isInteger(n)) {
     return "invalid_format";
   }
-  return n < 0 || n > PRICE_MAX ? "out_of_range" : undefined;
+  return n < 0 || n > MENU_ITEM_PRICE_MAX ? "out_of_range" : undefined;
 }
 
 /**
- * Errors per row id. A row without name and price is dropped on save; a
- * price without a name is not. `unparsable` holds the rows whose price input
+ * Errors per row id. A row without name, price and 限定 is dropped on save;
+ * a price or 限定 without a name is not. `unparsable` holds the rows whose price input
  * the browser could not read.
  */
 export function validateMenuItems(
@@ -107,21 +112,6 @@ export function menuItemsTotal(
   return prices.length > 0 ? prices.reduce((a, b) => a + b, 0) : undefined;
 }
 
-const inputProps = {
-  px: "12px",
-  py: "8px",
-  h: "auto",
-  bg: "nm.paper",
-  border: "1px solid",
-  borderColor: "nm.line",
-  borderRadius: "nmMd",
-  fontSize: "13px",
-  color: "nm.ink",
-  _focus: { borderColor: "nm.shu", bg: "white", boxShadow: "none" },
-  // Field.Root marks the input invalid; the borderColor above would hide it.
-  _invalid: { borderColor: "border.error" },
-} as const;
-
 const rowButtonProps = {
   variant: "plain",
   px: "8px",
@@ -159,8 +149,9 @@ export function MenuItemsEditor({
     rows: MenuItemRow[],
     edited?: { rowId: number; field: keyof MenuItemErrors },
   ) => void;
-  // Registers each price input, to read whether the browser could parse it.
-  priceRef: (rowId: number, input: HTMLInputElement | null) => void;
+  // Registers each price input (its row id in `data-price-row`), to read
+  // whether the browser could parse it.
+  priceRef: RefCallback<HTMLInputElement>;
 }) {
   const listRef = useRef<HTMLDivElement>(null);
   const pendingFocus = useRef<{ rowId: number; dir: MoveDirection } | null>(
@@ -223,11 +214,10 @@ export function MenuItemsEditor({
                 }
               >
                 <Input
-                  {...inputProps}
-                  w="100%"
+                  {...visitInputProps}
                   aria-label="メニュー名"
                   placeholder="メニュー名"
-                  maxLength={200}
+                  maxLength={MENU_ITEM_NAME_MAX_LENGTH}
                   value={row.name}
                   onChange={(e) =>
                     update(i, { ...row, name: e.target.value }, "name")
@@ -243,15 +233,15 @@ export function MenuItemsEditor({
                 }
               >
                 <Input
-                  {...inputProps}
-                  w="100%"
+                  {...visitInputProps}
                   type="number"
                   min={0}
                   step={1}
                   fontFamily="mono"
                   aria-label="価格"
                   placeholder="価格（円）"
-                  ref={(input) => priceRef(row.rowId, input)}
+                  data-price-row={row.rowId}
+                  ref={priceRef}
                   value={row.price}
                   onChange={(e) =>
                     update(i, { ...row, price: e.target.value }, "price")
