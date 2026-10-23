@@ -233,6 +233,14 @@ export function MobileSheet({
                   catType={shop.category}
                   closed={shop.lifecycleStatus === "closed"}
                   size="lg"
+                  photo={
+                    shop.coverPhotoUrl
+                      ? {
+                          url: shop.coverPhotoUrl,
+                          alt: `${shop.name}の代表写真`,
+                        }
+                      : undefined
+                  }
                 />
 
                 <Box flex="1" minWidth="0">

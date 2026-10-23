@@ -38,7 +38,7 @@ Node.js is pinned in the root `.mise.toml`. Run `mise install` and use the mise-
 - Build `Shop`/`Tag` data with `makeShop`/`makeTag` from `src/test/fixtures.ts` in both tests and stories.
 - Render components with `renderWithProviders` / `renderHookWithProviders` from `src/test/render.tsx` (Chakra `Provider`, `Toaster`, isolated SWR cache).
 - Mock the API at the network boundary with MSW: `server.use(http.get("/api/v1/...", ...))` using `server` from `src/test/server.ts`. Unhandled requests fail. Do not `vi.mock` app modules.
-- Map and Google-dependent components (`map.tsx`, `google-place-finder.tsx`, `image-uploader.tsx`) have no stories.
+- Map and Google-dependent components (`map.tsx`, `google-place-finder.tsx`) have no stories.
 
 ## API Client and Error Handling
 

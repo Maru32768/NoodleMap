@@ -9,7 +9,7 @@ import type { components } from "@/generated/api.ts";
 import { makeShop, makeTag } from "@/test/fixtures.ts";
 import { renderWithProviders } from "@/test/render.tsx";
 import { server } from "@/test/server.ts";
-import { screen, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -166,7 +166,11 @@ describe("DetailPanel visit logs", () => {
       publicNote: "スープが濃厚",
       images: [],
     },
-    { id: "00000000-0000-4000-8000-0000000000a2", isLimitedMenu: false, images: [] },
+    {
+      id: "00000000-0000-4000-8000-0000000000a2",
+      isLimitedMenu: false,
+      images: [],
+    },
   ];
 
   it("lists the visits with the visit count for a guest", async () => {
@@ -245,5 +249,82 @@ describe("DetailPanel visit logs", () => {
     expect(
       await screen.findByRole("list", { ...hidden, name: "訪問ログ" }),
     ).toHaveTextContent("秋の限定つけ麺");
+  });
+});
+
+describe("DetailPanel images", () => {
+  const image = {
+    id: "00000000-0000-4000-8000-0000000000c1",
+    url: "https://img.example.test/1.jpg",
+    width: 2048,
+    height: 1536,
+    caption: "特製中華そば",
+  };
+
+  it("shows the shop's 代表写真 at the top", () => {
+    serveVisits([]);
+    renderPanel(
+      makeShop({ name: "麺屋 写真", coverPhotoUrl: image.url, eaten: false }),
+    );
+
+    expect(
+      screen.getByRole("img", { ...hidden, name: "麺屋 写真の代表写真" }),
+    ).toHaveAttribute("src", image.url);
+  });
+
+  it("loads the 代表写真 eagerly and falls back to the category art when it breaks", () => {
+    serveVisits([]);
+    renderPanel(
+      makeShop({ name: "麺屋 壊れ", coverPhotoUrl: image.url, eaten: false }),
+    );
+    const cover = screen.getByRole("img", {
+      ...hidden,
+      name: "麺屋 壊れの代表写真",
+    });
+    expect(cover).toHaveAttribute("loading", "eager");
+
+    fireEvent.error(cover);
+
+    expect(
+      screen.queryByRole("img", { ...hidden, name: "麺屋 壊れの代表写真" }),
+    ).toBeNull();
+  });
+
+  it("shows no photo for a shop without one", () => {
+    serveVisits([]);
+    renderPanel(makeShop({ name: "麺屋 写真なし", eaten: false }));
+
+    expect(
+      screen.queryByRole("img", { ...hidden, name: /代表写真/ }),
+    ).toBeNull();
+  });
+
+  it("shows each visit's images; Esc closes the lightbox, not the panel", async () => {
+    serveVisits([
+      {
+        id: "00000000-0000-4000-8000-0000000000a1",
+        isLimitedMenu: false,
+        images: [image],
+      },
+    ]);
+    const { onClose } = renderPanel(makeShop({ coverPhotoUrl: image.url }));
+
+    const images = await screen.findByRole("list", {
+      ...hidden,
+      name: "訪問画像",
+    });
+    await userEvent.click(
+      within(images).getByRole("button", {
+        ...hidden,
+        name: "画像 1 / 1: 特製中華そばを拡大",
+      }),
+      { pointerEventsCheck: 0 },
+    );
+    expect(await screen.findByRole("dialog")).toHaveTextContent("特製中華そば");
+
+    await userEvent.keyboard("{Escape}");
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(onClose).not.toHaveBeenCalled();
   });
 });

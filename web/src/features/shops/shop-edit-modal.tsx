@@ -4,7 +4,6 @@ import { ModalDialog } from "@/components/modal-dialog.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { toaster } from "@/components/ui/toaster.tsx";
 import { useRevealFirstError } from "@/components/use-reveal-first-error.ts";
-import { AdminImage, ImageUploader } from "@/features/admin/image-uploader.tsx";
 import {
   CATEGORY_OPTIONS,
   CategorySlug,
@@ -36,6 +35,7 @@ import {
 import type { WishLevel } from "@/features/shops/status.ts";
 import { TagSelector } from "@/features/shops/tag-chips.tsx";
 import { WishLevelSelect } from "@/features/shops/wish-level-select.tsx";
+import { useShopUploading } from "@/features/visits/api/visit-uploads.ts";
 import { VisitLogEditor } from "@/features/visits/visit-log-editor.tsx";
 import { invalidRequestFieldErrors } from "@/utils/request.ts";
 import {
@@ -64,7 +64,6 @@ interface ShopEditDraft {
   closedAt?: string;
   // "" is 未設定.
   wishLevel: WishLevel | "";
-  images: AdminImage[];
   tagIds: string[];
   // Omitted when the cached shop has no `links` (older server), so saving keeps them.
   links?: ShopLinkInput[];
@@ -292,12 +291,11 @@ function ShopLinksEditor({
   );
 }
 
-type Tab = "info" | "visit" | "images";
+type Tab = "info" | "visit";
 
 const TAB_LABELS: Record<Tab, string> = {
   info: "店舗情報",
   visit: "訪問ログ",
-  images: "画像",
 };
 
 // Fields with an input, all on 店舗情報; an error on any other field (including
@@ -375,7 +373,6 @@ export function ShopEditModal({
     openedAt: shop.openedAt,
     closedAt: shop.closedAt,
     wishLevel: shop.wishLevel ?? "",
-    images: [],
     tagIds: shop.tags.map((tag) => tag.id),
     // `links` is missing while an older server is still deployed.
     links: (shop.links ?? []).map(newLinkRow),
@@ -574,7 +571,9 @@ export function ShopEditModal({
     onClose();
   };
 
-  const locked = saving || deleting || visitBusy;
+  // Image uploads run outside the 訪問ログ tab, which may not be mounted.
+  const uploading = useShopUploading(shop.id);
+  const locked = saving || deleting || visitBusy || uploading;
 
   const selectTab = (t: Tab) => {
     setTab(t);
@@ -624,7 +623,7 @@ export function ShopEditModal({
             borderBottomColor="nm.lineFaint"
             px="22px"
           >
-            {(["info", "visit", "images"] as Tab[]).map((t) => (
+            {(["info", "visit"] as Tab[]).map((t) => (
               <Button
                 key={t}
                 variant="plain"
@@ -645,32 +644,6 @@ export function ShopEditModal({
                 onClick={() => selectTab(t)}
               >
                 {TAB_LABELS[t]}
-                {t === "images" && (
-                  <>
-                    <Box
-                      as="span"
-                      bg="nm.bg"
-                      color="nm.inkMuted"
-                      borderRadius="full"
-                      px="8px"
-                      py="1px"
-                      minWidth={0}
-                      minHeight={0}
-                      fontSize="10px"
-                      fontFamily="mono"
-                    >
-                      {draft.images.length}
-                    </Box>
-                    {draft.images.length === 0 && (
-                      <Box
-                        boxSize="6px"
-                        rounded="full"
-                        bg="nm.shu"
-                        flexShrink={0}
-                      />
-                    )}
-                  </>
-                )}
               </Button>
             ))}
           </Box>
@@ -884,13 +857,6 @@ export function ShopEditModal({
                   onShopGone={handleShopGone}
                 />
               </Box>
-            )}
-
-            {tab === "images" && (
-              <ImageUploader
-                images={draft.images}
-                onChange={(imgs) => set("images", imgs)}
-              />
             )}
           </Box>
 

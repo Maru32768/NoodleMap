@@ -21,7 +21,7 @@ interface AdminTableProps {
   shops: Shop[];
   selectedId: string | null;
   onSelect: (id: string) => void;
-  onEdit: (id: string, tab?: "images") => void;
+  onEdit: (id: string, tab?: "visit") => void;
 }
 
 type AdminTableRow = Shop & {
@@ -306,10 +306,10 @@ export function AdminTable({
               </svg>
             </RowActionButton>
             <RowActionButton
-              title="画像"
+              title="訪問ログ・画像"
               onClick={(e) => {
                 e.stopPropagation();
-                onEdit(shop.id, "images");
+                onEdit(shop.id, "visit");
               }}
             >
               <svg

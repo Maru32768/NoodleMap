@@ -2,6 +2,7 @@ import { LoadableButton } from "@/components/loadable-button.tsx";
 import { MiniHearts } from "@/features/shops/rating-hearts.tsx";
 import { formatShopDate } from "@/features/shops/status.ts";
 import type { VisitLog } from "@/features/visits/api/use-visits.ts";
+import { VisitImageGallery } from "@/features/visits/visit-image-gallery.tsx";
 import {
   VISITS_LOAD_FAILED_MESSAGE,
   VISITS_REFRESH_FAILED_MESSAGE,
@@ -52,9 +53,11 @@ function NoteBlock({
 function VisitLogEntry({
   visit,
   actions,
+  images,
 }: {
   visit: VisitLog;
   actions?: ReactNode;
+  images: ReactNode;
 }) {
   return (
     <Box as="li" bg="nm.bg" borderRadius="nmMd" px="0.875rem" py="0.625rem">
@@ -144,17 +147,24 @@ function VisitLogEntry({
       {visit.privateNote && (
         <NoteBlock label="メモ（自分用）" text={visit.privateNote} muted />
       )}
+      {images}
     </Box>
   );
 }
 
-/** 訪問ログ in server order (newest first); `actions` adds per-entry controls. */
+/**
+ * 訪問ログ in server order (newest first); `actions` adds per-entry controls and
+ * `images` replaces the default 訪問画像 thumbnails.
+ */
 export function VisitLogList({
   visits,
   actions,
+  // `images` is absent while an older server is still deployed.
+  images = (visit) => <VisitImageGallery images={visit.images ?? []} />,
 }: {
   visits: readonly VisitLog[];
   actions?: (visit: VisitLog) => ReactNode;
+  images?: (visit: VisitLog) => ReactNode;
 }) {
   return (
     <Box
@@ -172,6 +182,7 @@ export function VisitLogList({
           key={visit.id}
           visit={visit}
           actions={actions?.(visit)}
+          images={images(visit)}
         />
       ))}
     </Box>

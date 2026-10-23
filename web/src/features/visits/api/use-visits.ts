@@ -14,7 +14,7 @@ import {
   withApiError,
   withApiResult,
 } from "@/utils/request.ts";
-import { useCallback, useId } from "react";
+import { useCallback, useId, useMemo } from "react";
 import useSWR, { useSWRConfig } from "swr";
 
 export type VisitLog = components["schemas"]["VisitLog"];
@@ -91,14 +91,27 @@ export function useVisits(shopId: string | null) {
   };
 }
 
-/** Admin writes to a shop's 訪問ログ. Each success refetches the visits and the shop list (食べた, 評価, visitCount). */
-export function useVisitMutations(shopId: string) {
+/**
+ * Refetches every cached visits entry of the shop (`visits`), the shop list
+ * (`shops`: 食べた, 評価, visitCount, 代表写真) or both (`all`).
+ */
+export function useRevalidateShopVisits(shopId: string) {
   const { mutate } = useSWRConfig();
-
-  const revalidate = useCallback(
-    () => Promise.all([mutate(isVisitsKeyOf(shopId)), mutate(SHOPS_KEY)]),
+  const visits = useCallback(
+    () => mutate(isVisitsKeyOf(shopId)),
     [mutate, shopId],
   );
+  const shops = useCallback(() => mutate(SHOPS_KEY), [mutate]);
+  const all = useCallback(
+    () => Promise.all([visits(), shops()]),
+    [visits, shops],
+  );
+  return useMemo(() => ({ visits, shops, all }), [visits, shops, all]);
+}
+
+/** Admin writes to a shop's 訪問ログ. Each success refetches the visits and the shop list (食べた, 評価, visitCount). */
+export function useVisitMutations(shopId: string) {
+  const revalidate = useRevalidateShopVisits(shopId).all;
 
   const addVisit = useCallback(
     (input: VisitLogInput) =>
