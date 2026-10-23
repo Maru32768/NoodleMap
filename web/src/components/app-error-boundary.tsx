@@ -1,6 +1,14 @@
 import { Button } from "@/components/ui/button.tsx";
+import {
+  APP_ERROR_DESCRIPTION,
+  APP_ERROR_RELOAD_LABEL,
+  APP_ERROR_TITLE,
+} from "@/utils/toast.ts";
 import { AbsoluteCenter, Box, VStack } from "@chakra-ui/react";
-import { Component, ReactNode } from "react";
+import { Component, ErrorInfo, ReactNode } from "react";
+
+// The e2e suite fails a test on a console error starting with this marker.
+const LOG_MARKER = "[AppErrorBoundary]";
 
 interface Props {
   children: ReactNode;
@@ -18,6 +26,10 @@ export class AppErrorBoundary extends Component<Props, State> {
     return { hasError: true };
   }
 
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error(LOG_MARKER, error, info.componentStack);
+  }
+
   render() {
     if (!this.state.hasError) {
       return this.props.children;
@@ -27,10 +39,10 @@ export class AppErrorBoundary extends Component<Props, State> {
         <AbsoluteCenter>
           <VStack gap="16px" px="16px" textAlign="center" role="alert">
             <Box fontFamily="display" fontSize="18px" color="nm.ink">
-              エラーが発生しました
+              {APP_ERROR_TITLE}
             </Box>
             <Box fontSize="13px" color="nm.inkMuted">
-              ページを再読み込みしてください。
+              {APP_ERROR_DESCRIPTION}
             </Box>
             <Button
               variant="plain"
@@ -46,7 +58,7 @@ export class AppErrorBoundary extends Component<Props, State> {
               _hover={{ bg: "nm.inkSoft" }}
               onClick={() => window.location.reload()}
             >
-              再読み込み
+              {APP_ERROR_RELOAD_LABEL}
             </Button>
           </VStack>
         </AbsoluteCenter>

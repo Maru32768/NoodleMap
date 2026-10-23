@@ -72,16 +72,6 @@ export function ModalDialog({
 }: Props) {
   const [isLoading, setIsLoading] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null!);
-  // The dialog starts closed and opens a frame after mounting. Under StrictMode
-  // (the dev build), zag's dialog machine started open runs its "open" effects
-  // twice and leaks the first run: the page stays aria-hidden and scroll-locked
-  // after closing, and the leaked focus trap later throws "Your focus-trap needs
-  // to have at least one focusable element" when a dialog above it closes.
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    const frame = requestAnimationFrame(() => setMounted(true));
-    return () => cancelAnimationFrame(frame);
-  }, []);
 
   useEffect(() => {
     return () => {
@@ -102,7 +92,7 @@ export function ModalDialog({
   return (
     <DialogRoot
       placement="center"
-      open={open && mounted}
+      open={open}
       onOpenChange={(x) => {
         onOpenChange(x.open);
       }}

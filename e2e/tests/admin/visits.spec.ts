@@ -1,7 +1,6 @@
-import type { Browser, Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { WEB_HOST } from "../../support/env.ts";
 import { expect, test, uid } from "../../support/fixtures.ts";
 
 // A 320 x 240 JPEG of a few KB.
@@ -16,21 +15,7 @@ async function openEditModal(page: Page, name: string, filter: string) {
   return page.getByRole("dialog").filter({ hasText: name });
 }
 
-/** Runs `fn` with a signed-out page that can only reach the app. */
-async function asGuest(browser: Browser, baseURL: string | undefined, fn: (page: Page) => Promise<void>) {
-  const guest = await browser.newContext({ baseURL, storageState: { cookies: [], origins: [] } });
-  try {
-    await guest.route(
-      (u) => u.host !== WEB_HOST,
-      (route) => route.abort("blockedbyclient"),
-    );
-    await fn(await guest.newPage());
-  } finally {
-    await guest.close();
-  }
-}
-
-test("admin records a visit of two menu items that guests see without its private note", async ({ page, api, browser, baseURL }) => {
+test("admin records a visit of two menu items that guests see without its private note", async ({ page, api, asGuest }) => {
   const id = uid();
   const shop = await api.createShop({ name: `${id} 訪問を記録する店` });
   const publicNote = `${id} 公開メモ`;
@@ -69,7 +54,7 @@ test("admin records a visit of two menu items that guests see without its privat
   await expect(dialog).toBeHidden();
   await expect(page.getByRole("row").filter({ hasText: shop.name })).toContainText("1回");
 
-  await asGuest(browser, baseURL, async (guestPage) => {
+  await asGuest(async (guestPage) => {
     await guestPage.goto(`/search?shop=${shop.id}`);
     await expect(guestPage.getByText("お気に入り度 - Favorite")).toBeVisible();
     await expect(guestPage.getByText("1回訪問")).toBeVisible();
@@ -82,7 +67,7 @@ test("admin records a visit of two menu items that guests see without its privat
   });
 });
 
-test("deleting a shop's only visit returns it to 気になる", async ({ page, api, browser, baseURL }) => {
+test("deleting a shop's only visit returns it to 気になる", async ({ page, api, asGuest }) => {
   const id = uid();
   const shop = await api.createShop({ name: `${id} 訪問を消す店`, eaten: true, rate: 85 });
 
@@ -97,7 +82,7 @@ test("deleting a shop's only visit returns it to 気になる", async ({ page, a
   expect(await api.getShop(shop.id)).toMatchObject({ eaten: false, favorite: false, visitCount: 0 });
   await expect(dialog.getByRole("button", { name: "削除", exact: true })).toBeEnabled();
 
-  await asGuest(browser, baseURL, async (guestPage) => {
+  await asGuest(async (guestPage) => {
     await guestPage.goto(`/search?shop=${shop.id}`);
     await expect(guestPage.getByRole("button", { name: "閉じる" })).toBeVisible();
     await expect(guestPage.getByText("お気に入り度 - Favorite")).toHaveCount(0);
@@ -108,8 +93,7 @@ test("deleting a shop's only visit returns it to 気になる", async ({ page, a
 test("admin adds a visit image that guests see in the visit and as the 代表写真", async ({
   page,
   api,
-  browser,
-  baseURL,
+  asGuest,
 }) => {
   const id = uid();
   const shop = await api.createShop({ name: `${id} 写真のある店`, eaten: true, rate: 80 });
@@ -130,7 +114,7 @@ test("admin adds a visit image that guests see in the visit and as the 代表写
   await expect(images.getByText(caption)).toBeVisible();
   expect((await api.getShop(shop.id)).coverPhotoUrl).toBeTruthy();
 
-  await asGuest(browser, baseURL, async (guestPage) => {
+  await asGuest(async (guestPage) => {
     await guestPage.goto(`/search?shop=${shop.id}`);
     const cover = guestPage.getByRole("img", { name: `${shop.name}の代表写真` }).filter({ visible: true });
     await expect(cover).toHaveJSProperty("naturalWidth", 320);
@@ -152,7 +136,7 @@ test("admin adds a visit image that guests see in the visit and as the 代表写
   await expect(images).toHaveCount(0);
   expect((await api.getShop(shop.id)).coverPhotoUrl).toBeUndefined();
 
-  await asGuest(browser, baseURL, async (guestPage) => {
+  await asGuest(async (guestPage) => {
     await guestPage.goto(`/search?shop=${shop.id}`);
     await expect(guestPage.getByRole("button", { name: "閉じる" })).toBeVisible();
     await expect(guestPage.getByRole("list", { name: "訪問ログ" }).filter({ visible: true })).toBeVisible();
@@ -184,7 +168,7 @@ test("admin adds a visit image by dropping the file onto the image area", async 
   await expect(images.getByRole("img", { name: "画像 1" })).toHaveJSProperty("naturalWidth", 320);
 });
 
-test("admin sets 絶対行きたい and a guest sees it", async ({ page, api, browser, baseURL }) => {
+test("admin sets 絶対行きたい and a guest sees it", async ({ page, api, asGuest }) => {
   const id = uid();
   const shop = await api.createShop({ name: `${id} 絶対行きたい店` });
 
@@ -195,7 +179,7 @@ test("admin sets 絶対行きたい and a guest sees it", async ({ page, api, br
   await expect(page.getByText("保存しました")).toBeVisible();
   expect((await api.getShop(shop.id)).wishLevel).toBe("high");
 
-  await asGuest(browser, baseURL, async (guestPage) => {
+  await asGuest(async (guestPage) => {
     await guestPage.goto(`/search?shop=${shop.id}`);
     await guestPage.getByRole("complementary").getByPlaceholder("店名・読み・エリア・タグで検索...").fill(id);
     // On the open detail and on the shop's card in the list.
