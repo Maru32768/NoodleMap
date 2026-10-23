@@ -3,9 +3,12 @@ import {
   ADMIN_EMAIL,
   ADMIN_STATE,
   BACKEND_PORT,
+  BACKEND_URL,
   BASE_URL,
+  DATA_DIR,
   DB_PATH,
   REPO_ROOT,
+  SERVER_BUILD_DIR,
   WEB_BUILD_DIR,
   WEB_PORT,
 } from "./support/env.ts";
@@ -21,6 +24,8 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: 0,
   reporter: [["list"], ["html", { open: "never" }]],
+  // Each run wipes its outputDir, so runs on other ports keep their own.
+  outputDir: `${DATA_DIR}/test-results`,
   use: {
     baseURL: BASE_URL,
     // A service worker (vite-plugin-pwa) would bypass page.route interception.
@@ -58,12 +63,13 @@ export default defineConfig({
     {
       name: "server",
       command: "node start-server.mjs",
-      url: `http://localhost:${BACKEND_PORT}/health`,
+      url: `${BACKEND_URL}/health`,
       // Never attach to a developer's server: tests write shops and sessions.
       reuseExistingServer: false,
       timeout: 240_000,
       env: {
         DB_PATH,
+        SERVER_BUILD_DIR,
         SERVER_PORT: String(BACKEND_PORT),
         GOOGLE_OAUTH_CLIENT_ID: "e2e-google-client-id",
         ADMIN_EMAIL,
@@ -102,7 +108,7 @@ export default defineConfig({
         // A blank PMTiles URL selects the offline background-only basemap.
         VITE_BASEMAP_PMTILES_URL: " ",
         VITE_GOOGLE_OAUTH_CLIENT_ID: "e2e-google-client-id",
-        API_PROXY_TARGET: `http://localhost:${BACKEND_PORT}`,
+        API_PROXY_TARGET: BACKEND_URL,
       },
     },
   ],

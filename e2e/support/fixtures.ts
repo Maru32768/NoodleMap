@@ -6,7 +6,7 @@ import {
 } from "@playwright/test";
 import { randomBytes } from "node:crypto";
 import type { components } from "../../web/src/generated/api.ts";
-import { ADMIN_STATE } from "./env.ts";
+import { ADMIN_STATE, WEB_HOST } from "./env.ts";
 
 export type Shop = components["schemas"]["Shop"];
 export type Tag = components["schemas"]["Tag"];
@@ -99,7 +99,7 @@ export const test = base.extend<{ api: Api }>({
   context: async ({ context }, use) => {
     // Hermetic: only the app's own origin (and its /api proxy) is reachable.
     await context.route(
-      (url) => url.hostname !== "localhost",
+      (url) => url.host !== WEB_HOST,
       (route) => route.abort("blockedbyclient"),
     );
     await use(context);

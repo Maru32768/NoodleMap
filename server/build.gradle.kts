@@ -7,6 +7,9 @@ plugins {
     jacoco
 }
 
+// e2e builds its jar into its own directory so it never rewrites classes a running `./gradlew run` uses.
+providers.gradleProperty("noodleMapBuildDir").orNull?.let { layout.buildDirectory.set(file(it)) }
+
 group = "dev.marulabs.noodlemap"
 version = "0.1.0"
 

@@ -41,7 +41,8 @@ export default defineConfig(({ command, mode }) => {
   const httpsCert = env.DEV_HTTPS_CERT;
   const useHttps = mode === "https";
   // Where /api and /r/ go in dev and preview; e2e points it at its own backend port.
-  const apiProxyTarget = env.API_PROXY_TARGET || "http://localhost:8888";
+  const apiProxyTarget =
+    env.API_PROXY_TARGET || `http://localhost:${env.SERVER_PORT || 8888}`;
 
   if (useHttps && (!httpsKey || !httpsCert)) {
     throw new Error(

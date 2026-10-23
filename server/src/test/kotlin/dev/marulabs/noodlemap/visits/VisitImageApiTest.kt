@@ -228,10 +228,10 @@ class VisitImageApiTest {
         val (_, visitId) = addVisit(admin)
 
         // The Vite dev server, the e2e preview, 127.0.0.1, and the API's own origin.
-        for (origin in listOf("https://localhost:5173", "http://localhost:4180", "http://127.0.0.1:4180", "http://localhost:8888")) {
+        for (origin in listOf("https://localhost:5173", "http://localhost:14180", "http://127.0.0.1:14180", "http://localhost:8888")) {
             client.upload(visitId, jpeg(halves(16, 8)), admin, origin = origin).status shouldBe HttpStatusCode.OK
         }
-        for (origin in listOf(null, "https://evil.example", "http://localhost.evil.example:4180", "http://127.0.0.2:4180")) {
+        for (origin in listOf(null, "https://evil.example", "http://localhost.evil.example:14180", "http://127.0.0.2:14180")) {
             client.upload(visitId, jpeg(halves(16, 8)), admin, origin = origin).status shouldBe HttpStatusCode.Forbidden
         }
     }
