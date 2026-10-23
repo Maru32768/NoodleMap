@@ -1,0 +1,28 @@
+-- 食べたメニュー of a visit log, in display order.
+CREATE TABLE visit_menu_items (
+    id           TEXT AS java.util.UUID NOT NULL PRIMARY KEY,
+    visit_log_id TEXT AS java.util.UUID NOT NULL,
+    name         TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 200),
+    is_limited   INTEGER AS kotlin.Boolean NOT NULL DEFAULT 0 CHECK (is_limited IN (0, 1)),
+    price        INTEGER CHECK (price BETWEEN 0 AND 10000000),
+    sort_order   INTEGER NOT NULL,
+    created_at   TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at   TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (visit_log_id) REFERENCES visit_logs (id)
+);
+
+CREATE INDEX idx_visit_menu_items_visit_log_id ON visit_menu_items (visit_log_id);
+
+-- (modtime trigger omitted; see note in Users.sq)
+
+insertVisitMenuItem:
+INSERT INTO visit_menu_items (id, visit_log_id, name, is_limited, price, sort_order) VALUES (?, ?, ?, ?, ?, ?);
+
+deleteVisitMenuItemsByVisitLogId:
+DELETE FROM visit_menu_items WHERE visit_log_id = ?;
+
+findVisitMenuItemsByVisitLogIds:
+SELECT visit_log_id, name, is_limited, price
+FROM visit_menu_items
+WHERE visit_log_id IN ?
+ORDER BY visit_log_id, sort_order;

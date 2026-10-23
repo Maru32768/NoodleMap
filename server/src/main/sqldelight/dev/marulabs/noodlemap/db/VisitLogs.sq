@@ -4,9 +4,6 @@ CREATE TABLE visit_logs (
     id              TEXT AS java.util.UUID NOT NULL PRIMARY KEY,
     shop_id         TEXT AS java.util.UUID NOT NULL,
     visited_on      TEXT,
-    menu_name       TEXT,
-    is_limited_menu INTEGER AS kotlin.Boolean NOT NULL DEFAULT 0 CHECK (is_limited_menu IN (0, 1)),
-    price           INTEGER CHECK (price >= 0),
     rate            REAL CHECK (rate BETWEEN 0 AND 100),
     event_name      TEXT,
     public_note     TEXT,
@@ -21,15 +18,12 @@ CREATE INDEX idx_visit_logs_shop_id ON visit_logs (shop_id);
 -- (modtime trigger omitted; see note in Users.sq)
 
 insertVisitLog:
-INSERT INTO visit_logs (id, shop_id, visited_on, menu_name, is_limited_menu, price, rate, event_name, public_note, private_note)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO visit_logs (id, shop_id, visited_on, rate, event_name, public_note, private_note)
+VALUES (?, ?, ?, ?, ?, ?, ?);
 
 updateVisitLog:
 UPDATE visit_logs
 SET visited_on      = :visitedOn,
-    menu_name       = :menuName,
-    is_limited_menu = :isLimitedMenu,
-    price           = :price,
     rate            = :rate,
     event_name      = :eventName,
     public_note     = :publicNote,

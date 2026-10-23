@@ -180,7 +180,6 @@ export const VISITS_REFRESH_FAILED_MESSAGE =
 
 // Mirrors @maxLength on VisitLogInput in typespec/main.tsp.
 const VISIT_TEXT_MAX_LENGTH: Partial<Record<VisitLogField, number>> = {
-  menuName: 200,
   eventName: 100,
   publicNote: 2000,
   privateNote: 2000,
@@ -188,13 +187,11 @@ const VISIT_TEXT_MAX_LENGTH: Partial<Record<VisitLogField, number>> = {
 
 const VISIT_FORMAT_MESSAGE: Partial<Record<VisitLogField, string>> = {
   visitedOn: "日付の形式が正しくありません",
-  price: "整数で入力してください",
   rate: "数値で入力してください",
 };
 
 const VISIT_RANGE_MESSAGE: Partial<Record<VisitLogField, string>> = {
   visitedOn: "明日以前の日付を入力してください",
-  price: "0〜10,000,000の範囲で入力してください",
   rate: "0〜100の範囲で入力してください",
 };
 
@@ -220,6 +217,55 @@ export function visitFieldErrorMessage(
   }
   // A field or error type added on the server after this client was built.
   return "入力内容を確認してください";
+}
+
+// Mirror @maxItems on VisitLogInput.menuItems and the limits on MenuItemInput in typespec/main.tsp.
+export const MENU_ITEMS_MAX = 10;
+export const MENU_ITEM_NAME_MAX_LENGTH = 200;
+export const MENU_ITEM_PRICE_MAX = 10_000_000;
+
+const MENU_ITEM_MESSAGES: Record<
+  "name" | "price",
+  Partial<Record<FieldErrorType, string>>
+> = {
+  name: {
+    required: "メニュー名を入力してください",
+    invalid_format: "メニュー名に使えない文字が含まれています",
+    too_long: `メニュー名は${MENU_ITEM_NAME_MAX_LENGTH}文字以内で入力してください`,
+  },
+  price: {
+    invalid_format: "価格は整数で入力してください",
+    out_of_range: `価格は0〜${MENU_ITEM_PRICE_MAX.toLocaleString("ja-JP")}の範囲で入力してください`,
+  },
+};
+
+// Message for an error on a 食べたメニュー's name or price.
+export function menuItemFieldErrorMessage(
+  part: "name" | "price",
+  type: FieldErrorType,
+): string {
+  return MENU_ITEM_MESSAGES[part][type] ?? "入力内容を確認してください";
+}
+
+const MENU_ITEM_ERROR = /^menuItems\[(\d+)\]\.(name|price)$/;
+
+/**
+ * Message for a server error on `menuItems`. An error on one item names it in
+ * `message` (`menuItems[0].name`) and is shown as 「メニュー 1 の…」; one
+ * without an item is on the list itself, such as too many items.
+ */
+export function menuItemsServerErrorMessage(error: {
+  type: FieldErrorType;
+  message?: string;
+}): string {
+  const item = error.message?.match(MENU_ITEM_ERROR);
+  if (item) {
+    const part = item[2] as "name" | "price";
+    return `メニュー ${Number(item[1]) + 1} の${menuItemFieldErrorMessage(part, error.type)}`;
+  }
+  return error.type === "out_of_range"
+    ? `メニューは${MENU_ITEMS_MAX}品まで記録できます`
+    : "メニューを確認してください";
 }
 
 // Mirrors @maxLength on UpdateVisitImageRequest.caption in typespec/main.tsp.

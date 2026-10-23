@@ -22,9 +22,8 @@ const shop = makeShop({ name: "中華そば 青葉", eaten: true, visitCount: 1 
 const visit: VisitLog = {
   id: "00000000-0000-4000-8000-0000000000b1",
   visitedOn: "2026-09-30",
-  menuName: "中華そば",
-  isLimitedMenu: false,
-  price: 950,
+  menuItems: [{ name: "中華そば", isLimited: false, price: 950 }],
+  totalPrice: 950,
   rate: 70,
   publicNote: "あっさり",
   privateNote: "次は大盛り",
@@ -127,7 +126,7 @@ describe("VisitLogEditor", () => {
     await userEvent.click(screen.getByRole("button", { name: "訪問を記録" }));
     expect(within(form()).getByLabelText("訪問日")).toHaveValue("2026-10-23");
     await userEvent.type(
-      within(form()).getByRole("textbox", { name: "食べたメニュー" }),
+      within(form()).getByRole("textbox", { name: "メニュー名" }),
       "限定煮干し",
     );
     await userEvent.click(within(form()).getByRole("checkbox"));
@@ -147,9 +146,7 @@ describe("VisitLogEditor", () => {
     expect(posted).toEqual([
       {
         visitedOn: "2026-10-23",
-        menuName: "限定煮干し",
-        isLimitedMenu: true,
-        price: 1200,
+        menuItems: [{ name: "限定煮干し", isLimited: true, price: 1200 }],
         rate: 85,
       },
     ]);
@@ -170,7 +167,8 @@ describe("VisitLogEditor", () => {
     await save();
 
     await waitFor(() => expect(posted).toHaveLength(1));
-    expect(posted[0]).toEqual({ isLimitedMenu: false });
+    // The empty menu row is dropped too.
+    expect(posted[0]).toEqual({});
   });
 
   it("shows server field errors under their inputs and keeps the form open", async () => {
@@ -248,12 +246,236 @@ describe("VisitLogEditor", () => {
     await waitFor(() => expect(put).toHaveLength(1));
     expect(put[0]).toEqual({
       visitedOn: "2026-09-30",
-      menuName: "中華そば",
-      isLimitedMenu: false,
-      price: 950,
+      menuItems: [{ name: "中華そば", isLimited: false, price: 950 }],
       rate: 70,
       publicNote: "あっさり",
     });
+  });
+
+  it("records several menu items in the order arranged, dropping blank rows", async () => {
+    const { posted } = renderVisits({ visits: [] });
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "訪問を記録" }),
+    );
+    const row = (n: number) =>
+      within(form()).getByRole("group", { name: `メニュー ${n}` });
+    const addRow = () =>
+      userEvent.click(
+        within(form()).getByRole("button", { name: "＋ メニューを追加" }),
+      );
+
+    await userEvent.type(
+      within(row(1)).getByRole("textbox", { name: "メニュー名" }),
+      "替え玉",
+    );
+    await userEvent.type(
+      within(row(1)).getByRole("spinbutton", { name: "価格" }),
+      "150",
+    );
+    await addRow();
+    await userEvent.type(
+      within(row(2)).getByRole("textbox", { name: "メニュー名" }),
+      "限定煮干しそば",
+    );
+    await userEvent.click(
+      within(row(2)).getByRole("checkbox", { name: "限定" }),
+    );
+    await userEvent.type(
+      within(row(2)).getByRole("spinbutton", { name: "価格" }),
+      "1200",
+    );
+    await addRow();
+    await userEvent.type(
+      within(row(3)).getByRole("textbox", { name: "メニュー名" }),
+      "味玉",
+    );
+    await addRow();
+    expect(within(form()).getByText("¥1,350")).toBeInTheDocument();
+
+    // The noodles first; the extra 味玉 row goes, the blank last row is dropped.
+    await userEvent.click(within(row(2)).getByRole("button", { name: "上へ" }));
+    await userEvent.click(
+      within(row(3)).getByRole("button", { name: "メニューを削除" }),
+    );
+    await save();
+
+    await waitFor(() => expect(posted).toHaveLength(1));
+    expect(posted[0].menuItems).toEqual([
+      { name: "限定煮干しそば", isLimited: true, price: 1200 },
+      { name: "替え玉", isLimited: false, price: 150 },
+    ]);
+  });
+
+  it("blocks saving a menu price without a name", async () => {
+    const { posted } = renderVisits({ visits: [] });
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "訪問を記録" }),
+    );
+    await userEvent.type(
+      within(form()).getByRole("spinbutton", { name: "価格" }),
+      "900",
+    );
+    await save();
+
+    const name = await within(form()).findByRole("textbox", {
+      name: "メニュー名",
+      description: "メニュー名を入力してください",
+    });
+    expect(name).toHaveAttribute("aria-invalid", "true");
+    expect(posted).toHaveLength(0);
+
+    // Typing the name clears its error.
+    await userEvent.type(name, "つけ麺");
+    expect(name).not.toHaveAttribute("aria-invalid");
+  });
+
+  it("blocks saving a 限定 menu item without a name", async () => {
+    const { posted } = renderVisits({ visits: [] });
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "訪問を記録" }),
+    );
+    await userEvent.click(
+      within(form()).getByRole("checkbox", { name: "限定" }),
+    );
+    await save();
+
+    expect(
+      await within(form()).findByRole("textbox", {
+        name: "メニュー名",
+        description: "メニュー名を入力してください",
+      }),
+    ).toHaveAttribute("aria-invalid", "true");
+    expect(posted).toHaveLength(0);
+  });
+
+  it("does not count adding and removing a blank menu row as unsaved", async () => {
+    const { onClose } = renderVisits();
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "訪問ログを編集" }),
+    );
+    await userEvent.click(
+      within(form()).getByRole("button", { name: "＋ メニューを追加" }),
+    );
+    await userEvent.click(
+      within(
+        within(form()).getByRole("group", { name: "メニュー 2" }),
+      ).getByRole("button", { name: "メニューを削除" }),
+    );
+    // A blank row left behind is no change either.
+    await userEvent.click(
+      within(form()).getByRole("button", { name: "＋ メニューを追加" }),
+    );
+    await userEvent.click(
+      screen
+        .getAllByRole("button", { name: "キャンセル" })
+        .find((button) => !form().contains(button))!,
+    );
+
+    expect(onClose).toHaveBeenCalled();
+    expect(
+      screen.queryByText("保存していない訪問ログがあります。破棄しますか？"),
+    ).toBeNull();
+  });
+
+  it("names the menu item a server error is about, and tells too many items apart", async () => {
+    let fieldErrors = [
+      {
+        field: "menuItems",
+        type: "out_of_range",
+        message: "menuItems[1].price",
+      },
+    ];
+    renderVisits({
+      visits: [],
+      saveResponse: () =>
+        HttpResponse.json(
+          { type: "invalid_request", fieldErrors },
+          { status: 400 },
+        ),
+    });
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "訪問を記録" }),
+    );
+    await userEvent.type(
+      within(form()).getByRole("textbox", { name: "メニュー名" }),
+      "つけ麺",
+    );
+    await save();
+    expect(
+      await within(form()).findByText(
+        "メニュー 2 の価格は0〜10,000,000の範囲で入力してください",
+      ),
+    ).toBeInTheDocument();
+
+    fieldErrors = [
+      {
+        field: "menuItems",
+        type: "out_of_range",
+        message: "at most 10 menu items",
+      },
+    ];
+    await save();
+    expect(
+      await within(form()).findByText("メニューは10品まで記録できます"),
+    ).toBeInTheDocument();
+  });
+
+  it("allows at most 10 menu items", async () => {
+    renderVisits({ visits: [] });
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "訪問を記録" }),
+    );
+    const add = within(form()).getByRole("button", {
+      name: "＋ メニューを追加",
+    });
+    for (let i = 1; i < 10; i++) {
+      await userEvent.click(add);
+    }
+    expect(
+      within(form()).getAllByRole("textbox", { name: "メニュー名" }),
+    ).toHaveLength(10);
+    expect(add).toBeDisabled();
+  });
+
+  it("shows a server error on the menu items under the list", async () => {
+    renderVisits({
+      visits: [],
+      saveResponse: () =>
+        HttpResponse.json(
+          {
+            type: "invalid_request",
+            fieldErrors: [
+              {
+                field: "menuItems",
+                type: "too_long",
+                message: "menuItems[0].name",
+              },
+            ],
+          },
+          { status: 400 },
+        ),
+    });
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "訪問を記録" }),
+    );
+    await userEvent.type(
+      within(form()).getByRole("textbox", { name: "メニュー名" }),
+      "つけ麺",
+    );
+    await save();
+
+    expect(
+      await within(form()).findByText(
+        "メニュー 1 のメニュー名は200文字以内で入力してください",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("deletes a visit after confirmation", async () => {
@@ -290,7 +512,7 @@ describe("VisitLogEditor", () => {
     expect(
       await within(form()).findByRole("spinbutton", {
         name: "価格",
-        description: "整数で入力してください",
+        description: "価格は整数で入力してください",
       }),
     ).toHaveAttribute("aria-invalid", "true");
 
@@ -298,7 +520,9 @@ describe("VisitLogEditor", () => {
     await userEvent.type(price, "20000000");
     await save();
     expect(
-      await within(form()).findByText("0〜10,000,000の範囲で入力してください"),
+      await within(form()).findByText(
+        "価格は0〜10,000,000の範囲で入力してください",
+      ),
     ).toBeInTheDocument();
     expect(posted).toHaveLength(0);
   });
@@ -371,14 +595,14 @@ describe("VisitLogEditor", () => {
       await screen.findByRole("button", { name: "訪問を記録" }),
     );
     await userEvent.type(
-      within(form()).getByRole("textbox", { name: "食べたメニュー" }),
+      within(form()).getByRole("textbox", { name: "メニュー名" }),
       "つけ麺",
     );
     await userEvent.click(screen.getByRole("button", { name: "店舗情報" }));
     await userEvent.click(screen.getByRole("button", { name: "訪問ログ" }));
 
     expect(
-      within(form()).getByRole("textbox", { name: "食べたメニュー" }),
+      within(form()).getByRole("textbox", { name: "メニュー名" }),
     ).toHaveValue("つけ麺");
   });
 
@@ -389,7 +613,7 @@ describe("VisitLogEditor", () => {
       await screen.findByRole("button", { name: "訪問を記録" }),
     );
     await userEvent.type(
-      within(form()).getByRole("textbox", { name: "食べたメニュー" }),
+      within(form()).getByRole("textbox", { name: "メニュー名" }),
       "つけ麺",
     );
     // The modal footer's キャンセル, not the visit form's.
@@ -407,7 +631,7 @@ describe("VisitLogEditor", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "入力に戻る" }));
     expect(
-      within(form()).getByRole("textbox", { name: "食べたメニュー" }),
+      within(form()).getByRole("textbox", { name: "メニュー名" }),
     ).toHaveValue("つけ麺");
 
     await userEvent.click(footerCancel);
@@ -431,7 +655,7 @@ describe("VisitLogEditor", () => {
       await screen.findByRole("button", { name: "訪問を記録" }),
     );
     await userEvent.type(
-      within(form()).getByRole("textbox", { name: "食べたメニュー" }),
+      within(form()).getByRole("textbox", { name: "メニュー名" }),
       "つけ麺",
     );
     await userEvent.click(screen.getByRole("button", { name: "保存" }));
@@ -480,7 +704,7 @@ describe("VisitLogEditor", () => {
     await save();
 
     expect(
-      await within(form()).findByText("整数で入力してください"),
+      await within(form()).findByText("価格は整数で入力してください"),
     ).toBeInTheDocument();
     expect(posted).toHaveLength(0);
   });
@@ -492,7 +716,7 @@ describe("VisitLogEditor", () => {
       await screen.findByRole("button", { name: "訪問を記録" }),
     );
     await userEvent.type(
-      within(form()).getByRole("textbox", { name: "食べたメニュー" }),
+      within(form()).getByRole("textbox", { name: "メニュー名" }),
       "つけ麺",
     );
     await userEvent.click(screen.getByRole("button", { name: "保存" }));
@@ -517,7 +741,7 @@ describe("VisitLogEditor", () => {
       await screen.findByRole("button", { name: "訪問を記録" }),
     );
     await userEvent.type(
-      within(form()).getByRole("textbox", { name: "食べたメニュー" }),
+      within(form()).getByRole("textbox", { name: "メニュー名" }),
       "つけ麺",
     );
     await userEvent.click(screen.getByRole("button", { name: "削除" }));

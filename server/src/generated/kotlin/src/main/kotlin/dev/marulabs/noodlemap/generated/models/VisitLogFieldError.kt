@@ -6,6 +6,9 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 public data class VisitLogFieldError(
+  /**
+   * `menuItems` covers the list and each item; the message names the item (`menuItems[0].name`).
+   */
   @SerialName("field")
   public val `field`: VisitLogField,
   @SerialName("type")

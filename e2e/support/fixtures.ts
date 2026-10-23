@@ -70,7 +70,7 @@ export class Api {
     };
     const shop = await expectOkJson<Shop>(await this.request.post("/api/v1/auth/shops", { data: add }));
     if (spec.eaten) {
-      const visit: VisitLogInput = { isLimitedMenu: false, rate: spec.rate };
+      const visit: VisitLogInput = { rate: spec.rate };
       await expectOkJson(await this.request.post(`/api/v1/auth/shops/${shop.id}/visits`, { data: visit }));
     }
     return this.getShop(shop.id);

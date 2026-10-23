@@ -4,6 +4,8 @@ import dev.marulabs.noodlemap.db.FindAllVisitSummaries
 import dev.marulabs.noodlemap.errors.DomainException
 import dev.marulabs.noodlemap.errors.FieldError
 import dev.marulabs.noodlemap.errors.FieldErrorType
+import dev.marulabs.noodlemap.generated.models.MenuItem
+import dev.marulabs.noodlemap.generated.models.MenuItemInput
 import dev.marulabs.noodlemap.generated.models.VisitLogInput
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
@@ -67,16 +69,33 @@ class VisitsTest {
 
     @Test
     fun `a visit date may be at most tomorrow`() {
-        normalizeVisit(VisitLogInput(visitedOn = " 2026-10-24 ", isLimitedMenu = false), today).visitedOn shouldBe "2026-10-24"
-        errorsOf(VisitLogInput(visitedOn = "2026-10-25", isLimitedMenu = false)) shouldBe
+        normalizeVisit(VisitLogInput(visitedOn = " 2026-10-24 "), today).visitedOn shouldBe "2026-10-24"
+        errorsOf(VisitLogInput(visitedOn = "2026-10-25")) shouldBe
             listOf(FieldError("visitedOn", FieldErrorType.OUT_OF_RANGE))
     }
 
     @Test
     fun `lengths are counted in characters, not UTF-16 units`() {
         // 𩸽 (hokke) is one character but two UTF-16 units.
-        normalizeVisit(VisitLogInput(menuName = "𩸽".repeat(200), isLimitedMenu = false), today).menuName shouldBe "𩸽".repeat(200)
-        errorsOf(VisitLogInput(menuName = "𩸽".repeat(201), isLimitedMenu = false)) shouldBe
-            listOf(FieldError("menuName", FieldErrorType.TOO_LONG))
+        normalizeVisit(VisitLogInput(menuItems = listOf(MenuItemInput("𩸽".repeat(200)))), today).menuItems.single().name shouldBe
+            "𩸽".repeat(200)
+        errorsOf(VisitLogInput(menuItems = listOf(MenuItemInput("𩸽".repeat(201))))) shouldBe
+            listOf(FieldError("menuItems", FieldErrorType.TOO_LONG, "menuItems[0].name"))
+    }
+
+    @Test
+    fun `menu names with control characters are rejected before they reach the database`() {
+        for (name in listOf("麺\u0000", "\u0000麺", "つけ\n麺", "\u007f")) {
+            errorsOf(VisitLogInput(menuItems = listOf(MenuItemInput("ok"), MenuItemInput(name)))) shouldBe
+                listOf(FieldError("menuItems", FieldErrorType.INVALID_FORMAT, "menuItems[1].name"))
+        }
+    }
+
+    @Test
+    fun `the total price sums the priced items and is absent when none has a price`() {
+        totalPrice(emptyList()) shouldBe null
+        totalPrice(listOf(MenuItem("ラーメン", false))) shouldBe null
+        totalPrice(listOf(MenuItem("ラーメン", false, 1000), MenuItem("替え玉", false), MenuItem("限定", true, 0))) shouldBe 1000
+        totalPrice(listOf(MenuItem("a", false, 10_000_000), MenuItem("b", false, 10_000_000))) shouldBe 20_000_000
     }
 }

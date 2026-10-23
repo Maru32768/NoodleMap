@@ -15,9 +15,6 @@ CREATE TABLE IF NOT EXISTS visit_logs
     id              TEXT     NOT NULL PRIMARY KEY,
     shop_id         TEXT     NOT NULL,
     visited_on      TEXT     NULL,
-    menu_name       TEXT     NULL,
-    is_limited_menu INTEGER  NOT NULL DEFAULT 0 CHECK (is_limited_menu IN (0, 1)),
-    price           INTEGER  NULL CHECK (price >= 0),
     rate            REAL     NULL CHECK (rate BETWEEN 0 AND 100),
     event_name      TEXT     NULL,
     public_note     TEXT     NULL,
@@ -40,6 +37,33 @@ END;
 -- +goose StatementEnd
 
 CREATE INDEX IF NOT EXISTS idx_visit_logs_shop_id ON visit_logs (shop_id);
+
+-- 食べたメニュー: the items eaten on one visit, in display order. The visit's price is the sum of theirs.
+-- No ON DELETE CASCADE: deleting a visit log deletes its items explicitly, in the same transaction.
+CREATE TABLE IF NOT EXISTS visit_menu_items
+(
+    id           TEXT     NOT NULL PRIMARY KEY,
+    visit_log_id TEXT     NOT NULL,
+    name         TEXT     NOT NULL CHECK (length(name) BETWEEN 1 AND 200),
+    is_limited   INTEGER  NOT NULL DEFAULT 0 CHECK (is_limited IN (0, 1)),
+    price        INTEGER  NULL CHECK (price BETWEEN 0 AND 10000000),
+    sort_order   INTEGER  NOT NULL,
+    created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (visit_log_id) REFERENCES visit_logs (id)
+);
+
+-- +goose StatementBegin
+CREATE TRIGGER IF NOT EXISTS update_visit_menu_items_modtime
+    AFTER UPDATE ON visit_menu_items
+    FOR EACH ROW
+    WHEN NEW.updated_at = OLD.updated_at
+BEGIN
+    UPDATE visit_menu_items SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+END;
+-- +goose StatementEnd
+
+CREATE INDEX IF NOT EXISTS idx_visit_menu_items_visit_log_id ON visit_menu_items (visit_log_id);
 
 -- 気になる度: low = ちょっと気になる, medium = 気になる, high = 絶対行きたい.
 ALTER TABLE shops ADD COLUMN wish_level TEXT NULL CHECK (wish_level IN ('low', 'medium', 'high'));

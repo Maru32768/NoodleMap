@@ -94,11 +94,10 @@ union WishLevel {
   "high",
 }
 
+@doc("`menuItems` covers the list and each item; the message names the item (`menuItems[0].name`).")
 union VisitLogField {
   "visitedOn",
-  "menuName",
-  "isLimitedMenu",
-  "price",
+  "menuItems",
   "rate",
   "eventName",
   "publicNote",
@@ -418,11 +417,11 @@ model VisitLog {
   @doc("Visit date as an ISO 8601 calendar date (YYYY-MM-DD). Absent when unknown.")
   visitedOn?: string;
 
-  menuName?: string;
-  isLimitedMenu: boolean;
+  @doc("食べたメニュー in display order.")
+  menuItems: MenuItem[];
 
-  @doc("Price in yen.")
-  price?: int32;
+  @doc("Derived on the server: the sum of the menu item prices. Absent when no item has a price.")
+  totalPrice?: int32;
 
   @doc("0 to 100. Absent when the visit is not rated.")
   rate?: float64;
@@ -437,6 +436,17 @@ model VisitLog {
 
   @doc("The visit's images in display order; the first one represents the visit.")
   images: VisitImage[];
+}
+
+@doc("One 食べたメニュー of a visit log.")
+model MenuItem {
+  name: string;
+
+  @doc("True for a 限定メニュー.")
+  isLimited: boolean;
+
+  @doc("Price in yen. Absent when not recorded.")
+  price?: int32;
 }
 
 @doc("One 訪問画像: a JPEG whose long edge is at most 2048 px, already rotated upright.")
@@ -485,15 +495,9 @@ model VisitLogInput {
   @doc("ISO 8601 calendar date (YYYY-MM-DD), no later than tomorrow. Omit when unknown.")
   visitedOn?: string;
 
-  @maxLength(200)
-  menuName?: string;
-
-  isLimitedMenu: boolean;
-
-  @doc("Price in yen, 0 to 10,000,000.")
-  @minValue(0)
-  @maxValue(10000000)
-  price?: int32;
+  @doc("食べたメニュー in display order, at most 10. Omit for none.")
+  @maxItems(10)
+  menuItems?: MenuItemInput[];
 
   @doc("0 to 100. Omit when not rated.")
   @minValue(0)
@@ -508,6 +512,20 @@ model VisitLogInput {
 
   @maxLength(2000)
   privateNote?: string;
+}
+
+@doc("One 食べたメニュー as written by the admin. The name is trimmed and must not be blank.")
+model MenuItemInput {
+  @maxLength(200)
+  name: string;
+
+  @doc("True for a 限定メニュー. Omit for false.")
+  isLimited?: boolean;
+
+  @doc("Price in yen, 0 to 10,000,000. Omit when not recorded.")
+  @minValue(0)
+  @maxValue(10000000)
+  price?: int32;
 }
 
 model ShopLink {

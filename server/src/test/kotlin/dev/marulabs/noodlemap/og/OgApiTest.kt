@@ -87,7 +87,7 @@ class OgApiTest {
 
     /** Logs a rated visit with one solid [PHOTO]-colored image, which becomes the shop's 代表写真. */
     private suspend fun ApplicationTestBuilder.addCover(shopId: String, admin: String): VisitImage {
-        val visit = client.postJson("/api/v1/auth/shops/$shopId/visits", """{"isLimitedMenu":false,"rate":90}""", admin).body<VisitLog>()
+        val visit = client.postJson("/api/v1/auth/shops/$shopId/visits", """{"rate":90}""", admin).body<VisitLog>()
         val photo = BufferedImage(64, 32, BufferedImage.TYPE_INT_RGB).apply {
             createGraphics().run { color = PHOTO; fillRect(0, 0, width, height); dispose() }
         }
@@ -273,7 +273,7 @@ class OgApiTest {
         }
         client.get(wishPath).status shouldBe HttpStatusCode.OK
 
-        client.postJson("/api/v1/auth/shops/${shop.id}/visits", """{"isLimitedMenu":false,"rate":90}""", admin).status shouldBe HttpStatusCode.OK
+        client.postJson("/api/v1/auth/shops/${shop.id}/visits", """{"rate":90}""", admin).status shouldBe HttpStatusCode.OK
 
         val eatenPath = client.imagePath(shop.id)
         eatenPath shouldNotBe wishPath

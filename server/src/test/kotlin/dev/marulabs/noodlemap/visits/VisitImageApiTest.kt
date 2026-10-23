@@ -75,7 +75,7 @@ class VisitImageApiTest {
 
     private suspend fun ApplicationTestBuilder.addVisit(admin: String, visitedOn: String? = null, shopId: String? = null): Pair<String, String> {
         val shop = shopId ?: client.postJson("/api/v1/auth/shops", encode(addShopRequest(placeId = null)), admin).body<Shop>().id
-        val visit = client.postJson("/api/v1/auth/shops/$shop/visits", encode(VisitLogInput(visitedOn = visitedOn, isLimitedMenu = false)), admin)
+        val visit = client.postJson("/api/v1/auth/shops/$shop/visits", encode(VisitLogInput(visitedOn = visitedOn)), admin)
             .body<VisitLog>().id
         return shop to visit
     }

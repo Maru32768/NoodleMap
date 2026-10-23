@@ -430,7 +430,7 @@ class ShopApiTest {
         val admin = t.adminToken()
         val req = addShopRequest(tagIds = listOf(SHOYU)).copy(links = listOf(ShopLinkInput(ShopLinkType.OFFICIAL, url = "https://a.example")))
         val id = client.postJson("/api/v1/auth/shops", encode(req), admin).body<Shop>().id
-        val visitId = client.postJson("/api/v1/auth/shops/$id/visits", """{"isLimitedMenu":false}""", admin).body<VisitLog>().id
+        val visitId = client.postJson("/api/v1/auth/shops/$id/visits", """{}""", admin).body<VisitLog>().id
 
         client.deleteWithSession("/api/v1/auth/shops/$id", admin).let {
             it.status shouldBe HttpStatusCode.Conflict

@@ -160,9 +160,12 @@ describe("DetailPanel visit logs", () => {
     {
       id: "00000000-0000-4000-8000-0000000000a1",
       visitedOn: "2026-10-01",
-      menuName: "秋の限定つけ麺",
-      isLimitedMenu: true,
-      price: 1200,
+      menuItems: [
+        { name: "秋の限定つけ麺", isLimited: true, price: 1200 },
+        { name: "替え玉", isLimited: false, price: 150 },
+        { name: "味玉", isLimited: false },
+      ],
+      totalPrice: 1350,
       rate: 85,
       eventName: "大つけ麺博",
       publicNote: "スープが濃厚",
@@ -170,7 +173,7 @@ describe("DetailPanel visit logs", () => {
     },
     {
       id: "00000000-0000-4000-8000-0000000000a2",
-      isLimitedMenu: false,
+      menuItems: [],
       images: [],
     },
   ];
@@ -186,14 +189,17 @@ describe("DetailPanel visit logs", () => {
     });
     const [first, second] = within(list).getAllByRole("listitem", hidden);
     expect(first).toHaveTextContent("2026/10/1");
-    expect(first).toHaveTextContent("秋の限定つけ麺");
-    expect(within(first).getByText("限定")).toBeInTheDocument();
-    expect(first).toHaveTextContent("¥1,200");
+    // Each 食べたメニュー with its own 限定 badge and price, then the 合計.
+    expect(first).toHaveTextContent(
+      "秋の限定つけ麺限定¥1,200替え玉¥150味玉合計¥1,350",
+    );
+    expect(within(first).getAllByText("限定")).toHaveLength(1);
     expect(first).toHaveTextContent("大つけ麺博");
     expect(first).toHaveTextContent("スープが濃厚");
     expect(first).not.toHaveTextContent("メモ（自分用）");
     expect(second).toHaveTextContent("日付不明");
     expect(second).toHaveTextContent("お気に入り度 未設定");
+    expect(second).not.toHaveTextContent("合計");
   });
 
   it("shows メモ（自分用） when the API returns it (admin)", async () => {
@@ -306,7 +312,7 @@ describe("DetailPanel images", () => {
     serveVisits([
       {
         id: "00000000-0000-4000-8000-0000000000a1",
-        isLimitedMenu: false,
+        menuItems: [],
         images: [image],
       },
     ]);
