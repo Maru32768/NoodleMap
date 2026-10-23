@@ -1,5 +1,6 @@
 package dev.marulabs.noodlemap.visits
 
+import dev.marulabs.noodlemap.Config
 import dev.marulabs.noodlemap.FakeS3
 import dev.marulabs.noodlemap.PUBLIC_BASE_URL
 import dev.marulabs.noodlemap.addShopRequest
@@ -23,6 +24,7 @@ import dev.marulabs.noodlemap.putJson
 import dev.marulabs.noodlemap.session
 import dev.marulabs.noodlemap.shops.shops
 import dev.marulabs.noodlemap.testApp
+import dev.marulabs.noodlemap.withTestDb
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.ints.shouldBeGreaterThan
@@ -33,6 +35,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.request.forms.formData
 import io.ktor.client.request.forms.submitFormWithBinaryData
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
@@ -41,7 +44,9 @@ import io.ktor.http.ContentType
 import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.content.OutgoingContent
 import io.ktor.http.contentType
+import io.ktor.http.headersOf
 import io.ktor.server.testing.ApplicationTestBuilder
 import java.awt.Color
 import java.awt.image.BufferedImage
@@ -50,7 +55,10 @@ import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.util.UUID
 import java.util.zip.CRC32
+import javax.imageio.IIOImage
 import javax.imageio.ImageIO
+import javax.imageio.ImageWriteParam
+import javax.imageio.stream.MemoryCacheImageOutputStream
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 
@@ -72,7 +80,13 @@ class VisitImageApiTest {
         return shop to visit
     }
 
-    private suspend fun HttpClient.upload(visitId: String, bytes: ByteArray, token: String?, name: String = "file"): HttpResponse =
+    private suspend fun HttpClient.upload(
+        visitId: String,
+        bytes: ByteArray,
+        token: String?,
+        name: String = "file",
+        origin: String? = PUBLIC_BASE_URL,
+    ): HttpResponse =
         submitFormWithBinaryData(
             "/api/v1/auth/visits/$visitId/images",
             formData {
@@ -81,7 +95,10 @@ class VisitImageApiTest {
                     append(HttpHeaders.ContentDisposition, "filename=\"photo\"")
                 })
             },
-        ) { token?.let { session(it) } }
+        ) {
+            token?.let { session(it) }
+            origin?.let { header(HttpHeaders.Origin, it) }
+        }
 
     private suspend fun HttpClient.uploadOk(visitId: String, bytes: ByteArray, admin: String): VisitImage =
         upload(visitId, bytes, admin).also { it.status shouldBe HttpStatusCode.OK }.body()
@@ -96,7 +113,7 @@ class VisitImageApiTest {
         ErrorBody(ErrorType.INVALID_REQUEST, message, listOf(FieldError("file", type)))
 
     @Test
-    fun `a JPEG is stored upright, scaled to a 2048 px long edge and without its EXIF`() = testApp { t ->
+    fun `a JPEG is stored upright, subsampled below a 2048 px long edge and without its EXIF`() = testApp { t ->
         val admin = t.adminToken()
         val (shopId, visitId) = addVisit(admin)
         // Left half red, right half blue; orientation 6 means the camera was turned 90 degrees clockwise.
@@ -105,23 +122,24 @@ class VisitImageApiTest {
 
         val image = client.uploadOk(visitId, source, admin)
 
-        image.width shouldBe 683
-        image.height shouldBe 2048
+        // Subsampled by ceil(3000 / 2048) = 2, then turned upright.
+        image.width shouldBe 500
+        image.height shouldBe 1500
         image.caption shouldBe null
         image.url shouldBe "$PUBLIC_BASE_URL/api/v1/visit-images/visits/$visitId/${image.id}.jpg"
         val res = client.stored(image.url)
         res.status shouldBe HttpStatusCode.OK
         res.contentType()?.withoutParameters() shouldBe ContentType.Image.JPEG
-        res.headers[HttpHeaders.CacheControl] shouldBe "public, max-age=31536000, immutable"
+        res.headers[HttpHeaders.CacheControl] shouldBe "public, max-age=86400"
         val bytes = res.readRawBytes()
         exifOrientation(bytes) shouldBe 1
         String(bytes, Charsets.ISO_8859_1).contains("Exif") shouldBe false
         val stored = ImageIO.read(ByteArrayInputStream(bytes))
-        stored.width shouldBe 683
-        stored.height shouldBe 2048
+        stored.width shouldBe 500
+        stored.height shouldBe 1500
         // Rotated clockwise: the left (red) half is now on top.
-        Color(stored.getRGB(341, 200)).let { it.red shouldBeGreaterThan 200; it.blue shouldBeLessThan 60 }
-        Color(stored.getRGB(341, 1848)).let { it.blue shouldBeGreaterThan 200; it.red shouldBeLessThan 60 }
+        Color(stored.getRGB(250, 150)).let { it.red shouldBeGreaterThan 200; it.blue shouldBeLessThan 60 }
+        Color(stored.getRGB(250, 1350)).let { it.blue shouldBeGreaterThan 200; it.red shouldBeLessThan 60 }
 
         client.visitImages(shopId) shouldBe listOf(listOf(image))
     }
@@ -158,26 +176,90 @@ class VisitImageApiTest {
         // 8000 x 8000 = 64 MP, refused from the header before anything is decoded.
         client.upload(visitId, pngHeaderOnly(8000, 8000), admin).body<ErrorBody>() shouldBe
             fileError(FieldErrorType.OUT_OF_RANGE, "unsupported image")
+        // A progressive JPEG over 30 MP is refused too, though a baseline one that size would be decoded.
+        client.upload(visitId, progressiveJpegClaiming(6000, 6000), admin).body<ErrorBody>() shouldBe
+            fileError(FieldErrorType.OUT_OF_RANGE, "unsupported image")
         client.upload(visitId, jpeg(halves(20, 10)), admin, name = "other").body<ErrorBody>() shouldBe
             fileError(FieldErrorType.REQUIRED, "file part required")
-        client.post("/api/v1/auth/visits/$visitId/images") {
-            session(admin)
-            contentType(ContentType.Image.JPEG)
-            setBody(jpeg(halves(20, 10)))
-        }.body<ErrorBody>() shouldBe fileError(FieldErrorType.REQUIRED, "multipart file required")
+        // Not multipart, a malformed Content-Type, and multipart without a boundary.
+        for ((type, expected) in listOf(
+            "image/jpeg" to fileError(FieldErrorType.REQUIRED, "multipart file required"),
+            "not a content type" to fileError(FieldErrorType.REQUIRED, "multipart file required"),
+            "multipart/form-data" to ErrorBody(ErrorType.INVALID_REQUEST, "invalid multipart body"),
+        )) {
+            client.post("/api/v1/auth/visits/$visitId/images") {
+                session(admin)
+                header(HttpHeaders.Origin, PUBLIC_BASE_URL)
+                // Raw header text: the client would refuse to parse the malformed one itself.
+                setBody(object : OutgoingContent.ByteArrayContent() {
+                    override val headers = headersOf(HttpHeaders.ContentType, type)
+                    override fun bytes() = jpeg(halves(20, 10))
+                })
+            }.let {
+                it.status shouldBe HttpStatusCode.BadRequest
+                it.body<ErrorBody>() shouldBe expected
+            }
+        }
 
         client.visitImages(shopId) shouldBe listOf(emptyList())
+    }
+
+    @Test
+    fun `uploads must come from the site's own origin`() = testApp { t ->
+        val admin = t.adminToken()
+        val (shopId, visitId) = addVisit(admin)
+
+        for (origin in listOf(null, "https://evil.example", "http://noodle.example", "https://noodle.example.evil.example")) {
+            client.upload(visitId, jpeg(halves(16, 8)), admin, origin = origin).let {
+                it.status shouldBe HttpStatusCode.Forbidden
+                it.body<ErrorBody>().type shouldBe ErrorType.PERMISSION_DENIED
+            }
+        }
+        client.visitImages(shopId) shouldBe listOf(emptyList())
+        client.uploadOk(visitId, jpeg(halves(16, 8)), admin)
+    }
+
+    @Test
+    fun `without storage uploads get 503 before anything is read`() =
+        testApp(visitImageStore = UnconfiguredVisitImageStore(PUBLIC_BASE_URL)) { t ->
+            val admin = t.adminToken()
+            val (shopId, visitId) = addVisit(admin)
+
+            client.upload(visitId, jpeg(halves(16, 8)), admin).let {
+                it.status shouldBe HttpStatusCode.ServiceUnavailable
+                it.body<ErrorBody>().type shouldBe ErrorType.VISIT_IMAGES_STORAGE_UNCONFIGURED
+            }
+            client.visitImages(shopId) shouldBe listOf(emptyList())
+        }
+
+    @Test
+    fun `local disk is used only for an http site, and an https site without R2 has no storage`() = withTestDb { t ->
+        fun storeFor(publicBaseUrl: String, r2: Config.R2Config? = null) =
+            visitImageStoreFor(t.config.copy(publicBaseUrl = publicBaseUrl, visitImagesR2 = r2))
+
+        storeFor("http://localhost:8888").let {
+            (it is LocalVisitImageStore) shouldBe true
+            it.acceptsUploads shouldBe true
+        }
+        storeFor("https://noodle.example").let {
+            (it is UnconfiguredVisitImageStore) shouldBe true
+            it.acceptsUploads shouldBe false
+        }
+        storeFor("https://noodle.example", s3.r2Config("images", "https://images.example")).use {
+            (it is R2VisitImageStore) shouldBe true
+        }
     }
 
     @Test
     fun `an upload over 15 MB is refused`() = testApp { t ->
         val admin = t.adminToken()
         val (shopId, visitId) = addVisit(admin)
-        val tooLarge = jpeg(halves(20, 10)).copyOf((VISIT_IMAGE_MAX_BYTES + 1).toInt())
-
-        client.upload(visitId, tooLarge, admin).let {
-            it.status shouldBe HttpStatusCode.BadRequest
-            it.body<ErrorBody>() shouldBe fileError(FieldErrorType.TOO_LONG, "image larger than 15 MB")
+        // Just over the limit: read and cut off mid-stream. Well over it: refused from the Content-Length.
+        for (size in listOf(VISIT_IMAGE_MAX_BYTES + 1, VISIT_IMAGE_MAX_BYTES + 1024 * 1024)) {
+            client.upload(visitId, jpeg(halves(20, 10)).copyOf(size.toInt()), admin).let {
+                it.status shouldBe HttpStatusCode.BadRequest
+                it.body<ErrorBody>() shouldBe fileError(FieldErrorType.TOO_LONG, "image larger than 15 MB")
+            }
         }
         client.visitImages(shopId) shouldBe listOf(emptyList())
     }
@@ -197,7 +279,7 @@ class VisitImageApiTest {
     }
 
     @Test
-    fun `uploads beyond the processing cap get 503`() = testApp(visitImageMaxPendingUploads = 0) { t ->
+    fun `uploads beyond the processing cap get 503`() = testApp(maxPendingBitmapWork = 0) { t ->
         val admin = t.adminToken()
         val (_, visitId) = addVisit(admin)
 
@@ -234,6 +316,9 @@ class VisitImageApiTest {
             client.putJson("/api/v1/auth/visits/$visitId/images/order", encode(ReorderVisitImagesRequest(ids.toList())), admin)
         reorder(c.id, a.id, b.id).body<VisitImagesResponse>().images.map { it.id } shouldContainExactly listOf(c.id, a.id, b.id)
         client.visitImages(shopId).single().map { it.id } shouldContainExactly listOf(c.id, a.id, b.id)
+        // At most as many ids as a visit log can hold images, checked before anything else.
+        reorder(*Array(VISIT_IMAGES_PER_VISIT_MAX + 1) { c.id }).body<ErrorBody>().fieldErrors shouldBe
+            listOf(FieldError("imageIds", FieldErrorType.OUT_OF_RANGE))
         // The list must name every image exactly once.
         for ((ids, type) in listOf(
             listOf(c.id, a.id) to FieldErrorType.UNKNOWN,
@@ -374,6 +459,23 @@ class VisitImageApiTest {
 
         client.deleteWithSession("/api/v1/auth/visit-images/${image.id}", admin).status shouldBe HttpStatusCode.NoContent
         client.visitImages(shopId) shouldBe listOf(emptyList())
+    }
+
+    /** A small progressive JPEG whose frame header claims [width] x [height]. */
+    private fun progressiveJpegClaiming(width: Int, height: Int): ByteArray {
+        val writer = ImageIO.getImageWritersByFormatName("jpeg").next()
+        val out = ByteArrayOutputStream()
+        MemoryCacheImageOutputStream(out).use { stream ->
+            writer.output = stream
+            val param = writer.defaultWriteParam.apply { progressiveMode = ImageWriteParam.MODE_DEFAULT }
+            writer.write(null, IIOImage(halves(16, 8), null, null), param)
+        }
+        writer.dispose()
+        val bytes = out.toByteArray()
+        // SOF2: FF C2, length (2), precision (1), height (2), width (2).
+        val sof = (0 until bytes.size - 1).first { bytes[it] == 0xFF.toByte() && bytes[it + 1] == 0xC2.toByte() }
+        ByteBuffer.wrap(bytes, sof + 5, 4).putShort(height.toShort()).putShort(width.toShort())
+        return bytes
     }
 
     /** A PNG signature and IHDR claiming [width] x [height], without pixel data. */

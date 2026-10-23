@@ -15,6 +15,7 @@ import io.ktor.server.routing.routing
 import dev.marulabs.noodlemap.auth.AuthHandler
 import dev.marulabs.noodlemap.auth.GoogleVerifier
 import dev.marulabs.noodlemap.auth.SessionService
+import dev.marulabs.noodlemap.common.BitmapWorkGate
 import dev.marulabs.noodlemap.db.buildDataSource
 import dev.marulabs.noodlemap.db.buildDatabase
 import dev.marulabs.noodlemap.errors.installStatusPages
@@ -41,11 +42,10 @@ import dev.marulabs.noodlemap.og.R2OgImageStore
 import dev.marulabs.noodlemap.og.ogRoutes
 import dev.marulabs.noodlemap.places.PlacesHandler
 import dev.marulabs.noodlemap.shops.ShopHandler
-import dev.marulabs.noodlemap.visits.LocalVisitImageStore
-import dev.marulabs.noodlemap.visits.R2VisitImageStore
 import dev.marulabs.noodlemap.visits.VisitImageHandler
 import dev.marulabs.noodlemap.visits.VisitLogHandler
 import dev.marulabs.noodlemap.visits.visitImageRoutes
+import dev.marulabs.noodlemap.visits.visitImageStoreFor
 import kotlinx.serialization.json.Json
 
 fun main() {
@@ -66,16 +66,17 @@ fun Application.module(config: Config) {
     val sessions = SessionService(db, config)
     val google = GoogleVerifier(config.googleOAuthClientId)
     val authHandler = AuthHandler(db, google, sessions)
-    val visitImageStore = config.visitImagesR2?.let(::R2VisitImageStore)
-        ?: LocalVisitImageStore.nextToDatabase(config.dbPath, config.publicBaseUrl)
+    // OGP renders and visit image uploads share one bound on bitmap memory.
+    val bitmapWork = BitmapWorkGate(maxPending = 3)
+    val visitImageStore = visitImageStoreFor(config)
     monitor.subscribe(ApplicationStopped) { visitImageStore.close() }
     val shopHandler = ShopHandler(db, sessions, visitImageStore)
     val visitLogHandler = VisitLogHandler(db, sessions, visitImageStore)
-    val visitImageHandler = VisitImageHandler(db, sessions, visitImageStore)
+    val visitImageHandler = VisitImageHandler(db, sessions, visitImageStore, bitmapWork, config.publicBaseUrl)
     val placesHandler = PlacesHandler(sessions, config.googlePlacesApiKey)
     val ogStore = config.ogR2?.let(::R2OgImageStore)
     ogStore?.let { store -> monitor.subscribe(ApplicationStopped) { store.close() } }
-    val ogHandler = OgHandler(shopHandler, config.publicBaseUrl, ogStore)
+    val ogHandler = OgHandler(shopHandler, config.publicBaseUrl, ogStore, bitmapWork)
 
     startBackgroundJobs(config, dataSource, db, sessions)
     installApp(authHandler, shopHandler, visitLogHandler, visitImageHandler, placesHandler, ogHandler)

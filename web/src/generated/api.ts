@@ -248,6 +248,7 @@ export interface paths {
         /**
          * @description Adds an image at the end of a visit log's images (at most 10). The server applies the EXIF orientation,
          *     scales the long edge down to 2048 px and stores a JPEG without metadata.
+         *     The request's Origin must be the site's own origin (403 otherwise).
          */
         post: operations["uploadVisitImage"];
         delete?: never;
@@ -381,7 +382,7 @@ export interface components {
         /** @enum {string} */
         CategorySlug: "ramen" | "udon";
         /** @enum {string} */
-        ErrorType: "invalid_request" | "authentication_required" | "permission_denied" | "google_auth_failed" | "session_creation_failed" | "not_found" | "internal_error" | "google_places_not_configured" | "google_places_failed" | "shop_has_visit_logs" | "visit_image_limit_reached" | "visit_image_processing_busy";
+        ErrorType: "invalid_request" | "authentication_required" | "permission_denied" | "google_auth_failed" | "session_creation_failed" | "not_found" | "internal_error" | "google_places_not_configured" | "google_places_failed" | "shop_has_visit_logs" | "visit_image_limit_reached" | "visit_image_processing_busy" | "visit_images_storage_unconfigured";
         /** @enum {string} */
         FieldErrorType: "required" | "invalid_format" | "out_of_range" | "too_long" | "duplicate" | "unknown";
         GoogleAuthBadRequestErrorBody: {
@@ -660,6 +661,12 @@ export interface components {
         };
         VisitImagesResponse: {
             images: components["schemas"]["VisitImage"][];
+        };
+        /** @description The server has no storage for visit images configured. */
+        VisitImagesStorageUnconfiguredErrorBody: {
+            /** @enum {string} */
+            type: "visit_images_storage_unconfigured";
+            message?: string;
         };
         /** @description One 訪問ログ. Visit logs are listed newest first: by visitedOn, those without one last, then by creation. */
         VisitLog: {
@@ -1824,7 +1831,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["VisitImageProcessingBusyErrorBody"];
+                    "application/json": components["schemas"]["VisitImageProcessingBusyErrorBody"] | components["schemas"]["VisitImagesStorageUnconfiguredErrorBody"];
                 };
             };
         };

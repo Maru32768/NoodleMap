@@ -23,6 +23,7 @@ union ErrorType {
   "shop_has_visit_logs",
   "visit_image_limit_reached",
   "visit_image_processing_busy",
+  "visit_images_storage_unconfigured",
 }
 
 union FieldErrorType {
@@ -234,6 +235,12 @@ model VisitImageProcessingBusyErrorBody {
   message?: string;
 }
 
+@doc("The server has no storage for visit images configured.")
+model VisitImagesStorageUnconfiguredErrorBody {
+  type: "visit_images_storage_unconfigured";
+  message?: string;
+}
+
 model InternalErrorBody {
   type: "internal_error";
   message?: string;
@@ -266,6 +273,7 @@ alias ErrorBody =
   VisitImageBadRequestErrorBody |
   VisitImageLimitReachedErrorBody |
   VisitImageProcessingBusyErrorBody |
+  VisitImagesStorageUnconfiguredErrorBody |
   InternalErrorBody |
   GooglePlacesNotConfiguredErrorBody |
   GooglePlacesFailedErrorBody;
@@ -461,6 +469,7 @@ model UpdateVisitImageRequest {
 
 @doc("Every image id of the visit log exactly once, in the new display order.")
 model ReorderVisitImagesRequest {
+  @maxItems(10)
   imageIds: uuid[];
 }
 
@@ -728,6 +737,7 @@ op deleteVisitLog(
 @doc("""
   Adds an image at the end of a visit log's images (at most 10). The server applies the EXIF orientation,
   scales the long edge down to 2048 px and stores a JPEG without metadata.
+  The request's Origin must be the site's own origin (403 otherwise).
   """)
 @post
 @route("/auth/visits/{visitId}/images")
@@ -735,7 +745,7 @@ op uploadVisitImage(
   @path visitId: uuid,
   @header contentType: "multipart/form-data",
   @multipartBody body: UploadVisitImageRequest,
-): OkResponse<VisitImage> | BadRequestResponse<VisitImageBadRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | NotFoundResponse<NotFoundErrorBody> | ConflictResponse<VisitImageLimitReachedErrorBody> | InternalServerErrorResponse<InternalErrorBody> | ServiceUnavailableResponse<VisitImageProcessingBusyErrorBody>;
+): OkResponse<VisitImage> | BadRequestResponse<VisitImageBadRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | NotFoundResponse<NotFoundErrorBody> | ConflictResponse<VisitImageLimitReachedErrorBody> | InternalServerErrorResponse<InternalErrorBody> | ServiceUnavailableResponse<VisitImageProcessingBusyErrorBody | VisitImagesStorageUnconfiguredErrorBody>;
 
 @doc("Replaces the display order of a visit log's images.")
 @put

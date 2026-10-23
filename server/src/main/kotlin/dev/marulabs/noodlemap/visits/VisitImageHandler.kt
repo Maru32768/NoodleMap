@@ -1,7 +1,8 @@
 package dev.marulabs.noodlemap.visits
 
 import dev.marulabs.noodlemap.auth.SessionService
-import dev.marulabs.noodlemap.common.IMMUTABLE_CACHE_CONTROL
+import dev.marulabs.noodlemap.common.BitmapWorkGate
+import dev.marulabs.noodlemap.common.retrySoon
 import dev.marulabs.noodlemap.db.NoodleMapDb
 import dev.marulabs.noodlemap.db.Visit_images
 import dev.marulabs.noodlemap.errors.DomainException
@@ -20,7 +21,9 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.PartData
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.http.content.LocalPathContent
+import io.ktor.server.request.contentLength
 import io.ktor.server.request.contentType
+import io.ktor.server.request.header
 import io.ktor.server.request.receiveMultipart
 import io.ktor.server.response.header
 import io.ktor.server.response.respond
@@ -28,14 +31,9 @@ import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.utils.io.readRemaining
-import java.io.IOException
+import java.net.URI
 import java.util.UUID
-import java.util.concurrent.atomic.AtomicInteger
 import kotlin.coroutines.cancellation.CancellationException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.withContext
 import kotlinx.io.readByteArray
 import org.slf4j.LoggerFactory
 import org.sqlite.SQLiteErrorCode
@@ -45,15 +43,16 @@ import org.sqlite.SQLiteException
 const val VISIT_IMAGE_MAX_BYTES = 15L * 1024 * 1024
 const val VISIT_IMAGES_PER_VISIT_MAX = 10
 private const val CAPTION_MAX_LENGTH = 100
+/** Room for the multipart boundaries and part headers around the file in the request's Content-Length. */
+private const val MULTIPART_OVERHEAD_BYTES = 16L * 1024
 
 private val log = LoggerFactory.getLogger("VisitImages")
 
-/**
- * Plain routes, not the generated ones: the generated upload route would `receive` the whole multipart body
- * as a model, and the local-disk images are bytes, not JSON.
- */
+/** Plain routes, not TypeSpec ones. */
 fun Route.visitImageRoutes(images: VisitImageHandler) {
+    // The generated upload route would `receive` the whole multipart body as a model instead of streaming it.
     post("/api/v1/auth/visits/{visitId}/images") { images.upload(call) }
+    // Answers JPEG bytes for <img> tags (local-disk store only), not a JSON API the web client calls.
     get("$LOCAL_VISIT_IMAGES_PATH/{key...}") { images.serveLocal(call) }
 }
 
@@ -91,41 +90,47 @@ class VisitImageHandler(
     private val db: NoodleMapDb,
     private val sessions: SessionService,
     private val store: VisitImageStore,
-    /** Uploads being received or processed before new ones get 503; bounds memory on the 512 MB instance. */
-    private val maxPendingUploads: Int = 2,
+    /** Shared with OGP rendering: bounds memory on the 512 MB instance. */
+    private val bitmapWork: BitmapWorkGate,
+    /** The site's origin; uploads from any other `Origin` are refused. */
+    publicBaseUrl: String,
 ) : ApiV1AuthVisitsImagesOrderController, ApiV1AuthVisitImagesController {
 
-    // One decode at a time: a subsampled bitmap plus its scaled copy is tens of MB.
-    private val processLock = Mutex()
-    private val pendingUploads = AtomicInteger()
+    private val allowedOrigin = URI(publicBaseUrl).let { "${it.scheme}://${it.rawAuthority}" }
 
     /** POST /auth/visits/{visitId}/images with one multipart file part named `file`. */
     suspend fun upload(call: ApplicationCall) {
         sessions.requireAdmin(call)
+        // A multipart POST is a CORS "simple" request that any site can make with the admin's cookie, so the
+        // browser-set Origin must be this site's.
+        if (!call.request.header(HttpHeaders.Origin).equals(allowedOrigin, ignoreCase = true)) throw DomainException.PermissionDenied()
+        if (!store.acceptsUploads) throw DomainException.VisitImagesStorageUnconfigured()
         val visitId = uuidOrNull(call.parameters["visitId"]) ?: throw DomainException.NotFound()
         if (!db.visitLogsQueries.visitLogExists(visitId).executeAsOne()) throw DomainException.NotFound()
         if (db.visitImagesQueries.countVisitImages(visitId).executeAsOne() >= VISIT_IMAGES_PER_VISIT_MAX) {
             throw DomainException.VisitImageLimitReached()
         }
-        if (call.request.contentType().match(ContentType.MultiPart.FormData).not()) fileError(FieldErrorType.REQUIRED, "multipart file required")
+        // A malformed Content-Type is a client error like a missing one.
+        val contentType = runCatching { call.request.contentType() }.getOrNull()
+        if (contentType?.match(ContentType.MultiPart.FormData) != true) fileError(FieldErrorType.REQUIRED, "multipart file required")
+        // Browsers send the length of a FormData body, so an oversized upload is refused before it is read.
+        if ((call.request.contentLength() ?: 0) > VISIT_IMAGE_MAX_BYTES + MULTIPART_OVERHEAD_BYTES) {
+            fileError(FieldErrorType.TOO_LONG, "image larger than 15 MB")
+        }
 
-        val image = try {
-            if (pendingUploads.incrementAndGet() > maxPendingUploads) {
-                call.response.header(HttpHeaders.RetryAfter, "5")
-                throw DomainException.VisitImageProcessingBusy()
-            }
+        // The slot covers receiving the body too, so pending uploads also bound the bytes held in memory.
+        val image = bitmapWork.withSlotOrNull {
             val bytes = receiveFile(call)
-            processLock.withLock {
-                withContext(Dispatchers.Default) {
-                    try {
-                        processVisitImage(bytes)
-                    } catch (e: UnacceptableImage) {
-                        fileError(e.type, "unsupported image")
-                    }
+            bitmapWork.exclusive {
+                try {
+                    processVisitImage(bytes)
+                } catch (e: UnacceptableImage) {
+                    fileError(e.type, "unsupported image")
                 }
             }
-        } finally {
-            pendingUploads.decrementAndGet()
+        } ?: run {
+            call.retrySoon()
+            throw DomainException.VisitImageProcessingBusy()
         }
 
         val imageId = UUID.randomUUID()
@@ -150,9 +155,10 @@ class VisitImageHandler(
 
     /** The first file part named `file`, read up to [VISIT_IMAGE_MAX_BYTES]; a larger one is refused mid-stream. */
     private suspend fun receiveFile(call: ApplicationCall): ByteArray {
-        // The limit applies to every part; the file part is cut off by the read below long before it.
-        val multipart = call.receiveMultipart(formFieldLimit = VISIT_IMAGE_MAX_BYTES * 2)
         try {
+            // Ktor applies this limit to every part, the file included, and a part over it fails the whole call
+            // (500), so it cannot be smaller than the file limit; the Content-Length check above bounds the body.
+            val multipart = call.receiveMultipart(formFieldLimit = VISIT_IMAGE_MAX_BYTES + 1)
             while (true) {
                 val part = multipart.readPart() ?: fileError(FieldErrorType.REQUIRED, "file part required")
                 try {
@@ -165,8 +171,9 @@ class VisitImageHandler(
                     part.dispose()
                 }
             }
-        } catch (_: IOException) {
-            // A malformed multipart body (or one cut off by the client).
+        } catch (e: Exception) {
+            if (e is DomainException || e is CancellationException) throw e
+            // A malformed multipart body (no boundary, an oversized form field, cut off by the client, ...).
             throw DomainException.InvalidRequest("invalid multipart body")
         }
     }
@@ -175,7 +182,7 @@ class VisitImageHandler(
     suspend fun serveLocal(call: ApplicationCall) {
         val key = call.parameters.getAll("key")?.joinToString("/") ?: throw DomainException.NotFound()
         val file = (store as? LocalVisitImageStore)?.file(key) ?: throw DomainException.NotFound()
-        call.response.header(HttpHeaders.CacheControl, IMMUTABLE_CACHE_CONTROL)
+        call.response.header(HttpHeaders.CacheControl, VISIT_IMAGE_CACHE_CONTROL)
         call.respond(LocalPathContent(file, ContentType.Image.JPEG))
     }
 
@@ -186,6 +193,7 @@ class VisitImageHandler(
     ) {
         sessions.requireAdmin(call)
         val id = uuidOrNull(visitId) ?: throw DomainException.NotFound()
+        if (reorderVisitImagesRequest.imageIds.size > VISIT_IMAGES_PER_VISIT_MAX) imageIdsError(FieldErrorType.OUT_OF_RANGE)
         val imageIds = reorderVisitImagesRequest.imageIds.map { uuidOrNull(it) ?: imageIdsError(FieldErrorType.UNKNOWN) }
         if (imageIds.toSet().size != imageIds.size) imageIdsError(FieldErrorType.DUPLICATE)
         db.transaction {

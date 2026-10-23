@@ -5,6 +5,7 @@ import dev.marulabs.noodlemap.auth.AuthHandler
 import dev.marulabs.noodlemap.auth.GoogleVerifier
 import dev.marulabs.noodlemap.auth.SessionService
 import dev.marulabs.noodlemap.auth.SessionTokens
+import dev.marulabs.noodlemap.common.BitmapWorkGate
 import dev.marulabs.noodlemap.common.SessionTime
 import dev.marulabs.noodlemap.db.NoodleMapDb
 import dev.marulabs.noodlemap.db.buildDataSource
@@ -102,23 +103,23 @@ fun testApp(
     // Nothing listens on port 9; tests that reach Google pass a local fake server's URL.
     placesBaseUrl: String = "http://127.0.0.1:9",
     ogStore: R2OgImageStore? = null,
-    ogMaxPendingRenders: Int = 4,
+    maxPendingBitmapWork: Int = 3,
     // Null stores visit images on local disk next to the test database, as the app does without R2.
     visitImageStore: VisitImageStore? = null,
-    visitImageMaxPendingUploads: Int = 2,
     block: suspend ApplicationTestBuilder.(TestDb) -> Unit,
 ) = withTestDb(adminEmail, cookieSecure) { t ->
     testApplication {
         application {
             val images = visitImageStore ?: t.localVisitImages
+            val bitmapWork = BitmapWorkGate(maxPendingBitmapWork)
             val shopHandler = ShopHandler(t.db, t.sessions, images)
             installApp(
                 AuthHandler(t.db, GoogleVerifier(t.config.googleOAuthClientId), t.sessions),
                 shopHandler,
                 VisitLogHandler(t.db, t.sessions, images),
-                VisitImageHandler(t.db, t.sessions, images, visitImageMaxPendingUploads),
+                VisitImageHandler(t.db, t.sessions, images, bitmapWork, t.config.publicBaseUrl),
                 PlacesHandler(t.sessions, placesApiKey, placesBaseUrl, placesHttp),
-                OgHandler(shopHandler, t.config.publicBaseUrl, ogStore, ogMaxPendingRenders),
+                OgHandler(shopHandler, t.config.publicBaseUrl, ogStore, bitmapWork),
             )
         }
         block(t)

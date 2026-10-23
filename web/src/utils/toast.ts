@@ -78,6 +78,9 @@ const apiErrorMessages: Readonly<Record<ErrorType, UserErrorMessage>> = {
     title: "画像を処理できませんでした",
     description: "時間をおいてもう一度お試しください。",
   },
+  visit_images_storage_unconfigured: {
+    title: "画像の保存先が設定されていません",
+  },
 };
 
 const statusMessages: Readonly<Record<number, UserErrorMessage>> = {

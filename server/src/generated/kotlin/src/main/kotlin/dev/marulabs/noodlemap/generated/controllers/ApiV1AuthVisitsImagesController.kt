@@ -22,6 +22,7 @@ public interface ApiV1AuthVisitsImagesController {
    * Adds an image at the end of a visit log's images (at most 10). The server applies the EXIF
    * orientation,
    * scales the long edge down to 2048 px and stores a JPEG without metadata.
+   * The request's Origin must be the site's own origin (403 otherwise).
    *
    * Route is expected to respond with [dev.marulabs.noodlemap.generated.models.VisitImage].
    * Use [dev.marulabs.noodlemap.generated.controllers.TypedApplicationCall.respondTyped] to send
@@ -44,6 +45,7 @@ public interface ApiV1AuthVisitsImagesController {
      * - POST /api/v1/auth/visits/{visitId}/images Adds an image at the end of a visit log's images
      * (at most 10). The server applies the EXIF orientation,
      * scales the long edge down to 2048 px and stores a JPEG without metadata.
+     * The request's Origin must be the site's own origin (403 otherwise).
      */
     public fun Route.apiV1AuthVisitsImagesRoutes(controller: ApiV1AuthVisitsImagesController) {
       post("/api/v1/auth/visits/{visitId}/images") {

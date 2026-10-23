@@ -11,9 +11,12 @@ import java.io.ByteArrayOutputStream
 import java.io.IOException
 import javax.imageio.IIOImage
 import javax.imageio.ImageIO
+import javax.imageio.ImageReader
 import javax.imageio.ImageWriteParam
 import javax.imageio.stream.MemoryCacheImageOutputStream
+import kotlin.math.ceil
 import kotlin.math.max
+import org.w3c.dom.Node
 import kotlin.math.roundToInt
 
 /** Long edge of a stored 訪問画像, in pixels. */
@@ -21,6 +24,9 @@ const val VISIT_IMAGE_MAX_EDGE = 2048
 
 /** Larger sources are refused before decoding; well above any phone camera (48-50 MP). */
 private const val MAX_SOURCE_PIXELS = 60_000_000L
+
+/** ImageIO decodes a progressive JPEG from whole-image coefficient buffers, whatever the subsampling. */
+private const val MAX_PROGRESSIVE_JPEG_PIXELS = 30_000_000L
 private const val JPEG_QUALITY = 0.85f
 private val ACCEPTED_FORMATS = setOf("jpeg", "png")
 
@@ -32,14 +38,18 @@ class UnacceptableImage(val type: FieldErrorType) : Exception()
 
 /**
  * Turns an uploaded JPEG or PNG into a [ProcessedImage]: refuses other formats and absurd dimensions before
- * decoding, decodes with source subsampling so the bitmap stays below twice the target size, scales the
- * long edge down to [VISIT_IMAGE_MAX_EDGE], applies the EXIF orientation and encodes JPEG at quality 85.
+ * decoding, decodes with source subsampling so the bitmap is at most [VISIT_IMAGE_MAX_EDGE] on the long edge,
+ * scales down to that edge if still larger, applies the EXIF orientation and encodes JPEG at quality 85.
  * CPU and memory heavy: callers bound how many run at once.
  */
 fun processVisitImage(bytes: ByteArray): ProcessedImage {
-    val decoded = decodeSubsampled(bytes)
-    val scaled = scaleToFit(decoded, VISIT_IMAGE_MAX_EDGE)
-    val upright = orient(scaled, exifOrientation(bytes))
+    val upright = try {
+        val decoded = decodeSubsampled(bytes)
+        orient(scaleToFit(decoded, VISIT_IMAGE_MAX_EDGE), exifOrientation(bytes))
+    } catch (e: RuntimeException) {
+        // Hostile or odd files make ImageIO and Java2D throw all sorts (CMMException, index and size errors).
+        throw UnacceptableImage(FieldErrorType.INVALID_FORMAT).apply { initCause(e) }
+    }
     return ProcessedImage(encodeJpeg(upright), upright.width, upright.height)
 }
 
@@ -50,13 +60,18 @@ private fun decodeSubsampled(bytes: ByteArray): BufferedImage {
         val reader = ImageIO.getImageReaders(input).asSequence().firstOrNull()
             ?: throw UnacceptableImage(FieldErrorType.INVALID_FORMAT)
         try {
-            if (reader.formatName.lowercase() !in ACCEPTED_FORMATS) throw UnacceptableImage(FieldErrorType.INVALID_FORMAT)
-            reader.setInput(input, true, true)
+            val jpeg = reader.formatName.lowercase() == "jpeg"
+            if (!jpeg && reader.formatName.lowercase() !in ACCEPTED_FORMATS) throw UnacceptableImage(FieldErrorType.INVALID_FORMAT)
+            // JPEG metadata (header markers only) tells progressive from baseline.
+            reader.setInput(input, true, !jpeg)
             // The header alone gives the size, so oversized sources never get a bitmap.
             val width = reader.getWidth(0)
             val height = reader.getHeight(0)
-            if (width.toLong() * height > MAX_SOURCE_PIXELS) throw UnacceptableImage(FieldErrorType.OUT_OF_RANGE)
-            val step = max(1, max(width, height) / VISIT_IMAGE_MAX_EDGE)
+            val pixels = width.toLong() * height
+            if (pixels > MAX_SOURCE_PIXELS) throw UnacceptableImage(FieldErrorType.OUT_OF_RANGE)
+            if (jpeg && pixels > MAX_PROGRESSIVE_JPEG_PIXELS && isProgressive(reader)) throw UnacceptableImage(FieldErrorType.OUT_OF_RANGE)
+            // Rounded up, so the decoded bitmap is never larger than the stored image.
+            val step = max(1, ceil(max(width, height).toDouble() / VISIT_IMAGE_MAX_EDGE).toInt())
             val param = reader.defaultReadParam.apply { if (step > 1) setSourceSubsampling(step, step, 0, 0) }
             return reader.read(0, param)
         } catch (e: IOException) {
@@ -66,6 +81,14 @@ private fun decodeSubsampled(bytes: ByteArray): BufferedImage {
             reader.dispose()
         }
     }
+}
+
+/** Whether the JPEG's frame is progressive (SOF2: process 2 in ImageIO's native metadata). */
+private fun isProgressive(reader: ImageReader): Boolean {
+    val root = reader.getImageMetadata(0)?.getAsTree("javax_imageio_jpeg_image_1.0") ?: return false
+    fun find(node: Node): Node? =
+        if (node.nodeName == "sof") node else generateSequence(node.firstChild) { it.nextSibling }.firstNotNullOfOrNull(::find)
+    return find(root)?.attributes?.getNamedItem("process")?.nodeValue == "2"
 }
 
 /** Opaque RGB no larger than [maxEdge] on the long side; transparency becomes white. */

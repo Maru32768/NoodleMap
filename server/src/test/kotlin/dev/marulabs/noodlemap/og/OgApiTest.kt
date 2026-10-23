@@ -140,7 +140,7 @@ class OgApiTest {
     }
 
     @Test
-    fun `share page and image answer HEAD, and image HEAD never renders`() = testApp(ogMaxPendingRenders = 0) { t ->
+    fun `share page and image answer HEAD, and image HEAD never renders`() = testApp(maxPendingBitmapWork = 0) { t ->
         val shop = addShop("醤油", t.adminToken())
         noRedirects().head("/r/${shop.id}").let {
             it.status shouldBe HttpStatusCode.OK
@@ -171,7 +171,7 @@ class OgApiTest {
 
     @Test
     fun `concurrent requests for a new image share one render and one upload`() =
-        testApp(ogStore = store, ogMaxPendingRenders = 1) { t ->
+        testApp(ogStore = store, maxPendingBitmapWork = 1) { t ->
             val shop = addShop("行列", t.adminToken())
             val path = client.imagePath(shop.id)
             val key = "og/shops/${shop.id}/${path.substringAfterLast('/')}"
@@ -201,7 +201,7 @@ class OgApiTest {
     }
 
     @Test
-    fun `saturated renders get 503 with Retry-After`() = testApp(ogMaxPendingRenders = 0) { t ->
+    fun `saturated renders get 503 with Retry-After`() = testApp(maxPendingBitmapWork = 0) { t ->
         val shop = addShop("混雑", t.adminToken())
         client.get(client.imagePath(shop.id)).let {
             it.status shouldBe HttpStatusCode.ServiceUnavailable

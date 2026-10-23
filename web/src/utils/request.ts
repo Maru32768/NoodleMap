@@ -234,6 +234,7 @@ const errorTypes = new Set<ErrorType>([
   "shop_has_visit_logs",
   "visit_image_limit_reached",
   "visit_image_processing_busy",
+  "visit_images_storage_unconfigured",
 ]);
 
 function getErrorType(body: ApiErrorBody | undefined): ErrorType | undefined {

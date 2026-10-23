@@ -92,5 +92,6 @@ token with Object Read & Write on that bucket only, then set on the Render backe
 - `VISIT_IMAGES_R2_ACCESS_KEY_ID` / `VISIT_IMAGES_R2_SECRET_ACCESS_KEY` from the token
 - `VISIT_IMAGES_R2_PUBLIC_BASE_URL=https://images.noodle-map.marulabs.dev`
 
-Set all five or none; with none the backend stores the images on its local disk
-next to the database and serves them itself (meant for local development).
+Set all five or none. With none, an https site boots but refuses image uploads
+(503 `visit_images_storage_unconfigured`); only an http `PUBLIC_BASE_URL` (local
+development, e2e) stores the images on the local disk next to the database.

@@ -19,10 +19,10 @@ fun Application.installStatusPages() {
     install(StatusPages) {
         exception<DomainException> { call, cause ->
             // Server faults (5xx) are worth logging with the cause; client faults are not. A missing
-            // Places key is expected config (Config warns at startup) and a busy image upload is load
-            // shedding, not faults.
+            // Places key and missing image storage are expected config (warned at startup) and a busy image
+            // upload is load shedding, not faults.
             if (cause.status.value >= 500 && cause !is DomainException.GooglePlacesNotConfigured &&
-                cause !is DomainException.VisitImageProcessingBusy
+                cause !is DomainException.VisitImageProcessingBusy && cause !is DomainException.VisitImagesStorageUnconfigured
             ) {
                 log.error("domain error: ${cause.type}", cause)
             }
