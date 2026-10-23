@@ -98,7 +98,10 @@ export default defineConfig({
       name: "web",
       // A production build avoids Vite dev-server dependency re-optimization
       // reloads and vite-plugin-checker overlays; preview reuses server.proxy.
-      command: `npx vite build --outDir "${WEB_BUILD_DIR}" --emptyOutDir --logLevel warn && npx vite preview --outDir "${WEB_BUILD_DIR}" --port ${WEB_PORT} --strictPort`,
+      // E2E_WEB_DEV=1 serves the dev build, which renders under StrictMode.
+      command: process.env.E2E_WEB_DEV === "1"
+        ? `npx vite --port ${WEB_PORT} --strictPort`
+        : `npx vite build --outDir "${WEB_BUILD_DIR}" --emptyOutDir --logLevel warn && npx vite preview --outDir "${WEB_BUILD_DIR}" --port ${WEB_PORT} --strictPort`,
       cwd: webDir,
       url: BASE_URL,
       reuseExistingServer: false,

@@ -53,7 +53,16 @@ shops, tags and sessions.
   tile CDN; the map renders the offline background-only style.
 
 Each test also blocks every request to a host other than the web preview's
-`localhost:<web port>`.
+`localhost:<web port>`. A test fails if its page (or a guest page from the
+`asGuest` fixture) throws an uncaught error or logs one that `AppErrorBoundary`
+caught.
+
+Set `E2E_WEB_DEV=1` to serve `web` with the Vite dev server instead. The dev build
+renders under React StrictMode, so it catches bugs the production build hides,
+such as effects that break when run twice on mount. It is for reproducing such
+bugs, not for CI: first loads are slow, Vite may reload the page when it
+re-optimizes dependencies mid-run, and a type or lint error from
+vite-plugin-checker shows as an overlay that blocks clicks.
 
 ## How login works without Google
 

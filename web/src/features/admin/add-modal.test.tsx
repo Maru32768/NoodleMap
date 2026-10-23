@@ -39,7 +39,7 @@ function StubPlaceFinder({
   );
 }
 
-function renderAddModal(
+async function renderAddModal(
   addResponse: () => Response | Promise<Response>,
   tags: Tag[] = [],
   PlaceFinder: typeof StubPlaceFinder = StubPlaceFinder,
@@ -58,6 +58,7 @@ function renderAddModal(
       PlaceFinder={PlaceFinder}
     />,
   );
+  await screen.findByRole("dialog");
   return { onClose };
 }
 
@@ -87,7 +88,7 @@ async function fillNameAndSave() {
 
 describe("AddModal", () => {
   it("adds the shop and closes", async () => {
-    const { onClose } = renderAddModal(() =>
+    const { onClose } = await renderAddModal(() =>
       HttpResponse.json(makeShop({ name: "麺屋テスト" })),
     );
 
@@ -99,7 +100,7 @@ describe("AddModal", () => {
 
   it("sends a blank Google Place ID as empty and trims a typed one", async () => {
     const bodies: AddShopRequest[] = [];
-    renderAddModal(() => HttpResponse.json(makeShop()));
+    await renderAddModal(() => HttpResponse.json(makeShop()));
     server.use(
       http.post("/api/v1/auth/shops", async ({ request }) => {
         bodies.push((await request.json()) as AddShopRequest);
@@ -120,7 +121,7 @@ describe("AddModal", () => {
 
   it("omits an unset 気になる度 and sends a chosen one", async () => {
     const bodies: AddShopRequest[] = [];
-    renderAddModal(() => HttpResponse.json(makeShop()));
+    await renderAddModal(() => HttpResponse.json(makeShop()));
     server.use(
       http.post("/api/v1/auth/shops", async ({ request }) => {
         bodies.push((await request.json()) as AddShopRequest);
@@ -145,7 +146,7 @@ describe("AddModal", () => {
   });
 
   it("shows a duplicate Google Place ID under its input until it is edited", async () => {
-    const { onClose } = renderAddModal(
+    const { onClose } = await renderAddModal(
       fieldErrorResponse([{ field: "googlePlaceId", type: "duplicate" }]),
     );
     await userEvent.type(inputLabelled("Google Place ID"), "dup-place");
@@ -176,7 +177,7 @@ describe("AddModal", () => {
   });
 
   it("clears the errors of fields a picked place changes", async () => {
-    renderAddModal(
+    await renderAddModal(
       fieldErrorResponse([
         { field: "googlePlaceId", type: "duplicate" },
         { field: "name", type: "required" },
@@ -227,7 +228,11 @@ describe("AddModal", () => {
         </button>
       );
     }
-    renderAddModal(() => HttpResponse.json(makeShop()), [], SlowPlaceFinder);
+    await renderAddModal(
+      () => HttpResponse.json(makeShop()),
+      [],
+      SlowPlaceFinder,
+    );
 
     await userEvent.click(screen.getByRole("button", { name: "場所を選ぶ" }));
     await userEvent.type(inputLabelled("店名"), "後から入力");
@@ -241,9 +246,10 @@ describe("AddModal", () => {
 
   it("clears a tag error when changing the category drops the tag", async () => {
     const shoyu = makeTag({ label: "醤油", category: "ramen" });
-    renderAddModal(fieldErrorResponse([{ field: "tagIds", type: "unknown" }]), [
-      shoyu,
-    ]);
+    await renderAddModal(
+      fieldErrorResponse([{ field: "tagIds", type: "unknown" }]),
+      [shoyu],
+    );
     await userEvent.click(await screen.findByRole("button", { name: "醤油" }));
     await fillNameAndSave();
     expect(
@@ -258,7 +264,7 @@ describe("AddModal", () => {
   it("keeps a tag the category hid on the way back, and drops it if left hidden", async () => {
     const shoyu = makeTag({ label: "醤油", category: "ramen" });
     const bodies: AddShopRequest[] = [];
-    renderAddModal(() => HttpResponse.json(makeShop()), [shoyu]);
+    await renderAddModal(() => HttpResponse.json(makeShop()), [shoyu]);
     server.use(
       http.post("/api/v1/auth/shops", async ({ request }) => {
         bodies.push((await request.json()) as AddShopRequest);
@@ -283,7 +289,7 @@ describe("AddModal", () => {
 
   it("clears old field errors when saving again", async () => {
     let calls = 0;
-    renderAddModal(() =>
+    await renderAddModal(() =>
       calls++ === 0
         ? fieldErrorResponse([{ field: "category", type: "invalid_format" }])()
         : HttpResponse.json({ type: "internal_error" }, { status: 500 }),
@@ -304,7 +310,7 @@ describe("AddModal", () => {
   it("cannot be cancelled while saving", async () => {
     let respond!: () => void;
     const responded = new Promise<void>((resolve) => (respond = resolve));
-    const { onClose } = renderAddModal(async () => {
+    const { onClose } = await renderAddModal(async () => {
       await responded;
       return HttpResponse.json({ type: "internal_error" }, { status: 500 });
     });
@@ -322,7 +328,7 @@ describe("AddModal", () => {
   });
 
   it("toasts a field error the form has no input for", async () => {
-    renderAddModal(
+    await renderAddModal(
       fieldErrorResponse([{ field: "links", type: "invalid_format" }]),
     );
 
@@ -337,7 +343,7 @@ describe("AddModal", () => {
   });
 
   it("toasts an error that belongs to no field", async () => {
-    renderAddModal(() =>
+    await renderAddModal(() =>
       HttpResponse.json({ type: "internal_error" }, { status: 500 }),
     );
 

@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 import { seedSession } from "../../support/db.ts";
-import { ADMIN_EMAIL, BASE_URL, SESSION_COOKIE, WEB_HOST } from "../../support/env.ts";
+import { ADMIN_EMAIL, BASE_URL, SESSION_COOKIE } from "../../support/env.ts";
 import { expect, test, uid } from "../../support/fixtures.ts";
 
 async function openAdmin(page: Page) {
@@ -52,7 +52,7 @@ test("admin edits a shop's tags", async ({ page, api }) => {
   });
 });
 
-test("admin adds a shop link that guests see in the shop detail", async ({ page, api, browser, baseURL }) => {
+test("admin adds a shop link that guests see in the shop detail", async ({ page, api, asGuest }) => {
   const id = uid();
   const shop = await api.createShop({ name: `${id} リンクのある店` });
   const url = `https://x.com/${id}`;
@@ -68,13 +68,7 @@ test("admin adds a shop link that guests see in the shop detail", async ({ page,
   await expect(page.getByText("保存しました")).toBeVisible();
   expect((await api.getShop(shop.id)).links).toEqual([{ type: "twitter", url }]);
 
-  const guest = await browser.newContext({ baseURL, storageState: { cookies: [], origins: [] } });
-  try {
-    await guest.route(
-      (u) => u.host !== WEB_HOST,
-      (route) => route.abort("blockedbyclient"),
-    );
-    const guestPage = await guest.newPage();
+  await asGuest(async (guestPage) => {
     await guestPage.goto("/search");
     const sidebar = guestPage.getByRole("complementary");
     await sidebar.getByPlaceholder("店名・読み・エリア・タグで検索...").fill(id);
@@ -86,9 +80,7 @@ test("admin adds a shop link that guests see in the shop detail", async ({ page,
     await expect(link).toHaveAttribute("href", url);
     await expect(link).toHaveAttribute("target", "_blank");
     await expect(link).toHaveAttribute("rel", "noopener noreferrer");
-  } finally {
-    await guest.close();
-  }
+  });
 });
 
 test("admin deletes a shop from the edit modal", async ({ page, api }) => {
@@ -108,6 +100,34 @@ test("admin deletes a shop from the edit modal", async ({ page, api }) => {
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByRole("row").filter({ hasText: shop.name })).toHaveCount(0);
   expect((await api.listShops()).map((s) => s.id)).not.toContain(shop.id);
+});
+
+// Deleting a shop crashed only the dev build (StrictMode); CI runs the production
+// build, so the guard that runs in CI is web/src/components/modal-dialog.test.tsx.
+// Run this with E2E_WEB_DEV=1 to reproduce the crash in a browser.
+test("admin deletes a shop from the search page and keeps using the page", async ({ page, api }) => {
+  const id = uid();
+  const shop = await api.createShop({ name: `${id} 検索から削除する店` });
+  const other = await api.createShop({ name: `${id} 残る店` });
+
+  await page.goto(`/search?shop=${shop.id}`);
+  await page.getByRole("button", { name: "編集" }).filter({ visible: true }).click();
+  const dialog = page.getByRole("dialog").filter({ hasText: shop.name });
+  await dialog.getByRole("button", { name: "削除", exact: true }).click();
+  await page
+    .getByRole("dialog")
+    .filter({ hasText: `「${shop.name}」を削除しますか？` })
+    .getByRole("button", { name: "削除", exact: true })
+    .click();
+
+  await expect(page.getByText("店舗を削除しました")).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  // A dialog that leaves the page hidden or its focus trap behind would block this.
+  const sidebar = page.getByRole("complementary");
+  await sidebar.getByPlaceholder("店名・読み・エリア・タグで検索...").fill(id);
+  await sidebar.getByText(other.name, { exact: true }).click();
+  await page.getByRole("button", { name: "編集" }).filter({ visible: true }).click();
+  await expect(page.getByRole("dialog").filter({ hasText: other.name })).toBeVisible();
 });
 
 test("admin adds a tag in tag management", async ({ page, api }) => {

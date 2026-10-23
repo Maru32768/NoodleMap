@@ -51,7 +51,25 @@ export const DialogCloseTrigger = React.forwardRef<
   );
 });
 
-export const DialogRoot = ChakraDialog.Root;
+/**
+ * Chakra's Dialog.Root, except that one mounted open opens a frame later.
+ * Under StrictMode (the dev build), zag's dialog machine started open runs its
+ * "open" effects twice and leaks the first run: the page stays aria-hidden and
+ * scroll-locked after closing, and the leaked focus trap later throws "Your
+ * focus-trap needs to have at least one focusable element" when a dialog above
+ * it closes. Opening after the machine has started avoids the second run.
+ */
+export function DialogRoot({ open, ...props }: ChakraDialog.RootProps) {
+  const [ready, setReady] = React.useState(!open);
+  React.useEffect(() => {
+    if (ready) {
+      return;
+    }
+    const frame = requestAnimationFrame(() => setReady(true));
+    return () => cancelAnimationFrame(frame);
+  }, [ready]);
+  return <ChakraDialog.Root {...props} open={open && ready} />;
+}
 export const DialogFooter = ChakraDialog.Footer;
 export const DialogHeader = ChakraDialog.Header;
 export const DialogBody = ChakraDialog.Body;

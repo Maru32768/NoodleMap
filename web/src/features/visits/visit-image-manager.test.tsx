@@ -51,7 +51,7 @@ const jpeg = (name: string) =>
  * appends an image to the served visit (as the server does); requests are
  * recorded.
  */
-function renderImages({
+async function renderImages({
   images = [] as VisitImage[],
   uploadResponse,
 }: {
@@ -139,6 +139,7 @@ function renderImages({
       onDeleted={vi.fn()}
     />,
   );
+  await screen.findByRole("dialog");
   return Object.assign(traffic, { onClose });
 }
 
@@ -165,7 +166,7 @@ async function upload(...files: File[]) {
 
 describe("VisitImageManager", () => {
   it("marks the first image as the visit's 代表", async () => {
-    renderImages({ images: [image(1, "味玉"), image(2)] });
+    await renderImages({ images: [image(1, "味玉"), image(2)] });
 
     const [first, second] = within(await imageList()).getAllByRole("listitem");
     expect(within(first).getByText("代表")).toBeInTheDocument();
@@ -180,7 +181,7 @@ describe("VisitImageManager", () => {
   });
 
   it("uploads selected files one at a time, then refetches the shops once", async () => {
-    const traffic = renderImages();
+    const traffic = await renderImages();
     await screen.findByRole("list", { name: "訪問ログ" });
     await waitFor(() => expect(traffic.fetched.shops).toBeGreaterThan(0));
     const shopsBefore = traffic.fetched.shops;
@@ -216,7 +217,7 @@ describe("VisitImageManager", () => {
   });
 
   it("retries once after Retry-After when the server is busy", async () => {
-    const traffic = renderImages({
+    const traffic = await renderImages({
       uploadResponse: (attempt) =>
         attempt === 1
           ? HttpResponse.json(
@@ -301,7 +302,7 @@ describe("VisitImageManager", () => {
       "画像の保存先が設定されていないため追加できません",
     ],
   ])("shows %s next to the file", async (_, response, message) => {
-    renderImages({ uploadResponse: response });
+    await renderImages({ uploadResponse: response });
 
     await upload(jpeg("big.jpg"));
 
@@ -318,7 +319,7 @@ describe("VisitImageManager", () => {
   });
 
   it("says when the browser cannot read the file and does not upload it", async () => {
-    const traffic = renderImages();
+    const traffic = await renderImages();
 
     await upload(new File(["heic"], "ramen.heic", { type: "image/heic" }));
 
@@ -330,7 +331,7 @@ describe("VisitImageManager", () => {
 
   it("uploads only up to 10 images and then disables adding", async () => {
     const nine = Array.from({ length: 9 }, (_, i) => image(i + 1));
-    const traffic = renderImages({ images: nine });
+    const traffic = await renderImages({ images: nine });
 
     await upload(jpeg("a.jpg"), jpeg("b.jpg"));
 
@@ -348,7 +349,9 @@ describe("VisitImageManager", () => {
   });
 
   it("sends the whole new order when an image is moved", async () => {
-    const traffic = renderImages({ images: [image(1), image(2), image(3)] });
+    const traffic = await renderImages({
+      images: [image(1), image(2), image(3)],
+    });
 
     await userEvent.click(
       within(await imageList()).getByRole("button", {
@@ -371,7 +374,7 @@ describe("VisitImageManager", () => {
   });
 
   it("saves a trimmed caption", async () => {
-    const traffic = renderImages({ images: [image(1)] });
+    const traffic = await renderImages({ images: [image(1)] });
 
     const list = await imageList();
     await userEvent.click(
@@ -395,7 +398,7 @@ describe("VisitImageManager", () => {
   });
 
   it("deletes an image after confirmation", async () => {
-    const traffic = renderImages({ images: [image(1), image(2)] });
+    const traffic = await renderImages({ images: [image(1), image(2)] });
 
     await userEvent.click(
       within(await imageList()).getByRole("button", { name: "画像 1 を削除" }),
@@ -431,7 +434,7 @@ describe("VisitImageManager", () => {
     onTestFinished(() => {
       vi.useRealTimers();
     });
-    const traffic = renderImages({
+    const traffic = await renderImages({
       images: [image(1), image(2)],
       uploadResponse: (attempt) =>
         attempt === 1
@@ -507,7 +510,7 @@ describe("VisitImageManager", () => {
   });
 
   it("locks deleting images while a reorder is in flight", async () => {
-    const traffic = renderImages({ images: [image(1), image(2)] });
+    const traffic = await renderImages({ images: [image(1), image(2)] });
     let release = () => {};
     server.use(
       http.put("/api/v1/auth/visits/:visitId/images/order", async () => {
@@ -539,7 +542,7 @@ describe("VisitImageManager", () => {
   });
 
   it("cancels a caption edit on Esc without closing the modal", async () => {
-    const traffic = renderImages({ images: [image(1, "味玉")] });
+    const traffic = await renderImages({ images: [image(1, "味玉")] });
     const list = await imageList();
 
     await userEvent.click(
@@ -566,11 +569,13 @@ describe("VisitImageManager", () => {
   it("hints at drop and paste only while images can be added", async () => {
     reportFinePointer();
     const nine = Array.from({ length: 9 }, (_, i) => image(i + 1));
-    renderImages({ images: nine });
+    await renderImages({ images: nine });
     await imageList();
 
-    expect(dropArea()).toHaveAccessibleDescription(
-      "この欄にドラッグ＆ドロップ・貼り付けでも追加できます",
+    await waitFor(() =>
+      expect(dropArea()).toHaveAccessibleDescription(
+        "この欄にドラッグ＆ドロップ・貼り付けでも追加できます",
+      ),
     );
     await upload(jpeg("a.jpg"));
     await waitFor(() =>
@@ -585,7 +590,7 @@ describe("VisitImageManager", () => {
   });
 
   it("does not hint at drop and paste on a touch screen", async () => {
-    renderImages();
+    await renderImages();
     await screen.findByRole("list", { name: "訪問ログ" });
 
     expect(screen.getByText("あと10枚・1枚目が代表")).toBeInTheDocument();
@@ -599,7 +604,7 @@ describe("VisitImageManager", () => {
 
   it("queues dropped image files in order and ignores other files", async () => {
     // Every upload fails, so each file stays listed in queue order.
-    const traffic = renderImages({
+    const traffic = await renderImages({
       uploadResponse: () =>
         HttpResponse.json(
           {
@@ -644,7 +649,7 @@ describe("VisitImageManager", () => {
 
   it("drops only up to 10 images and refuses dragging in when full", async () => {
     const nine = Array.from({ length: 9 }, (_, i) => image(i + 1));
-    const traffic = renderImages({ images: nine });
+    const traffic = await renderImages({ images: nine });
     await imageList();
 
     fireEvent.drop(dropArea(), {
@@ -682,7 +687,7 @@ describe("VisitImageManager", () => {
   });
 
   it("highlights the area while files are dragged anywhere over it", async () => {
-    renderImages({ images: [image(1)] });
+    await renderImages({ images: [image(1)] });
     const list = await imageList();
     const area = dropArea();
     const dataTransfer = { types: ["Files"], files: [jpeg("a.jpg")] };
@@ -697,7 +702,7 @@ describe("VisitImageManager", () => {
   });
 
   it("never uploads a thumbnail dragged within the page", async () => {
-    const traffic = renderImages({ images: [image(1)] });
+    const traffic = await renderImages({ images: [image(1)] });
     const thumb = within(await imageList()).getByRole("img", {
       name: "画像 1",
     });
@@ -722,7 +727,7 @@ describe("VisitImageManager", () => {
   });
 
   it("does not offer a drop for files the browser says are not images", async () => {
-    renderImages();
+    await renderImages();
     await screen.findByRole("list", { name: "訪問ログ" });
     const dataTransfer = {
       types: ["Files"],
@@ -739,7 +744,7 @@ describe("VisitImageManager", () => {
   });
 
   it("drops the highlight when the drag ends anywhere", async () => {
-    renderImages();
+    await renderImages();
     await screen.findByRole("list", { name: "訪問ログ" });
     const dataTransfer = { types: ["Files"], files: [jpeg("a.jpg")] };
 
@@ -751,7 +756,7 @@ describe("VisitImageManager", () => {
   });
 
   it("refuses a file dropped elsewhere in the modal instead of opening it", async () => {
-    renderImages();
+    await renderImages();
     const visits = await screen.findByRole("list", { name: "訪問ログ" });
     const dataTransfer = {
       types: ["Files"],
@@ -766,7 +771,7 @@ describe("VisitImageManager", () => {
   });
 
   it("uploads an image pasted while focus is in the image area", async () => {
-    const traffic = renderImages();
+    const traffic = await renderImages();
     await screen.findByRole("list", { name: "訪問ログ" });
     const area = dropArea();
     // Each visit's area is named by its date.
@@ -791,7 +796,7 @@ describe("VisitImageManager", () => {
   });
 
   it("leaves a paste into the caption input alone", async () => {
-    const traffic = renderImages({ images: [image(1)] });
+    const traffic = await renderImages({ images: [image(1)] });
     const list = await imageList();
     await userEvent.click(
       within(list).getByRole("button", {
@@ -816,7 +821,7 @@ describe("VisitImageManager", () => {
 
   it("says a paste is over the limit when the visit is full", async () => {
     const ten = Array.from({ length: 10 }, (_, i) => image(i + 1));
-    const traffic = renderImages({ images: ten });
+    const traffic = await renderImages({ images: ten });
     await imageList();
     dropArea().focus();
 
@@ -835,7 +840,7 @@ describe("VisitImageManager", () => {
   });
 
   it("ignores a paste while focus is outside the image area", async () => {
-    const traffic = renderImages();
+    const traffic = await renderImages();
     await screen.findByRole("list", { name: "訪問ログ" });
     screen.getByRole("button", { name: "訪問を記録" }).focus();
 
@@ -851,7 +856,7 @@ describe("VisitImageManager", () => {
   });
 
   it("says a pasted file that is not an image cannot be added", async () => {
-    const traffic = renderImages();
+    const traffic = await renderImages();
     await screen.findByRole("list", { name: "訪問ログ" });
     dropArea().focus();
 
@@ -869,7 +874,7 @@ describe("VisitImageManager", () => {
   });
 
   it("asks to save a new visit before adding images", async () => {
-    renderImages();
+    await renderImages();
 
     await userEvent.click(
       await screen.findByRole("button", { name: "訪問を記録" }),

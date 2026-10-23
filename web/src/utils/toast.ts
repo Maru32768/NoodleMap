@@ -113,6 +113,11 @@ const statusMessages: Readonly<Record<number, UserErrorMessage>> = {
   },
 };
 
+// AppErrorBoundary's fallback page, shown when rendering throws.
+export const APP_ERROR_TITLE = "エラーが発生しました";
+export const APP_ERROR_DESCRIPTION = "ページを再読み込みしてください。";
+export const APP_ERROR_RELOAD_LABEL = "再読み込み";
+
 const SHOP_DUPLICATE_PLACE_ID_TITLE =
   "Google Place ID が他の店舗と重複しています";
 export const SHOP_ADD_FAILED_TITLE = "店舗を追加できませんでした";

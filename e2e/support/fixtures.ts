@@ -1,6 +1,8 @@
 import {
   type APIRequestContext,
   type APIResponse,
+  type BrowserContext,
+  type Page,
   test as base,
   expect,
 } from "@playwright/test";
@@ -95,14 +97,61 @@ export class Api {
   }
 }
 
-export const test = base.extend<{ api: Api }>({
+/** Hermetic: only the app's own origin (and its /api proxy) is reachable. */
+async function blockOtherHosts(context: BrowserContext): Promise<void> {
+  await context.route(
+    (url) => url.host !== WEB_HOST,
+    (route) => route.abort("blockedbyclient"),
+  );
+}
+
+// Logged by web/src/components/app-error-boundary.tsx.
+const ERROR_BOUNDARY_MARKER = "[AppErrorBoundary]";
+
+/**
+ * Collects uncaught errors, which unmount the React app and leave a blank page,
+ * and errors AppErrorBoundary caught, which replace the page with its fallback.
+ */
+function collectAppErrors(page: Page): string[] {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.stack ?? error.message));
+  page.on("console", (message) => {
+    if (message.type() === "error" && message.text().startsWith(ERROR_BOUNDARY_MARKER)) {
+      errors.push(message.text());
+    }
+  });
+  return errors;
+}
+
+export const test = base.extend<{
+  api: Api;
+  /** Runs `fn` with a signed-out page that can only reach the app. */
+  asGuest: (fn: (page: Page) => Promise<void>) => Promise<void>;
+}>({
   context: async ({ context }, use) => {
-    // Hermetic: only the app's own origin (and its /api proxy) is reachable.
-    await context.route(
-      (url) => url.host !== WEB_HOST,
-      (route) => route.abort("blockedbyclient"),
-    );
+    await blockOtherHosts(context);
     await use(context);
+  },
+
+  page: async ({ page }, use) => {
+    const errors = collectAppErrors(page);
+    await use(page);
+    expect(errors, "app errors").toEqual([]);
+  },
+
+  asGuest: async ({ browser, baseURL }, use) => {
+    await use(async (fn) => {
+      const guest = await browser.newContext({ baseURL, storageState: { cookies: [], origins: [] } });
+      try {
+        await blockOtherHosts(guest);
+        const page = await guest.newPage();
+        const errors = collectAppErrors(page);
+        await fn(page);
+        expect(errors, "app errors on the guest page").toEqual([]);
+      } finally {
+        await guest.close();
+      }
+    });
   },
 
   api: async ({ playwright, baseURL }, use) => {
