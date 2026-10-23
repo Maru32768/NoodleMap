@@ -1,6 +1,5 @@
 package dev.marulabs.noodlemap.generated.models
 
-import kotlin.Boolean
 import kotlin.Double
 import kotlin.Int
 import kotlin.String
@@ -24,15 +23,16 @@ public data class VisitLog(
    */
   @SerialName("visitedOn")
   public val visitedOn: String? = null,
-  @SerialName("menuName")
-  public val menuName: String? = null,
-  @SerialName("isLimitedMenu")
-  public val isLimitedMenu: Boolean,
   /**
-   * Price in yen.
+   * 食べたメニュー in display order.
    */
-  @SerialName("price")
-  public val price: Int? = null,
+  @SerialName("menuItems")
+  public val menuItems: List<MenuItem>,
+  /**
+   * Derived on the server: the sum of the menu item prices. Absent when no item has a price.
+   */
+  @SerialName("totalPrice")
+  public val totalPrice: Int? = null,
   /**
    * 0 to 100. Absent when the visit is not rated.
    */

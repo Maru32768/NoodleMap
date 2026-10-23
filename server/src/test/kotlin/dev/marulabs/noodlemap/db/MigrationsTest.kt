@@ -45,12 +45,12 @@ class MigrationsTest {
 
             conn.version() shouldBe migrations.maxOf { it.version }
             conn.strings("SELECT name FROM sqlite_master WHERE type = 'table'") shouldContainAll
-                listOf("users", "sessions", "shops", "tags", "shops_tags", "shop_images", "shop_links", "visit_logs", "visit_images")
+                listOf("users", "sessions", "shops", "tags", "shops_tags", "shop_images", "shop_links", "visit_logs", "visit_menu_items", "visit_images")
             conn.strings("SELECT name FROM sqlite_master WHERE name = 'eaten_shops'") shouldBe emptyList()
             conn.strings("SELECT name FROM sqlite_master WHERE type = 'trigger'") shouldContainAll
                 listOf(
                     "update_users_modtime", "update_shops_modtime", "update_tags_modtime", "update_shop_links_modtime",
-                    "update_visit_logs_modtime", "update_visit_images_modtime",
+                    "update_visit_logs_modtime", "update_visit_menu_items_modtime", "update_visit_images_modtime",
                 )
         }
     }
@@ -185,16 +185,16 @@ class MigrationsTest {
             migrate(conn, loadMigrations())
 
             conn.strings(
-                "SELECT id || '|' || shop_id || '|' || ifnull(visited_on, 'NULL') || '|' || ifnull(rate, 'NULL') || '|' || is_limited_menu || '|' || created_at || '|' || updated_at FROM visit_logs ORDER BY id",
+                "SELECT id || '|' || shop_id || '|' || ifnull(visited_on, 'NULL') || '|' || ifnull(rate, 'NULL') || '|' || created_at || '|' || updated_at FROM visit_logs ORDER BY id",
             ) shouldBe listOf(
                 // created_at is rewritten as 'YYYY-MM-DD HH:MM:SS.SSS', the format new visit logs get.
-                "e1|s1|NULL|5.0|0|2020-01-02 03:04:05.000|2021-01-02 03:04:05",
-                "e2|s2|NULL|90.0|0|2022-01-01 00:00:00.000|2022-01-01 00:00:00",
+                "e1|s1|NULL|5.0|2020-01-02 03:04:05.000|2021-01-02 03:04:05",
+                "e2|s2|NULL|90.0|2022-01-01 00:00:00.000|2022-01-01 00:00:00",
                 // Kept (and reported at startup) although its shop is gone; an out-of-range rate is clamped.
-                "e3|gone|NULL|100.0|0|2023-01-01 00:00:00.000|2023-01-01 00:00:00",
+                "e3|gone|NULL|100.0|2023-01-01 00:00:00.000|2023-01-01 00:00:00",
                 // 0 was the old form's default for "not rated"; other values below 0 are clamped.
-                "e4|s3|NULL|NULL|0|2024-01-01 00:00:00.000|2024-01-01 00:00:00",
-                "e5|gone-too|NULL|0.0|0|2024-01-01 00:00:00.000|2024-01-01 00:00:00",
+                "e4|s3|NULL|NULL|2024-01-01 00:00:00.000|2024-01-01 00:00:00",
+                "e5|gone-too|NULL|0.0|2024-01-01 00:00:00.000|2024-01-01 00:00:00",
             )
             conn.strings("SELECT name FROM sqlite_master WHERE name = 'eaten_shops'") shouldBe emptyList()
             // Legacy images stay until they are dropped deliberately.
@@ -208,8 +208,20 @@ class MigrationsTest {
                 st.executeUpdate("UPDATE shops SET wish_level = 'high' WHERE id = 's3'")
                 shouldThrow<Exception> { st.executeUpdate("UPDATE shops SET wish_level = 'urgent' WHERE id = 's3'") }
                 shouldThrow<Exception> { st.executeUpdate("INSERT INTO visit_logs (id, shop_id, rate) VALUES ('v1', 's3', 101)") }
-                shouldThrow<Exception> { st.executeUpdate("INSERT INTO visit_logs (id, shop_id, price) VALUES ('v2', 's3', -1)") }
                 st.executeUpdate("INSERT INTO visit_logs (id, shop_id) VALUES ('v3', 's3')")
+                // 食べたメニュー pin their visit log, need a name of 1..200 characters and a price in 0..10,000,000.
+                st.executeUpdate(
+                    "INSERT INTO visit_menu_items (id, visit_log_id, name, is_limited, price, sort_order) " +
+                        "VALUES ('m1', 'v3', '${"𩸽".repeat(200)}', 1, 10000000, 0)",
+                )
+                fun insertItem(values: String) =
+                    st.executeUpdate("INSERT INTO visit_menu_items (id, visit_log_id, name, price, sort_order) VALUES ($values, 0)")
+                shouldThrow<Exception> { insertItem("'m2', 'nope', 'a', NULL") }
+                shouldThrow<Exception> { insertItem("'m3', 'v3', '', NULL") }
+                shouldThrow<Exception> { insertItem("'m4', 'v3', '${"𩸽".repeat(201)}', NULL") }
+                shouldThrow<Exception> { insertItem("'m5', 'v3', 'a', -1") }
+                shouldThrow<Exception> { insertItem("'m6', 'v3', 'a', 10000001") }
+                shouldThrow<Exception> { st.executeUpdate("DELETE FROM visit_logs WHERE id = 'v3'") }
             }
             conn.strings("SELECT created_at FROM visit_logs WHERE id = 'v3'").single() shouldMatch
                 Regex("""\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}""")

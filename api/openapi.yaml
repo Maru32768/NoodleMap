@@ -1132,6 +1132,40 @@ components:
             - invalid_request
         message:
           type: string
+    MenuItem:
+      type: object
+      required:
+        - name
+        - isLimited
+      properties:
+        name:
+          type: string
+        isLimited:
+          type: boolean
+          description: True for a 限定メニュー.
+        price:
+          type: integer
+          format: int32
+          description: Price in yen. Absent when not recorded.
+      description: One 食べたメニュー of a visit log.
+    MenuItemInput:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          maxLength: 200
+        isLimited:
+          type: boolean
+          description: True for a 限定メニュー. Omit for false.
+        price:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 10000000
+          description: Price in yen, 0 to 10,000,000. Omit when not recorded.
+      description: One 食べたメニュー as written by the admin. The name is trimmed and must not be blank.
     NotFoundErrorBody:
       type: object
       required:
@@ -1701,7 +1735,7 @@ components:
       type: object
       required:
         - id
-        - isLimitedMenu
+        - menuItems
         - images
       properties:
         id:
@@ -1709,14 +1743,15 @@ components:
         visitedOn:
           type: string
           description: Visit date as an ISO 8601 calendar date (YYYY-MM-DD). Absent when unknown.
-        menuName:
-          type: string
-        isLimitedMenu:
-          type: boolean
-        price:
+        menuItems:
+          type: array
+          items:
+            $ref: '#/components/schemas/MenuItem'
+          description: 食べたメニュー in display order.
+        totalPrice:
           type: integer
           format: int32
-          description: Price in yen.
+          description: 'Derived on the server: the sum of the menu item prices. Absent when no item has a price.'
         rate:
           type: number
           format: double
@@ -1754,13 +1789,12 @@ components:
       type: string
       enum:
         - visitedOn
-        - menuName
-        - isLimitedMenu
-        - price
+        - menuItems
         - rate
         - eventName
         - publicNote
         - privateNote
+      description: '`menuItems` covers the list and each item; the message names the item (`menuItems[0].name`).'
     VisitLogFieldError:
       type: object
       required:
@@ -1775,23 +1809,16 @@ components:
           type: string
     VisitLogInput:
       type: object
-      required:
-        - isLimitedMenu
       properties:
         visitedOn:
           type: string
           description: ISO 8601 calendar date (YYYY-MM-DD), no later than tomorrow. Omit when unknown.
-        menuName:
-          type: string
-          maxLength: 200
-        isLimitedMenu:
-          type: boolean
-        price:
-          type: integer
-          format: int32
-          minimum: 0
-          maximum: 10000000
-          description: Price in yen, 0 to 10,000,000.
+        menuItems:
+          type: array
+          items:
+            $ref: '#/components/schemas/MenuItemInput'
+          maxItems: 10
+          description: 食べたメニュー in display order, at most 10. Omit for none.
         rate:
           type: number
           format: double

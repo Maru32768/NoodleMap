@@ -9,6 +9,8 @@ import dev.marulabs.noodlemap.errors.ErrorBody
 import dev.marulabs.noodlemap.errors.ErrorType
 import dev.marulabs.noodlemap.errors.FieldError
 import dev.marulabs.noodlemap.errors.FieldErrorType
+import dev.marulabs.noodlemap.generated.models.MenuItem
+import dev.marulabs.noodlemap.generated.models.MenuItemInput
 import dev.marulabs.noodlemap.generated.models.Shop
 import dev.marulabs.noodlemap.generated.models.VisitLog
 import dev.marulabs.noodlemap.generated.models.VisitLogInput
@@ -38,6 +40,10 @@ private fun TestDb.setCreatedAt(visitId: String, createdAt: String) = dataSource
     }
 }
 
+private fun TestDb.menuItemCount(): Int = dataSource.connection.use { c ->
+    c.createStatement().use { st -> st.executeQuery("SELECT count(*) FROM visit_menu_items").use { it.getInt(1) } }
+}
+
 class VisitLogApiTest {
 
     private suspend fun ApplicationTestBuilder.addShop(admin: String, placeId: String = "place-1"): String =
@@ -50,7 +56,7 @@ class VisitLogApiTest {
         get("/api/v1/shops/$shopId/visits") { token?.let { session(it) } }.body<VisitLogsResponse>().visits
 
     private fun visit(visitedOn: String? = null, rate: Double? = null) =
-        VisitLogInput(visitedOn = visitedOn, isLimitedMenu = false, rate = rate)
+        VisitLogInput(visitedOn = visitedOn, rate = rate)
 
     @Test
     fun `visits are newest first with undated ones last, and the shop derives eaten, rate and favorite from them`() = testApp { t ->
@@ -122,7 +128,9 @@ class VisitLogApiTest {
     fun `the private note is only returned to the admin`() = testApp { t ->
         val admin = t.adminToken()
         val id = addShop(admin)
-        val input = VisitLogInput(isLimitedMenu = true, publicNote = "公開", privateNote = "非公開")
+        val input = VisitLogInput(
+            menuItems = listOf(MenuItemInput("限定まぜそば", isLimited = true, price = 1300)), publicNote = "公開", privateNote = "非公開",
+        )
         client.addVisit(id, input, admin).privateNote shouldBe "非公開"
 
         client.visits(id, admin).single().let {
@@ -134,7 +142,8 @@ class VisitLogApiTest {
             res.bodyAsText() shouldNotContain "privateNote"
             res.body<VisitLogsResponse>().visits.single().let {
                 it.publicNote shouldBe "公開"
-                it.isLimitedMenu shouldBe true
+                it.menuItems shouldBe listOf(MenuItem("限定まぜそば", isLimited = true, price = 1300))
+                it.totalPrice shouldBe 1300
             }
         }
     }
@@ -146,25 +155,43 @@ class VisitLogApiTest {
         val added = client.addVisit(
             id,
             VisitLogInput(
-                visitedOn = " 2024-02-03 ", menuName = " 特製中華そば ", isLimitedMenu = true, price = 1200, rate = 85.5,
-                eventName = " 大つけ麺博 ", publicNote = "   ", privateNote = " 混んでいた ",
+                visitedOn = " 2024-02-03 ", rate = 85.5, eventName = " 大つけ麺博 ", publicNote = "   ", privateNote = " 混んでいた ",
+                // 連食: several items in one visit, kept in order; the total sums the priced ones.
+                menuItems = listOf(
+                    MenuItemInput(" 特製中華そば ", isLimited = true, price = 1200),
+                    MenuItemInput("替え玉"),
+                    MenuItemInput("味玉", isLimited = false, price = 150),
+                ),
             ),
             admin,
         )
         added shouldBe VisitLog(
-            id = added.id, visitedOn = "2024-02-03", menuName = "特製中華そば", isLimitedMenu = true, price = 1200, rate = 85.5,
-            eventName = "大つけ麺博", publicNote = null, privateNote = "混んでいた", images = emptyList(),
+            id = added.id, visitedOn = "2024-02-03", rate = 85.5, eventName = "大つけ麺博", publicNote = null,
+            privateNote = "混んでいた", images = emptyList(), totalPrice = 1350,
+            menuItems = listOf(MenuItem("特製中華そば", true, 1200), MenuItem("替え玉", false), MenuItem("味玉", false, 150)),
         )
         client.visits(id, admin) shouldContainExactly listOf(added)
 
-        // A replacement clears every field it omits.
-        val replaced = client.putJson("/api/v1/auth/visits/${added.id}", encode(VisitLogInput(isLimitedMenu = false, menuName = "つけ麺")), admin)
+        // A replacement clears every field it omits, the menu items included.
+        client.putJson("/api/v1/auth/visits/${added.id}", encode(VisitLogInput(rate = 70.0)), admin).body<VisitLog>() shouldBe
+            VisitLog(id = added.id, rate = 70.0, menuItems = emptyList(), images = emptyList())
+        client.visits(id, admin).single().menuItems.shouldBeEmpty()
+
+        val replaced = client.putJson(
+            "/api/v1/auth/visits/${added.id}",
+            encode(VisitLogInput(menuItems = listOf(MenuItemInput("つけ麺"), MenuItemInput("ラーメン", price = 900)))),
+            admin,
+        )
         replaced.status shouldBe HttpStatusCode.OK
-        val expected = VisitLog(id = added.id, menuName = "つけ麺", isLimitedMenu = false, images = emptyList())
+        val expected = VisitLog(
+            id = added.id, menuItems = listOf(MenuItem("つけ麺", false), MenuItem("ラーメン", false, 900)), totalPrice = 900,
+            images = emptyList(),
+        )
         replaced.body<VisitLog>() shouldBe expected
         client.visits(id, admin) shouldContainExactly listOf(expected)
 
         client.deleteWithSession("/api/v1/auth/visits/${added.id}", admin).status shouldBe HttpStatusCode.NoContent
+        t.menuItemCount() shouldBe 0
         client.visits(id).shouldBeEmpty()
         client.deleteWithSession("/api/v1/auth/visits/${added.id}", admin).status shouldBe HttpStatusCode.NotFound
     }
@@ -174,16 +201,19 @@ class VisitLogApiTest {
         val admin = t.adminToken()
         val id = addShop(admin)
         val invalid = VisitLogInput(
-            visitedOn = "2024/01/01", menuName = "麺".repeat(201), isLimitedMenu = false, price = -1, rate = 100.5,
+            visitedOn = "2024/01/01", rate = 100.5,
+            menuItems = listOf(MenuItemInput("麺".repeat(201)), MenuItemInput("  ", price = -1), MenuItemInput("ok", price = 10_000_001)),
             eventName = "e".repeat(101), publicNote = "p".repeat(2001), privateNote = "q".repeat(2001),
         )
         val expected = ErrorBody(
             ErrorType.INVALID_REQUEST, "invalid visit log",
             listOf(
                 FieldError("visitedOn", FieldErrorType.INVALID_FORMAT),
-                FieldError("price", FieldErrorType.OUT_OF_RANGE),
+                FieldError("menuItems", FieldErrorType.TOO_LONG, "menuItems[0].name"),
+                FieldError("menuItems", FieldErrorType.REQUIRED, "menuItems[1].name"),
+                FieldError("menuItems", FieldErrorType.OUT_OF_RANGE, "menuItems[1].price"),
+                FieldError("menuItems", FieldErrorType.OUT_OF_RANGE, "menuItems[2].price"),
                 FieldError("rate", FieldErrorType.OUT_OF_RANGE),
-                FieldError("menuName", FieldErrorType.TOO_LONG),
                 FieldError("eventName", FieldErrorType.TOO_LONG),
                 FieldError("publicNote", FieldErrorType.TOO_LONG),
                 FieldError("privateNote", FieldErrorType.TOO_LONG),
@@ -213,19 +243,23 @@ class VisitLogApiTest {
         for (bad in listOf("2024-02-30", "24-01-01", "+2024-01-01", "2024-1-1")) {
             fieldError(visit(bad)) shouldBe listOf(FieldError("visitedOn", FieldErrorType.INVALID_FORMAT))
         }
-        fieldError(VisitLogInput(isLimitedMenu = false, price = 10_000_001)) shouldBe listOf(FieldError("price", FieldErrorType.OUT_OF_RANGE))
+        fieldError(VisitLogInput(menuItems = List(11) { MenuItemInput("麺$it") })) shouldBe
+            listOf(FieldError("menuItems", FieldErrorType.OUT_OF_RANGE, "at most 10 menu items"))
         fieldError(visit(rate = -0.5)) shouldBe listOf(FieldError("rate", FieldErrorType.OUT_OF_RANGE))
 
         client.addVisit(id, visit("2024-02-29", rate = 0.0), admin).visitedOn shouldBe "2024-02-29"
         client.addVisit(
             id,
             VisitLogInput(
-                isLimitedMenu = false, price = 10_000_000, rate = 100.0, menuName = "麺".repeat(200), eventName = "e".repeat(100),
-                publicNote = "p".repeat(2000), privateNote = "q".repeat(2000),
+                rate = 100.0, eventName = "e".repeat(100), publicNote = "p".repeat(2000), privateNote = "q".repeat(2000),
+                menuItems = List(10) { MenuItemInput("麺".repeat(200), price = 10_000_000) },
             ),
             admin,
-        ).price shouldBe 10_000_000
-        client.addVisit(id, VisitLogInput(isLimitedMenu = false, price = 0, visitedOn = ""), admin).visitedOn shouldBe null
+        ).totalPrice shouldBe 100_000_000
+        client.addVisit(id, VisitLogInput(menuItems = listOf(MenuItemInput("水", price = 0)), visitedOn = ""), admin).let {
+            it.visitedOn shouldBe null
+            it.totalPrice shouldBe 0
+        }
     }
 
     @Test

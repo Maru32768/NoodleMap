@@ -424,6 +424,28 @@ export interface components {
             type: "invalid_request";
             message?: string;
         };
+        /** @description One 食べたメニュー of a visit log. */
+        MenuItem: {
+            name: string;
+            /** @description True for a 限定メニュー. */
+            isLimited: boolean;
+            /**
+             * Format: int32
+             * @description Price in yen. Absent when not recorded.
+             */
+            price?: number;
+        };
+        /** @description One 食べたメニュー as written by the admin. The name is trimmed and must not be blank. */
+        MenuItemInput: {
+            name: string;
+            /** @description True for a 限定メニュー. Omit for false. */
+            isLimited?: boolean;
+            /**
+             * Format: int32
+             * @description Price in yen, 0 to 10,000,000. Omit when not recorded.
+             */
+            price?: number;
+        };
         NotFoundErrorBody: {
             /** @enum {string} */
             type: "not_found";
@@ -674,13 +696,13 @@ export interface components {
             id: components["schemas"]["uuid"];
             /** @description Visit date as an ISO 8601 calendar date (YYYY-MM-DD). Absent when unknown. */
             visitedOn?: string;
-            menuName?: string;
-            isLimitedMenu: boolean;
+            /** @description 食べたメニュー in display order. */
+            menuItems: components["schemas"]["MenuItem"][];
             /**
              * Format: int32
-             * @description Price in yen.
+             * @description Derived on the server: the sum of the menu item prices. Absent when no item has a price.
              */
-            price?: number;
+            totalPrice?: number;
             /**
              * Format: double
              * @description 0 to 100. Absent when the visit is not rated.
@@ -700,8 +722,11 @@ export interface components {
             message?: string;
             fieldErrors?: components["schemas"]["VisitLogFieldError"][];
         };
-        /** @enum {string} */
-        VisitLogField: "visitedOn" | "menuName" | "isLimitedMenu" | "price" | "rate" | "eventName" | "publicNote" | "privateNote";
+        /**
+         * @description `menuItems` covers the list and each item; the message names the item (`menuItems[0].name`).
+         * @enum {string}
+         */
+        VisitLogField: "visitedOn" | "menuItems" | "rate" | "eventName" | "publicNote" | "privateNote";
         VisitLogFieldError: {
             field: components["schemas"]["VisitLogField"];
             type: components["schemas"]["FieldErrorType"];
@@ -714,13 +739,8 @@ export interface components {
         VisitLogInput: {
             /** @description ISO 8601 calendar date (YYYY-MM-DD), no later than tomorrow. Omit when unknown. */
             visitedOn?: string;
-            menuName?: string;
-            isLimitedMenu: boolean;
-            /**
-             * Format: int32
-             * @description Price in yen, 0 to 10,000,000.
-             */
-            price?: number;
+            /** @description 食べたメニュー in display order, at most 10. Omit for none. */
+            menuItems?: components["schemas"]["MenuItemInput"][];
             /**
              * Format: double
              * @description 0 to 100. Omit when not rated.

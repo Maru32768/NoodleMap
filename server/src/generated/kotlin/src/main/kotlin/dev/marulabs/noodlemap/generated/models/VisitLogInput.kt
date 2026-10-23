@@ -1,9 +1,8 @@
 package dev.marulabs.noodlemap.generated.models
 
-import kotlin.Boolean
 import kotlin.Double
-import kotlin.Int
 import kotlin.String
+import kotlin.collections.List
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -18,15 +17,11 @@ public data class VisitLogInput(
    */
   @SerialName("visitedOn")
   public val visitedOn: String? = null,
-  @SerialName("menuName")
-  public val menuName: String? = null,
-  @SerialName("isLimitedMenu")
-  public val isLimitedMenu: Boolean,
   /**
-   * Price in yen, 0 to 10,000,000.
+   * 食べたメニュー in display order, at most 10. Omit for none.
    */
-  @SerialName("price")
-  public val price: Int? = null,
+  @SerialName("menuItems")
+  public val menuItems: List<MenuItemInput>? = null,
   /**
    * 0 to 100. Omit when not rated.
    */

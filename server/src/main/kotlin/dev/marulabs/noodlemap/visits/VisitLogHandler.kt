@@ -11,6 +11,7 @@ import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthShopsVisitsControll
 import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthVisitsController
 import dev.marulabs.noodlemap.generated.controllers.ApiV1ShopsVisitsController
 import dev.marulabs.noodlemap.generated.controllers.TypedApplicationCall
+import dev.marulabs.noodlemap.generated.models.MenuItem
 import dev.marulabs.noodlemap.generated.models.VisitImage
 import dev.marulabs.noodlemap.generated.models.VisitLog
 import dev.marulabs.noodlemap.generated.models.VisitLogInput
@@ -24,6 +25,7 @@ import org.sqlite.SQLiteErrorCode
 import org.sqlite.SQLiteException
 
 private const val MENU_NAME_MAX_LENGTH = 200
+private const val MENU_ITEMS_MAX = 10
 private const val EVENT_NAME_MAX_LENGTH = 100
 private const val NOTE_MAX_LENGTH = 2000
 private const val PRICE_MAX = 10_000_000
@@ -34,14 +36,15 @@ private val VISIT_ORDER = latestFirst<Visit_logs>({ it.visited_on }, { it.create
 /** A visit log as validated for storage. */
 internal data class VisitFields(
     val visitedOn: String?,
-    val menuName: String?,
-    val isLimitedMenu: Boolean,
-    val price: Int?,
+    val menuItems: List<MenuItem>,
     val rate: Double?,
     val eventName: String?,
     val publicNote: String?,
     val privateNote: String?,
 )
+
+/** The visit's price: the sum of its menu item prices, or null when no item has one. */
+internal fun totalPrice(items: List<MenuItem>): Int? = items.mapNotNull { it.price }.takeIf { it.isNotEmpty() }?.sum()
 
 /**
  * Trims strings (blank = not set) and checks every field, reporting all problems at once. A visit date
@@ -64,13 +67,27 @@ internal fun normalizeVisit(input: VisitLogInput, today: LocalDate): VisitFields
             else -> date.toString()
         }
     }
-    if (input.price != null && input.price !in 0..PRICE_MAX) errors += FieldError("price", FieldErrorType.OUT_OF_RANGE)
+    val menuItems = input.menuItems.orEmpty()
+    if (menuItems.size > MENU_ITEMS_MAX) {
+        errors += FieldError("menuItems", FieldErrorType.OUT_OF_RANGE, "at most $MENU_ITEMS_MAX menu items")
+    }
+    // Each item problem is reported on menuItems, the message naming the item.
+    val items = menuItems.mapIndexed { i, item ->
+        val name = item.name.trim()
+        when {
+            name.isEmpty() -> errors += FieldError("menuItems", FieldErrorType.REQUIRED, "menuItems[$i].name")
+            name.codePointCount(0, name.length) > MENU_NAME_MAX_LENGTH ->
+                errors += FieldError("menuItems", FieldErrorType.TOO_LONG, "menuItems[$i].name")
+        }
+        if (item.price != null && item.price !in 0..PRICE_MAX) {
+            errors += FieldError("menuItems", FieldErrorType.OUT_OF_RANGE, "menuItems[$i].price")
+        }
+        MenuItem(name = name, isLimited = item.isLimited == true, price = item.price)
+    }
     if (input.rate != null && input.rate !in 0.0..100.0) errors += FieldError("rate", FieldErrorType.OUT_OF_RANGE)
     val fields = VisitFields(
         visitedOn = visitedOn,
-        menuName = text("menuName", input.menuName, MENU_NAME_MAX_LENGTH),
-        isLimitedMenu = input.isLimitedMenu,
-        price = input.price,
+        menuItems = items,
         rate = input.rate,
         eventName = text("eventName", input.eventName, EVENT_NAME_MAX_LENGTH),
         publicNote = text("publicNote", input.publicNote, NOTE_MAX_LENGTH),
@@ -93,8 +110,12 @@ class VisitLogHandler(
         val includePrivateNote = sessions.authenticate(call)?.isAdmin == true
         if (!db.shopsQueries.shopExists(shopId).executeAsOne()) throw DomainException.NotFound()
         val rows = db.visitLogsQueries.findVisitLogsByShopId(shopId).executeAsList().sortedWith(VISIT_ORDER)
-        val imagesByVisit = visitImagesByVisitLogIds(db, images, rows.map { it.id })
-        val visits = rows.map { it.toApi(includePrivateNote, imagesByVisit[it.id].orEmpty()) }
+        val visitIds = rows.map { it.id }
+        val imagesByVisit = visitImagesByVisitLogIds(db, images, visitIds)
+        val menuItemsByVisit = menuItemsByVisitLogIds(visitIds)
+        val visits = rows.map {
+            it.toApi(includePrivateNote, menuItemsByVisit[it.id].orEmpty(), imagesByVisit[it.id].orEmpty())
+        }
         call.respondTyped(VisitLogsResponse(visits = visits))
     }
 
@@ -104,10 +125,10 @@ class VisitLogHandler(
         val v = normalizeVisit(visitLogInput, LocalDate.now(JST))
         val visitId = UUID.randomUUID()
         try {
-            db.visitLogsQueries.insertVisitLog(
-                visitId, shopId, v.visitedOn, v.menuName, v.isLimitedMenu, v.price?.toLong(), v.rate,
-                v.eventName, v.publicNote, v.privateNote,
-            )
+            db.transaction {
+                db.visitLogsQueries.insertVisitLog(visitId, shopId, v.visitedOn, v.rate, v.eventName, v.publicNote, v.privateNote)
+                insertMenuItems(visitId, v.menuItems)
+            }
         } catch (e: SQLiteException) {
             // shop_id is the only foreign key, so a violation means the shop does not exist.
             if (e.resultCode == SQLiteErrorCode.SQLITE_CONSTRAINT_FOREIGNKEY) throw DomainException.NotFound()
@@ -120,19 +141,25 @@ class VisitLogHandler(
         sessions.requireAdmin(call)
         val id = uuidOrNull(visitId) ?: throw DomainException.NotFound()
         val v = normalizeVisit(visitLogInput, LocalDate.now(JST))
-        val updated = db.visitLogsQueries.updateVisitLog(
-            visitedOn = v.visitedOn, menuName = v.menuName, isLimitedMenu = v.isLimitedMenu, price = v.price?.toLong(),
-            rate = v.rate, eventName = v.eventName, publicNote = v.publicNote, privateNote = v.privateNote, id = id,
-        ).value
-        if (updated == 0L) throw DomainException.NotFound()
+        // Every field is replaced, the menu items included.
+        db.transaction {
+            val updated = db.visitLogsQueries.updateVisitLog(
+                visitedOn = v.visitedOn, rate = v.rate, eventName = v.eventName, publicNote = v.publicNote,
+                privateNote = v.privateNote, id = id,
+            ).value
+            if (updated == 0L) throw DomainException.NotFound()
+            db.visitMenuItemsQueries.deleteVisitMenuItemsByVisitLogId(id)
+            insertMenuItems(id, v.menuItems)
+        }
         call.respondTyped(v.toApi(id, visitImagesByVisitLogIds(db, images, listOf(id))[id].orEmpty()))
     }
 
     override suspend fun deleteVisitLog(visitId: String, call: ApplicationCall) {
         sessions.requireAdmin(call)
         val id = uuidOrNull(visitId) ?: throw DomainException.NotFound()
-        // The image rows go with the log; their objects are removed once that has committed.
+        // The image and menu item rows go with the log; the image objects are removed once that has committed.
         val keys = db.transactionWithResult {
+            db.visitMenuItemsQueries.deleteVisitMenuItemsByVisitLogId(id)
             val keys = db.visitImagesQueries.deleteVisitImagesByVisitLogId(id).executeAsList()
             if (db.visitLogsQueries.deleteVisitLog(id).value == 0L) throw DomainException.NotFound()
             keys
@@ -143,16 +170,31 @@ class VisitLogHandler(
 
     private fun uuidOrNull(raw: String): UUID? = runCatching { UUID.fromString(raw) }.getOrNull()
 
-    private fun Visit_logs.toApi(includePrivateNote: Boolean, images: List<VisitImage>) = VisitLog(
-        id = id.toString(), visitedOn = visited_on, menuName = menu_name, isLimitedMenu = is_limited_menu,
-        price = price?.toInt(), rate = rate, eventName = event_name, publicNote = public_note,
-        privateNote = private_note.takeIf { includePrivateNote }, images = images,
+    private fun insertMenuItems(visitId: UUID, items: List<MenuItem>) {
+        items.forEachIndexed { i, item ->
+            db.visitMenuItemsQueries.insertVisitMenuItem(
+                UUID.randomUUID(), visitId, item.name, item.isLimited, item.price?.toLong(), i.toLong(),
+            )
+        }
+    }
+
+    private fun menuItemsByVisitLogIds(visitIds: List<UUID>): Map<UUID, List<MenuItem>> {
+        if (visitIds.isEmpty()) return emptyMap()
+        return db.visitMenuItemsQueries.findVisitMenuItemsByVisitLogIds(visitIds).executeAsList().groupBy(
+            keySelector = { it.visit_log_id },
+            valueTransform = { MenuItem(name = it.name, isLimited = it.is_limited, price = it.price?.toInt()) },
+        )
+    }
+
+    private fun Visit_logs.toApi(includePrivateNote: Boolean, menuItems: List<MenuItem>, images: List<VisitImage>) = VisitLog(
+        id = id.toString(), visitedOn = visited_on, menuItems = menuItems, totalPrice = totalPrice(menuItems), rate = rate,
+        eventName = event_name, publicNote = public_note, privateNote = private_note.takeIf { includePrivateNote },
+        images = images,
     )
 
     // Only the admin writes, so the written log is returned with its 非公開メモ.
     private fun VisitFields.toApi(id: UUID, images: List<VisitImage>) = VisitLog(
-        id = id.toString(), visitedOn = visitedOn, menuName = menuName, isLimitedMenu = isLimitedMenu,
-        price = price, rate = rate, eventName = eventName, publicNote = publicNote, privateNote = privateNote,
-        images = images,
+        id = id.toString(), visitedOn = visitedOn, menuItems = menuItems, totalPrice = totalPrice(menuItems), rate = rate,
+        eventName = eventName, publicNote = publicNote, privateNote = privateNote, images = images,
     )
 }
