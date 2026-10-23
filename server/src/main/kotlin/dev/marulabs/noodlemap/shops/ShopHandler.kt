@@ -233,7 +233,7 @@ class ShopHandler(
     // --- Helpers ---
 
     // The one place the お気に入り rule lives (GLOSSARY.md): the shop's お気に入り度 is 80 or more. A shop
-    // only has a お気に入り度 through a rated visit log, so a favorite is always eaten.
+    // only gets お気に入り度 from a rated visit log, so a favorite is always eaten.
     private fun isFavorite(rate: Double?): Boolean = rate != null && rate >= 80.0
 
     private fun loadShops(): List<ShopRecord> {

@@ -269,7 +269,7 @@ export function AdminTable({
     createSortableColumn({
       property: "favoriteSort",
       header: "お気に入り度",
-      width: "100px",
+      width: "120px",
       render: (_favoriteSort, shop) => <MiniHearts rate={shop.rate} />,
     }),
     createSortableColumn({

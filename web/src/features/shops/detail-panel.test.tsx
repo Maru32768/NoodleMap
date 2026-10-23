@@ -135,7 +135,7 @@ describe("DetailPanel", () => {
     expect(links[0]).toHaveAttribute("rel", "noopener noreferrer");
   });
 
-  it("shows the rating only for visited shops", () => {
+  it("shows the お気に入り度 only for visited shops", () => {
     renderPanel(makeShop({ eaten: false, rate: 0 }));
 
     expect(
@@ -217,7 +217,7 @@ describe("DetailPanel visit logs", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows 未設定 instead of a 0 rating when no visit is rated", async () => {
+  it("shows 未設定 instead of a 0 お気に入り度 when no visit has one", async () => {
     serveVisits([visits[1]]);
     renderPanel(makeShop({ eaten: true, rate: 0, visitCount: 1 }));
 

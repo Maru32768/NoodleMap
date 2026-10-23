@@ -323,6 +323,7 @@ function HeartFilter({
         })}
         <input
           type="range"
+          aria-label="お気に入り度"
           min={0}
           max={100}
           step={10}
