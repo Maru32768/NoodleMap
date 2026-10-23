@@ -1,7 +1,6 @@
 package dev.marulabs.noodlemap.og
 
-import com.sun.net.httpserver.HttpServer
-import dev.marulabs.noodlemap.Config
+import dev.marulabs.noodlemap.FakeS3
 import dev.marulabs.noodlemap.PUBLIC_BASE_URL
 import dev.marulabs.noodlemap.addShopRequest
 import dev.marulabs.noodlemap.body
@@ -29,11 +28,6 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
 import java.io.ByteArrayInputStream
-import java.net.InetSocketAddress
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.CopyOnWriteArrayList
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
 import javax.imageio.ImageIO
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -43,47 +37,8 @@ import org.junit.jupiter.api.Test
 
 class OgApiTest {
 
-    /** A local stand-in for R2's S3 API: HEAD answers from [objects], PUT stores; [fail] makes every call 500. */
-    private class FakeS3 {
-        val objects = ConcurrentHashMap<String, ByteArray>()
-        val requests = CopyOnWriteArrayList<String>()
-        @Volatile var fail = false
-        @Volatile var headDelayMs = 0L
-
-        private val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0).apply {
-            executor = Executors.newCachedThreadPool()
-            createContext("/") { ex ->
-                val path = ex.requestURI.path
-                requests += "${ex.requestMethod} $path"
-                if (ex.requestMethod == "HEAD") Thread.sleep(headDelayMs)
-                val body = ex.requestBody.readBytes()
-                val status = when {
-                    fail -> 500
-                    ex.requestMethod == "PUT" -> 200.also { objects[path] = body }
-                    ex.requestMethod == "HEAD" -> if (objects.containsKey(path)) 200 else 404
-                    else -> 405
-                }
-                ex.sendResponseHeaders(status, -1)
-                ex.close()
-            }
-            start()
-        }
-
-        fun store() = R2OgImageStore(
-            Config.OgR2Config(
-                bucket = "og", endpoint = "http://127.0.0.1:${server.address.port}",
-                accessKeyId = "kid", secretAccessKey = "secret", publicBaseUrl = "https://og.example",
-            ),
-        )
-
-        fun stop() {
-            server.stop(0)
-            (server.executor as ExecutorService).shutdownNow()
-        }
-    }
-
     private val s3 = FakeS3()
-    private val store = s3.store()
+    private val store = R2OgImageStore(s3.r2Config("og", "https://og.example"))
 
     @AfterEach
     fun tearDown() {

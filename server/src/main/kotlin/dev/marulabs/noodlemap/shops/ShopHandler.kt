@@ -26,7 +26,9 @@ import dev.marulabs.noodlemap.generated.models.Tag
 import dev.marulabs.noodlemap.generated.models.TagsResponse
 import dev.marulabs.noodlemap.generated.models.UpdateShopRequest
 import dev.marulabs.noodlemap.generated.models.WishLevel
+import dev.marulabs.noodlemap.visits.VisitImageStore
 import dev.marulabs.noodlemap.visits.VisitSummary
+import dev.marulabs.noodlemap.visits.coverPhotoKeysByShop
 import dev.marulabs.noodlemap.visits.visitSummariesByShop
 import java.net.IDN
 import java.util.UUID
@@ -78,6 +80,7 @@ private fun isValidIpv4IfNumeric(host: String): Boolean {
 class ShopHandler(
     private val db: NoodleMapDb,
     private val sessions: SessionService,
+    private val visitImages: VisitImageStore,
 ) : ApiV1ShopsController, ApiV1TagsController, ApiV1AuthShopsController, ApiV1AuthTagsController {
 
     // --- Public reads ---
@@ -235,6 +238,7 @@ class ShopHandler(
         val tagsByShop = tagsByShopIds(rows.map { it.id })
         val linksByShop = linksByShopIds(rows.map { it.id })
         val visitsByShop = visitSummariesByShop(db)
+        val coversByShop = coverPhotoKeysByShop(db)
         return rows.map { r ->
             val visits = visitsByShop[r.id] ?: VisitSummary.NONE
             Shop(
@@ -247,6 +251,7 @@ class ShopHandler(
                 category = CategorySlug.fromValue(r.category) ?: CategorySlug.RAMEN,
                 tags = tagsByShop[r.id] ?: emptyList(),
                 links = linksByShop[r.id] ?: emptyList(),
+                coverPhotoUrl = coversByShop[r.id]?.let(visitImages::publicUrl),
             )
         }
     }

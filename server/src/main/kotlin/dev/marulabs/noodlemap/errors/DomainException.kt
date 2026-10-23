@@ -17,6 +17,8 @@ enum class ErrorType {
     @SerialName("google_places_not_configured") GOOGLE_PLACES_NOT_CONFIGURED,
     @SerialName("google_places_failed") GOOGLE_PLACES_FAILED,
     @SerialName("shop_has_visit_logs") SHOP_HAS_VISIT_LOGS,
+    @SerialName("visit_image_limit_reached") VISIT_IMAGE_LIMIT_REACHED,
+    @SerialName("visit_image_processing_busy") VISIT_IMAGE_PROCESSING_BUSY,
 }
 
 /** Field-level error kind. Values mirror TypeSpec `FieldErrorType`. */
@@ -118,6 +120,12 @@ sealed class DomainException(
 
     class ShopHasVisitLogs :
         DomainException(HttpStatusCode.Conflict, ErrorType.SHOP_HAS_VISIT_LOGS, "shop has visit logs")
+
+    class VisitImageLimitReached :
+        DomainException(HttpStatusCode.Conflict, ErrorType.VISIT_IMAGE_LIMIT_REACHED, "visit log has the maximum number of images")
+
+    class VisitImageProcessingBusy :
+        DomainException(HttpStatusCode.ServiceUnavailable, ErrorType.VISIT_IMAGE_PROCESSING_BUSY, "too many images are being processed")
 
     class InvalidTagCommand :
         DomainException(HttpStatusCode.BadRequest, ErrorType.INVALID_REQUEST, "invalid tag")

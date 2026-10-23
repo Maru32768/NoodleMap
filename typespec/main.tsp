@@ -21,6 +21,8 @@ union ErrorType {
   "google_places_not_configured",
   "google_places_failed",
   "shop_has_visit_logs",
+  "visit_image_limit_reached",
+  "visit_image_processing_busy",
 }
 
 union FieldErrorType {
@@ -102,6 +104,13 @@ union VisitLogField {
   "privateNote",
 }
 
+@doc("`file` is the uploaded image part; `imageIds` is the full ordered id list of a reorder.")
+union VisitImageField {
+  "file",
+  "caption",
+  "imageIds",
+}
+
 union TagField {
   "category",
   "label",
@@ -130,6 +139,12 @@ model UpdateShopFieldError {
 
 model VisitLogFieldError {
   field: VisitLogField;
+  type: FieldErrorType;
+  message?: string;
+}
+
+model VisitImageFieldError {
+  field: VisitImageField;
   type: FieldErrorType;
   message?: string;
 }
@@ -169,6 +184,12 @@ model VisitLogBadRequestErrorBody {
   fieldErrors?: VisitLogFieldError[];
 }
 
+model VisitImageBadRequestErrorBody {
+  type: "invalid_request";
+  message?: string;
+  fieldErrors?: VisitImageFieldError[];
+}
+
 model TagBadRequestErrorBody {
   type: "invalid_request";
   message?: string;
@@ -201,6 +222,18 @@ model ShopHasVisitLogsErrorBody {
   message?: string;
 }
 
+@doc("The visit log already has the maximum number of images (10).")
+model VisitImageLimitReachedErrorBody {
+  type: "visit_image_limit_reached";
+  message?: string;
+}
+
+@doc("Too many images are being processed right now; retry shortly.")
+model VisitImageProcessingBusyErrorBody {
+  type: "visit_image_processing_busy";
+  message?: string;
+}
+
 model InternalErrorBody {
   type: "internal_error";
   message?: string;
@@ -230,6 +263,9 @@ alias ErrorBody =
   NotFoundErrorBody |
   ShopHasVisitLogsErrorBody |
   VisitLogBadRequestErrorBody |
+  VisitImageBadRequestErrorBody |
+  VisitImageLimitReachedErrorBody |
+  VisitImageProcessingBusyErrorBody |
   InternalErrorBody |
   GooglePlacesNotConfiguredErrorBody |
   GooglePlacesFailedErrorBody;
@@ -362,6 +398,9 @@ model Shop {
 
   @doc("External links (official site, SNS, ...) in display order.")
   links: ShopLink[];
+
+  @doc("Derived on the server: URL of the first image of the latest visit log that has images. Absent when none has.")
+  coverPhotoUrl?: string;
 }
 
 @doc("One 訪問ログ. Visit logs are listed newest first: by visitedOn, those without one last, then by creation.")
@@ -387,6 +426,42 @@ model VisitLog {
 
   @doc("Only in responses to the admin; omitted for everyone else.")
   privateNote?: string;
+
+  @doc("The visit's images in display order; the first one represents the visit.")
+  images: VisitImage[];
+}
+
+@doc("One 訪問画像: a JPEG whose long edge is at most 2048 px, already rotated upright.")
+model VisitImage {
+  id: uuid;
+
+  @doc("Absolute URL of the JPEG.")
+  url: string;
+
+  width: int32;
+  height: int32;
+
+  caption?: string;
+}
+
+model VisitImagesResponse {
+  images: VisitImage[];
+}
+
+@doc("A JPEG or PNG of at most 15 MB. HEIC and WebP are converted to JPEG by the client before upload.")
+model UploadVisitImageRequest {
+  file: HttpPart<File>;
+}
+
+@doc("Trimmed; blank or omitted clears the caption.")
+model UpdateVisitImageRequest {
+  @maxLength(100)
+  caption?: string;
+}
+
+@doc("Every image id of the visit log exactly once, in the new display order.")
+model ReorderVisitImagesRequest {
+  imageIds: uuid[];
 }
 
 model VisitLogsResponse {
@@ -643,10 +718,45 @@ op updateVisitLog(
   @body body: VisitLogInput,
 ): OkResponse<VisitLog> | BadRequestResponse<VisitLogBadRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | NotFoundResponse<NotFoundErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
 
+@doc("Deletes a visit log with its images.")
 @delete
 @route("/auth/visits/{visitId}")
 op deleteVisitLog(
   @path visitId: uuid,
+): NoContentResponse | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | NotFoundResponse<NotFoundErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
+
+@doc("""
+  Adds an image at the end of a visit log's images (at most 10). The server applies the EXIF orientation,
+  scales the long edge down to 2048 px and stores a JPEG without metadata.
+  """)
+@post
+@route("/auth/visits/{visitId}/images")
+op uploadVisitImage(
+  @path visitId: uuid,
+  @header contentType: "multipart/form-data",
+  @multipartBody body: UploadVisitImageRequest,
+): OkResponse<VisitImage> | BadRequestResponse<VisitImageBadRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | NotFoundResponse<NotFoundErrorBody> | ConflictResponse<VisitImageLimitReachedErrorBody> | InternalServerErrorResponse<InternalErrorBody> | ServiceUnavailableResponse<VisitImageProcessingBusyErrorBody>;
+
+@doc("Replaces the display order of a visit log's images.")
+@put
+@route("/auth/visits/{visitId}/images/order")
+op reorderVisitImages(
+  @path visitId: uuid,
+  @body body: ReorderVisitImagesRequest,
+): OkResponse<VisitImagesResponse> | BadRequestResponse<VisitImageBadRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | NotFoundResponse<NotFoundErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
+
+@doc("Updates an image's caption.")
+@put
+@route("/auth/visit-images/{imageId}")
+op updateVisitImage(
+  @path imageId: uuid,
+  @body body: UpdateVisitImageRequest,
+): OkResponse<VisitImage> | BadRequestResponse<VisitImageBadRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | NotFoundResponse<NotFoundErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
+
+@delete
+@route("/auth/visit-images/{imageId}")
+op deleteVisitImage(
+  @path imageId: uuid,
 ): NoContentResponse | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | NotFoundResponse<NotFoundErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
 
 @doc("Admin-only Google Places (New) autocomplete proxy. A blank query returns no suggestions.")

@@ -24,6 +24,7 @@ class ConfigTest {
             backup = Config.BackupConfig(snapshotPath = "/data/app.db.bak", s3Bucket = null, s3Prefix = null, awsRegion = null),
             publicBaseUrl = "http://localhost:8080",
             ogR2 = null,
+            visitImagesR2 = null,
         )
     }
 
@@ -40,7 +41,7 @@ class ConfigTest {
         )
         val cfg = load(*r2)
 
-        cfg.ogR2 shouldBe Config.OgR2Config("og", "https://acct.r2.cloudflarestorage.com", "kid", "r2-secret", "https://og.example")
+        cfg.ogR2 shouldBe Config.R2Config("og", "https://acct.r2.cloudflarestorage.com", "kid", "r2-secret", "https://og.example")
         cfg.toString() shouldNotContain "r2-secret"
         load(*r2, "OG_R2_ENDPOINT" to "https://acct.r2.cloudflarestorage.com/").ogR2?.endpoint shouldBe
             "https://acct.r2.cloudflarestorage.com"
@@ -54,6 +55,27 @@ class ConfigTest {
             .message shouldContain "OG_R2_ENDPOINT must be the account endpoint without a path"
         shouldThrow<IllegalStateException> { load(*r2, "OG_R2_PUBLIC_BASE_URL" to "ftp://og.example") }
             .message shouldContain "OG_R2_PUBLIC_BASE_URL"
+    }
+
+    @Test
+    fun `visit image R2 settings are all or nothing, validated like the OG ones, and hide the secret`() {
+        val r2 = arrayOf(
+            "VISIT_IMAGES_R2_BUCKET" to "images", "VISIT_IMAGES_R2_ENDPOINT" to "https://acct.r2.cloudflarestorage.com/",
+            "VISIT_IMAGES_R2_ACCESS_KEY_ID" to "kid", "VISIT_IMAGES_R2_SECRET_ACCESS_KEY" to "images-secret",
+            "VISIT_IMAGES_R2_PUBLIC_BASE_URL" to "https://images.example/",
+        )
+        val cfg = load(*r2)
+
+        cfg.visitImagesR2 shouldBe
+            Config.R2Config("images", "https://acct.r2.cloudflarestorage.com", "kid", "images-secret", "https://images.example")
+        cfg.ogR2 shouldBe null
+        cfg.toString() shouldNotContain "images-secret"
+        shouldThrow<IllegalStateException> { load(*r2.drop(3).toTypedArray()) }.message shouldContain
+            "Set all VISIT_IMAGES_R2_* variables or none; missing: VISIT_IMAGES_R2_BUCKET, VISIT_IMAGES_R2_ENDPOINT, VISIT_IMAGES_R2_ACCESS_KEY_ID"
+        shouldThrow<IllegalStateException> { load(*r2, "VISIT_IMAGES_R2_ENDPOINT" to "https://acct.r2.cloudflarestorage.com/images") }
+            .message shouldContain "VISIT_IMAGES_R2_ENDPOINT must be the account endpoint without a path"
+        shouldThrow<IllegalStateException> { load(*r2, "VISIT_IMAGES_R2_PUBLIC_BASE_URL" to "images.example") }
+            .message shouldContain "VISIT_IMAGES_R2_PUBLIC_BASE_URL"
     }
 
     @Test

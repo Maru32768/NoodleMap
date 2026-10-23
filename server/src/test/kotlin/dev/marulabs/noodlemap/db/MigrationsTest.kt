@@ -45,10 +45,13 @@ class MigrationsTest {
 
             conn.version() shouldBe migrations.maxOf { it.version }
             conn.strings("SELECT name FROM sqlite_master WHERE type = 'table'") shouldContainAll
-                listOf("users", "sessions", "shops", "tags", "shops_tags", "shop_images", "shop_links", "visit_logs")
+                listOf("users", "sessions", "shops", "tags", "shops_tags", "shop_images", "shop_links", "visit_logs", "visit_images")
             conn.strings("SELECT name FROM sqlite_master WHERE name = 'eaten_shops'") shouldBe emptyList()
             conn.strings("SELECT name FROM sqlite_master WHERE type = 'trigger'") shouldContainAll
-                listOf("update_users_modtime", "update_shops_modtime", "update_tags_modtime", "update_shop_links_modtime", "update_visit_logs_modtime")
+                listOf(
+                    "update_users_modtime", "update_shops_modtime", "update_tags_modtime", "update_shop_links_modtime",
+                    "update_visit_logs_modtime", "update_visit_images_modtime",
+                )
         }
     }
 
@@ -225,6 +228,31 @@ class MigrationsTest {
             migrate(conn, listOf(Migration(1, statements, useTransaction = false)))
             conn.strings("SELECT count(*) FROM goose_db_version WHERE version_id = 1") shouldBe listOf("1")
             conn.strings("PRAGMA foreign_keys") shouldBe listOf("1")
+        }
+    }
+
+    @Test
+    fun `00015 visit images pin their visit log and keep captions to 100 characters`() {
+        withPooledDb { conn ->
+            migrate(conn, loadMigrations())
+            conn.createStatement().use { st ->
+                st.executeUpdate("INSERT INTO shops (id, name, lat, lng, postal_code, address) VALUES ('s1', 'shop', 0, 0, '', '')")
+                st.executeUpdate("INSERT INTO visit_logs (id, shop_id) VALUES ('v1', 's1')")
+                st.executeUpdate(
+                    "INSERT INTO visit_images (id, visit_log_id, storage_key, width, height, caption, sort_order) " +
+                        "VALUES ('i1', 'v1', 'visits/v1/i1.jpg', 10, 20, '${"あ".repeat(100)}', 0)",
+                )
+                shouldThrow<Exception> {
+                    st.executeUpdate("INSERT INTO visit_images (id, visit_log_id, storage_key, width, height, sort_order) VALUES ('i2', 'nope', 'k', 1, 1, 0)")
+                }
+                shouldThrow<Exception> {
+                    st.executeUpdate(
+                        "INSERT INTO visit_images (id, visit_log_id, storage_key, width, height, caption, sort_order) " +
+                            "VALUES ('i3', 'v1', 'k', 1, 1, '${"あ".repeat(101)}', 1)",
+                    )
+                }
+                shouldThrow<Exception> { st.executeUpdate("DELETE FROM visit_logs WHERE id = 'v1'") }
+            }
         }
     }
 

@@ -66,6 +66,7 @@ fun buildDatabase(dataSource: DataSource): NoodleMapDb {
         shop_imagesAdapter = Shop_images.Adapter(idAdapter = UuidAdapter, shop_idAdapter = UuidAdapter),
         shop_linksAdapter = Shop_links.Adapter(idAdapter = UuidAdapter, shop_idAdapter = UuidAdapter),
         visit_logsAdapter = Visit_logs.Adapter(idAdapter = UuidAdapter, shop_idAdapter = UuidAdapter),
+        visit_imagesAdapter = Visit_images.Adapter(idAdapter = UuidAdapter, visit_log_idAdapter = UuidAdapter),
     )
 }
 

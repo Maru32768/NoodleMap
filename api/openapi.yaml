@@ -517,6 +517,94 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/SaveTagsRequest'
+  /api/v1/auth/visit-images/{imageId}:
+    put:
+      operationId: updateVisitImage
+      description: Updates an image's caption.
+      parameters:
+        - name: imageId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VisitImage'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VisitImageBadRequestErrorBody'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthenticationRequiredErrorBody'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionDeniedErrorBody'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorBody'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalErrorBody'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateVisitImageRequest'
+    delete:
+      operationId: deleteVisitImage
+      parameters:
+        - name: imageId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '204':
+          description: 'There is no content to send for this request, but the headers may be useful. '
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthenticationRequiredErrorBody'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionDeniedErrorBody'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorBody'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalErrorBody'
   /api/v1/auth/visits/{visitId}:
     put:
       operationId: updateVisitLog
@@ -572,6 +660,7 @@ paths:
               $ref: '#/components/schemas/VisitLogInput'
     delete:
       operationId: deleteVisitLog
+      description: Deletes a visit log with its images.
       parameters:
         - name: visitId
           in: path
@@ -605,6 +694,129 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/InternalErrorBody'
+  /api/v1/auth/visits/{visitId}/images:
+    post:
+      operationId: uploadVisitImage
+      description: |-
+        Adds an image at the end of a visit log's images (at most 10). The server applies the EXIF orientation,
+        scales the long edge down to 2048 px and stores a JPEG without metadata.
+      parameters:
+        - name: visitId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VisitImage'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VisitImageBadRequestErrorBody'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthenticationRequiredErrorBody'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionDeniedErrorBody'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorBody'
+        '409':
+          description: The request conflicts with the current state of the server.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VisitImageLimitReachedErrorBody'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalErrorBody'
+        '503':
+          description: Service unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VisitImageProcessingBusyErrorBody'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UploadVisitImageRequest'
+            encoding:
+              file:
+                contentType: '*/*'
+  /api/v1/auth/visits/{visitId}/images/order:
+    put:
+      operationId: reorderVisitImages
+      description: Replaces the display order of a visit log's images.
+      parameters:
+        - name: visitId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VisitImagesResponse'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VisitImageBadRequestErrorBody'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthenticationRequiredErrorBody'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionDeniedErrorBody'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorBody'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalErrorBody'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReorderVisitImagesRequest'
   /api/v1/shops:
     get:
       operationId: listShops
@@ -819,6 +1031,8 @@ components:
         - google_places_not_configured
         - google_places_failed
         - shop_has_visit_logs
+        - visit_image_limit_reached
+        - visit_image_processing_busy
     FieldErrorType:
       type: string
       enum:
@@ -985,6 +1199,16 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PlaceSuggestion'
+    ReorderVisitImagesRequest:
+      type: object
+      required:
+        - imageIds
+      properties:
+        imageIds:
+          type: array
+          items:
+            $ref: '#/components/schemas/uuid'
+      description: Every image id of the visit log exactly once, in the new display order.
     SaveTagsRequest:
       type: object
       required:
@@ -1086,6 +1310,9 @@ components:
           items:
             $ref: '#/components/schemas/ShopLink'
           description: External links (official site, SNS, ...) in display order.
+        coverPhotoUrl:
+          type: string
+          description: 'Derived on the server: URL of the first image of the latest visit log that has images. Absent when none has.'
     ShopHasVisitLogsErrorBody:
       type: object
       required:
@@ -1335,6 +1562,21 @@ components:
             $ref: '#/components/schemas/ShopLinkInput'
           maxItems: 10
           description: Omit to keep the stored links (older clients); an array replaces them all, in array order. At most 10.
+    UpdateVisitImageRequest:
+      type: object
+      properties:
+        caption:
+          type: string
+          maxLength: 100
+      description: Trimmed; blank or omitted clears the caption.
+    UploadVisitImageRequest:
+      type: object
+      properties:
+        file:
+          type: string
+          format: binary
+      required:
+        - file
     User:
       type: object
       required:
@@ -1348,11 +1590,101 @@ components:
           type: string
         isAdmin:
           type: boolean
+    VisitImage:
+      type: object
+      required:
+        - id
+        - url
+        - width
+        - height
+      properties:
+        id:
+          $ref: '#/components/schemas/uuid'
+        url:
+          type: string
+          description: Absolute URL of the JPEG.
+        width:
+          type: integer
+          format: int32
+        height:
+          type: integer
+          format: int32
+        caption:
+          type: string
+      description: 'One 訪問画像: a JPEG whose long edge is at most 2048 px, already rotated upright.'
+    VisitImageBadRequestErrorBody:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum:
+            - invalid_request
+        message:
+          type: string
+        fieldErrors:
+          type: array
+          items:
+            $ref: '#/components/schemas/VisitImageFieldError'
+    VisitImageField:
+      type: string
+      enum:
+        - file
+        - caption
+        - imageIds
+      description: '`file` is the uploaded image part; `imageIds` is the full ordered id list of a reorder.'
+    VisitImageFieldError:
+      type: object
+      required:
+        - field
+        - type
+      properties:
+        field:
+          $ref: '#/components/schemas/VisitImageField'
+        type:
+          $ref: '#/components/schemas/FieldErrorType'
+        message:
+          type: string
+    VisitImageLimitReachedErrorBody:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum:
+            - visit_image_limit_reached
+        message:
+          type: string
+      description: The visit log already has the maximum number of images (10).
+    VisitImageProcessingBusyErrorBody:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum:
+            - visit_image_processing_busy
+        message:
+          type: string
+      description: Too many images are being processed right now; retry shortly.
+    VisitImagesResponse:
+      type: object
+      required:
+        - images
+      properties:
+        images:
+          type: array
+          items:
+            $ref: '#/components/schemas/VisitImage'
     VisitLog:
       type: object
       required:
         - id
         - isLimitedMenu
+        - images
       properties:
         id:
           $ref: '#/components/schemas/uuid'
@@ -1379,6 +1711,11 @@ components:
         privateNote:
           type: string
           description: Only in responses to the admin; omitted for everyone else.
+        images:
+          type: array
+          items:
+            $ref: '#/components/schemas/VisitImage'
+          description: The visit's images in display order; the first one represents the visit.
       description: 'One 訪問ログ. Visit logs are listed newest first: by visitedOn, those without one last, then by creation.'
     VisitLogBadRequestErrorBody:
       type: object

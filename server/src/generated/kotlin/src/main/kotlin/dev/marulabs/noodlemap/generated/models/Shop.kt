@@ -81,4 +81,10 @@ public data class Shop(
    */
   @SerialName("links")
   public val links: List<ShopLink>,
+  /**
+   * Derived on the server: URL of the first image of the latest visit log that has images. Absent
+   * when none has.
+   */
+  @SerialName("coverPhotoUrl")
+  public val coverPhotoUrl: String? = null,
 )

@@ -16,6 +16,9 @@ import dev.marulabs.noodlemap.og.OgHandler
 import dev.marulabs.noodlemap.og.R2OgImageStore
 import dev.marulabs.noodlemap.places.PlacesHandler
 import dev.marulabs.noodlemap.shops.ShopHandler
+import dev.marulabs.noodlemap.visits.LocalVisitImageStore
+import dev.marulabs.noodlemap.visits.VisitImageHandler
+import dev.marulabs.noodlemap.visits.VisitImageStore
 import dev.marulabs.noodlemap.visits.VisitLogHandler
 import io.ktor.client.HttpClient
 import io.ktor.client.request.HttpRequestBuilder
@@ -46,6 +49,7 @@ private val placesHttp = JdkHttpClient.newHttpClient()
 /** A migrated SQLite file DB plus the real services built on it. */
 class TestDb(val config: Config, val dataSource: HikariDataSource, val db: NoodleMapDb) {
     val sessions = SessionService(db, config)
+    val localVisitImages = LocalVisitImageStore.nextToDatabase(config.dbPath, config.publicBaseUrl)
 
     fun seedUser(email: String): UUID =
         UUID.randomUUID().also { db.usersQueries.insertUser(id = it, email = email, google_sub = "sub-$it") }
@@ -73,6 +77,7 @@ fun testConfig(dbPath: String, adminEmail: String = ADMIN_EMAIL, cookieSecure: B
     backup = Config.BackupConfig(snapshotPath = "$dbPath.bak", s3Bucket = null, s3Prefix = null, awsRegion = null),
     publicBaseUrl = PUBLIC_BASE_URL,
     ogR2 = null,
+    visitImagesR2 = null,
 )
 
 const val PUBLIC_BASE_URL = "https://noodle.example"
@@ -98,15 +103,20 @@ fun testApp(
     placesBaseUrl: String = "http://127.0.0.1:9",
     ogStore: R2OgImageStore? = null,
     ogMaxPendingRenders: Int = 4,
+    // Null stores visit images on local disk next to the test database, as the app does without R2.
+    visitImageStore: VisitImageStore? = null,
+    visitImageMaxPendingUploads: Int = 2,
     block: suspend ApplicationTestBuilder.(TestDb) -> Unit,
 ) = withTestDb(adminEmail, cookieSecure) { t ->
     testApplication {
         application {
-            val shopHandler = ShopHandler(t.db, t.sessions)
+            val images = visitImageStore ?: t.localVisitImages
+            val shopHandler = ShopHandler(t.db, t.sessions, images)
             installApp(
                 AuthHandler(t.db, GoogleVerifier(t.config.googleOAuthClientId), t.sessions),
                 shopHandler,
-                VisitLogHandler(t.db, t.sessions),
+                VisitLogHandler(t.db, t.sessions, images),
+                VisitImageHandler(t.db, t.sessions, images, visitImageMaxPendingUploads),
                 PlacesHandler(t.sessions, placesApiKey, placesBaseUrl, placesHttp),
                 OgHandler(shopHandler, t.config.publicBaseUrl, ogStore, ogMaxPendingRenders),
             )
