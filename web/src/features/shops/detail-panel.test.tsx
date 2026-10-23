@@ -164,8 +164,9 @@ describe("DetailPanel visit logs", () => {
       rate: 85,
       eventName: "大つけ麺博",
       publicNote: "スープが濃厚",
+      images: [],
     },
-    { id: "00000000-0000-4000-8000-0000000000a2", isLimitedMenu: false },
+    { id: "00000000-0000-4000-8000-0000000000a2", isLimitedMenu: false, images: [] },
   ];
 
   it("lists the visits with the visit count for a guest", async () => {

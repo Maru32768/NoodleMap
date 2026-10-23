@@ -39,12 +39,14 @@ const visits: VisitLog[] = [
     rate: 90,
     publicNote: "煮干しの香りが強い",
     privateNote: "次は味玉トッピング",
+    images: [],
   },
   {
     id: "00000000-0000-4000-8000-0000000000c2",
     menuName: "冬季限定 味噌",
     isLimitedMenu: true,
     eventName: "大つけ麺博",
+    images: [],
   },
 ];
 

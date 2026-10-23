@@ -28,6 +28,7 @@ const visit: VisitLog = {
   rate: 70,
   publicNote: "あっさり",
   privateNote: "次は大盛り",
+  images: [],
 };
 
 // Renders the edit modal on 訪問ログ and records the API traffic.
