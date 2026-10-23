@@ -49,5 +49,8 @@ findAllVisitSummaries:
 SELECT id, shop_id, visited_on, rate, created_at
 FROM visit_logs;
 
+visitLogExists:
+SELECT EXISTS (SELECT 1 FROM visit_logs WHERE id = ?);
+
 shopHasVisitLogs:
 SELECT EXISTS (SELECT 1 FROM visit_logs WHERE shop_id = ?);

@@ -11,6 +11,7 @@ import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthShopsVisitsControll
 import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthVisitsController
 import dev.marulabs.noodlemap.generated.controllers.ApiV1ShopsVisitsController
 import dev.marulabs.noodlemap.generated.controllers.TypedApplicationCall
+import dev.marulabs.noodlemap.generated.models.VisitImage
 import dev.marulabs.noodlemap.generated.models.VisitLog
 import dev.marulabs.noodlemap.generated.models.VisitLogInput
 import dev.marulabs.noodlemap.generated.models.VisitLogsResponse
@@ -83,6 +84,7 @@ internal fun normalizeVisit(input: VisitLogInput, today: LocalDate): VisitFields
 class VisitLogHandler(
     private val db: NoodleMapDb,
     private val sessions: SessionService,
+    private val images: VisitImageStore,
 ) : ApiV1ShopsVisitsController, ApiV1AuthShopsVisitsController, ApiV1AuthVisitsController {
 
     override suspend fun listVisitLogs(id: String, call: TypedApplicationCall<VisitLogsResponse>) {
@@ -90,9 +92,9 @@ class VisitLogHandler(
         // 非公開メモ is left out on the server for everyone but the admin, not hidden by the client.
         val includePrivateNote = sessions.authenticate(call)?.isAdmin == true
         if (!db.shopsQueries.shopExists(shopId).executeAsOne()) throw DomainException.NotFound()
-        val visits = db.visitLogsQueries.findVisitLogsByShopId(shopId).executeAsList()
-            .sortedWith(VISIT_ORDER)
-            .map { it.toApi(includePrivateNote) }
+        val rows = db.visitLogsQueries.findVisitLogsByShopId(shopId).executeAsList().sortedWith(VISIT_ORDER)
+        val imagesByVisit = visitImagesByVisitLogIds(db, images, rows.map { it.id })
+        val visits = rows.map { it.toApi(includePrivateNote, imagesByVisit[it.id].orEmpty()) }
         call.respondTyped(VisitLogsResponse(visits = visits))
     }
 
@@ -111,7 +113,7 @@ class VisitLogHandler(
             if (e.resultCode == SQLiteErrorCode.SQLITE_CONSTRAINT_FOREIGNKEY) throw DomainException.NotFound()
             throw e
         }
-        call.respondTyped(v.toApi(visitId))
+        call.respondTyped(v.toApi(visitId, images = emptyList()))
     }
 
     override suspend fun updateVisitLog(visitId: String, visitLogInput: VisitLogInput, call: TypedApplicationCall<VisitLog>) {
@@ -123,27 +125,34 @@ class VisitLogHandler(
             rate = v.rate, eventName = v.eventName, publicNote = v.publicNote, privateNote = v.privateNote, id = id,
         ).value
         if (updated == 0L) throw DomainException.NotFound()
-        call.respondTyped(v.toApi(id))
+        call.respondTyped(v.toApi(id, visitImagesByVisitLogIds(db, images, listOf(id))[id].orEmpty()))
     }
 
     override suspend fun deleteVisitLog(visitId: String, call: ApplicationCall) {
         sessions.requireAdmin(call)
         val id = uuidOrNull(visitId) ?: throw DomainException.NotFound()
-        if (db.visitLogsQueries.deleteVisitLog(id).value == 0L) throw DomainException.NotFound()
+        // The image rows go with the log; their objects are removed once that has committed.
+        val keys = db.transactionWithResult {
+            val keys = db.visitImagesQueries.deleteVisitImagesByVisitLogId(id).executeAsList()
+            if (db.visitLogsQueries.deleteVisitLog(id).value == 0L) throw DomainException.NotFound()
+            keys
+        }
+        deleteStoredVisitImages(images, keys)
         call.respond(HttpStatusCode.NoContent)
     }
 
     private fun uuidOrNull(raw: String): UUID? = runCatching { UUID.fromString(raw) }.getOrNull()
 
-    private fun Visit_logs.toApi(includePrivateNote: Boolean) = VisitLog(
+    private fun Visit_logs.toApi(includePrivateNote: Boolean, images: List<VisitImage>) = VisitLog(
         id = id.toString(), visitedOn = visited_on, menuName = menu_name, isLimitedMenu = is_limited_menu,
         price = price?.toInt(), rate = rate, eventName = event_name, publicNote = public_note,
-        privateNote = private_note.takeIf { includePrivateNote },
+        privateNote = private_note.takeIf { includePrivateNote }, images = images,
     )
 
     // Only the admin writes, so the written log is returned with its 非公開メモ.
-    private fun VisitFields.toApi(id: UUID) = VisitLog(
+    private fun VisitFields.toApi(id: UUID, images: List<VisitImage>) = VisitLog(
         id = id.toString(), visitedOn = visitedOn, menuName = menuName, isLimitedMenu = isLimitedMenu,
         price = price, rate = rate, eventName = eventName, publicNote = publicNote, privateNote = privateNote,
+        images = images,
     )
 }

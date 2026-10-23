@@ -38,6 +38,8 @@ public interface ApiV1AuthVisitsController {
   )
 
   /**
+   * Deletes a visit log with its images.
+   *
    * Route is expected to respond with status 204.
    * Use [io.ktor.server.response.respond] to send the response.
    *
@@ -51,7 +53,7 @@ public interface ApiV1AuthVisitsController {
      * Mounts all routes for the ApiV1AuthVisits resource
      *
      * - PUT /api/v1/auth/visits/{visitId} Replaces every field of a visit log.
-     * - DELETE /api/v1/auth/visits/{visitId} 
+     * - DELETE /api/v1/auth/visits/{visitId} Deletes a visit log with its images.
      */
     public fun Route.apiV1AuthVisitsRoutes(controller: ApiV1AuthVisitsController) {
       put("/api/v1/auth/visits/{visitId}") {

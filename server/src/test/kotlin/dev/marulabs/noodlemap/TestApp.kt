@@ -5,6 +5,7 @@ import dev.marulabs.noodlemap.auth.AuthHandler
 import dev.marulabs.noodlemap.auth.GoogleVerifier
 import dev.marulabs.noodlemap.auth.SessionService
 import dev.marulabs.noodlemap.auth.SessionTokens
+import dev.marulabs.noodlemap.common.BitmapWorkGate
 import dev.marulabs.noodlemap.common.SessionTime
 import dev.marulabs.noodlemap.db.NoodleMapDb
 import dev.marulabs.noodlemap.db.buildDataSource
@@ -16,6 +17,9 @@ import dev.marulabs.noodlemap.og.OgHandler
 import dev.marulabs.noodlemap.og.R2OgImageStore
 import dev.marulabs.noodlemap.places.PlacesHandler
 import dev.marulabs.noodlemap.shops.ShopHandler
+import dev.marulabs.noodlemap.visits.LocalVisitImageStore
+import dev.marulabs.noodlemap.visits.VisitImageHandler
+import dev.marulabs.noodlemap.visits.VisitImageStore
 import dev.marulabs.noodlemap.visits.VisitLogHandler
 import io.ktor.client.HttpClient
 import io.ktor.client.request.HttpRequestBuilder
@@ -46,6 +50,7 @@ private val placesHttp = JdkHttpClient.newHttpClient()
 /** A migrated SQLite file DB plus the real services built on it. */
 class TestDb(val config: Config, val dataSource: HikariDataSource, val db: NoodleMapDb) {
     val sessions = SessionService(db, config)
+    val localVisitImages = LocalVisitImageStore.nextToDatabase(config.dbPath, config.publicBaseUrl)
 
     fun seedUser(email: String): UUID =
         UUID.randomUUID().also { db.usersQueries.insertUser(id = it, email = email, google_sub = "sub-$it") }
@@ -63,7 +68,12 @@ class TestDb(val config: Config, val dataSource: HikariDataSource, val db: Noodl
         dataSource.connection.use { c -> c.createStatement().executeQuery("SELECT count(*) FROM sessions").use { it.getLong(1) } }
 }
 
-fun testConfig(dbPath: String, adminEmail: String = ADMIN_EMAIL, cookieSecure: Boolean = false) = Config(
+fun testConfig(
+    dbPath: String,
+    adminEmail: String = ADMIN_EMAIL,
+    cookieSecure: Boolean = false,
+    publicBaseUrl: String = PUBLIC_BASE_URL,
+) = Config(
     dbPath = dbPath,
     serverPort = 0,
     googleOAuthClientId = "test-client",
@@ -71,15 +81,21 @@ fun testConfig(dbPath: String, adminEmail: String = ADMIN_EMAIL, cookieSecure: B
     cookieSecure = cookieSecure,
     googlePlacesApiKey = "",
     backup = Config.BackupConfig(snapshotPath = "$dbPath.bak", s3Bucket = null, s3Prefix = null, awsRegion = null),
-    publicBaseUrl = PUBLIC_BASE_URL,
+    publicBaseUrl = publicBaseUrl,
     ogR2 = null,
+    visitImagesR2 = null,
 )
 
 const val PUBLIC_BASE_URL = "https://noodle.example"
 
-fun withTestDb(adminEmail: String = ADMIN_EMAIL, cookieSecure: Boolean = false, block: (TestDb) -> Unit) {
+fun withTestDb(
+    adminEmail: String = ADMIN_EMAIL,
+    cookieSecure: Boolean = false,
+    publicBaseUrl: String = PUBLIC_BASE_URL,
+    block: (TestDb) -> Unit,
+) {
     val dir = Files.createTempDirectory("noodlemap-test")
-    val config = testConfig(dir.resolve("test.db").toString(), adminEmail, cookieSecure)
+    val config = testConfig(dir.resolve("test.db").toString(), adminEmail, cookieSecure, publicBaseUrl)
     val ds = buildDataSource(config.dbPath)
     try {
         block(TestDb(config, ds, buildDatabase(ds)))
@@ -97,18 +113,25 @@ fun testApp(
     // Nothing listens on port 9; tests that reach Google pass a local fake server's URL.
     placesBaseUrl: String = "http://127.0.0.1:9",
     ogStore: R2OgImageStore? = null,
-    ogMaxPendingRenders: Int = 4,
+    maxPendingBitmapWork: Int = 3,
+    // Null stores visit images on local disk next to the test database, as the app does without R2.
+    visitImageStore: VisitImageStore? = null,
+    // An http URL puts the app in local-development mode (local-disk images, localhost upload origins).
+    publicBaseUrl: String = PUBLIC_BASE_URL,
     block: suspend ApplicationTestBuilder.(TestDb) -> Unit,
-) = withTestDb(adminEmail, cookieSecure) { t ->
+) = withTestDb(adminEmail, cookieSecure, publicBaseUrl) { t ->
     testApplication {
         application {
-            val shopHandler = ShopHandler(t.db, t.sessions)
+            val images = visitImageStore ?: t.localVisitImages
+            val bitmapWork = BitmapWorkGate(maxPendingBitmapWork)
+            val shopHandler = ShopHandler(t.db, t.sessions, images)
             installApp(
                 AuthHandler(t.db, GoogleVerifier(t.config.googleOAuthClientId), t.sessions),
                 shopHandler,
-                VisitLogHandler(t.db, t.sessions),
+                VisitLogHandler(t.db, t.sessions, images),
+                VisitImageHandler(t.db, t.sessions, images, bitmapWork, t.config.publicBaseUrl),
                 PlacesHandler(t.sessions, placesApiKey, placesBaseUrl, placesHttp),
-                OgHandler(shopHandler, t.config.publicBaseUrl, ogStore, ogMaxPendingRenders),
+                OgHandler(shopHandler, t.config.publicBaseUrl, ogStore, bitmapWork),
             )
         }
         block(t)

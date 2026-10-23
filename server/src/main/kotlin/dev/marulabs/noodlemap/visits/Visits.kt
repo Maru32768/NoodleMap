@@ -1,5 +1,6 @@
 package dev.marulabs.noodlemap.visits
 
+import dev.marulabs.noodlemap.db.FindAllVisitCovers
 import dev.marulabs.noodlemap.db.FindAllVisitSummaries
 import dev.marulabs.noodlemap.db.NoodleMapDb
 import java.util.UUID
@@ -33,3 +34,13 @@ internal fun summarize(visits: List<FindAllVisitSummaries>): VisitSummary =
 /** Summaries of every shop with a visit log, from one query; shops without one are absent. */
 fun visitSummariesByShop(db: NoodleMapDb): Map<UUID, VisitSummary> =
     db.visitLogsQueries.findAllVisitSummaries().executeAsList().groupBy { it.shop_id }.mapValues { summarize(it.value) }
+
+private val COVER_ORDER = latestFirst<FindAllVisitCovers>({ it.visited_on }, { it.created_at }, { it.visit_log_id })
+
+/**
+ * 代表写真 of every shop that has one, as storage keys from one query: the first image of the latest visit
+ * log that has images (GLOSSARY.md). Shops without one are absent.
+ */
+fun coverPhotoKeysByShop(db: NoodleMapDb): Map<UUID, String> =
+    db.visitImagesQueries.findAllVisitCovers().executeAsList().groupBy { it.shop_id }
+        .mapValues { (_, covers) -> covers.minWith(COVER_ORDER).storage_key }

@@ -71,6 +71,17 @@ const apiErrorMessages: Readonly<Record<ErrorType, UserErrorMessage>> = {
     title: "店舗を削除できませんでした",
     description: "訪問ログがある店舗は削除できません",
   },
+  visit_image_limit_reached: {
+    title: "画像を追加できませんでした",
+    description: "1つの訪問ログに追加できる画像は10枚までです",
+  },
+  visit_image_processing_busy: {
+    title: "画像を処理できませんでした",
+    description: "時間をおいてもう一度お試しください。",
+  },
+  visit_images_storage_unconfigured: {
+    title: "画像の保存先が設定されていません",
+  },
 };
 
 const statusMessages: Readonly<Record<number, UserErrorMessage>> = {

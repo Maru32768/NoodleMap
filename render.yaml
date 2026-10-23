@@ -55,6 +55,21 @@ services:
         sync: false
       - key: OG_R2_PUBLIC_BASE_URL
         sync: false
+      # 訪問画像 storage (terraform/modules/cloudflare-r2-visit-images). All five or none; with none this
+      # https site boots but refuses image uploads (503). Same reason as above for
+      # sync: false on the non-secret ones: VISIT_IMAGES_R2_BUCKET=noodle-map-visit-images,
+      # VISIT_IMAGES_R2_ENDPOINT=https://<account_id>.r2.cloudflarestorage.com,
+      # VISIT_IMAGES_R2_PUBLIC_BASE_URL=https://images.noodle-map.marulabs.dev
+      - key: VISIT_IMAGES_R2_BUCKET
+        sync: false
+      - key: VISIT_IMAGES_R2_ENDPOINT
+        sync: false
+      - key: VISIT_IMAGES_R2_ACCESS_KEY_ID
+        sync: false
+      - key: VISIT_IMAGES_R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: VISIT_IMAGES_R2_PUBLIC_BASE_URL
+        sync: false
 
   - type: web
     runtime: static

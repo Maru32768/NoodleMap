@@ -39,6 +39,8 @@ dependencies {
 
     implementation(libs.google.api.client)
     implementation(libs.aws.s3)
+    // EXIF orientation of uploaded visit images; pure Java, no native code, and handles the many EXIF layouts.
+    implementation(libs.metadata.extractor)
 
     implementation(libs.logback.classic)
 

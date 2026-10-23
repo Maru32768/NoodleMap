@@ -4,6 +4,7 @@ import kotlin.Boolean
 import kotlin.Double
 import kotlin.Int
 import kotlin.String
+import kotlin.collections.List
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -49,4 +50,9 @@ public data class VisitLog(
    */
   @SerialName("privateNote")
   public val privateNote: String? = null,
+  /**
+   * The visit's images in display order; the first one represents the visit.
+   */
+  @SerialName("images")
+  public val images: List<VisitImage>,
 )

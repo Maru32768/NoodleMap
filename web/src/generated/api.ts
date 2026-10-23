@@ -201,6 +201,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/visit-images/{imageId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Updates an image's caption. */
+        put: operations["updateVisitImage"];
+        post?: never;
+        delete: operations["deleteVisitImage"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/visits/{visitId}": {
         parameters: {
             query?: never;
@@ -212,7 +229,47 @@ export interface paths {
         /** @description Replaces every field of a visit log. */
         put: operations["updateVisitLog"];
         post?: never;
+        /** @description Deletes a visit log with its images. */
         delete: operations["deleteVisitLog"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/visits/{visitId}/images": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Adds an image at the end of a visit log's images (at most 10). The server applies the EXIF orientation,
+         *     scales the long edge down to 2048 px and stores a JPEG without metadata.
+         *     The request's Origin must be the site's own origin, or a localhost one on an http (local development) site;
+         *     403 otherwise.
+         */
+        post: operations["uploadVisitImage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/visits/{visitId}/images/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Replaces the display order of a visit log's images. */
+        put: operations["reorderVisitImages"];
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -326,7 +383,7 @@ export interface components {
         /** @enum {string} */
         CategorySlug: "ramen" | "udon";
         /** @enum {string} */
-        ErrorType: "invalid_request" | "authentication_required" | "permission_denied" | "google_auth_failed" | "session_creation_failed" | "not_found" | "internal_error" | "google_places_not_configured" | "google_places_failed" | "shop_has_visit_logs";
+        ErrorType: "invalid_request" | "authentication_required" | "permission_denied" | "google_auth_failed" | "session_creation_failed" | "not_found" | "internal_error" | "google_places_not_configured" | "google_places_failed" | "shop_has_visit_logs" | "visit_image_limit_reached" | "visit_image_processing_busy" | "visit_images_storage_unconfigured";
         /** @enum {string} */
         FieldErrorType: "required" | "invalid_format" | "out_of_range" | "too_long" | "duplicate" | "unknown";
         GoogleAuthBadRequestErrorBody: {
@@ -398,6 +455,10 @@ export interface components {
         PlaceSuggestionsResponse: {
             suggestions: components["schemas"]["PlaceSuggestion"][];
         };
+        /** @description Every image id of the visit log exactly once, in the new display order. */
+        ReorderVisitImagesRequest: {
+            imageIds: components["schemas"]["uuid"][];
+        };
         SaveTagsRequest: {
             tags: components["schemas"]["TagInput"][];
         };
@@ -446,6 +507,8 @@ export interface components {
             tags: components["schemas"]["Tag"][];
             /** @description External links (official site, SNS, ...) in display order. */
             links: components["schemas"]["ShopLink"][];
+            /** @description Derived on the server: URL of the first image of the latest visit log that has images. Absent when none has. */
+            coverPhotoUrl?: string;
         };
         /** @description The shop has visit logs, so it cannot be deleted. */
         ShopHasVisitLogsErrorBody: {
@@ -545,10 +608,66 @@ export interface components {
             /** @description Omit to keep the stored links (older clients); an array replaces them all, in array order. At most 10. */
             links?: components["schemas"]["ShopLinkInput"][];
         };
+        /** @description Trimmed; blank or omitted clears the caption. */
+        UpdateVisitImageRequest: {
+            caption?: string;
+        };
+        UploadVisitImageRequest: {
+            /** Format: binary */
+            file: string;
+        };
         User: {
             id: components["schemas"]["uuid"];
             email: string;
             isAdmin: boolean;
+        };
+        /** @description One 訪問画像: a JPEG whose long edge is at most 2048 px, already rotated upright. */
+        VisitImage: {
+            id: components["schemas"]["uuid"];
+            /** @description Absolute URL of the JPEG. */
+            url: string;
+            /** Format: int32 */
+            width: number;
+            /** Format: int32 */
+            height: number;
+            caption?: string;
+        };
+        VisitImageBadRequestErrorBody: {
+            /** @enum {string} */
+            type: "invalid_request";
+            message?: string;
+            fieldErrors?: components["schemas"]["VisitImageFieldError"][];
+        };
+        /**
+         * @description `file` is the uploaded image part; `imageIds` is the full ordered id list of a reorder.
+         * @enum {string}
+         */
+        VisitImageField: "file" | "caption" | "imageIds";
+        VisitImageFieldError: {
+            field: components["schemas"]["VisitImageField"];
+            type: components["schemas"]["FieldErrorType"];
+            message?: string;
+        };
+        /** @description The visit log already has the maximum number of images (10). */
+        VisitImageLimitReachedErrorBody: {
+            /** @enum {string} */
+            type: "visit_image_limit_reached";
+            message?: string;
+        };
+        /** @description Too many images are being processed right now; retry shortly. */
+        VisitImageProcessingBusyErrorBody: {
+            /** @enum {string} */
+            type: "visit_image_processing_busy";
+            message?: string;
+        };
+        VisitImagesResponse: {
+            images: components["schemas"]["VisitImage"][];
+        };
+        /** @description The server has no storage for visit images configured. */
+        VisitImagesStorageUnconfiguredErrorBody: {
+            /** @enum {string} */
+            type: "visit_images_storage_unconfigured";
+            message?: string;
         };
         /** @description One 訪問ログ. Visit logs are listed newest first: by visitedOn, those without one last, then by creation. */
         VisitLog: {
@@ -572,6 +691,8 @@ export interface components {
             publicNote?: string;
             /** @description Only in responses to the admin; omitted for everyone else. */
             privateNote?: string;
+            /** @description The visit's images in display order; the first one represents the visit. */
+            images: components["schemas"]["VisitImage"][];
         };
         VisitLogBadRequestErrorBody: {
             /** @enum {string} */
@@ -1373,6 +1494,133 @@ export interface operations {
             };
         };
     };
+    updateVisitImage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                imageId: components["schemas"]["uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateVisitImageRequest"];
+            };
+        };
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisitImage"];
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisitImageBadRequestErrorBody"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthenticationRequiredErrorBody"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PermissionDeniedErrorBody"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotFoundErrorBody"];
+                };
+            };
+            /** @description Server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InternalErrorBody"];
+                };
+            };
+        };
+    };
+    deleteVisitImage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                imageId: components["schemas"]["uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description There is no content to send for this request, but the headers may be useful. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthenticationRequiredErrorBody"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PermissionDeniedErrorBody"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotFoundErrorBody"];
+                };
+            };
+            /** @description Server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InternalErrorBody"];
+                };
+            };
+        };
+    };
     updateVisitLog: {
         parameters: {
             query?: never;
@@ -1461,6 +1709,166 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthenticationRequiredErrorBody"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PermissionDeniedErrorBody"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotFoundErrorBody"];
+                };
+            };
+            /** @description Server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InternalErrorBody"];
+                };
+            };
+        };
+    };
+    uploadVisitImage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                visitId: components["schemas"]["uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["UploadVisitImageRequest"];
+            };
+        };
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisitImage"];
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisitImageBadRequestErrorBody"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthenticationRequiredErrorBody"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PermissionDeniedErrorBody"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotFoundErrorBody"];
+                };
+            };
+            /** @description The request conflicts with the current state of the server. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisitImageLimitReachedErrorBody"];
+                };
+            };
+            /** @description Server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InternalErrorBody"];
+                };
+            };
+            /** @description Service unavailable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisitImageProcessingBusyErrorBody"] | components["schemas"]["VisitImagesStorageUnconfiguredErrorBody"];
+                };
+            };
+        };
+    };
+    reorderVisitImages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                visitId: components["schemas"]["uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReorderVisitImagesRequest"];
+            };
+        };
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisitImagesResponse"];
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisitImageBadRequestErrorBody"];
+                };
             };
             /** @description Access is unauthorized. */
             401: {

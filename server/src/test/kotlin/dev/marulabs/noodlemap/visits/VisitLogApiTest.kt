@@ -153,14 +153,14 @@ class VisitLogApiTest {
         )
         added shouldBe VisitLog(
             id = added.id, visitedOn = "2024-02-03", menuName = "特製中華そば", isLimitedMenu = true, price = 1200, rate = 85.5,
-            eventName = "大つけ麺博", publicNote = null, privateNote = "混んでいた",
+            eventName = "大つけ麺博", publicNote = null, privateNote = "混んでいた", images = emptyList(),
         )
         client.visits(id, admin) shouldContainExactly listOf(added)
 
         // A replacement clears every field it omits.
         val replaced = client.putJson("/api/v1/auth/visits/${added.id}", encode(VisitLogInput(isLimitedMenu = false, menuName = "つけ麺")), admin)
         replaced.status shouldBe HttpStatusCode.OK
-        val expected = VisitLog(id = added.id, menuName = "つけ麺", isLimitedMenu = false)
+        val expected = VisitLog(id = added.id, menuName = "つけ麺", isLimitedMenu = false, images = emptyList())
         replaced.body<VisitLog>() shouldBe expected
         client.visits(id, admin) shouldContainExactly listOf(expected)
 

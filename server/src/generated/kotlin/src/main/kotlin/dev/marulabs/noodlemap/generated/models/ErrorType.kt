@@ -27,6 +27,12 @@ public enum class ErrorType(
   GOOGLE_PLACES_FAILED("google_places_failed"),
   @SerialName("shop_has_visit_logs")
   SHOP_HAS_VISIT_LOGS("shop_has_visit_logs"),
+  @SerialName("visit_image_limit_reached")
+  VISIT_IMAGE_LIMIT_REACHED("visit_image_limit_reached"),
+  @SerialName("visit_image_processing_busy")
+  VISIT_IMAGE_PROCESSING_BUSY("visit_image_processing_busy"),
+  @SerialName("visit_images_storage_unconfigured")
+  VISIT_IMAGES_STORAGE_UNCONFIGURED("visit_images_storage_unconfigured"),
   ;
 
   override fun toString(): String = value

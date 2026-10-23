@@ -1,6 +1,8 @@
 package dev.marulabs.noodlemap.og
 
+import dev.marulabs.noodlemap.common.BitmapWorkGate
 import dev.marulabs.noodlemap.common.JST
+import dev.marulabs.noodlemap.common.retrySoon
 import dev.marulabs.noodlemap.errors.DomainException
 import dev.marulabs.noodlemap.generated.models.Shop
 import dev.marulabs.noodlemap.shops.ShopHandler
@@ -22,13 +24,8 @@ import io.ktor.util.escapeHTML
 import java.time.LocalDate
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicInteger
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonPrimitive
 import org.slf4j.LoggerFactory
 
@@ -57,12 +54,9 @@ class OgHandler(
     private val publicBaseUrl: String,
     /** Null renders the image on every request (local dev, tests). */
     private val store: R2OgImageStore?,
-    /** Renders running or waiting before new ones get 503; bounds unauthenticated render work. */
-    private val maxPendingRenders: Int = 4,
+    /** Shared with visit image processing; a full gate answers 503, bounding unauthenticated render work. */
+    private val bitmapWork: BitmapWorkGate,
 ) {
-    // One 1200x630 bitmap at a time keeps memory flat on the 512 MB instance.
-    private val renderLock = Mutex()
-    private val pendingRenders = AtomicInteger()
     private val inFlight = ConcurrentHashMap<String, CompletableDeferred<Produced?>>()
 
     /**
@@ -99,7 +93,7 @@ class OgHandler(
         }
 
         val produced = produce(key, card) ?: run {
-            call.response.header(HttpHeaders.RetryAfter, "5")
+            call.retrySoon()
             return call.respond(HttpStatusCode.ServiceUnavailable)
         }
         if (store != null && produced.stored) return call.respondRedirect(store.publicUrl(key))
@@ -129,15 +123,9 @@ class OgHandler(
         }
     }
 
-    /** The PNG, or null when [maxPendingRenders] renders are already running or queued. */
-    private suspend fun renderOrNull(card: OgCard): ByteArray? {
-        try {
-            if (pendingRenders.incrementAndGet() > maxPendingRenders) return null
-            return renderLock.withLock { withContext(Dispatchers.Default) { renderOgImage(card) } }
-        } finally {
-            pendingRenders.decrementAndGet()
-        }
-    }
+    /** The PNG, or null when the bitmap work gate is full. */
+    private suspend fun renderOrNull(card: OgCard): ByteArray? =
+        bitmapWork.withSlotOrNull { bitmapWork.exclusive { renderOgImage(card) } }
 
     /** Runs one storage call; a failure is logged and gives null, and the image is then served directly. */
     private suspend fun <T> storageOrNull(action: String, block: suspend () -> T): T? = try {
