@@ -46,10 +46,13 @@ test("admin records a visit that guests see without its private note", async ({ 
   await expect(entry).toContainText("特製中華そば");
   await expect(entry).toContainText(privateNote);
   expect(await api.getShop(shop.id)).toMatchObject({ eaten: true, rate: 85, favorite: true, visitCount: 1 });
-  // The shop list was refreshed: the row counts the visit and 削除 is locked.
-  await expect(page.getByRole("row").filter({ hasText: shop.name })).toContainText("1回");
+  // The shop list was refreshed: 削除 is locked and, once the modal is closed,
+  // the row counts the visit.
   await expect(dialog.getByRole("button", { name: "削除", exact: true })).toBeDisabled();
   await expect(dialog.getByText("訪問ログがある店舗は削除できません")).toBeVisible();
+  await dialog.getByRole("button", { name: "キャンセル", exact: true }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByRole("row").filter({ hasText: shop.name })).toContainText("1回");
 
   await asGuest(browser, baseURL, async (guestPage) => {
     await guestPage.goto(`/search?shop=${shop.id}`);
@@ -99,6 +102,8 @@ test("admin sets 絶対行きたい and a guest sees it", async ({ page, api, br
 
   await asGuest(browser, baseURL, async (guestPage) => {
     await guestPage.goto(`/search?shop=${shop.id}`);
-    await expect(guestPage.getByText("絶対行きたい", { exact: true }).filter({ visible: true })).toBeVisible();
+    await guestPage.getByRole("complementary").getByPlaceholder("店名・読み・エリア・タグで検索...").fill(id);
+    // On the open detail and on the shop's card in the list.
+    await expect(guestPage.getByText("絶対行きたい", { exact: true }).filter({ visible: true })).toHaveCount(2);
   });
 });
