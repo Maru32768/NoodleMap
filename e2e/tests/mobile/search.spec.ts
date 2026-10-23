@@ -8,22 +8,22 @@ test("guest searches, filters and opens a shop from the mobile sheet", async ({ 
   await page.goto("/search");
   await expect(page.getByRole("complementary")).toBeHidden();
 
-  const count = (n: number) => page.getByText(new RegExp(`^${n}\\s*件 / SHOPS$`));
+  const countLabel = (n: number) => page.getByText(new RegExp(`^${n}\\s*件 / SHOPS$`));
   await page
     .getByPlaceholder("店名・読み・エリア・タグで検索...")
     .filter({ visible: true })
     .fill(id);
-  await expect(count(2)).toBeVisible();
+  await expect(countLabel(2)).toBeVisible();
 
   await page.getByRole("button", { name: "フィルター" }).click();
   const filters = page.getByRole("dialog", { name: "フィルター" });
   await filters.getByRole("button", { name: "うどん", exact: true }).click();
   await page.keyboard.press("Escape");
   await expect(filters).toBeHidden();
-  await expect(count(1)).toBeVisible();
+  await expect(countLabel(1)).toBeVisible();
 
   // The sheet rests at a peek height; drag its handle up to reveal the list.
-  const handle = await count(1).boundingBox();
+  const handle = await countLabel(1).boundingBox();
   await page.mouse.move(handle!.x + handle!.width / 2, handle!.y);
   await page.mouse.down();
   await page.mouse.move(handle!.x + handle!.width / 2, 120, { steps: 10 });

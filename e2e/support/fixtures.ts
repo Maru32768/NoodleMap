@@ -19,7 +19,7 @@ export function uid(): string {
   return `e2e${Date.now().toString(36)}${randomBytes(2).toString("hex")}`;
 }
 
-async function json<T>(res: APIResponse): Promise<T> {
+async function expectOkJson<T>(res: APIResponse): Promise<T> {
   expect(res.ok(), `${res.url()} -> ${res.status()} ${await res.text()}`).toBe(true);
   return (await res.json()) as T;
 }
@@ -29,7 +29,7 @@ export class Api {
   constructor(private readonly request: APIRequestContext) {}
 
   async listShops(): Promise<Shop[]> {
-    return (await json<{ shops: Shop[] }>(await this.request.get("/api/v1/shops"))).shops;
+    return (await expectOkJson<{ shops: Shop[] }>(await this.request.get("/api/v1/shops"))).shops;
   }
 
   async getShop(id: string): Promise<Shop> {
@@ -39,7 +39,7 @@ export class Api {
   }
 
   async listTags(): Promise<Tag[]> {
-    return (await json<{ tags: Tag[] }>(await this.request.get("/api/v1/tags"))).tags;
+    return (await expectOkJson<{ tags: Tag[] }>(await this.request.get("/api/v1/tags"))).tags;
   }
 
   /** PUT /auth/tags replaces the whole list, so append to the current one. */
@@ -48,11 +48,11 @@ export class Api {
     const res = await this.request.put("/api/v1/auth/tags", {
       data: { tags: [...current, { color: "#2563eb", sortOrder: 100, ...input }] },
     });
-    const { tags } = await json<{ tags: Tag[] }>(res);
+    const { tags } = await expectOkJson<{ tags: Tag[] }>(res);
     return tags.find((t) => t.slug === input.slug)!;
   }
 
-  /** Adds a shop near the default map center; eaten/rate/tags go through an update. */
+  /** Adds a shop near the default map center with its tags; eaten/rate go through an update. */
   async createShop(
     spec: Pick<AddShopRequest, "name"> &
       Partial<Pick<UpdateShopRequest, "category" | "eaten" | "rate" | "tagIds" | "address">>,
@@ -67,7 +67,7 @@ export class Api {
       category: spec.category ?? "ramen",
       tagIds: spec.tagIds ?? [],
     };
-    const shop = await json<Shop>(await this.request.post("/api/v1/auth/shops", { data: add }));
+    const shop = await expectOkJson<Shop>(await this.request.post("/api/v1/auth/shops", { data: add }));
     if (spec.eaten !== undefined || spec.rate !== undefined) {
       await this.updateShop(shop, { eaten: spec.eaten ?? false, rate: spec.rate ?? 0 });
     }

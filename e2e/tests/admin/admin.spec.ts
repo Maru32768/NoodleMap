@@ -177,19 +177,19 @@ test("add form shows a duplicate Google Place ID under its input", async ({ page
   await dialog.locator('label:has-text("店名") + input').fill(name);
   await dialog.locator('label:has-text("緯度") + input').fill("35.6812");
   await dialog.locator('label:has-text("経度") + input').fill("139.7671");
-  const placeId = dialog.locator('label:has-text("Google Place ID") + input');
-  await placeId.fill(existingPlaceId);
+  const placeIdInput = dialog.locator('label:has-text("Google Place ID") + input');
+  await placeIdInput.fill(existingPlaceId);
   await dialog.getByRole("button", { name: "追加", exact: true }).click();
 
   const message = dialog.getByText("Google Place ID が他の店舗と重複しています");
   await expect(message).toBeVisible();
-  await expect(placeId).toHaveAttribute("aria-invalid", "true");
+  await expect(placeIdInput).toHaveAttribute("aria-invalid", "true");
   await expect(dialog).toBeVisible();
   expect((await api.listShops()).some((s) => s.name === name)).toBe(false);
 
-  await placeId.fill(`${existingPlaceId}-new`);
+  await placeIdInput.fill(`${existingPlaceId}-new`);
   await expect(message).toBeHidden();
-  await expect(placeId).not.toHaveAttribute("aria-invalid");
+  await expect(placeIdInput).not.toHaveAttribute("aria-invalid");
 });
 
 test("add form falls back to manual entry when Google Places is not configured", async ({ page }) => {
@@ -248,7 +248,7 @@ test("admin fills the add form from a Google Place search", async ({ page }) => 
   expect(sessionTokens[0]).not.toBe("");
 });
 
-test("admin adds a shop by dropping a pin on the map", async ({ page }) => {
+test("dropping a pin on the map opens the add form", async ({ page }) => {
   await openAdmin(page);
 
   await page.getByRole("button", { name: "店舗追加" }).click();

@@ -2,7 +2,7 @@ import { seedSession } from "../support/db.ts";
 import { ADMIN_EMAIL, ADMIN_STATE, BASE_URL, SESSION_COOKIE } from "../support/env.ts";
 import { expect, test } from "../support/fixtures.ts";
 
-test("seed an admin session into the backend database", async ({ context }) => {
+test("seed an admin session and save it as the admin storage state", async ({ context }) => {
   await context.addCookies([
     { name: SESSION_COOKIE, value: seedSession(ADMIN_EMAIL), url: BASE_URL, httpOnly: true, sameSite: "Lax" },
   ]);
