@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS visit_logs
     shop_id         TEXT     NOT NULL,
     -- 'YYYY-MM-DD', a real calendar date. The API also keeps it no later than tomorrow (JST), which a CHECK cannot.
     visited_on      TEXT     NULL CHECK (visited_on IS NULL OR
-        (visited_on GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' AND date(visited_on) = visited_on)),
+        (visited_on GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' AND date(visited_on, '+0 days') IS visited_on)),
     rate            REAL     NULL CHECK (rate BETWEEN 0 AND 100),
     event_name      TEXT     NULL,
     public_note     TEXT     NULL,
