@@ -29,7 +29,7 @@ async function asGuest(browser: Browser, baseURL: string | undefined, fn: (page:
   }
 }
 
-test("admin records a visit that guests see without its private note", async ({ page, api, browser, baseURL }) => {
+test("admin records a visit of two menu items that guests see without its private note", async ({ page, api, browser, baseURL }) => {
   const id = uid();
   const shop = await api.createShop({ name: `${id} 訪問を記録する店` });
   const publicNote = `${id} 公開メモ`;
@@ -39,7 +39,16 @@ test("admin records a visit that guests see without its private note", async ({ 
   await dialog.getByRole("button", { name: "訪問ログ", exact: true }).click();
   await dialog.getByRole("button", { name: "訪問を記録" }).click();
   const form = dialog.getByRole("group", { name: "訪問を記録" });
-  await form.getByRole("textbox", { name: "食べたメニュー" }).fill("特製中華そば");
+  // 連食: two 食べたメニュー in one visit, the second one 限定.
+  const firstItem = form.getByRole("group", { name: "メニュー 1" });
+  await firstItem.getByRole("textbox", { name: "メニュー名" }).fill("特製中華そば");
+  await firstItem.getByRole("spinbutton", { name: "価格" }).fill("1200");
+  await form.getByRole("button", { name: "＋ メニューを追加" }).click();
+  const secondItem = form.getByRole("group", { name: "メニュー 2" });
+  await secondItem.getByRole("textbox", { name: "メニュー名" }).fill("限定煮干しつけ麺");
+  await secondItem.getByText("限定", { exact: true }).click();
+  await secondItem.getByRole("spinbutton", { name: "価格" }).fill("1300");
+  await expect(form).toContainText("合計 ¥2,500");
   await form.getByRole("spinbutton", { name: "お気に入り度" }).fill("85");
   await form.getByRole("textbox", { name: "メモ（公開）" }).fill(publicNote);
   await form.getByRole("textbox", { name: "メモ（自分用）" }).fill(privateNote);
@@ -48,7 +57,7 @@ test("admin records a visit that guests see without its private note", async ({ 
   await expect(page.getByText("訪問ログを保存しました")).toBeVisible();
   const entry = dialog.getByRole("list", { name: "訪問ログ" }).getByRole("listitem");
   await expect(entry).toHaveCount(1);
-  await expect(entry).toContainText("特製中華そば");
+  await expect(entry).toContainText("特製中華そば¥1,200限定煮干しつけ麺限定¥1,300合計¥2,500");
   await expect(entry).toContainText(privateNote);
   expect(await api.getShop(shop.id)).toMatchObject({ eaten: true, rate: 85, favorite: true, visitCount: 1 });
   // The shop list was refreshed: 削除 is locked and, once the modal is closed,
@@ -66,6 +75,7 @@ test("admin records a visit that guests see without its private note", async ({ 
     const visits = guestPage.getByRole("list", { name: "訪問ログ" }).filter({ visible: true });
     await expect(visits).toContainText(publicNote);
     await expect(visits).toContainText("85");
+    await expect(visits).toContainText("特製中華そば¥1,200限定煮干しつけ麺限定¥1,300合計¥2,500");
     await expect(visits).not.toContainText(privateNote);
     await expect(guestPage.getByText(privateNote)).toHaveCount(0);
   });

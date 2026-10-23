@@ -15,6 +15,14 @@ import type {
   VisitLogInput,
 } from "@/features/visits/api/use-visits.ts";
 import {
+  MenuItemErrors,
+  MenuItemRow,
+  MenuItemsEditor,
+  newMenuItemRow,
+  toMenuItemInputs,
+  validateMenuItems,
+} from "@/features/visits/menu-items-editor.tsx";
+import {
   ApiMutationResult,
   invalidRequestFieldErrors,
 } from "@/utils/request.ts";
@@ -25,16 +33,14 @@ import {
   VISIT_SAVE_FAILED_TITLE,
   visitFieldErrorMessage,
 } from "@/utils/toast.ts";
-import { Box, Input, Switch, Textarea } from "@chakra-ui/react";
+import { Box, Input, Textarea } from "@chakra-ui/react";
 import { isEqual } from "es-toolkit";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 // Strings as typed, so a cleared number input stays blank instead of becoming 0.
 interface VisitDraft {
   visitedOn: string;
-  menuName: string;
-  isLimitedMenu: boolean;
-  price: string;
+  menuItems: MenuItemRow[];
   rate: string;
   eventName: string;
   publicNote: string;
@@ -42,19 +48,15 @@ interface VisitDraft {
 }
 
 // Inputs whose browser-parsed value can read as "" while they hold something.
-type ParsedField = "visitedOn" | "price" | "rate";
-const PARSED_FIELDS: readonly ParsedField[] = ["visitedOn", "price", "rate"];
+// (Each menu item's price input is one too; see `priceInputs` in the form.)
+type ParsedField = "visitedOn" | "rate";
+const PARSED_FIELDS: readonly ParsedField[] = ["visitedOn", "rate"];
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-// Mirrors @maxValue on VisitLogInput.price in typespec/main.tsp.
-const PRICE_MAX = 10_000_000;
-
 const VISIT_FIELDS: readonly VisitLogField[] = [
   "visitedOn",
-  "menuName",
-  "isLimitedMenu",
-  "price",
+  "menuItems",
   "rate",
   "eventName",
   "publicNote",
@@ -78,9 +80,7 @@ function toDraft(visit: VisitLog | undefined): VisitDraft {
   if (!visit) {
     return {
       visitedOn: todayInJapan(),
-      menuName: "",
-      isLimitedMenu: false,
-      price: "",
+      menuItems: [newMenuItemRow()],
       rate: "",
       eventName: "",
       publicNote: "",
@@ -89,9 +89,11 @@ function toDraft(visit: VisitLog | undefined): VisitDraft {
   }
   return {
     visitedOn: visit.visitedOn ?? "",
-    menuName: visit.menuName ?? "",
-    isLimitedMenu: visit.isLimitedMenu,
-    price: visit.price?.toString() ?? "",
+    // An empty row to type into when the visit has no menu yet.
+    menuItems:
+      visit.menuItems.length > 0
+        ? visit.menuItems.map(newMenuItemRow)
+        : [newMenuItemRow()],
     rate: visit.rate?.toString() ?? "",
     eventName: visit.eventName ?? "",
     publicNote: visit.publicNote ?? "",
@@ -115,17 +117,6 @@ function validate(
   ) {
     errors.visitedOn = "invalid_format";
   }
-  const price = draft.price.trim();
-  if (unparsable.has("price")) {
-    errors.price = "invalid_format";
-  } else if (price !== "") {
-    const n = Number(price);
-    if (!Number.isInteger(n)) {
-      errors.price = "invalid_format";
-    } else if (n < 0 || n > PRICE_MAX) {
-      errors.price = "out_of_range";
-    }
-  }
   const rate = draft.rate.trim();
   if (unparsable.has("rate")) {
     errors.rate = "invalid_format";
@@ -146,11 +137,10 @@ function toInput(draft: VisitDraft): VisitLogInput {
   const text = (value: string) => value.trim() || undefined;
   const number = (value: string) =>
     value.trim() === "" ? undefined : Number(value);
+  const menuItems = toMenuItemInputs(draft.menuItems);
   return {
     visitedOn: draft.visitedOn || undefined,
-    menuName: text(draft.menuName),
-    isLimitedMenu: draft.isLimitedMenu,
-    price: number(draft.price),
+    menuItems: menuItems.length > 0 ? menuItems : undefined,
     rate: number(draft.rate),
     eventName: text(draft.eventName),
     publicNote: text(draft.publicNote),
@@ -218,14 +208,53 @@ export function VisitLogForm({
   const [fieldErrors, setFieldErrors] = useState<
     ShopFieldErrors<VisitLogField>
   >({});
+  const [menuItemErrors, setMenuItemErrors] = useState<
+    Record<number, MenuItemErrors>
+  >({});
   const { ref, reveal } = useRevealFirstError<HTMLDivElement>();
   const visitedOnRef = useRef<HTMLInputElement>(null);
-  const priceRef = useRef<HTMLInputElement>(null);
   const rateRef = useRef<HTMLInputElement>(null);
+  // Each menu item's price input by row id.
+  const priceInputs = useRef(new Map<number, HTMLInputElement>());
+  const priceRef = useCallback(
+    (rowId: number, input: HTMLInputElement | null) => {
+      if (input) {
+        priceInputs.current.set(rowId, input);
+      } else {
+        priceInputs.current.delete(rowId);
+      }
+    },
+    [],
+  );
 
-  const set = <K extends keyof VisitDraft>(k: K, v: VisitDraft[K]) => {
+  const set = <K extends Exclude<keyof VisitDraft, "menuItems">>(
+    k: K,
+    v: VisitDraft[K],
+  ) => {
     setDraft((d) => ({ ...d, [k]: v }));
     setFieldErrors((errors) => clearShopFieldErrors(errors, [k]));
+  };
+
+  const setMenuItems = (
+    menuItems: MenuItemRow[],
+    edited?: { rowId: number; field: keyof MenuItemErrors },
+  ) => {
+    setDraft((d) => ({ ...d, menuItems }));
+    setFieldErrors((errors) => clearShopFieldErrors(errors, ["menuItems"]));
+    if (edited) {
+      setMenuItemErrors((errors) => {
+        if (!errors[edited.rowId]?.[edited.field]) {
+          return errors;
+        }
+        return {
+          ...errors,
+          [edited.rowId]: {
+            ...errors[edited.rowId],
+            [edited.field]: undefined,
+          },
+        };
+      });
+    }
   };
 
   const errorOf = (field: VisitLogField) => {
@@ -234,13 +263,23 @@ export function VisitLogForm({
   };
 
   const handleSave = async () => {
-    const inputs = { visitedOn: visitedOnRef, price: priceRef, rate: rateRef };
+    const inputs = { visitedOn: visitedOnRef, rate: rateRef };
     const unparsable = new Set(
       PARSED_FIELDS.filter((k) => inputs[k].current?.validity.badInput),
     );
     const invalid = validate(draft, unparsable);
+    const unparsablePrices = new Set(
+      [...priceInputs.current]
+        .filter(([, input]) => input.validity.badInput)
+        .map(([rowId]) => rowId),
+    );
+    const invalidItems = validateMenuItems(draft.menuItems, unparsablePrices);
     setFieldErrors(invalid);
-    if (Object.keys(invalid).length > 0) {
+    setMenuItemErrors(invalidItems);
+    if (
+      Object.keys(invalid).length > 0 ||
+      Object.keys(invalidItems).length > 0
+    ) {
       reveal();
       return;
     }
@@ -317,45 +356,20 @@ export function VisitLogForm({
           )}
         </Box>
       </FormField>
-      <FormField
-        label={<FieldLabel>食べたメニュー</FieldLabel>}
-        error={errorOf("menuName")}
+      <Box
+        gridColumn={{ md: "span 2" }}
+        role="group"
+        aria-label="食べたメニュー"
       >
-        <Input
-          {...inputProps}
-          aria-label="食べたメニュー"
-          maxLength={200}
-          value={draft.menuName}
-          onChange={(e) => set("menuName", e.target.value)}
+        <FieldLabel>食べたメニュー（価格は任意、円）</FieldLabel>
+        <MenuItemsEditor
+          rows={draft.menuItems}
+          errors={menuItemErrors}
+          listError={errorOf("menuItems")}
+          onChange={setMenuItems}
+          priceRef={priceRef}
         />
-      </FormField>
-      <FormField
-        label={<FieldLabel>価格（円）</FieldLabel>}
-        error={errorOf("price")}
-      >
-        <Input
-          {...inputProps}
-          type="number"
-          min={0}
-          step={1}
-          fontFamily="mono"
-          aria-label="価格"
-          ref={priceRef}
-          value={draft.price}
-          onChange={(e) => set("price", e.target.value)}
-        />
-      </FormField>
-      <FormField error={errorOf("isLimitedMenu")}>
-        <Switch.Root
-          checked={draft.isLimitedMenu}
-          onCheckedChange={(e) => set("isLimitedMenu", e.checked)}
-          size="sm"
-        >
-          <Switch.HiddenInput />
-          <Switch.Control />
-          <Switch.Label fontSize="13px">限定メニュー</Switch.Label>
-        </Switch.Root>
-      </FormField>
+      </Box>
       <FormField
         label={<FieldLabel>催事・イベント名</FieldLabel>}
         error={errorOf("eventName")}

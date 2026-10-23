@@ -180,7 +180,6 @@ export const VISITS_REFRESH_FAILED_MESSAGE =
 
 // Mirrors @maxLength on VisitLogInput in typespec/main.tsp.
 const VISIT_TEXT_MAX_LENGTH: Partial<Record<VisitLogField, number>> = {
-  menuName: 200,
   eventName: 100,
   publicNote: 2000,
   privateNote: 2000,
@@ -188,13 +187,13 @@ const VISIT_TEXT_MAX_LENGTH: Partial<Record<VisitLogField, number>> = {
 
 const VISIT_FORMAT_MESSAGE: Partial<Record<VisitLogField, string>> = {
   visitedOn: "日付の形式が正しくありません",
-  price: "整数で入力してください",
   rate: "数値で入力してください",
 };
 
 const VISIT_RANGE_MESSAGE: Partial<Record<VisitLogField, string>> = {
   visitedOn: "明日以前の日付を入力してください",
-  price: "0〜10,000,000の範囲で入力してください",
+  // The server reports too many items and an item's price out of range alike.
+  menuItems: "メニューは10品まで、価格は0〜10,000,000円で入力してください",
   rate: "0〜100の範囲で入力してください",
 };
 
@@ -205,12 +204,17 @@ export function visitFieldErrorMessage(
 ): string {
   switch (type) {
     case "required":
-      return "入力してください";
+      return field === "menuItems"
+        ? MENU_ITEM_NAME_REQUIRED_MESSAGE
+        : "入力してください";
     case "invalid_format":
       return VISIT_FORMAT_MESSAGE[field] ?? "形式が正しくありません";
     case "out_of_range":
       return VISIT_RANGE_MESSAGE[field] ?? "範囲外の値です";
     case "too_long": {
+      if (field === "menuItems") {
+        return `メニュー名は${MENU_ITEM_NAME_MAX_LENGTH}文字以内で入力してください`;
+      }
       const max = VISIT_TEXT_MAX_LENGTH[field];
       return max ? `${max}文字以内で入力してください` : "長すぎます";
     }
@@ -219,6 +223,37 @@ export function visitFieldErrorMessage(
       return "入力内容を確認してください";
   }
   // A field or error type added on the server after this client was built.
+  return "入力内容を確認してください";
+}
+
+// Mirrors @maxLength on MenuItemInput.name in typespec/main.tsp.
+const MENU_ITEM_NAME_MAX_LENGTH = 200;
+const MENU_ITEM_NAME_REQUIRED_MESSAGE = "メニュー名を入力してください";
+
+// Message for an error on one 食べたメニュー row of the 訪問ログ form.
+export function menuItemFieldErrorMessage(
+  part: "name" | "price",
+  type: FieldErrorType,
+): string {
+  switch (type) {
+    case "required":
+      return part === "name"
+        ? MENU_ITEM_NAME_REQUIRED_MESSAGE
+        : "入力してください";
+    case "invalid_format":
+      return part === "price"
+        ? "整数で入力してください"
+        : "形式が正しくありません";
+    case "out_of_range":
+      return part === "price"
+        ? "0〜10,000,000の範囲で入力してください"
+        : "範囲外の値です";
+    case "too_long":
+      return `${MENU_ITEM_NAME_MAX_LENGTH}文字以内で入力してください`;
+    case "duplicate":
+    case "unknown":
+      return "入力内容を確認してください";
+  }
   return "入力内容を確認してください";
 }
 

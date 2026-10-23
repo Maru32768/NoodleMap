@@ -38,8 +38,7 @@ function makeVisit(images: VisitImage[]): VisitLog {
   return {
     id: `00000000-0000-4000-8000-0000000002${(nextVisit++).toString().padStart(2, "0")}`,
     visitedOn: "2026-09-30",
-    menuName: "中華そば",
-    isLimitedMenu: false,
+    menuItems: [{ name: "中華そば", isLimited: false }],
     images,
   };
 }

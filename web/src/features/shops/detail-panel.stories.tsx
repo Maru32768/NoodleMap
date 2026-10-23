@@ -33,9 +33,12 @@ const visits: VisitLog[] = [
   {
     id: "00000000-0000-4000-8000-0000000000c1",
     visitedOn: "2026-10-01",
-    menuName: "特製中華そば",
-    isLimitedMenu: false,
-    price: 1200,
+    // 連食: two items in one visit.
+    menuItems: [
+      { name: "特製中華そば", isLimited: false, price: 1200 },
+      { name: "味玉", isLimited: false, price: 150 },
+    ],
+    totalPrice: 1350,
     rate: 90,
     publicNote: "煮干しの香りが強い",
     privateNote: "次は味玉トッピング",
@@ -43,8 +46,7 @@ const visits: VisitLog[] = [
   },
   {
     id: "00000000-0000-4000-8000-0000000000c2",
-    menuName: "冬季限定 味噌",
-    isLimitedMenu: true,
+    menuItems: [{ name: "冬季限定 味噌", isLimited: true }],
     eventName: "大つけ麺博",
     images: [],
   },

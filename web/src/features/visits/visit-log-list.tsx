@@ -1,7 +1,7 @@
 import { LoadableButton } from "@/components/loadable-button.tsx";
 import { MiniHearts } from "@/features/shops/rating-hearts.tsx";
 import { formatShopDate } from "@/features/shops/status.ts";
-import type { VisitLog } from "@/features/visits/api/use-visits.ts";
+import type { MenuItem, VisitLog } from "@/features/visits/api/use-visits.ts";
 import { VisitImageGallery } from "@/features/visits/visit-image-gallery.tsx";
 import {
   VISITS_LOAD_FAILED_MESSAGE,
@@ -50,6 +50,73 @@ function NoteBlock({
   );
 }
 
+const priceProps = {
+  as: "span",
+  ml: "auto",
+  flexShrink: 0,
+  fontFamily: "mono",
+  fontSize: "0.75rem",
+} as const;
+
+// 食べたメニュー in order, each with its 限定 badge and price, then the visit's 合計.
+function MenuItemList({
+  items,
+  totalPrice,
+}: {
+  items: readonly MenuItem[];
+  totalPrice?: number;
+}) {
+  return (
+    <Box mt="0.25rem" fontSize="0.8125rem" color="nm.ink">
+      {/* Not a nested list: each visit stays a single list item. */}
+      <Box>
+        {items.map((item, i) => (
+          <Box key={i} display="flex" alignItems="baseline" gap="0.375rem">
+            <Box as="span" overflowWrap="anywhere">
+              {item.name}
+            </Box>
+            {item.isLimited && (
+              <Box
+                as="span"
+                flexShrink={0}
+                px="0.375rem"
+                py="0.0625rem"
+                bg="nm.shu"
+                color="white"
+                borderRadius="nmSm"
+                fontSize="0.625rem"
+                fontWeight={600}
+              >
+                限定
+              </Box>
+            )}
+            {item.price !== undefined && (
+              <Box {...priceProps}>{formatPrice(item.price)}</Box>
+            )}
+          </Box>
+        ))}
+      </Box>
+      {totalPrice !== undefined && (
+        <Box
+          display="flex"
+          alignItems="baseline"
+          mt="0.125rem"
+          pt="0.125rem"
+          borderTop="1px dashed"
+          borderColor="nm.line"
+          fontSize="0.75rem"
+          color="nm.inkMuted"
+        >
+          合計
+          <Box {...priceProps} color="nm.ink">
+            {formatPrice(totalPrice)}
+          </Box>
+        </Box>
+      )}
+    </Box>
+  );
+}
+
 function VisitLogEntry({
   visit,
   actions,
@@ -94,47 +161,8 @@ function VisitLogEntry({
           </Box>
         )}
       </Box>
-      {(visit.menuName || visit.price !== undefined) && (
-        <Box
-          display="flex"
-          alignItems="baseline"
-          gap="0.375rem"
-          mt="0.25rem"
-          fontSize="0.8125rem"
-          color="nm.ink"
-        >
-          {visit.menuName && (
-            <Box as="span" overflowWrap="anywhere">
-              {visit.menuName}
-            </Box>
-          )}
-          {visit.isLimitedMenu && (
-            <Box
-              as="span"
-              flexShrink={0}
-              px="0.375rem"
-              py="0.0625rem"
-              bg="nm.shu"
-              color="white"
-              borderRadius="nmSm"
-              fontSize="0.625rem"
-              fontWeight={600}
-            >
-              限定
-            </Box>
-          )}
-          {visit.price !== undefined && (
-            <Box
-              as="span"
-              ml="auto"
-              flexShrink={0}
-              fontFamily="mono"
-              fontSize="0.75rem"
-            >
-              {formatPrice(visit.price)}
-            </Box>
-          )}
-        </Box>
+      {visit.menuItems.length > 0 && (
+        <MenuItemList items={visit.menuItems} totalPrice={visit.totalPrice} />
       )}
       {visit.eventName && (
         <Box mt="0.25rem" fontSize="0.6875rem" color="nm.inkMuted">

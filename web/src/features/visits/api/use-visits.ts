@@ -20,6 +20,8 @@ import useSWR, { useSWRConfig } from "swr";
 export type VisitLog = components["schemas"]["VisitLog"];
 export type VisitLogInput = components["schemas"]["VisitLogInput"];
 export type VisitLogField = components["schemas"]["VisitLogField"];
+export type MenuItem = components["schemas"]["MenuItem"];
+export type MenuItemInput = components["schemas"]["MenuItemInput"];
 export type SaveVisitErrorBody =
   | ApiErrorBodyFor<"/api/v1/auth/shops/{id}/visits", "post">
   | ApiErrorBodyFor<"/api/v1/auth/visits/{visitId}", "put">;
