@@ -392,6 +392,7 @@ const FIELD_TAB: Record<UpdateShopField, Tab> = {
   links: "info",
   eaten: "visit",
   rate: "visit",
+  wishLevel: "visit",
 };
 
 // Also false for a field added on the server after this client was built.

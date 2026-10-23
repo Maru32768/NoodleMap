@@ -30,13 +30,14 @@ FROM tmp_shops;
 DROP TABLE tmp_shops;
 SQL
 
-# eaten_shops: CSV columns (id,shop_id,rate) match table order
+# eaten_shops.csv (id,shop_id,rate): each row is one 訪問ログ with an unknown visit date, as the
+# migration converted the former eaten_shops table.
 sqlite3 "$DB_PATH" <<SQL
 .mode csv
 CREATE TEMP TABLE tmp_eaten (id, shop_id, rate);
 .import --skip 1 ${DATA_DIR}/eaten_shops.csv tmp_eaten
-INSERT OR IGNORE INTO eaten_shops (id, shop_id, rate)
-SELECT lower(id), lower(shop_id), CAST(rate AS REAL)
+INSERT OR IGNORE INTO visit_logs (id, shop_id, visited_on, rate)
+SELECT lower(id), lower(shop_id), NULL, CAST(rate AS REAL)
 FROM tmp_eaten;
 DROP TABLE tmp_eaten;
 SQL

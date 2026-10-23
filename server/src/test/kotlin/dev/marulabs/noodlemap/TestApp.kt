@@ -16,6 +16,7 @@ import dev.marulabs.noodlemap.og.OgHandler
 import dev.marulabs.noodlemap.og.R2OgImageStore
 import dev.marulabs.noodlemap.places.PlacesHandler
 import dev.marulabs.noodlemap.shops.ShopHandler
+import dev.marulabs.noodlemap.visits.VisitLogHandler
 import io.ktor.client.HttpClient
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.cookie
@@ -105,6 +106,7 @@ fun testApp(
             installApp(
                 AuthHandler(t.db, GoogleVerifier(t.config.googleOAuthClientId), t.sessions),
                 shopHandler,
+                VisitLogHandler(t.db, t.sessions),
                 PlacesHandler(t.sessions, placesApiKey, placesBaseUrl, placesHttp),
                 OgHandler(shopHandler, t.config.publicBaseUrl, ogStore, ogMaxPendingRenders),
             )
@@ -143,8 +145,8 @@ fun addShopRequest(
     openedAt = openedAt, closedAt = closedAt, googlePlaceId = placeId, category = CategorySlug.RAMEN, tagIds = tagIds,
 )
 
-fun AddShopRequest.toUpdate(eaten: Boolean = false, rate: Double = 0.0, tagIds: List<String> = this.tagIds) =
+fun AddShopRequest.toUpdate(tagIds: List<String> = this.tagIds) =
     UpdateShopRequest(
         name = name, nameKana = nameKana, lat = lat, lng = lng, postalCode = postalCode, address = address, openedAt = openedAt, closedAt = closedAt,
-        googlePlaceId = googlePlaceId, category = category, eaten = eaten, rate = rate, tagIds = tagIds, links = links,
+        googlePlaceId = googlePlaceId, category = category, tagIds = tagIds, links = links,
     )

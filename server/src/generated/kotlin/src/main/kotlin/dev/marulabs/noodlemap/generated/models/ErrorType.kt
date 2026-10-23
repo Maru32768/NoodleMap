@@ -25,6 +25,8 @@ public enum class ErrorType(
   GOOGLE_PLACES_NOT_CONFIGURED("google_places_not_configured"),
   @SerialName("google_places_failed")
   GOOGLE_PLACES_FAILED("google_places_failed"),
+  @SerialName("shop_has_visit_logs")
+  SHOP_HAS_VISIT_LOGS("shop_has_visit_logs"),
   ;
 
   override fun toString(): String = value

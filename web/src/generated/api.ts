@@ -162,7 +162,24 @@ export interface paths {
         get?: never;
         put: operations["updateShop"];
         post?: never;
+        /** @description Deletes a shop with its tags and links. A shop with visit logs cannot be deleted (409). */
         delete: operations["deleteShop"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/shops/{id}/visits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["addVisitLog"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -184,6 +201,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/visits/{visitId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Replaces every field of a visit log. */
+        put: operations["updateVisitLog"];
+        post?: never;
+        delete: operations["deleteVisitLog"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/shops": {
         parameters: {
             query?: never;
@@ -192,6 +226,23 @@ export interface paths {
             cookie?: never;
         };
         get: operations["listShops"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shops/{id}/visits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A shop's visit logs, newest first. privateNote is included only for the admin. */
+        get: operations["listVisitLogs"];
         put?: never;
         post?: never;
         delete?: never;
@@ -227,7 +278,7 @@ export interface components {
             fieldErrors?: components["schemas"]["AddShopFieldError"][];
         };
         /** @enum {string} */
-        AddShopField: "name" | "nameKana" | "lat" | "lng" | "postalCode" | "address" | "openedAt" | "closedAt" | "googlePlaceId" | "category" | "tagIds" | "links";
+        AddShopField: "name" | "nameKana" | "lat" | "lng" | "postalCode" | "address" | "openedAt" | "closedAt" | "googlePlaceId" | "category" | "tagIds" | "links" | "wishLevel";
         AddShopFieldError: {
             field: components["schemas"]["AddShopField"];
             type: components["schemas"]["FieldErrorType"];
@@ -248,6 +299,8 @@ export interface components {
             googlePlaceId?: string;
             category: components["schemas"]["CategorySlug"];
             tagIds: components["schemas"]["uuid"][];
+            /** @description Omit when not set. */
+            wishLevel?: components["schemas"]["WishLevel"];
             /** @description At most 10 links, stored in array order. Omit for none. */
             links?: components["schemas"]["ShopLinkInput"][];
         };
@@ -273,7 +326,7 @@ export interface components {
         /** @enum {string} */
         CategorySlug: "ramen" | "udon";
         /** @enum {string} */
-        ErrorType: "invalid_request" | "authentication_required" | "permission_denied" | "google_auth_failed" | "session_creation_failed" | "not_found" | "internal_error" | "google_places_not_configured" | "google_places_failed";
+        ErrorType: "invalid_request" | "authentication_required" | "permission_denied" | "google_auth_failed" | "session_creation_failed" | "not_found" | "internal_error" | "google_places_not_configured" | "google_places_failed" | "shop_has_visit_logs";
         /** @enum {string} */
         FieldErrorType: "required" | "invalid_format" | "out_of_range" | "too_long" | "duplicate" | "unknown";
         GoogleAuthBadRequestErrorBody: {
@@ -373,15 +426,32 @@ export interface components {
             address: string;
             /** @description Google Places place id. Absent when the shop was entered by hand. */
             googlePlaceId?: string;
+            /** @description Derived on the server: true when the shop has at least one visit log. Read-only. */
             eaten: boolean;
-            /** Format: double */
+            /**
+             * Format: double
+             * @description Derived on the server: the rate of the latest visit log that has one, or 0 when none has. Read-only.
+             */
             rate: number;
-            /** @description Derived on the server: true when the shop is eaten and its rate is 80 or more. Read-only. */
+            /** @description Derived on the server: true when the shop's rate comes from a visit log and is 80 or more. Read-only. */
             favorite: boolean;
+            /**
+             * Format: int32
+             * @description Number of visit logs of the shop. Read-only.
+             */
+            visitCount: number;
+            /** @description 気になる度. Absent when not set. Kept after the shop is eaten, but only meaningful before. */
+            wishLevel?: components["schemas"]["WishLevel"];
             category: components["schemas"]["CategorySlug"];
             tags: components["schemas"]["Tag"][];
             /** @description External links (official site, SNS, ...) in display order. */
             links: components["schemas"]["ShopLink"][];
+        };
+        /** @description The shop has visit logs, so it cannot be deleted. */
+        ShopHasVisitLogsErrorBody: {
+            /** @enum {string} */
+            type: "shop_has_visit_logs";
+            message?: string;
         };
         ShopLink: {
             type: components["schemas"]["ShopLinkType"];
@@ -441,7 +511,7 @@ export interface components {
             fieldErrors?: components["schemas"]["UpdateShopFieldError"][];
         };
         /** @enum {string} */
-        UpdateShopField: "name" | "nameKana" | "lat" | "lng" | "postalCode" | "address" | "openedAt" | "closedAt" | "googlePlaceId" | "category" | "eaten" | "rate" | "tagIds" | "links";
+        UpdateShopField: "name" | "nameKana" | "lat" | "lng" | "postalCode" | "address" | "openedAt" | "closedAt" | "googlePlaceId" | "category" | "eaten" | "rate" | "tagIds" | "links" | "wishLevel";
         UpdateShopFieldError: {
             field: components["schemas"]["UpdateShopField"];
             type: components["schemas"]["FieldErrorType"];
@@ -462,10 +532,16 @@ export interface components {
             /** @description Omit to keep the stored place id (older clients); a blank string clears it. */
             googlePlaceId?: string;
             category: components["schemas"]["CategorySlug"];
-            eaten: boolean;
-            /** Format: double */
-            rate: number;
+            /** @description Deprecated and ignored by the server: 食べた is derived from visit logs. Older clients still send it. */
+            eaten?: boolean;
+            /**
+             * Format: double
+             * @description Deprecated and ignored by the server: the shop's rate is derived from visit logs. Older clients still send it.
+             */
+            rate?: number;
             tagIds: components["schemas"]["uuid"][];
+            /** @description Omit to keep the stored 気になる度 (older clients); null clears it. */
+            wishLevel?: components["schemas"]["WishLevel"] | null;
             /** @description Omit to keep the stored links (older clients); an array replaces them all, in array order. At most 10. */
             links?: components["schemas"]["ShopLinkInput"][];
         };
@@ -474,6 +550,73 @@ export interface components {
             email: string;
             isAdmin: boolean;
         };
+        /** @description One 訪問ログ. Visit logs are listed newest first: by visitedOn, those without one last, then by creation. */
+        VisitLog: {
+            id: components["schemas"]["uuid"];
+            /** @description Visit date as an ISO 8601 calendar date (YYYY-MM-DD). Absent when unknown. */
+            visitedOn?: string;
+            menuName?: string;
+            isLimitedMenu: boolean;
+            /**
+             * Format: int32
+             * @description Price in yen.
+             */
+            price?: number;
+            /**
+             * Format: double
+             * @description 0 to 100. Absent when the visit is not rated.
+             */
+            rate?: number;
+            /** @description 催事 (department store fair, ramen festival, ...) where the shop was visited. */
+            eventName?: string;
+            publicNote?: string;
+            /** @description Only in responses to the admin; omitted for everyone else. */
+            privateNote?: string;
+        };
+        VisitLogBadRequestErrorBody: {
+            /** @enum {string} */
+            type: "invalid_request";
+            message?: string;
+            fieldErrors?: components["schemas"]["VisitLogFieldError"][];
+        };
+        /** @enum {string} */
+        VisitLogField: "visitedOn" | "menuName" | "isLimitedMenu" | "price" | "rate" | "eventName" | "publicNote" | "privateNote";
+        VisitLogFieldError: {
+            field: components["schemas"]["VisitLogField"];
+            type: components["schemas"]["FieldErrorType"];
+            message?: string;
+        };
+        /**
+         * @description A visit log as written by the admin. Strings are trimmed and a blank string means not set.
+         *     On update every field is replaced, so an omitted field is cleared.
+         */
+        VisitLogInput: {
+            /** @description ISO 8601 calendar date (YYYY-MM-DD), no later than tomorrow. Omit when unknown. */
+            visitedOn?: string;
+            menuName?: string;
+            isLimitedMenu: boolean;
+            /**
+             * Format: int32
+             * @description Price in yen, 0 to 10,000,000.
+             */
+            price?: number;
+            /**
+             * Format: double
+             * @description 0 to 100. Omit when not rated.
+             */
+            rate?: number;
+            eventName?: string;
+            publicNote?: string;
+            privateNote?: string;
+        };
+        VisitLogsResponse: {
+            visits: components["schemas"]["VisitLog"][];
+        };
+        /**
+         * @description 気になる度 of a shop not eaten yet: low = ちょっと気になる, medium = 気になる, high = 絶対行きたい.
+         * @enum {string}
+         */
+        WishLevel: "low" | "medium" | "high";
         /** @description UUID serialized as a string. */
         uuid: string;
     };
@@ -1079,6 +1222,86 @@ export interface operations {
                     "application/json": components["schemas"]["NotFoundErrorBody"];
                 };
             };
+            /** @description The request conflicts with the current state of the server. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShopHasVisitLogsErrorBody"];
+                };
+            };
+            /** @description Server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InternalErrorBody"];
+                };
+            };
+        };
+    };
+    addVisitLog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VisitLogInput"];
+            };
+        };
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisitLog"];
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisitLogBadRequestErrorBody"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthenticationRequiredErrorBody"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PermissionDeniedErrorBody"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotFoundErrorBody"];
+                };
+            };
             /** @description Server error */
             500: {
                 headers: {
@@ -1150,6 +1373,133 @@ export interface operations {
             };
         };
     };
+    updateVisitLog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                visitId: components["schemas"]["uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VisitLogInput"];
+            };
+        };
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisitLog"];
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisitLogBadRequestErrorBody"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthenticationRequiredErrorBody"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PermissionDeniedErrorBody"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotFoundErrorBody"];
+                };
+            };
+            /** @description Server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InternalErrorBody"];
+                };
+            };
+        };
+    };
+    deleteVisitLog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                visitId: components["schemas"]["uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description There is no content to send for this request, but the headers may be useful. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthenticationRequiredErrorBody"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PermissionDeniedErrorBody"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotFoundErrorBody"];
+                };
+            };
+            /** @description Server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InternalErrorBody"];
+                };
+            };
+        };
+    };
     listShops: {
         parameters: {
             query?: never;
@@ -1166,6 +1516,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ShopsResponse"];
+                };
+            };
+            /** @description Server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InternalErrorBody"];
+                };
+            };
+        };
+    };
+    listVisitLogs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisitLogsResponse"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotFoundErrorBody"];
                 };
             };
             /** @description Server error */

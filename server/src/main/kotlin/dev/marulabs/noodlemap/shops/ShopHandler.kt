@@ -25,6 +25,10 @@ import dev.marulabs.noodlemap.generated.models.ShopsResponse
 import dev.marulabs.noodlemap.generated.models.Tag
 import dev.marulabs.noodlemap.generated.models.TagsResponse
 import dev.marulabs.noodlemap.generated.models.UpdateShopRequest
+import dev.marulabs.noodlemap.generated.models.WishLevel
+import dev.marulabs.noodlemap.http.jsonBodyHasKey
+import dev.marulabs.noodlemap.visits.VisitSummary
+import dev.marulabs.noodlemap.visits.visitSummariesByShop
 import java.net.IDN
 import java.util.UUID
 import org.sqlite.SQLiteErrorCode
@@ -127,11 +131,13 @@ class ShopHandler(
         // Blank means "entered by hand": stored as NULL so any number of such shops fit the UNIQUE column.
         val googlePlaceId = req.googlePlaceId?.trim()?.takeIf { it.isNotEmpty() }
         val links = normalizeLinks(req.links.orEmpty())
+        val wishLevel = req.wishLevel?.let(::parseWishLevel)
         db.transaction {
             rejectingDuplicatePlaceId {
                 db.shopsQueries.insertShop(
                     shopId, req.name, nameKana, req.lat, req.lng, req.postalCode, req.address,
                     ShopDate.encode(req.openedAt), ShopDate.encode(req.closedAt), googlePlaceId, req.category.value,
+                    wishLevel?.value,
                 )
             }
             replaceShopTags(shopId, req.tagIds)
@@ -143,7 +149,8 @@ class ShopHandler(
                 id = shopId.toString(), name = req.name, nameKana = nameKana, lat = req.lat, lng = req.lng,
                 openedAt = ShopDate.encode(req.openedAt), closedAt = ShopDate.encode(req.closedAt),
                 postalCode = req.postalCode, address = req.address, googlePlaceId = googlePlaceId,
-                eaten = false, rate = 0.0, favorite = false, category = req.category,
+                eaten = false, rate = 0.0, favorite = false, visitCount = 0, wishLevel = wishLevel?.value,
+                category = req.category,
                 tags = tagsByShopIds(listOf(shopId))[shopId] ?: emptyList(),
                 links = linksByShopIds(listOf(shopId))[shopId] ?: emptyList(),
             ),
@@ -160,14 +167,18 @@ class ShopHandler(
         }
         if (!user.isAdmin) throw DomainException.PermissionDenied()
 
+        // eaten / rate are deprecated and ignored: 食べた and 評価 come from visit logs.
         val req = updateShopRequest
-        if (req.eaten && req.rate !in 0.0..100.0) throw DomainException.ShopRateOutOfRange()
         // Missing (older clients) keeps the stored reading; blank clears it ('' -> NULL in SQL).
         val nameKana = req.nameKana?.let { normalizeNameKana(it) ?: "" }
         // Same for the place id: missing keeps it, blank clears it.
         val googlePlaceId = req.googlePlaceId?.trim()
         // Missing (older clients) keeps the stored links; an array replaces them all.
         val links = req.links?.let { normalizeLinks(it) }
+        // Missing (older clients) keeps the stored 気になる度; null clears it. The generated model reads both
+        // as null, so presence is checked on the raw body.
+        val wishLevelSent = call.jsonBodyHasKey("wishLevel")
+        val wishLevel = req.wishLevel?.let(::parseWishLevel)
         db.transaction {
             // Write first and judge existence by rows affected: a SELECT before the first write
             // in a deferred WAL transaction can fail with SQLITE_BUSY_SNAPSHOT under contention.
@@ -178,11 +189,7 @@ class ShopHandler(
                 ).value
             }
             if (updated == 0L) throw DomainException.NotFound()
-            if (req.eaten) {
-                db.eatenShopsQueries.upsertEatenShop(UUID.randomUUID(), shopId, req.rate)
-            } else {
-                db.eatenShopsQueries.deleteEatenShopByShopId(shopId)
-            }
+            if (wishLevelSent) db.shopsQueries.updateShopWishLevel(wishLevel?.value, shopId)
             replaceShopTags(shopId, req.tagIds)
             links?.let { replaceShopLinks(shopId, it) }
         }
@@ -200,13 +207,13 @@ class ShopHandler(
         }
         if (!user.isAdmin) throw DomainException.PermissionDenied()
 
-        // TODO: 訪問ログ実装時、訪問ログを持つ店舗は削除不可 (409) にする
         db.transaction {
-            // eaten_shops / shop_images have no ON DELETE CASCADE, so children go first. An unknown
-            // id deletes nothing; it is detected by rows affected (no SELECT before the first write).
-            db.eatenShopsQueries.deleteEatenShopByShopId(shopId)
+            // The first statement writes, so the check below reads under the write lock (a SELECT before
+            // the first write in a deferred WAL transaction can fail with SQLITE_BUSY_SNAPSHOT). An unknown
+            // id deletes nothing; it is detected by rows affected.
             db.shopsTagsQueries.deleteShopTagsByShopId(shopId)
-            db.shopImagesQueries.deleteShopImagesByShopId(shopId)
+            // A shop with visit logs is never deleted (GLOSSARY.md 店舗); throwing rolls the tag delete back.
+            if (db.visitLogsQueries.shopHasVisitLogs(shopId).executeAsOne()) throw DomainException.ShopHasVisitLogs()
             db.shopLinksQueries.deleteShopLinksByShopId(shopId)
             if (db.shopsQueries.deleteShop(shopId).value == 0L) throw DomainException.NotFound()
         }
@@ -220,20 +227,24 @@ class ShopHandler(
 
     // --- Helpers ---
 
-    // The one place the お気に入り rule lives (GLOSSARY.md): an eaten shop rated 80 or more.
-    // TODO: once visit logs exist, base this on the latest visit log's rate.
-    private fun isFavorite(eaten: Boolean, rate: Double): Boolean = eaten && rate >= 80.0
+    // The one place the お気に入り rule lives (GLOSSARY.md): the shop's 評価 is 80 or more. A shop
+    // only has a 評価 through a rated visit log, so a favorite is always eaten.
+    private fun isFavorite(rate: Double?): Boolean = rate != null && rate >= 80.0
 
     private fun loadShops(): List<Shop> {
         val rows = db.shopsQueries.findAllShops().executeAsList()
         val tagsByShop = tagsByShopIds(rows.map { it.id })
         val linksByShop = linksByShopIds(rows.map { it.id })
+        val visitsByShop = visitSummariesByShop(db)
         return rows.map { r ->
+            val visits = visitsByShop[r.id] ?: VisitSummary.NONE
             Shop(
                 id = r.id.toString(), name = r.name, nameKana = r.name_kana, lat = r.lat, lng = r.lng,
                 openedAt = ShopDate.decode(r.opened_at), closedAt = ShopDate.decode(r.closed_at),
                 postalCode = r.postal_code, address = r.address, googlePlaceId = r.google_place_id,
-                eaten = r.eaten != 0L, rate = r.rate, favorite = isFavorite(r.eaten != 0L, r.rate),
+                // Older clients read a missing 評価 as 0.
+                eaten = visits.eaten, rate = visits.rate ?: 0.0, favorite = isFavorite(visits.rate),
+                visitCount = visits.visitCount, wishLevel = r.wish_level,
                 category = CategorySlug.fromValue(r.category) ?: CategorySlug.RAMEN,
                 tags = tagsByShop[r.id] ?: emptyList(),
                 links = linksByShop[r.id] ?: emptyList(),
@@ -291,6 +302,12 @@ class ShopHandler(
             db.shopLinksQueries.insertShopLink(UUID.randomUUID(), shopId, link.type.value, link.label, link.url, i.toLong())
         }
     }
+
+    private fun parseWishLevel(raw: String): WishLevel =
+        WishLevel.fromValue(raw) ?: throw DomainException.InvalidRequestWithFields(
+            "invalid wish level",
+            listOf(FieldError("wishLevel", FieldErrorType.INVALID_FORMAT)),
+        )
 
     /** Trims the reading; blank means "not set". */
     private fun normalizeNameKana(raw: String?): String? {

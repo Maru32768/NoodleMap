@@ -56,15 +56,14 @@ fun buildDatabase(dataSource: DataSource): NoodleMapDb {
         usersAdapter = Users.Adapter(idAdapter = UuidAdapter),
         sessionsAdapter = Sessions.Adapter(idAdapter = UuidAdapter, user_idAdapter = UuidAdapter),
         shopsAdapter = Shops.Adapter(idAdapter = UuidAdapter),
-        eaten_shopsAdapter = Eaten_shops.Adapter(idAdapter = UuidAdapter, shop_idAdapter = UuidAdapter),
         tagsAdapter = Tags.Adapter(idAdapter = UuidAdapter),
         shops_tagsAdapter = Shops_tags.Adapter(
             idAdapter = UuidAdapter,
             shop_idAdapter = UuidAdapter,
             tag_idAdapter = UuidAdapter,
         ),
-        shop_imagesAdapter = Shop_images.Adapter(idAdapter = UuidAdapter, shop_idAdapter = UuidAdapter),
         shop_linksAdapter = Shop_links.Adapter(idAdapter = UuidAdapter, shop_idAdapter = UuidAdapter),
+        visit_logsAdapter = Visit_logs.Adapter(idAdapter = UuidAdapter, shop_idAdapter = UuidAdapter),
     )
 }
 

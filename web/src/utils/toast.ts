@@ -66,6 +66,10 @@ const apiErrorMessages: Readonly<Record<ErrorType, UserErrorMessage>> = {
     description:
       "時間をおいてもう一度お試しください。店舗情報はフォームに直接入力することもできます。",
   },
+  shop_has_visit_logs: {
+    title: "店舗を削除できませんでした",
+    description: "訪問ログがある店舗は削除できません",
+  },
 };
 
 const statusMessages: Readonly<Record<number, UserErrorMessage>> = {

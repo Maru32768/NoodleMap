@@ -2,6 +2,7 @@ package dev.marulabs.noodlemap.generated.models
 
 import kotlin.Boolean
 import kotlin.Double
+import kotlin.Int
 import kotlin.String
 import kotlin.collections.List
 import kotlinx.serialization.SerialName
@@ -44,15 +45,33 @@ public data class Shop(
    */
   @SerialName("googlePlaceId")
   public val googlePlaceId: String? = null,
+  /**
+   * Derived on the server: true when the shop has at least one visit log. Read-only.
+   */
   @SerialName("eaten")
   public val eaten: Boolean,
+  /**
+   * Derived on the server: the rate of the latest visit log that has one, or 0 when none has.
+   * Read-only.
+   */
   @SerialName("rate")
   public val rate: Double,
   /**
-   * Derived on the server: true when the shop is eaten and its rate is 80 or more. Read-only.
+   * Derived on the server: true when the shop's rate comes from a visit log and is 80 or more.
+   * Read-only.
    */
   @SerialName("favorite")
   public val favorite: Boolean,
+  /**
+   * Number of visit logs of the shop. Read-only.
+   */
+  @SerialName("visitCount")
+  public val visitCount: Int,
+  /**
+   * 気になる度. Absent when not set. Kept after the shop is eaten, but only meaningful before.
+   */
+  @SerialName("wishLevel")
+  public val wishLevel: String? = null,
   @SerialName("category")
   public val category: CategorySlug,
   @SerialName("tags")

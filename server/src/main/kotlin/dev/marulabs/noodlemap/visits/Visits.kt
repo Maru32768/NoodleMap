@@ -1,0 +1,33 @@
+package dev.marulabs.noodlemap.visits
+
+import dev.marulabs.noodlemap.db.FindAllVisitSummaries
+import dev.marulabs.noodlemap.db.NoodleMapDb
+import java.util.UUID
+
+/**
+ * The one place the "latest visit" order lives (GLOSSARY.md 訪問ログ): newest visit date first, a visit
+ * without a date counting as the oldest, then the most recently created. Sort with it stably over rows
+ * read newest-inserted first, so visits created in the same second keep that order.
+ */
+internal fun <T> latestFirst(visitedOn: (T) -> String?, createdAt: (T) -> String): Comparator<T> =
+    compareByDescending<T, String?>(nullsFirst(naturalOrder())) { visitedOn(it) }.thenByDescending { createdAt(it) }
+
+/** What a shop derives from its visit logs: 食べた and its 評価. */
+data class VisitSummary(val visitCount: Int, val rate: Double?) {
+    /** 食べた: at least one visit log. */
+    val eaten: Boolean get() = visitCount > 0
+
+    companion object {
+        val NONE = VisitSummary(0, null)
+    }
+}
+
+private val SUMMARY_ORDER = latestFirst<FindAllVisitSummaries>({ it.visited_on }, { it.created_at })
+
+/** The shop's 評価 is the rate of its latest visit log that has one. */
+internal fun summarize(visits: List<FindAllVisitSummaries>): VisitSummary =
+    VisitSummary(visits.size, visits.filter { it.rate != null }.minWithOrNull(SUMMARY_ORDER)?.rate)
+
+/** Summaries of every shop with a visit log, from one query; shops without one are absent. */
+fun visitSummariesByShop(db: NoodleMapDb): Map<UUID, VisitSummary> =
+    db.visitLogsQueries.findAllVisitSummaries().executeAsList().groupBy { it.shop_id }.mapValues { summarize(it.value) }

@@ -378,6 +378,7 @@ paths:
               $ref: '#/components/schemas/UpdateShopRequest'
     delete:
       operationId: deleteShop
+      description: Deletes a shop with its tags and links. A shop with visit logs cannot be deleted (409).
       parameters:
         - name: id
           in: path
@@ -411,12 +412,70 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/NotFoundErrorBody'
+        '409':
+          description: The request conflicts with the current state of the server.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShopHasVisitLogsErrorBody'
         '500':
           description: Server error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/InternalErrorBody'
+  /api/v1/auth/shops/{id}/visits:
+    post:
+      operationId: addVisitLog
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VisitLog'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VisitLogBadRequestErrorBody'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthenticationRequiredErrorBody'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionDeniedErrorBody'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorBody'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalErrorBody'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VisitLogInput'
   /api/v1/auth/tags:
     put:
       operationId: saveTags
@@ -458,6 +517,94 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/SaveTagsRequest'
+  /api/v1/auth/visits/{visitId}:
+    put:
+      operationId: updateVisitLog
+      description: Replaces every field of a visit log.
+      parameters:
+        - name: visitId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VisitLog'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VisitLogBadRequestErrorBody'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthenticationRequiredErrorBody'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionDeniedErrorBody'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorBody'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalErrorBody'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VisitLogInput'
+    delete:
+      operationId: deleteVisitLog
+      parameters:
+        - name: visitId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '204':
+          description: 'There is no content to send for this request, but the headers may be useful. '
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthenticationRequiredErrorBody'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionDeniedErrorBody'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorBody'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalErrorBody'
   /api/v1/shops:
     get:
       operationId: listShops
@@ -469,6 +616,35 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ShopsResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalErrorBody'
+  /api/v1/shops/{id}/visits:
+    get:
+      operationId: listVisitLogs
+      description: A shop's visit logs, newest first. privateNote is included only for the admin.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VisitLogsResponse'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorBody'
         '500':
           description: Server error
           content:
@@ -524,6 +700,7 @@ components:
         - category
         - tagIds
         - links
+        - wishLevel
     AddShopFieldError:
       type: object
       required:
@@ -574,6 +751,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/uuid'
+        wishLevel:
+          allOf:
+            - $ref: '#/components/schemas/WishLevel'
+          description: Omit when not set.
         links:
           type: array
           items:
@@ -637,6 +818,7 @@ components:
         - internal_error
         - google_places_not_configured
         - google_places_failed
+        - shop_has_visit_logs
     FieldErrorType:
       type: string
       enum:
@@ -844,6 +1026,7 @@ components:
         - eaten
         - rate
         - favorite
+        - visitCount
         - category
         - tags
         - links
@@ -876,12 +1059,22 @@ components:
           description: Google Places place id. Absent when the shop was entered by hand.
         eaten:
           type: boolean
+          description: 'Derived on the server: true when the shop has at least one visit log. Read-only.'
         rate:
           type: number
           format: double
+          description: 'Derived on the server: the rate of the latest visit log that has one, or 0 when none has. Read-only.'
         favorite:
           type: boolean
-          description: 'Derived on the server: true when the shop is eaten and its rate is 80 or more. Read-only.'
+          description: "Derived on the server: true when the shop's rate comes from a visit log and is 80 or more. Read-only."
+        visitCount:
+          type: integer
+          format: int32
+          description: Number of visit logs of the shop. Read-only.
+        wishLevel:
+          allOf:
+            - $ref: '#/components/schemas/WishLevel'
+          description: 気になる度. Absent when not set. Kept after the shop is eaten, but only meaningful before.
         category:
           $ref: '#/components/schemas/CategorySlug'
         tags:
@@ -893,6 +1086,18 @@ components:
           items:
             $ref: '#/components/schemas/ShopLink'
           description: External links (official site, SNS, ...) in display order.
+    ShopHasVisitLogsErrorBody:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum:
+            - shop_has_visit_logs
+        message:
+          type: string
+      description: The shop has visit logs, so it cannot be deleted.
     ShopLink:
       type: object
       required:
@@ -1058,6 +1263,7 @@ components:
         - rate
         - tagIds
         - links
+        - wishLevel
     UpdateShopFieldError:
       type: object
       required:
@@ -1079,8 +1285,6 @@ components:
         - postalCode
         - address
         - category
-        - eaten
-        - rate
         - tagIds
       properties:
         name:
@@ -1109,13 +1313,20 @@ components:
           $ref: '#/components/schemas/CategorySlug'
         eaten:
           type: boolean
+          description: 'Deprecated and ignored by the server: 食べた is derived from visit logs. Older clients still send it.'
         rate:
           type: number
           format: double
+          description: "Deprecated and ignored by the server: the shop's rate is derived from visit logs. Older clients still send it."
         tagIds:
           type: array
           items:
             $ref: '#/components/schemas/uuid'
+        wishLevel:
+          allOf:
+            - $ref: '#/components/schemas/WishLevel'
+          nullable: true
+          description: Omit to keep the stored 気になる度 (older clients); null clears it.
         links:
           type: array
           items:
@@ -1135,6 +1346,129 @@ components:
           type: string
         isAdmin:
           type: boolean
+    VisitLog:
+      type: object
+      required:
+        - id
+        - isLimitedMenu
+      properties:
+        id:
+          $ref: '#/components/schemas/uuid'
+        visitedOn:
+          type: string
+          description: Visit date as an ISO 8601 calendar date (YYYY-MM-DD). Absent when unknown.
+        menuName:
+          type: string
+        isLimitedMenu:
+          type: boolean
+        price:
+          type: integer
+          format: int32
+          description: Price in yen.
+        rate:
+          type: number
+          format: double
+          description: 0 to 100. Absent when the visit is not rated.
+        eventName:
+          type: string
+          description: 催事 (department store fair, ramen festival, ...) where the shop was visited.
+        publicNote:
+          type: string
+        privateNote:
+          type: string
+          description: Only in responses to the admin; omitted for everyone else.
+      description: 'One 訪問ログ. Visit logs are listed newest first: by visitedOn, those without one last, then by creation.'
+    VisitLogBadRequestErrorBody:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum:
+            - invalid_request
+        message:
+          type: string
+        fieldErrors:
+          type: array
+          items:
+            $ref: '#/components/schemas/VisitLogFieldError'
+    VisitLogField:
+      type: string
+      enum:
+        - visitedOn
+        - menuName
+        - isLimitedMenu
+        - price
+        - rate
+        - eventName
+        - publicNote
+        - privateNote
+    VisitLogFieldError:
+      type: object
+      required:
+        - field
+        - type
+      properties:
+        field:
+          $ref: '#/components/schemas/VisitLogField'
+        type:
+          $ref: '#/components/schemas/FieldErrorType'
+        message:
+          type: string
+    VisitLogInput:
+      type: object
+      required:
+        - isLimitedMenu
+      properties:
+        visitedOn:
+          type: string
+          description: ISO 8601 calendar date (YYYY-MM-DD), no later than tomorrow. Omit when unknown.
+        menuName:
+          type: string
+          maxLength: 200
+        isLimitedMenu:
+          type: boolean
+        price:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 10000000
+          description: Price in yen, 0 to 10,000,000.
+        rate:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 100
+          description: 0 to 100. Omit when not rated.
+        eventName:
+          type: string
+          maxLength: 100
+        publicNote:
+          type: string
+          maxLength: 2000
+        privateNote:
+          type: string
+          maxLength: 2000
+      description: |-
+        A visit log as written by the admin. Strings are trimmed and a blank string means not set.
+        On update every field is replaced, so an omitted field is cleared.
+    VisitLogsResponse:
+      type: object
+      required:
+        - visits
+      properties:
+        visits:
+          type: array
+          items:
+            $ref: '#/components/schemas/VisitLog'
+    WishLevel:
+      type: string
+      enum:
+        - low
+        - medium
+        - high
+      description: '気になる度 of a shop not eaten yet: low = ちょっと気になる, medium = 気になる, high = 絶対行きたい.'
     uuid:
       type: string
       description: UUID serialized as a string.

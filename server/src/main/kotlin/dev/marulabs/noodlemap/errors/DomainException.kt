@@ -16,6 +16,7 @@ enum class ErrorType {
     @SerialName("internal_error") INTERNAL_ERROR,
     @SerialName("google_places_not_configured") GOOGLE_PLACES_NOT_CONFIGURED,
     @SerialName("google_places_failed") GOOGLE_PLACES_FAILED,
+    @SerialName("shop_has_visit_logs") SHOP_HAS_VISIT_LOGS,
 }
 
 /** Field-level error kind. Values mirror TypeSpec `FieldErrorType`. */
@@ -115,11 +116,8 @@ sealed class DomainException(
             listOf(FieldError("tagIds", FieldErrorType.UNKNOWN)),
         )
 
-    class ShopRateOutOfRange :
-        DomainException(
-            HttpStatusCode.BadRequest, ErrorType.INVALID_REQUEST, "rate out of range",
-            listOf(FieldError("rate", FieldErrorType.OUT_OF_RANGE)),
-        )
+    class ShopHasVisitLogs :
+        DomainException(HttpStatusCode.Conflict, ErrorType.SHOP_HAS_VISIT_LOGS, "shop has visit logs")
 
     class InvalidTagCommand :
         DomainException(HttpStatusCode.BadRequest, ErrorType.INVALID_REQUEST, "invalid tag")

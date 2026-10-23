@@ -1,0 +1,55 @@
+-- 訪問ログ. Reads return the newest-inserted row first (rowid DESC); the "latest visit" order itself
+-- lives in Kotlin (`visits/Visits.kt` LATEST_FIRST), which sorts these rows stably.
+CREATE TABLE visit_logs (
+    id              TEXT AS java.util.UUID NOT NULL PRIMARY KEY,
+    shop_id         TEXT AS java.util.UUID NOT NULL,
+    visited_on      TEXT,
+    menu_name       TEXT,
+    is_limited_menu INTEGER AS kotlin.Boolean NOT NULL DEFAULT 0 CHECK (is_limited_menu IN (0, 1)),
+    price           INTEGER CHECK (price >= 0),
+    rate            REAL CHECK (rate BETWEEN 0 AND 100),
+    event_name      TEXT,
+    public_note     TEXT,
+    private_note    TEXT,
+    created_at      TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (shop_id) REFERENCES shops (id)
+);
+
+CREATE INDEX idx_visit_logs_shop_id ON visit_logs (shop_id);
+
+-- (modtime trigger omitted; see note in Users.sq)
+
+insertVisitLog:
+INSERT INTO visit_logs (id, shop_id, visited_on, menu_name, is_limited_menu, price, rate, event_name, public_note, private_note)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+updateVisitLog:
+UPDATE visit_logs
+SET visited_on      = :visitedOn,
+    menu_name       = :menuName,
+    is_limited_menu = :isLimitedMenu,
+    price           = :price,
+    rate            = :rate,
+    event_name      = :eventName,
+    public_note     = :publicNote,
+    private_note    = :privateNote
+WHERE id = :id;
+
+deleteVisitLog:
+DELETE FROM visit_logs WHERE id = ?;
+
+findVisitLogsByShopId:
+SELECT *
+FROM visit_logs
+WHERE shop_id = ?
+ORDER BY rowid DESC;
+
+-- Only what the shop list derives 食べた and 評価 from, for every shop in one query.
+findAllVisitSummaries:
+SELECT shop_id, visited_on, rate, created_at
+FROM visit_logs
+ORDER BY rowid DESC;
+
+shopHasVisitLogs:
+SELECT EXISTS (SELECT 1 FROM visit_logs WHERE shop_id = ?);

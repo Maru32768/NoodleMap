@@ -38,7 +38,7 @@ export type Shop = ApiShop & {
   readonly eatenStatus: ShopEatenStatus;
 };
 
-// Mirrors the server's favorite rule (ShopHandler.isFavorite); only for optimistic cache updates.
+// Mirrors the server's favorite rule (ShopHandler.isFavorite) for test fixtures.
 export function isFavorite(eaten: boolean, rate: number): boolean {
   return eaten && rate >= 80;
 }
@@ -162,15 +162,27 @@ export function useShops(config?: SWRConfiguration<Shop[]>) {
             }
             // tagIds is not part of the Shop shape and tags cannot be derived
             // from ids here; the revalidation triggered below refreshes tags.
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const { tagIds: _tagIds, ...shopFields } = command;
+            // eaten/rate are ignored by the server (derived from visit logs).
+            const {
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
+              tagIds: _tagIds,
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
+              eaten: _eaten,
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
+              rate: _rate,
+              ...shopFields
+            } = command;
             const copy = [...current];
             // Re-decorate so the cached date timestamps reflect the edited
             // openedAt/closedAt values, not the previous shop's.
             copy[i] = decorateShop({
               ...current[i],
               ...shopFields,
-              favorite: isFavorite(command.eaten, command.rate),
+              // Mirror the server: omitted keeps the 気になる度, null clears it.
+              wishLevel:
+                shopFields.wishLevel === undefined
+                  ? current[i].wishLevel
+                  : (shopFields.wishLevel ?? undefined),
               // Mirror the server: omitted keeps the reading, blank clears it.
               nameKana:
                 shopFields.nameKana === undefined

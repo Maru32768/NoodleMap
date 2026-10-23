@@ -14,6 +14,7 @@ import dev.marulabs.noodlemap.generated.models.ShopLink
 import dev.marulabs.noodlemap.generated.models.ShopLinkInput
 import dev.marulabs.noodlemap.generated.models.ShopLinkType
 import dev.marulabs.noodlemap.generated.models.ShopsResponse
+import dev.marulabs.noodlemap.generated.models.VisitLog
 import dev.marulabs.noodlemap.postJson
 import dev.marulabs.noodlemap.putJson
 import dev.marulabs.noodlemap.testApp
@@ -28,6 +29,7 @@ import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import java.util.UUID
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.jsonObject
@@ -227,13 +229,13 @@ class ShopApiTest {
         val req = addShopRequest(placeId = "mine")
         val id = client.postJson("/api/v1/auth/shops", encode(req), admin).body<Shop>().id
 
-        val res = client.putJson("/api/v1/auth/shops/$id", encode(req.toUpdate(eaten = true).copy(googlePlaceId = "taken")), admin)
+        val res = client.putJson("/api/v1/auth/shops/$id", encode(req.toUpdate().copy(googlePlaceId = "taken", wishLevel = "high")), admin)
 
         res.status shouldBe HttpStatusCode.BadRequest
         res.body<ErrorBody>() shouldBe duplicatePlaceId
         client.shops().single { it.id == id }.let {
             it.googlePlaceId shouldBe "mine"
-            it.eaten shouldBe false
+            it.wishLevel shouldBe null
         }
         // Keeping its own place id is not a conflict.
         client.putJson("/api/v1/auth/shops/$id", encode(req.toUpdate()), admin).status shouldBe HttpStatusCode.OK
@@ -292,33 +294,23 @@ class ShopApiTest {
     }
 
     @Test
-    fun `update toggles eaten state and replaces tags`() = testApp { t ->
+    fun `update replaces tags and ignores the deprecated eaten and rate`() = testApp { t ->
         val admin = t.adminToken()
         val req = addShopRequest(tagIds = listOf(SHOYU))
         val id = client.postJson("/api/v1/auth/shops", encode(req), admin).body<Shop>().id
 
-        client.putJson("/api/v1/auth/shops/$id", encode(req.toUpdate(eaten = true, rate = 80.0, tagIds = listOf(MISO, SHIO, MISO))), admin)
-            .status shouldBe HttpStatusCode.OK
-        client.shops().single().let {
-            it.eaten shouldBe true
-            it.rate shouldBe 80.0
-            it.favorite shouldBe true
-            it.tags.map { tag -> tag.id } shouldContainExactly listOf(SHIO, MISO)
+        // Older clients still send eaten/rate, even a rate the old validation rejected.
+        for (rate in listOf(80.0, -5.0)) {
+            val body = encode(req.toUpdate(tagIds = listOf(MISO, SHIO, MISO)).copy(eaten = true, rate = rate))
+            client.putJson("/api/v1/auth/shops/$id", body, admin).status shouldBe HttpStatusCode.OK
         }
 
-        client.putJson("/api/v1/auth/shops/$id", encode(req.toUpdate(eaten = true, rate = 79.5)), admin)
-        client.shops().single().let {
-            it.rate shouldBe 79.5
-            it.favorite shouldBe false
-            it.tags.map { tag -> tag.id } shouldContainExactly listOf(SHOYU)
-        }
-
-        client.putJson("/api/v1/auth/shops/$id", encode(req.toUpdate(eaten = false, rate = 100.0, tagIds = emptyList())), admin)
         client.shops().single().let {
             it.eaten shouldBe false
             it.rate shouldBe 0.0
             it.favorite shouldBe false
-            it.tags.shouldBeEmpty()
+            it.visitCount shouldBe 0
+            it.tags.map { tag -> tag.id } shouldContainExactly listOf(SHIO, MISO)
         }
     }
 
@@ -328,36 +320,56 @@ class ShopApiTest {
         val req = addShopRequest(tagIds = listOf(SHOYU))
         val id = client.postJson("/api/v1/auth/shops", encode(req), admin).body<Shop>().id
 
-        val res = client.putJson("/api/v1/auth/shops/$id", encode(req.toUpdate(eaten = true, tagIds = listOf("bogus")).copy(name = "Renamed")), admin)
+        val res = client.putJson("/api/v1/auth/shops/$id", encode(req.toUpdate(tagIds = listOf("bogus")).copy(name = "Renamed", wishLevel = "high")), admin)
 
         res.body<ErrorBody>() shouldBe invalidTagIds
         client.shops().single().let {
             it.name shouldBe "Ramen Taro"
-            it.eaten shouldBe false
+            it.wishLevel shouldBe null
             it.tags.map { tag -> tag.id } shouldContainExactly listOf(SHOYU)
         }
     }
 
     @Test
-    fun `update rejects a rate outside 0 to 100 only for eaten shops`() = testApp { t ->
+    fun `wish level is set on add, kept when omitted, replaced when sent and cleared by null`() = testApp { t ->
         val admin = t.adminToken()
-        val req = addShopRequest()
-        val id = client.postJson("/api/v1/auth/shops", encode(req), admin).body<Shop>().id
-        val rateOutOfRange = ErrorBody(ErrorType.INVALID_REQUEST, "rate out of range", listOf(FieldError("rate", FieldErrorType.OUT_OF_RANGE)))
+        val req = addShopRequest().copy(wishLevel = "high")
+        val added = client.postJson("/api/v1/auth/shops", encode(req), admin).body<Shop>()
+        added.wishLevel shouldBe "high"
+        client.shops().single().wishLevel shouldBe "high"
+        val update = encode(req.toUpdate())
+        update shouldNotContainIgnoringCase "wishLevel"
 
-        for (rate in listOf(-0.5, 100.5)) {
-            val res = client.putJson("/api/v1/auth/shops/$id", encode(req.toUpdate(eaten = true, rate = rate)), admin)
-            res.status shouldBe HttpStatusCode.BadRequest
-            res.body<ErrorBody>() shouldBe rateOutOfRange
+        client.putJson("/api/v1/auth/shops/${added.id}", update, admin).status shouldBe HttpStatusCode.OK
+        client.shops().single().wishLevel shouldBe "high"
+
+        client.putJson("/api/v1/auth/shops/${added.id}", encode(req.toUpdate().copy(wishLevel = "low")), admin)
+        client.shops().single().wishLevel shouldBe "low"
+
+        val cleared = JsonObject(testJson.encodeToJsonElement(req.toUpdate()).jsonObject + ("wishLevel" to JsonNull))
+        client.putJson("/api/v1/auth/shops/${added.id}", cleared.toString(), admin).status shouldBe HttpStatusCode.OK
+        client.shops().single().wishLevel shouldBe null
+    }
+
+    @Test
+    fun `unknown wish level is a field error and nothing is written`() = testApp { t ->
+        val admin = t.adminToken()
+        val invalidWishLevel = ErrorBody(ErrorType.INVALID_REQUEST, "invalid wish level", listOf(FieldError("wishLevel", FieldErrorType.INVALID_FORMAT)))
+
+        client.postJson("/api/v1/auth/shops", encode(addShopRequest().copy(wishLevel = "urgent")), admin).let {
+            it.status shouldBe HttpStatusCode.BadRequest
+            it.body<ErrorBody>() shouldBe invalidWishLevel
         }
-        client.shops().single().eaten shouldBe false
+        client.shops().shouldBeEmpty()
 
-        // The rate is discarded when the shop is not eaten, so it is not validated.
-        client.putJson("/api/v1/auth/shops/$id", encode(req.toUpdate(eaten = false, rate = 150.0)), admin)
-            .status shouldBe HttpStatusCode.OK
-
-        client.putJson("/api/v1/auth/shops/$id", encode(req.toUpdate(eaten = true, rate = 100.0)), admin)
-            .status shouldBe HttpStatusCode.OK
+        val req = addShopRequest().copy(wishLevel = "medium")
+        val id = client.postJson("/api/v1/auth/shops", encode(req), admin).body<Shop>().id
+        client.putJson("/api/v1/auth/shops/$id", encode(req.toUpdate().copy(name = "Renamed", wishLevel = "urgent")), admin)
+            .body<ErrorBody>() shouldBe invalidWishLevel
+        client.shops().single().let {
+            it.name shouldBe "Ramen Taro"
+            it.wishLevel shouldBe "medium"
+        }
     }
 
     @Test
@@ -366,39 +378,49 @@ class ShopApiTest {
         val existing = client.postJson("/api/v1/auth/shops", encode(addShopRequest()), admin).body<Shop>()
         val unknown = UUID.randomUUID().toString()
 
-        val update = addShopRequest(placeId = "new-place", tagIds = listOf(SHOYU)).toUpdate(eaten = true, rate = 50.0)
+        val update = addShopRequest(placeId = "new-place", tagIds = listOf(SHOYU)).toUpdate()
         val res = client.putJson("/api/v1/auth/shops/$unknown", encode(update), admin)
 
         res.status shouldBe HttpStatusCode.NotFound
         res.body<ErrorBody>() shouldBe ErrorBody(ErrorType.NOT_FOUND, "not found")
         client.shops() shouldContainExactly listOf(existing)
-        for (table in listOf("eaten_shops", "shops_tags")) t.countRows(table, unknown) shouldBe 0L
+        t.countRows("shops_tags", unknown) shouldBe 0L
     }
 
     @Test
-    fun `admin deletes a shop with its eaten row, tags, images and links`() = testApp { t ->
+    fun `admin deletes a shop with its tags and links`() = testApp { t ->
         val admin = t.adminToken()
         val req = addShopRequest(tagIds = listOf(SHOYU, MISO)).copy(links = listOf(ShopLinkInput(ShopLinkType.OFFICIAL, url = "https://a.example")))
         val id = client.postJson("/api/v1/auth/shops", encode(req), admin).body<Shop>().id
         val kept = client.postJson("/api/v1/auth/shops", encode(addShopRequest(placeId = "kept", tagIds = listOf(SHOYU))), admin).body<Shop>()
-        client.putJson("/api/v1/auth/shops/$id", encode(req.toUpdate(eaten = true, rate = 40.0)), admin).status shouldBe HttpStatusCode.OK
-        t.dataSource.connection.use { c ->
-            c.prepareStatement("INSERT INTO shop_images (id, shop_id, path) VALUES (?, ?, 'a.jpg')").use {
-                it.setString(1, UUID.randomUUID().toString())
-                it.setString(2, id)
-                it.executeUpdate()
-            }
-        }
-        t.countRows("eaten_shops", id) shouldBe 1L
         t.countRows("shops_tags", id) shouldBe 2L
-        t.countRows("shop_images", id) shouldBe 1L
         t.countRows("shop_links", id) shouldBe 1L
 
         client.deleteWithSession("/api/v1/auth/shops/$id", admin).status shouldBe HttpStatusCode.NoContent
 
         client.shops() shouldContainExactly listOf(kept)
-        for (table in listOf("eaten_shops", "shops_tags", "shop_images", "shop_links")) t.countRows(table, id) shouldBe 0L
+        for (table in listOf("shops_tags", "shop_links")) t.countRows(table, id) shouldBe 0L
         t.countRows("shops_tags", kept.id) shouldBe 1L
+    }
+
+    @Test
+    fun `a shop with visit logs cannot be deleted until they are`() = testApp { t ->
+        val admin = t.adminToken()
+        val req = addShopRequest(tagIds = listOf(SHOYU)).copy(links = listOf(ShopLinkInput(ShopLinkType.OFFICIAL, url = "https://a.example")))
+        val id = client.postJson("/api/v1/auth/shops", encode(req), admin).body<Shop>().id
+        val visitId = client.postJson("/api/v1/auth/shops/$id/visits", """{"isLimitedMenu":false}""", admin).body<VisitLog>().id
+
+        client.deleteWithSession("/api/v1/auth/shops/$id", admin).let {
+            it.status shouldBe HttpStatusCode.Conflict
+            it.body<ErrorBody>() shouldBe ErrorBody(ErrorType.SHOP_HAS_VISIT_LOGS, "shop has visit logs")
+        }
+        client.shops().single().visitCount shouldBe 1
+        t.countRows("shops_tags", id) shouldBe 1L
+        t.countRows("shop_links", id) shouldBe 1L
+
+        client.deleteWithSession("/api/v1/auth/visits/$visitId", admin).status shouldBe HttpStatusCode.NoContent
+        client.deleteWithSession("/api/v1/auth/shops/$id", admin).status shouldBe HttpStatusCode.NoContent
+        client.shops().shouldBeEmpty()
     }
 
     @Test

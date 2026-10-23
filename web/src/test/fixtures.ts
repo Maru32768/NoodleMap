@@ -41,6 +41,7 @@ export function makeShop(overrides: Partial<ApiShop> = {}): Shop {
     eaten,
     rate,
     favorite: isFavorite(eaten, rate),
+    visitCount: eaten ? 1 : 0,
     category: "ramen",
     tags: [],
     links: [],

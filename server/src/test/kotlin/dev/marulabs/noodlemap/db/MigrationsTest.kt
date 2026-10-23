@@ -44,9 +44,10 @@ class MigrationsTest {
 
             conn.version() shouldBe migrations.maxOf { it.version }
             conn.strings("SELECT name FROM sqlite_master WHERE type = 'table'") shouldContainAll
-                listOf("users", "sessions", "shops", "eaten_shops", "tags", "shops_tags", "shop_images", "shop_links")
+                listOf("users", "sessions", "shops", "tags", "shops_tags", "shop_links", "visit_logs")
+            conn.strings("SELECT name FROM sqlite_master WHERE name IN ('eaten_shops', 'shop_images')") shouldBe emptyList()
             conn.strings("SELECT name FROM sqlite_master WHERE type = 'trigger'") shouldContainAll
-                listOf("update_users_modtime", "update_shops_modtime", "update_tags_modtime", "update_shop_links_modtime")
+                listOf("update_users_modtime", "update_shops_modtime", "update_tags_modtime", "update_shop_links_modtime", "update_visit_logs_modtime")
         }
     }
 
@@ -87,7 +88,7 @@ class MigrationsTest {
                 )
             }
 
-            migrate(conn, loadMigrations())
+            migrate(conn, loadMigrations().filter { it.version <= 13 })
 
             conn.strings("SELECT shop_id || '=' || rate FROM eaten_shops ORDER BY shop_id") shouldBe
                 listOf("s1=80.0", "s2=5.0", "s3=95.0")
@@ -120,7 +121,7 @@ class MigrationsTest {
                 st.executeUpdate("INSERT INTO shop_images (id, shop_id, path) VALUES ('i1', 's2', 'x.jpg')")
             }
 
-            migrate(conn, loadMigrations())
+            migrate(conn, loadMigrations().filter { it.version <= 13 })
 
             conn.strings(
                 "SELECT id || '|' || ifnull(google_place_id, 'NULL') || '|' || ifnull(name_kana, '') || '|' || ifnull(closed_at, '') FROM shops ORDER BY id",
@@ -146,6 +147,56 @@ class MigrationsTest {
             }
             conn.strings("SELECT count(*) FROM shops_tags") shouldBe listOf("0")
             conn.strings("SELECT count(*) FROM shop_links") shouldBe listOf("0")
+        }
+    }
+
+    @Test
+    fun `00014 turns every eaten record into an undated visit log and drops eaten_shops and shop_images`() {
+        // A pooled connection has foreign_keys ON, under which copying an orphaned eaten record would fail.
+        withPooledDb { conn ->
+            migrate(conn, loadMigrations().filter { it.version <= 13 })
+            conn.createStatement().use { st ->
+                st.executeUpdate(
+                    """
+                    INSERT INTO shops (id, name, lat, lng, postal_code, address) VALUES
+                        ('s1', 'eaten', 0, 0, '', ''), ('s2', 'eaten-high', 0, 0, '', ''), ('s3', 'wish', 0, 0, '', '')
+                    """.trimIndent(),
+                )
+                // Uppercase ids and an orphan as older data may hold them, written with enforcement off.
+                st.execute("PRAGMA foreign_keys = OFF")
+                st.executeUpdate(
+                    """
+                    INSERT INTO eaten_shops (id, shop_id, rate, created_at, updated_at) VALUES
+                        ('E1', 'S1', 5, '2020-01-02 03:04:05', '2021-01-02 03:04:05'),
+                        ('e2', 's2', 90, '2022-01-01 00:00:00', '2022-01-01 00:00:00'),
+                        ('e3', 'gone', 150, '2023-01-01 00:00:00', '2023-01-01 00:00:00')
+                    """.trimIndent(),
+                )
+                st.execute("PRAGMA foreign_keys = ON")
+            }
+
+            migrate(conn, loadMigrations())
+
+            conn.strings(
+                "SELECT id || '|' || shop_id || '|' || ifnull(visited_on, 'NULL') || '|' || rate || '|' || is_limited_menu || '|' || created_at || '|' || updated_at FROM visit_logs ORDER BY id",
+            ) shouldBe listOf(
+                "e1|s1|NULL|5.0|0|2020-01-02 03:04:05|2021-01-02 03:04:05",
+                "e2|s2|NULL|90.0|0|2022-01-01 00:00:00|2022-01-01 00:00:00",
+                // Kept (and reported at startup) although its shop is gone; an out-of-range rate is clamped.
+                "e3|gone|NULL|100.0|0|2023-01-01 00:00:00|2023-01-01 00:00:00",
+            )
+            conn.strings("SELECT name FROM sqlite_master WHERE name IN ('eaten_shops', 'shop_images')") shouldBe emptyList()
+            conn.strings("SELECT ifnull(wish_level, 'NULL') FROM shops ORDER BY id") shouldBe listOf("NULL", "NULL", "NULL")
+            conn.strings("PRAGMA foreign_keys") shouldBe listOf("1")
+
+            conn.createStatement().use { st ->
+                // Visit logs pin their shop, the wish level takes only the three codes, and rates stay in 0..100.
+                shouldThrow<Exception> { st.executeUpdate("DELETE FROM shops WHERE id = 's1'") }
+                st.executeUpdate("UPDATE shops SET wish_level = 'high' WHERE id = 's3'")
+                shouldThrow<Exception> { st.executeUpdate("UPDATE shops SET wish_level = 'urgent' WHERE id = 's3'") }
+                shouldThrow<Exception> { st.executeUpdate("INSERT INTO visit_logs (id, shop_id, rate) VALUES ('v1', 's3', 101)") }
+                shouldThrow<Exception> { st.executeUpdate("INSERT INTO visit_logs (id, shop_id, price) VALUES ('v2', 's3', -1)") }
+            }
         }
     }
 

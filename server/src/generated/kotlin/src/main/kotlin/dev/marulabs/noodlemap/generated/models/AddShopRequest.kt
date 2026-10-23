@@ -34,6 +34,11 @@ public data class AddShopRequest(
   @SerialName("tagIds")
   public val tagIds: List<String>,
   /**
+   * Omit when not set.
+   */
+  @SerialName("wishLevel")
+  public val wishLevel: String? = null,
+  /**
    * At most 10 links, stored in array order. Omit for none.
    */
   @SerialName("links")

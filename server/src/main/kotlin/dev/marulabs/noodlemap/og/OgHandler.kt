@@ -1,5 +1,6 @@
 package dev.marulabs.noodlemap.og
 
+import dev.marulabs.noodlemap.common.JST
 import dev.marulabs.noodlemap.errors.DomainException
 import dev.marulabs.noodlemap.generated.models.Shop
 import dev.marulabs.noodlemap.shops.ShopHandler
@@ -19,7 +20,6 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.head
 import io.ktor.util.escapeHTML
 import java.time.LocalDate
-import java.time.ZoneId
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
@@ -36,8 +36,6 @@ private const val OG_IMAGE_PATH = "/api/v1/og/shops/"
 private const val SEARCH_PATH = "/search"
 private const val IMMUTABLE = "public, max-age=31536000, immutable"
 
-// Statuses like 新店/閉店 follow the web, which judges them by the viewer's (Japanese) calendar day.
-private val JST = ZoneId.of("Asia/Tokyo")
 private val log = LoggerFactory.getLogger("Og")
 
 fun Route.ogRoutes(og: OgHandler) {
