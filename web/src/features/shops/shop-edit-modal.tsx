@@ -450,11 +450,9 @@ export function ShopEditModal({
         const tag = tags?.find((candidate) => candidate.id === tagId);
         return !tag?.category || tag.category === category;
       };
-      setDraft((current) => ({
-        ...current,
-        category,
-        tagIds: current.tagIds.filter(fitsCategory),
-      }));
+      // Tags that do not fit stay chosen but hidden, so switching back keeps
+      // them; saving drops them, and with them their error.
+      setDraft((current) => ({ ...current, category }));
       const cleared: UpdateShopField[] = draftTagIds.every(fitsCategory)
         ? ["category"]
         : ["category", "tagIds"];

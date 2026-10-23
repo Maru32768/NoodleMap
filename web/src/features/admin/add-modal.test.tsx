@@ -255,6 +255,32 @@ describe("AddModal", () => {
     expect(screen.queryByText(/^存在しないタグが含まれています/)).toBeNull();
   });
 
+  it("keeps a tag the category hid on the way back, and drops it if left hidden", async () => {
+    const shoyu = makeTag({ label: "醤油", category: "ramen" });
+    const bodies: AddShopRequest[] = [];
+    renderAddModal(() => HttpResponse.json(makeShop()), [shoyu]);
+    server.use(
+      http.post("/api/v1/auth/shops", async ({ request }) => {
+        bodies.push((await request.json()) as AddShopRequest);
+        return HttpResponse.json(makeShop());
+      }),
+    );
+    await userEvent.click(await screen.findByRole("button", { name: "醤油" }));
+
+    await userEvent.click(screen.getByRole("radio", { name: "うどん" }));
+    expect(screen.queryByRole("button", { name: "醤油" })).toBeNull();
+    await userEvent.click(screen.getByRole("radio", { name: "ラーメン" }));
+    await fillNameAndSave();
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0].tagIds).toEqual([shoyu.id]);
+
+    await userEvent.click(screen.getByRole("radio", { name: "うどん" }));
+    await userEvent.click(screen.getByRole("button", { name: "追加" }));
+    await waitFor(() => expect(bodies).toHaveLength(2));
+    expect(bodies[1].category).toBe("udon");
+    expect(bodies[1].tagIds).toEqual([]);
+  });
+
   it("clears old field errors when saving again", async () => {
     let calls = 0;
     renderAddModal(() =>

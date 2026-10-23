@@ -169,11 +169,9 @@ export function AddModal({
         const tag = tags?.find((candidate) => candidate.id === tagId);
         return !tag?.category || tag.category === category;
       };
-      setDraft((d) => ({
-        ...d,
-        category,
-        tagIds: (d.tagIds ?? []).filter(fitsCategory),
-      }));
+      // Tags that do not fit stay chosen but hidden, so switching back keeps
+      // them; saving drops them, and with them their error.
+      setDraft((d) => ({ ...d, category }));
       const cleared: AddShopField[] = (draftTagIds ?? []).every(fitsCategory)
         ? ["category"]
         : ["category", "tagIds"];
@@ -220,6 +218,11 @@ export function AddModal({
       const result = await addShop({
         ...draft,
         googlePlaceId: draft.googlePlaceId?.trim() ?? "",
+        // Tags hidden by the chosen カテゴリ.
+        tagIds: draft.tagIds?.filter((tagId) => {
+          const tag = tags?.find((candidate) => candidate.id === tagId);
+          return !tag?.category || tag.category === draft.category;
+        }),
       });
       if (!result.ok) {
         const errors = invalidRequestFieldErrors(result.error.body);
