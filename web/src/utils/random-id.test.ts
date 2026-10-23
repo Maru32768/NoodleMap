@@ -7,7 +7,10 @@ describe("randomId", () => {
   });
 
   it("uses randomUUID when available", () => {
-    expect(randomId()).toMatch(/^[0-9a-f-]{36}$/);
+    const uuid = "0f8e5d0c-1111-4222-8333-444455556666";
+    vi.stubGlobal("crypto", { randomUUID: () => uuid });
+
+    expect(randomId()).toBe(uuid);
   });
 
   it("falls back to random hex without randomUUID (insecure context)", () => {

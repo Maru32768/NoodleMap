@@ -126,27 +126,27 @@ describe("AddModal", () => {
 
     await fillNameAndSave();
 
-    const placeId = inputLabelled("Google Place ID");
+    const placeIdInput = inputLabelled("Google Place ID");
     expect(
       await screen.findByText("Google Place ID が他の店舗と重複しています"),
     ).toBeInTheDocument();
-    expect(placeId).toHaveAttribute("aria-invalid", "true");
-    expect(placeId).toHaveFocus();
+    expect(placeIdInput).toHaveAttribute("aria-invalid", "true");
+    expect(placeIdInput).toHaveFocus();
     // Ark links the error text to the input once it has observed it.
     await waitFor(() =>
-      expect(placeId).toHaveAccessibleDescription(
+      expect(placeIdInput).toHaveAccessibleDescription(
         "Google Place ID が他の店舗と重複しています",
       ),
     );
     expect(screen.queryByText("店舗を追加できませんでした")).toBeNull();
     expect(onClose).not.toHaveBeenCalled();
 
-    await userEvent.type(placeId, "2");
+    await userEvent.type(placeIdInput, "2");
 
     expect(
       screen.queryByText("Google Place ID が他の店舗と重複しています"),
     ).toBeNull();
-    expect(placeId).not.toHaveAttribute("aria-invalid");
+    expect(placeIdInput).not.toHaveAttribute("aria-invalid");
   });
 
   it("clears the errors of fields a picked place changes", async () => {

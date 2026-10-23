@@ -1,3 +1,4 @@
+import { toaster } from "@/components/ui/toaster.tsx";
 import {
   AuthenticatedUser,
   CurrentUserProvider,
@@ -55,9 +56,11 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  // The toaster store is global; clear it so one test's toast never leaks into the next.
+  toaster.remove();
 });
 
-async function rowFor(currentDevice: boolean) {
+async function renderAndFindLogoutButton(currentDevice: boolean) {
   renderWithProviders(
     <CurrentUserProvider value={user}>
       <MemoryRouter>
@@ -83,7 +86,7 @@ describe("AccountPage", () => {
       ),
     );
 
-    await userEvent.click(await rowFor(true));
+    await userEvent.click(await renderAndFindLogoutButton(true));
 
     await waitFor(() => expect(replace).toHaveBeenCalledWith(SEARCH_PATH));
   });
@@ -98,7 +101,7 @@ describe("AccountPage", () => {
       ),
     );
 
-    await userEvent.click(await rowFor(false));
+    await userEvent.click(await renderAndFindLogoutButton(false));
 
     expect(await screen.findByText("ログアウトしました")).toBeInTheDocument();
     expect(screen.getAllByRole("listitem")).toHaveLength(1);
@@ -112,12 +115,52 @@ describe("AccountPage", () => {
       ),
     );
 
-    await userEvent.click(await rowFor(false));
+    await userEvent.click(await renderAndFindLogoutButton(false));
 
     expect(
       await screen.findByText("ログアウトできませんでした"),
     ).toBeInTheDocument();
     expect(screen.getAllByRole("listitem")).toHaveLength(2);
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it("toasts a failed logout of the other devices and keeps their rows", async () => {
+    server.use(
+      http.post("/api/v1/auth/sessions/revoke-others", () =>
+        HttpResponse.json({ type: "internal_error" }, { status: 500 }),
+      ),
+    );
+    await renderAndFindLogoutButton(false);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "この端末以外をすべてログアウト" }),
+    );
+
+    expect(
+      await screen.findByText("ログアウトできませんでした"),
+    ).toBeInTheDocument();
+    expect(screen.getAllByRole("listitem")).toHaveLength(2);
+  });
+
+  it("shows a failed session list inline with a retry", async () => {
+    server.use(
+      http.get("/api/v1/auth/sessions", () =>
+        HttpResponse.json({ type: "internal_error" }, { status: 500 }),
+      ),
+    );
+
+    renderWithProviders(
+      <CurrentUserProvider value={user}>
+        <MemoryRouter>
+          <AccountPage />
+        </MemoryRouter>
+      </CurrentUserProvider>,
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "ログイン中の端末を読み込めませんでした",
+    );
+    expect(screen.getByRole("button", { name: "再試行" })).toBeInTheDocument();
     expect(replace).not.toHaveBeenCalled();
   });
 

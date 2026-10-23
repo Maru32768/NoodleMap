@@ -53,7 +53,10 @@ describe("appendDragInertiaSample", () => {
     vi.spyOn(performance, "now").mockReturnValue(1000);
     const { map } = fakeMap();
 
-    expect(appendDragInertiaSample(map, [sample(138, 0)])).toHaveLength(2);
+    expect(appendDragInertiaSample(map, [sample(138, 0)])).toEqual([
+      sample(138, 0),
+      sample(139, 1000),
+    ]);
   });
 });
 

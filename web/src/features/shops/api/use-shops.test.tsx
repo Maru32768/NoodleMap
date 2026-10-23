@@ -1,6 +1,6 @@
-import { Shop, useShops } from "@/features/shops/api/use-shops.ts";
+import { Shop, useShops, useTags } from "@/features/shops/api/use-shops.ts";
 import type { components } from "@/generated/api.ts";
-import { makeShop } from "@/test/fixtures.ts";
+import { makeShop, makeTag } from "@/test/fixtures.ts";
 import { renderHookWithProviders } from "@/test/render.tsx";
 import { server } from "@/test/server.ts";
 import { act, screen, waitFor } from "@testing-library/react";
@@ -341,5 +341,47 @@ describe("useShops", () => {
     const outcome = await result.current.addShop(addCommand);
 
     expect(!outcome.ok && outcome.error.status).toBe(0);
+  });
+});
+
+describe("useTags", () => {
+  it("toasts a failed load and exposes no tags", async () => {
+    server.use(
+      http.get("/api/v1/tags", () =>
+        HttpResponse.json({ type: "internal_error" }, { status: 500 }),
+      ),
+    );
+
+    const { result } = renderHookWithProviders(() =>
+      useTags({ shouldRetryOnError: false }),
+    );
+
+    expect(
+      await screen.findByText("タグ一覧を読み込めませんでした"),
+    ).toBeInTheDocument();
+    expect(result.current.tags).toBeUndefined();
+  });
+
+  it("returns a rejected save as an error and keeps the cached tags", async () => {
+    const tag = makeTag({ label: "醤油" });
+    server.use(
+      http.get("/api/v1/tags", () => HttpResponse.json({ tags: [tag] })),
+      http.put("/api/v1/auth/tags", () =>
+        HttpResponse.json({ type: "permission_denied" }, { status: 403 }),
+      ),
+    );
+    const { result } = renderHookWithProviders(() => useTags());
+    await waitFor(() => expect(result.current.tags).toEqual([tag]));
+
+    let outcome: Awaited<ReturnType<typeof result.current.saveTags>>;
+    await act(async () => {
+      outcome = await result.current.saveTags([]);
+    });
+
+    expect(outcome!).toMatchObject({
+      ok: false,
+      error: { status: 403, type: "permission_denied" },
+    });
+    expect(result.current.tags).toEqual([tag]);
   });
 });

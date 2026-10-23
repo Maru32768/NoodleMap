@@ -52,16 +52,17 @@ function renderEditor(
     }),
   );
   const onClose = vi.fn();
+  const onDeleted = vi.fn();
   renderWithProviders(
     <ShopEditModal
       shop={target}
       open
       initialTab={initialTab}
       onClose={onClose}
-      onDeleted={vi.fn()}
+      onDeleted={onDeleted}
     />,
   );
-  return { requests, onClose };
+  return { requests, onClose, onDeleted };
 }
 
 function fieldErrorResponse(
@@ -76,11 +77,13 @@ function fieldErrorResponse(
 
 async function confirmDelete() {
   await userEvent.click(screen.getByRole("button", { name: "削除" }));
-  const dialog = await screen.findByText(
+  const message = await screen.findByText(
     "「中華そば 青葉」を削除しますか？この操作は取り消せません。",
   );
-  const confirm = dialog.closest<HTMLElement>("[role=dialog]")!;
-  await userEvent.click(within(confirm).getByRole("button", { name: "削除" }));
+  const confirmDialog = message.closest<HTMLElement>("[role=dialog]")!;
+  await userEvent.click(
+    within(confirmDialog).getByRole("button", { name: "削除" }),
+  );
 }
 
 describe("ShopEditModal delete", () => {
@@ -197,6 +200,22 @@ describe("ShopEditModal save", () => {
       await screen.findByText("店舗を更新できませんでした"),
     ).toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("treats a shop deleted elsewhere as deleted and closes", async () => {
+    const target = makeShop();
+    const { onClose, onDeleted } = renderEditor(target, {
+      saveResponse: () =>
+        HttpResponse.json({ type: "not_found" }, { status: 404 }),
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: "保存" }));
+
+    expect(
+      await screen.findByText("この店舗はすでに削除されています"),
+    ).toBeInTheDocument();
+    expect(onDeleted).toHaveBeenCalledWith(target.id);
+    expect(onClose).toHaveBeenCalled();
   });
 
   it("toasts a field error that has no input on screen", async () => {
@@ -408,7 +427,7 @@ describe("ShopEditModal links", () => {
     expect(screen.queryByText(/^リンクの内容を確認してください/)).toBeNull();
   });
 
-  it("trims the Google Place ID and sends a blank one to clear it", async () => {
+  it("trims the Google Place ID it sends", async () => {
     const { requests } = renderEditor(makeShop({ googlePlaceId: "place-1" }));
     const input = screen.getByDisplayValue("place-1");
 
