@@ -8,7 +8,7 @@ import { server } from "@/test/server.ts";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { delay, http, HttpResponse } from "msw";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 type VisitLog = components["schemas"]["VisitLog"];
 type VisitImage = components["schemas"]["VisitImage"];
@@ -408,13 +408,22 @@ describe("VisitImageManager", () => {
   });
 
   it("keeps uploads and their failures across opening a visit form, locking the modal meanwhile", async () => {
+    // The busy server's wait runs only when the test advances the clock, so
+    // the steps below never race the retry.
+    vi.useFakeTimers({
+      shouldAdvanceTime: true,
+      toFake: ["setTimeout", "clearTimeout"],
+    });
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
     const traffic = renderImages({
       images: [image(1), image(2)],
       uploadResponse: (attempt) =>
         attempt === 1
           ? HttpResponse.json(
               { type: "visit_image_processing_busy" },
-              { status: 503, headers: { "Retry-After": "1" } },
+              { status: 503, headers: { "Retry-After": "30" } },
             )
           : HttpResponse.json(
               {
@@ -455,7 +464,9 @@ describe("VisitImageManager", () => {
     expect(footerCancel()).toBeDisabled();
 
     // The retry fails while the form is open; closing it shows the failure.
-    await waitFor(() => expect(traffic.uploads).toBe(2), { timeout: 3000 });
+    expect(traffic.uploads).toBe(1);
+    await vi.advanceTimersByTimeAsync(30_000);
+    await waitFor(() => expect(traffic.uploads).toBe(2));
     await waitFor(() => expect(footerCancel()).toBeEnabled());
     await userEvent.click(
       within(screen.getByRole("group", { name: "訪問を記録" })).getByRole(
