@@ -3,6 +3,7 @@ import { LoadableButton } from "@/components/loadable-button.tsx";
 import { ModalDialog } from "@/components/modal-dialog.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { toaster } from "@/components/ui/toaster.tsx";
+import { formatShopDate } from "@/features/shops/status.ts";
 import {
   useVisitImageMutations,
   VisitImage,
@@ -24,12 +25,21 @@ import {
   VISIT_IMAGE_CAPTION_FAILED_TITLE,
   VISIT_IMAGE_CAPTION_MAX_LENGTH,
   VISIT_IMAGE_DELETE_FAILED_TITLE,
+  VISIT_IMAGE_NOT_IMAGE_MESSAGE,
   VISIT_IMAGE_REORDER_FAILED_TITLE,
   VISIT_IMAGES_MAX,
   visitImageCaptionErrorMessage,
 } from "@/utils/toast.ts";
-import { Box, Input } from "@chakra-ui/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Box, Input, useMediaQuery } from "@chakra-ui/react";
+import {
+  DragEvent,
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useId,
+  useRef,
+  useState,
+} from "react";
 
 const PENDING_LABEL: Record<
   Exclude<PendingUpload["status"], "failed">,
@@ -58,8 +68,54 @@ const smallButtonProps = {
   _disabled: { opacity: 0.4, cursor: "default" },
 } as const;
 
+// HEIC and others are converted to JPEG in the browser when it can decode
+// them. HEIC may come without a MIME type, hence the extensions.
+const IMAGE_ACCEPT = ["image/*", ".heic", ".heif"];
+
+/** Whether the file input would offer `file`; drops and pastes take the same. */
+function isImageFile(file: File) {
+  const name = file.name.toLowerCase();
+  return IMAGE_ACCEPT.some((accept) =>
+    accept.startsWith(".")
+      ? name.endsWith(accept)
+      : file.type.startsWith(accept.slice(0, -1)),
+  );
+}
+
+// Marks a drag that started in the page (a thumbnail): it is never an upload.
+const INTERNAL_DRAG_TYPE = "application/x-noodlemap-internal";
+
 /**
- * The 訪問画像 of one saved 訪問ログ for the admin: add (one upload at a time),
+ * Whether a drag over the area may carry images: files from outside the page
+ * (React events bubble out of portals: the delete dialog is not the area),
+ * and, when the browser tells the types, not only non-images. HEIC may come
+ * without a type.
+ */
+function mayDropImages(event: DragEvent) {
+  const { types, items } = event.dataTransfer;
+  if (
+    !event.currentTarget.contains(event.target as Node) ||
+    !types.includes("Files") ||
+    types.includes(INTERNAL_DRAG_TYPE)
+  ) {
+    return false;
+  }
+  const fileTypes = Array.from(items ?? [])
+    .filter((item) => item.kind === "file")
+    .map((item) => item.type);
+  return (
+    fileTypes.length === 0 ||
+    fileTypes.some((type) => type === "" || type.startsWith("image/"))
+  );
+}
+
+const isTextInput = (element: Element | null) =>
+  element instanceof HTMLElement &&
+  (element.isContentEditable || element.matches("input, textarea"));
+
+/**
+ * The 訪問画像 of one saved 訪問ログ for the admin: add (one upload at a time,
+ * from the file input, a drop or a paste while focus is in the area),
  * reorder, caption and delete. The first image represents the visit.
  * Uploads live in a store outside the component, so they and their failures
  * outlast it (the editor marks itself busy from that store).
@@ -89,6 +145,14 @@ export function VisitImageManager({
   const [reordering, setReordering] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const areaRef = useRef<HTMLDivElement>(null);
+  // dragenter/dragleave fire for every child crossed; Safari gives no
+  // relatedTarget, so the highlight counts the levels entered.
+  const dragDepth = useRef(0);
+  const [dragging, setDragging] = useState(false);
+  const hintId = useId();
+  // Touch screens can neither drag a file in nor paste one here.
+  const [finePointer] = useMediaQuery(["(pointer: fine)"]);
 
   const inFlight = pending.filter((p) => p.status !== "failed").length;
   const remaining = VISIT_IMAGES_MAX - images.length - inFlight;
@@ -104,6 +168,95 @@ export function VisitImageManager({
       revalidateVisits: () => void revalidateVisits(),
       onDrained: () => void revalidateShops(),
     });
+
+  const canAdd = remaining > 0;
+
+  /** Uploads the image files; others are refused with a message. */
+  const addDroppedFiles = (files: File[]) => {
+    const imageFiles = files.filter(isImageFile);
+    if (imageFiles.length < files.length) {
+      toastError({ title: VISIT_IMAGE_NOT_IMAGE_MESSAGE });
+    }
+    if (imageFiles.length > 0) {
+      // Past the limit the queue marks them failed with the limit message.
+      addFiles(imageFiles);
+    }
+  };
+
+  const endDrag = useCallback(() => {
+    dragDepth.current = 0;
+    setDragging(false);
+  }, []);
+
+  // A drag cancelled or dropped elsewhere may never leave the area.
+  useEffect(() => {
+    window.addEventListener("dragend", endDrag);
+    window.addEventListener("drop", endDrag);
+    return () => {
+      window.removeEventListener("dragend", endDrag);
+      window.removeEventListener("drop", endDrag);
+    };
+  }, [endDrag]);
+
+  const handleDragEnter = (event: DragEvent) => {
+    if (!mayDropImages(event)) {
+      return;
+    }
+    event.preventDefault();
+    dragDepth.current++;
+    setDragging(canAdd);
+  };
+
+  const handleDragOver = (event: DragEvent) => {
+    if (!mayDropImages(event)) {
+      return;
+    }
+    // Without this the browser opens a file dropped here.
+    event.preventDefault();
+    event.dataTransfer.dropEffect = canAdd ? "copy" : "none";
+  };
+
+  const handleDragLeave = (event: DragEvent) => {
+    if (!mayDropImages(event)) {
+      return;
+    }
+    dragDepth.current = Math.max(0, dragDepth.current - 1);
+    if (dragDepth.current === 0) {
+      setDragging(false);
+    }
+  };
+
+  const handleDrop = (event: DragEvent) => {
+    if (!mayDropImages(event)) {
+      return;
+    }
+    event.preventDefault();
+    endDrag();
+    addDroppedFiles(Array.from(event.dataTransfer.files));
+  };
+
+  // On the document: Safari may not send a paste to a focused element that
+  // is not editable. Only a paste while focus is in this area counts, and a
+  // caption keeps its own paste.
+  const handlePaste = useEffectEvent((event: ClipboardEvent) => {
+    const focused = document.activeElement;
+    if (
+      !focused ||
+      !areaRef.current?.contains(focused) ||
+      isTextInput(focused)
+    ) {
+      return;
+    }
+    const files = Array.from(event.clipboardData?.files ?? []);
+    if (files.length > 0) {
+      event.preventDefault();
+      addDroppedFiles(files);
+    }
+  });
+  useEffect(() => {
+    document.addEventListener("paste", handlePaste);
+    return () => document.removeEventListener("paste", handlePaste);
+  }, []);
 
   const move = async (index: number, delta: number) => {
     const ids = images.map((image) => image.id);
@@ -144,10 +297,29 @@ export function VisitImageManager({
 
   return (
     <Box
+      ref={areaRef}
+      role="group"
+      aria-label={`画像（${formatShopDate(visit.visitedOn) ?? "日付不明"}）`}
+      aria-describedby={canAdd && finePointer ? hintId : undefined}
+      // Focusable so a paste can be meant for it.
+      tabIndex={0}
       mt="0.625rem"
       pt="0.625rem"
       borderTop="1px dashed"
       borderTopColor="nm.lineFaint"
+      outline={dragging ? "2px dashed" : undefined}
+      outlineColor="nm.shu"
+      outlineOffset="2px"
+      bg={dragging ? "nm.bg" : undefined}
+      data-dragging={dragging || undefined}
+      _focusVisible={{ outline: "2px solid", outlineColor: "nm.ink" }}
+      onDragStartCapture={(event) =>
+        event.dataTransfer.setData(INTERNAL_DRAG_TYPE, "1")
+      }
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
     >
       {images.length > 0 && (
         <Box
@@ -178,6 +350,7 @@ export function VisitImageManager({
               <Box position="relative">
                 <VisitImageThumb
                   image={image}
+                  draggable={false}
                   alt={image.caption ?? `画像 ${index + 1}`}
                   size={118}
                 />
@@ -321,21 +494,25 @@ export function VisitImageManager({
           {...smallButtonProps}
           px="10px"
           py="5px"
-          disabled={remaining <= 0}
+          disabled={!canAdd}
           onClick={() => fileInputRef.current?.click()}
         >
           画像を追加
         </Button>
         <Box as="span" fontSize="11px" color="nm.inkMuted">
-          {remaining <= 0
-            ? `画像は${VISIT_IMAGES_MAX}枚までです`
-            : `あと${remaining}枚・1枚目が代表`}
+          {canAdd
+            ? `あと${remaining}枚・1枚目が代表`
+            : `画像は${VISIT_IMAGES_MAX}枚までです`}
         </Box>
+        {canAdd && finePointer && (
+          <Box as="span" id={hintId} fontSize="11px" color="nm.inkFaint">
+            この欄にドラッグ＆ドロップ・貼り付けでも追加できます
+          </Box>
+        )}
         <input
           ref={fileInputRef}
           type="file"
-          // HEIC and others are converted to JPEG in the browser when it can decode them.
-          accept="image/*,.heic,.heif"
+          accept={IMAGE_ACCEPT.join(",")}
           multiple
           hidden
           aria-label="追加する画像ファイル"

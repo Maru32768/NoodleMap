@@ -1,5 +1,6 @@
 import { FormField } from "@/components/form-field.tsx";
 import { ModalDialog } from "@/components/modal-dialog.tsx";
+import { SegmentedPicker } from "@/components/segmented-picker.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { toaster } from "@/components/ui/toaster.tsx";
 import { useRevealFirstError } from "@/components/use-reveal-first-error.ts";
@@ -30,7 +31,7 @@ import {
   toastShopFieldErrors,
 } from "@/utils/toast.ts";
 import { Box, Input } from "@chakra-ui/react";
-import { ComponentType, useState } from "react";
+import { ComponentType, useCallback, useState } from "react";
 
 type AddDraft = AddShopCommand;
 
@@ -161,22 +162,23 @@ export function AddModal({
     clearErrors([k]);
   };
 
-  const setCategory = (category: AddDraft["category"]) => {
-    const fitsCategory = (tagId: string) => {
-      const tag = tags?.find((candidate) => candidate.id === tagId);
-      return !tag?.category || tag.category === category;
-    };
-    setDraft((d) => ({
-      ...d,
-      category,
-      tagIds: (d.tagIds ?? []).filter(fitsCategory),
-    }));
-    clearErrors(
-      (draft.tagIds ?? []).every(fitsCategory)
+  const draftTagIds = draft.tagIds;
+  const setCategory = useCallback(
+    (category: AddDraft["category"]) => {
+      const fitsCategory = (tagId: string) => {
+        const tag = tags?.find((candidate) => candidate.id === tagId);
+        return !tag?.category || tag.category === category;
+      };
+      // Tags that do not fit stay chosen but hidden, so switching back keeps
+      // them; saving drops them, and with them their error.
+      setDraft((d) => ({ ...d, category }));
+      const cleared: AddShopField[] = (draftTagIds ?? []).every(fitsCategory)
         ? ["category"]
-        : ["category", "tagIds"],
-    );
-  };
+        : ["category", "tagIds"];
+      setFieldErrors((errors) => clearShopFieldErrors(errors, cleared));
+    },
+    [tags, draftTagIds],
+  );
 
   const handleSelect = (res: FindResult) => {
     setPlaceResult(res);
@@ -216,6 +218,11 @@ export function AddModal({
       const result = await addShop({
         ...draft,
         googlePlaceId: draft.googlePlaceId?.trim() ?? "",
+        // Tags hidden by the chosen カテゴリ.
+        tagIds: draft.tagIds?.filter((tagId) => {
+          const tag = tags?.find((candidate) => candidate.id === tagId);
+          return !tag?.category || tag.category === draft.category;
+        }),
       });
       if (!result.ok) {
         const errors = invalidRequestFieldErrors(result.error.body);
@@ -388,33 +395,12 @@ export function AddModal({
                 label={<FieldLabel>カテゴリ</FieldLabel>}
                 error={errorOf("category")}
               >
-                <Box display="flex" gap="6px" flexWrap="wrap">
-                  {CATEGORY_OPTIONS.map((cat) => (
-                    <Button
-                      key={cat.id}
-                      variant="plain"
-                      px="10px"
-                      py="5px"
-                      h="auto"
-                      minH="auto"
-                      fontSize="12px"
-                      fontWeight={draft.category === cat.id ? 600 : 400}
-                      bg={draft.category === cat.id ? "nm.ink" : "nm.bg"}
-                      color={
-                        draft.category === cat.id ? "nm.paper" : "nm.inkMuted"
-                      }
-                      border="1px solid"
-                      borderColor={
-                        draft.category === cat.id ? "nm.ink" : "nm.line"
-                      }
-                      rounded="nmMd"
-                      _hover={{ borderColor: "nm.ink" }}
-                      onClick={() => setCategory(cat.id)}
-                    >
-                      {cat.label}
-                    </Button>
-                  ))}
-                </Box>
+                <SegmentedPicker
+                  label="カテゴリ"
+                  options={CATEGORY_OPTIONS}
+                  value={draft.category}
+                  onChange={setCategory}
+                />
               </FormField>
 
               {tags && (

@@ -1,5 +1,9 @@
 import { LoadableButton } from "@/components/loadable-button.tsx";
 import { ModalDialog } from "@/components/modal-dialog.tsx";
+import {
+  SegmentedOption,
+  SegmentedPicker,
+} from "@/components/segmented-picker.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import {
   CATEGORY_OPTIONS,
@@ -31,8 +35,14 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { LuGripVertical, LuTags } from "react-icons/lu";
+
+// "" is 共通: the tag fits every category.
+const CATEGORY_PICKER_OPTIONS: SegmentedOption<CategorySlug | "">[] = [
+  { id: "", label: "共通" },
+  ...CATEGORY_OPTIONS,
+];
 
 type TagDraft = {
   id?: string;
@@ -307,6 +317,9 @@ function TagManagementEditor({
   const set = <K extends keyof TagDraft>(key: K, value: TagDraft[K]) => {
     setDraft((current) => ({ ...current, [key]: value }));
   };
+  const setCategory = useCallback((category: CategorySlug | "") => {
+    setDraft((current) => ({ ...current, category: category || undefined }));
+  }, []);
 
   const handleSave = () => {
     const command = toCommand(draft);
@@ -499,51 +512,12 @@ function TagManagementEditor({
 
               <Box>
                 <FieldLabel>カテゴリ</FieldLabel>
-                <Box display="flex" flexWrap="wrap" gap="6px">
-                  <Button
-                    variant="plain"
-                    px="10px"
-                    py="5px"
-                    h="auto"
-                    minH="auto"
-                    fontSize="12px"
-                    bg={!draft.category ? "nm.ink" : "nm.paper"}
-                    color={!draft.category ? "nm.paper" : "nm.inkMuted"}
-                    border="1px solid"
-                    borderColor={!draft.category ? "nm.ink" : "nm.line"}
-                    rounded="nmMd"
-                    onClick={() => set("category", undefined)}
-                  >
-                    共通
-                  </Button>
-                  {CATEGORY_OPTIONS.map((category) => (
-                    <Button
-                      key={category.id}
-                      variant="plain"
-                      px="10px"
-                      py="5px"
-                      h="auto"
-                      minH="auto"
-                      fontSize="12px"
-                      bg={
-                        draft.category === category.id ? "nm.ink" : "nm.paper"
-                      }
-                      color={
-                        draft.category === category.id
-                          ? "nm.paper"
-                          : "nm.inkMuted"
-                      }
-                      border="1px solid"
-                      borderColor={
-                        draft.category === category.id ? "nm.ink" : "nm.line"
-                      }
-                      rounded="nmMd"
-                      onClick={() => set("category", category.id)}
-                    >
-                      {category.label}
-                    </Button>
-                  ))}
-                </Box>
+                <SegmentedPicker
+                  label="カテゴリ"
+                  options={CATEGORY_PICKER_OPTIONS}
+                  value={draft.category ?? ""}
+                  onChange={setCategory}
+                />
               </Box>
 
               <Box>

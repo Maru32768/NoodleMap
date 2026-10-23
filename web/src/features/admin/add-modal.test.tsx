@@ -6,7 +6,7 @@ import type { components } from "@/generated/api.ts";
 import { makeShop, makeTag } from "@/test/fixtures.ts";
 import { renderWithProviders } from "@/test/render.tsx";
 import { server } from "@/test/server.ts";
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -132,9 +132,12 @@ describe("AddModal", () => {
     await waitFor(() => expect(bodies).toHaveLength(1));
     expect(bodies[0]).not.toHaveProperty("wishLevel");
 
-    await userEvent.selectOptions(
-      screen.getByRole("combobox", { name: "気になる度" }),
-      "ちょっと気になる",
+    const wishLevel = screen.getByRole("radiogroup", { name: "気になる度" });
+    expect(
+      within(wishLevel).getByRole("radio", { name: "未設定" }),
+    ).toBeChecked();
+    await userEvent.click(
+      within(wishLevel).getByRole("radio", { name: "ちょっと気になる" }),
     );
     await userEvent.click(screen.getByRole("button", { name: "追加" }));
     await waitFor(() => expect(bodies).toHaveLength(2));
@@ -247,9 +250,35 @@ describe("AddModal", () => {
       await screen.findByText(/^存在しないタグが含まれています/),
     ).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: "うどん" }));
+    await userEvent.click(screen.getByRole("radio", { name: "うどん" }));
 
     expect(screen.queryByText(/^存在しないタグが含まれています/)).toBeNull();
+  });
+
+  it("keeps a tag the category hid on the way back, and drops it if left hidden", async () => {
+    const shoyu = makeTag({ label: "醤油", category: "ramen" });
+    const bodies: AddShopRequest[] = [];
+    renderAddModal(() => HttpResponse.json(makeShop()), [shoyu]);
+    server.use(
+      http.post("/api/v1/auth/shops", async ({ request }) => {
+        bodies.push((await request.json()) as AddShopRequest);
+        return HttpResponse.json(makeShop());
+      }),
+    );
+    await userEvent.click(await screen.findByRole("button", { name: "醤油" }));
+
+    await userEvent.click(screen.getByRole("radio", { name: "うどん" }));
+    expect(screen.queryByRole("button", { name: "醤油" })).toBeNull();
+    await userEvent.click(screen.getByRole("radio", { name: "ラーメン" }));
+    await fillNameAndSave();
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0].tagIds).toEqual([shoyu.id]);
+
+    await userEvent.click(screen.getByRole("radio", { name: "うどん" }));
+    await userEvent.click(screen.getByRole("button", { name: "追加" }));
+    await waitFor(() => expect(bodies).toHaveLength(2));
+    expect(bodies[1].category).toBe("udon");
+    expect(bodies[1].tagIds).toEqual([]);
   });
 
   it("clears old field errors when saving again", async () => {

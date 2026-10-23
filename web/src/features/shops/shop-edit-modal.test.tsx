@@ -1,8 +1,8 @@
 import { toaster } from "@/components/ui/toaster.tsx";
-import { Shop } from "@/features/shops/api/use-shops.ts";
+import { Shop, Tag } from "@/features/shops/api/use-shops.ts";
 import { ShopEditModal } from "@/features/shops/shop-edit-modal.tsx";
 import type { components } from "@/generated/api.ts";
-import { makeShop } from "@/test/fixtures.ts";
+import { makeShop, makeTag } from "@/test/fixtures.ts";
 import { renderWithProviders } from "@/test/render.tsx";
 import { server } from "@/test/server.ts";
 import { screen, waitFor, within } from "@testing-library/react";
@@ -38,15 +38,17 @@ function renderEditor(
   {
     saveResponse = () => new HttpResponse(null, { status: 204 }),
     initialTab,
+    tags = [],
   }: {
     saveResponse?: () => Response | Promise<Response>;
     initialTab?: "info" | "visit";
+    tags?: Tag[];
   } = {},
 ) {
   const requests: UpdateShopRequest[] = [];
   server.use(
     http.get("/api/v1/shops", () => HttpResponse.json({ shops: [target] })),
-    http.get("/api/v1/tags", () => HttpResponse.json({ tags: [] })),
+    http.get("/api/v1/tags", () => HttpResponse.json({ tags })),
     http.get(`/api/v1/shops/${target.id}/visits`, () =>
       HttpResponse.json({ visits: [] }),
     ),
@@ -192,12 +194,13 @@ describe("ShopEditModal save", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "保存" }));
 
-    expect(
-      await screen.findByRole("combobox", {
-        name: "気になる度",
-        description: "形式が正しくありません",
-      }),
-    ).toHaveAttribute("aria-invalid", "true");
+    const group = await screen.findByRole("radiogroup", {
+      name: "気になる度",
+      description: "形式が正しくありません",
+    });
+    expect(group).toHaveAttribute("aria-invalid", "true");
+    // The group's Tab stop takes focus, as an invalid input would.
+    expect(within(group).getByRole("radio", { name: "未設定" })).toHaveFocus();
   });
 
   it("toasts an error that belongs to no field", async () => {
@@ -455,14 +458,20 @@ describe("ShopEditModal links", () => {
 });
 
 describe("ShopEditModal 気になる度", () => {
-  const wishSelect = () => screen.getByRole("combobox", { name: "気になる度" });
+  const wishLevel = () =>
+    screen.getByRole("radiogroup", { name: "気になる度" });
+  const wishOption = (name: string) =>
+    within(wishLevel()).getByRole("radio", { name });
 
   it("omits 気になる度 when unchanged so the stored value is kept", async () => {
     const { requests } = renderEditor(
       makeShop({ eaten: false, wishLevel: "medium" }),
     );
 
-    expect(wishSelect()).toHaveValue("medium");
+    expect(wishOption("気になる")).toBeChecked();
+    expect(
+      within(wishLevel()).getAllByRole("radio", { checked: true }),
+    ).toHaveLength(1);
     await userEvent.click(screen.getByRole("button", { name: "保存" }));
 
     await waitFor(() => expect(requests).toHaveLength(1));
@@ -475,7 +484,7 @@ describe("ShopEditModal 気になる度", () => {
   it("sends the chosen 気になる度", async () => {
     const { requests } = renderEditor(makeShop({ eaten: false }));
 
-    await userEvent.selectOptions(wishSelect(), "絶対行きたい");
+    await userEvent.click(wishOption("絶対行きたい"));
     await userEvent.click(screen.getByRole("button", { name: "保存" }));
 
     await waitFor(() => expect(requests).toHaveLength(1));
@@ -487,11 +496,94 @@ describe("ShopEditModal 気になる度", () => {
       makeShop({ eaten: false, wishLevel: "high" }),
     );
 
-    await userEvent.selectOptions(wishSelect(), "未設定");
+    await userEvent.click(wishOption("未設定"));
     await userEvent.click(screen.getByRole("button", { name: "保存" }));
 
     await waitFor(() => expect(requests).toHaveLength(1));
     expect(requests[0].wishLevel).toBe("");
+  });
+});
+
+describe("ShopEditModal 気になる度 keyboard", () => {
+  it("moves the choice with arrow keys from the one Tab stop", async () => {
+    const { requests } = renderEditor(
+      makeShop({ eaten: false, wishLevel: "low" }),
+    );
+    const group = screen.getByRole("radiogroup", { name: "気になる度" });
+    const radios = within(group).getAllByRole("radio");
+    const [unset, low, medium, high] = radios;
+    expect(radios.map((r) => r.textContent)).toEqual([
+      "未設定",
+      "ちょっと気になる",
+      "気になる",
+      "絶対行きたい",
+    ]);
+    // Only the chosen option is in the Tab order.
+    expect(radios.map((r) => r.tabIndex)).toEqual([-1, 0, -1, -1]);
+
+    low.focus();
+    await userEvent.keyboard("{ArrowRight}");
+    expect(medium).toHaveFocus();
+    expect(medium).toBeChecked();
+    // A modified arrow is left to the browser.
+    await userEvent.keyboard("{Shift>}{ArrowRight}{/Shift}");
+    expect(medium).toHaveFocus();
+    expect(medium).toBeChecked();
+
+    await userEvent.keyboard("{End}");
+    expect(high).toHaveFocus();
+    await userEvent.keyboard("{ArrowRight}");
+    // Wraps around.
+    expect(unset).toHaveFocus();
+    expect(unset).toBeChecked();
+    await userEvent.keyboard("{ArrowLeft}");
+    expect(high).toHaveFocus();
+    await userEvent.keyboard("{Home}{End}");
+    expect(within(group).getAllByRole("radio", { checked: true })).toEqual([
+      high,
+    ]);
+
+    await userEvent.click(screen.getByRole("button", { name: "保存" }));
+    await waitFor(() => expect(requests).toHaveLength(1));
+    expect(requests[0].wishLevel).toBe("high");
+  });
+});
+
+describe("ShopEditModal カテゴリ and tags", () => {
+  const iekei = makeTag({ label: "家系", slug: "iekei", category: "ramen" });
+
+  it("keeps a tag that the category hid on the way back", async () => {
+    const { requests } = renderEditor(
+      makeShop({ category: "ramen", tags: [iekei] }),
+      { tags: [iekei] },
+    );
+    await screen.findByRole("button", { name: "家系" });
+
+    screen.getByRole("radio", { name: "ラーメン" }).focus();
+    await userEvent.keyboard("{ArrowRight}");
+    expect(screen.getByRole("radio", { name: "うどん" })).toBeChecked();
+    expect(screen.queryByRole("button", { name: "家系" })).toBeNull();
+    await userEvent.keyboard("{ArrowLeft}");
+    expect(screen.getByRole("button", { name: "家系" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "保存" }));
+
+    await waitFor(() => expect(requests).toHaveLength(1));
+    expect(requests[0].tagIds).toEqual([iekei.id]);
+  });
+
+  it("drops a tag that does not fit the category when saving", async () => {
+    const { requests } = renderEditor(
+      makeShop({ category: "ramen", tags: [iekei] }),
+      { tags: [iekei] },
+    );
+    await screen.findByRole("button", { name: "家系" });
+
+    await userEvent.click(screen.getByRole("radio", { name: "うどん" }));
+    await userEvent.click(screen.getByRole("button", { name: "保存" }));
+
+    await waitFor(() => expect(requests).toHaveLength(1));
+    expect(requests[0].category).toBe("udon");
+    expect(requests[0].tagIds).toEqual([]);
   });
 });
 

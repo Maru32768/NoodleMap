@@ -1,6 +1,7 @@
 import { FieldError, FormField } from "@/components/form-field.tsx";
 import { LoadableButton } from "@/components/loadable-button.tsx";
 import { ModalDialog } from "@/components/modal-dialog.tsx";
+import { SegmentedPicker } from "@/components/segmented-picker.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { toaster } from "@/components/ui/toaster.tsx";
 import { useRevealFirstError } from "@/components/use-reveal-first-error.ts";
@@ -48,7 +49,7 @@ import {
   toastShopFieldErrors,
 } from "@/utils/toast.ts";
 import { Box, Input, NativeSelect } from "@chakra-ui/react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 interface ShopEditDraft {
   id: string;
@@ -403,6 +404,29 @@ export function ShopEditModal({
   const { ref: formRef, reveal: revealFirstError } =
     useRevealFirstError<HTMLDivElement>();
 
+  // A file dropped beside a visit's image area would make the browser open it
+  // and leave the page.
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    const refuseFileDrop = (event: DragEvent) => {
+      if (
+        !event.defaultPrevented &&
+        event.dataTransfer?.types.includes("Files")
+      ) {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "none";
+      }
+    };
+    window.addEventListener("dragover", refuseFileDrop);
+    window.addEventListener("drop", refuseFileDrop);
+    return () => {
+      window.removeEventListener("dragover", refuseFileDrop);
+      window.removeEventListener("drop", refuseFileDrop);
+    };
+  }, [open]);
+
   const errorOf = (field: UpdateShopField) => {
     const type = fieldErrors[field];
     return type && shopFieldErrorMessage(field, type);
@@ -419,20 +443,23 @@ export function ShopEditModal({
     }
   };
 
-  const setCategory = (category: ShopEditDraft["category"]) => {
-    const fitsCategory = (tagId: string) => {
-      const tag = tags?.find((candidate) => candidate.id === tagId);
-      return !tag?.category || tag.category === category;
-    };
-    setDraft((current) => ({
-      ...current,
-      category,
-      tagIds: current.tagIds.filter(fitsCategory),
-    }));
-    clearErrors(
-      draft.tagIds.every(fitsCategory) ? ["category"] : ["category", "tagIds"],
-    );
-  };
+  const draftTagIds = draft.tagIds;
+  const setCategory = useCallback(
+    (category: ShopEditDraft["category"]) => {
+      const fitsCategory = (tagId: string) => {
+        const tag = tags?.find((candidate) => candidate.id === tagId);
+        return !tag?.category || tag.category === category;
+      };
+      // Tags that do not fit stay chosen but hidden, so switching back keeps
+      // them; saving drops them, and with them their error.
+      setDraft((current) => ({ ...current, category }));
+      const cleared: UpdateShopField[] = draftTagIds.every(fitsCategory)
+        ? ["category"]
+        : ["category", "tagIds"];
+      setFieldErrors((errors) => clearShopFieldErrors(errors, cleared));
+    },
+    [tags, draftTagIds],
+  );
 
   // Whether the field's input is on screen to show an error.
   const hasInput = (field: UpdateShopField) =>
@@ -593,7 +620,7 @@ export function ShopEditModal({
         onOpenChange={(o) => !o && !locked && guardVisitDraft("close")}
         width="100%"
         maxWidth="1040px"
-        height="80vh"
+        height="90vh"
         title={displayName}
         subtitle={`EDIT · ${shop.id}`}
         icon={
@@ -613,6 +640,13 @@ export function ShopEditModal({
         }}
         contentProps={{
           animation: "adm-modal-in 0.16s cubic-bezier(0.2, 0.8, 0.2, 1)",
+          // dvh: iOS toolbars must not push the footer off screen. 90vh stays
+          // for browsers without it.
+          css: {
+            "@supports (height: 100dvh)": {
+              height: "min(90vh, calc(100dvh - 2rem))",
+            },
+          },
         }}
       >
         <>
@@ -664,33 +698,12 @@ export function ShopEditModal({
                   label={<FieldLabel>カテゴリ</FieldLabel>}
                   error={errorOf("category")}
                 >
-                  <Box display="flex" gap="6px" flexWrap="wrap">
-                    {CATEGORY_OPTIONS.map((cat) => (
-                      <Button
-                        key={cat.id}
-                        variant="plain"
-                        px="10px"
-                        py="5px"
-                        h="auto"
-                        minH="auto"
-                        fontSize="12px"
-                        fontWeight={draft.category === cat.id ? 600 : 400}
-                        bg={draft.category === cat.id ? "nm.ink" : "nm.bg"}
-                        color={
-                          draft.category === cat.id ? "nm.paper" : "nm.inkMuted"
-                        }
-                        border="1px solid"
-                        borderColor={
-                          draft.category === cat.id ? "nm.ink" : "nm.line"
-                        }
-                        rounded="nmMd"
-                        _hover={{ borderColor: "nm.ink" }}
-                        onClick={() => setCategory(cat.id)}
-                      >
-                        {cat.label}
-                      </Button>
-                    ))}
-                  </Box>
+                  <SegmentedPicker
+                    label="カテゴリ"
+                    options={CATEGORY_OPTIONS}
+                    value={draft.category}
+                    onChange={setCategory}
+                  />
                 </FormField>
                 {tags && (
                   <FormField

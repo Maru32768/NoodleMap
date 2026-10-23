@@ -23,10 +23,12 @@ export function VisitImageThumb({
   image,
   alt,
   size = THUMB_PX,
+  draggable,
 }: {
   image: VisitImage;
   alt: string;
   size?: number;
+  draggable?: boolean;
 }) {
   return (
     <Image
@@ -34,6 +36,7 @@ export function VisitImageThumb({
       alt={alt}
       loading="lazy"
       decoding="async"
+      draggable={draggable}
       // The intrinsic ratio before the image loads; CSS sets the shown size.
       htmlWidth={image.width}
       htmlHeight={image.height}
