@@ -73,6 +73,23 @@ class DatabaseTest {
     }
 
     @Test
+    fun `legacy shop_images rows are counted in a startup warning and left in place`() = withDbDir { file ->
+        buildDataSource(file.toString()).use { ds ->
+            buildDatabase(ds)
+            ds.connection.use { c ->
+                c.createStatement().use {
+                    it.executeUpdate("INSERT INTO shops (id, name, lat, lng, postal_code, address) VALUES ('s1', 'a', 0, 0, '', '')")
+                    it.executeUpdate("INSERT INTO shop_images (id, shop_id, path) VALUES ('i1', 's1', 'a.jpg'), ('i2', 's1', 'b.jpg')")
+                }
+            }
+        }
+
+        val warnings = captureWarnings("Database") { buildDataSource(file.toString()).use { buildDatabase(it) } }
+
+        warnings.single() shouldContain "legacy shop_images holds 2 rows"
+    }
+
+    @Test
     fun `a clean database logs no foreign key warning`() = withDbDir { file ->
         captureWarnings("Database") { buildDataSource(file.toString()).use { buildDatabase(it) } } shouldBe emptyList()
     }

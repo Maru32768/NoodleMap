@@ -4,6 +4,7 @@ import app.cash.sqldelight.driver.jdbc.asJdbcDriver
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.collections.shouldContainAll
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldMatch
 import java.nio.file.Files
 import java.sql.Connection
 import java.sql.DriverManager
@@ -44,8 +45,8 @@ class MigrationsTest {
 
             conn.version() shouldBe migrations.maxOf { it.version }
             conn.strings("SELECT name FROM sqlite_master WHERE type = 'table'") shouldContainAll
-                listOf("users", "sessions", "shops", "tags", "shops_tags", "shop_links", "visit_logs")
-            conn.strings("SELECT name FROM sqlite_master WHERE name IN ('eaten_shops', 'shop_images')") shouldBe emptyList()
+                listOf("users", "sessions", "shops", "tags", "shops_tags", "shop_images", "shop_links", "visit_logs")
+            conn.strings("SELECT name FROM sqlite_master WHERE name = 'eaten_shops'") shouldBe emptyList()
             conn.strings("SELECT name FROM sqlite_master WHERE type = 'trigger'") shouldContainAll
                 listOf("update_users_modtime", "update_shops_modtime", "update_tags_modtime", "update_shop_links_modtime", "update_visit_logs_modtime")
         }
@@ -151,7 +152,7 @@ class MigrationsTest {
     }
 
     @Test
-    fun `00014 turns every eaten record into an undated visit log and drops eaten_shops and shop_images`() {
+    fun `00014 turns every eaten record into an undated visit log, drops eaten_shops and keeps shop_images`() {
         // A pooled connection has foreign_keys ON, under which copying an orphaned eaten record would fail.
         withPooledDb { conn ->
             migrate(conn, loadMigrations().filter { it.version <= 13 })
@@ -168,10 +169,11 @@ class MigrationsTest {
                     """
                     INSERT INTO eaten_shops (id, shop_id, rate, created_at, updated_at) VALUES
                         ('E1', 'S1', 5, '2020-01-02 03:04:05', '2021-01-02 03:04:05'),
-                        ('e2', 's2', 90, '2022-01-01 00:00:00', '2022-01-01 00:00:00'),
-                        ('e3', 'gone', 150, '2023-01-01 00:00:00', '2023-01-01 00:00:00')
+                        ('e2', 's2', 90, '2022-01-01 00:00:00.123456789 +0000 UTC', '2022-01-01 00:00:00'),
+                        ('e3', 'gone', 150, '2023-01-01T00:00:00Z', '2023-01-01 00:00:00')
                     """.trimIndent(),
                 )
+                st.executeUpdate("INSERT INTO shop_images (id, shop_id, path) VALUES ('i1', 's2', 'x.jpg')")
                 st.execute("PRAGMA foreign_keys = ON")
             }
 
@@ -180,12 +182,15 @@ class MigrationsTest {
             conn.strings(
                 "SELECT id || '|' || shop_id || '|' || ifnull(visited_on, 'NULL') || '|' || rate || '|' || is_limited_menu || '|' || created_at || '|' || updated_at FROM visit_logs ORDER BY id",
             ) shouldBe listOf(
-                "e1|s1|NULL|5.0|0|2020-01-02 03:04:05|2021-01-02 03:04:05",
-                "e2|s2|NULL|90.0|0|2022-01-01 00:00:00|2022-01-01 00:00:00",
+                // created_at is rewritten as 'YYYY-MM-DD HH:MM:SS.SSS', the format new visit logs get.
+                "e1|s1|NULL|5.0|0|2020-01-02 03:04:05.000|2021-01-02 03:04:05",
+                "e2|s2|NULL|90.0|0|2022-01-01 00:00:00.000|2022-01-01 00:00:00",
                 // Kept (and reported at startup) although its shop is gone; an out-of-range rate is clamped.
-                "e3|gone|NULL|100.0|0|2023-01-01 00:00:00|2023-01-01 00:00:00",
+                "e3|gone|NULL|100.0|0|2023-01-01 00:00:00.000|2023-01-01 00:00:00",
             )
-            conn.strings("SELECT name FROM sqlite_master WHERE name IN ('eaten_shops', 'shop_images')") shouldBe emptyList()
+            conn.strings("SELECT name FROM sqlite_master WHERE name = 'eaten_shops'") shouldBe emptyList()
+            // Legacy images stay until they are dropped deliberately.
+            conn.strings("SELECT id FROM shop_images") shouldBe listOf("i1")
             conn.strings("SELECT ifnull(wish_level, 'NULL') FROM shops ORDER BY id") shouldBe listOf("NULL", "NULL", "NULL")
             conn.strings("PRAGMA foreign_keys") shouldBe listOf("1")
 
@@ -196,7 +201,25 @@ class MigrationsTest {
                 shouldThrow<Exception> { st.executeUpdate("UPDATE shops SET wish_level = 'urgent' WHERE id = 's3'") }
                 shouldThrow<Exception> { st.executeUpdate("INSERT INTO visit_logs (id, shop_id, rate) VALUES ('v1', 's3', 101)") }
                 shouldThrow<Exception> { st.executeUpdate("INSERT INTO visit_logs (id, shop_id, price) VALUES ('v2', 's3', -1)") }
+                st.executeUpdate("INSERT INTO visit_logs (id, shop_id) VALUES ('v3', 's3')")
             }
+            conn.strings("SELECT created_at FROM visit_logs WHERE id = 'v3'").single() shouldMatch
+                Regex("""\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}""")
+        }
+    }
+
+    @Test
+    fun `a NO TRANSACTION migration is recorded with its own commit, so a crash after it does not re-run it`() {
+        withPooledDb { conn ->
+            // Fails after its COMMIT, as a crash between the COMMIT and the end of the migration would.
+            val statements = listOf("PRAGMA foreign_keys = OFF", "BEGIN", "CREATE TABLE once (id TEXT)", "COMMIT", "NOT VALID SQL")
+            shouldThrow<Exception> { migrate(conn, listOf(Migration(1, statements, useTransaction = false))) }
+
+            conn.version() shouldBe 1
+            // Re-running would fail on CREATE TABLE if the migration were not recorded.
+            migrate(conn, listOf(Migration(1, statements, useTransaction = false)))
+            conn.strings("SELECT count(*) FROM goose_db_version WHERE version_id = 1") shouldBe listOf("1")
+            conn.strings("PRAGMA foreign_keys") shouldBe listOf("1")
         }
     }
 

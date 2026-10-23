@@ -50,7 +50,7 @@ public data class UpdateShopRequest(
   @SerialName("tagIds")
   public val tagIds: List<String>,
   /**
-   * Omit to keep the stored 気になる度 (older clients); null clears it.
+   * Omit to keep the stored 気になる度 (older clients); an empty string clears it.
    */
   @SerialName("wishLevel")
   public val wishLevel: String? = null,

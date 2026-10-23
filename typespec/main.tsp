@@ -526,8 +526,8 @@ model UpdateShopRequest {
 
   tagIds: uuid[];
 
-  @doc("Omit to keep the stored 気になる度 (older clients); null clears it.")
-  wishLevel?: WishLevel | null;
+  @doc("Omit to keep the stored 気になる度 (older clients); an empty string clears it.")
+  wishLevel?: WishLevel | "";
 
   @doc("Omit to keep the stored links (older clients); an array replaces them all, in array order. At most 10.")
   @maxItems(10)

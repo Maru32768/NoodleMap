@@ -6,11 +6,13 @@ import java.util.UUID
 
 /**
  * The one place the "latest visit" order lives (GLOSSARY.md 訪問ログ): newest visit date first, a visit
- * without a date counting as the oldest, then the most recently created. Sort with it stably over rows
- * read newest-inserted first, so visits created in the same second keep that order.
+ * without a date counting as the oldest, then the most recently created (created_at has milliseconds),
+ * then the id, so the order never depends on how rows were read.
  */
-internal fun <T> latestFirst(visitedOn: (T) -> String?, createdAt: (T) -> String): Comparator<T> =
-    compareByDescending<T, String?>(nullsFirst(naturalOrder())) { visitedOn(it) }.thenByDescending { createdAt(it) }
+internal fun <T> latestFirst(visitedOn: (T) -> String?, createdAt: (T) -> String, id: (T) -> UUID): Comparator<T> =
+    compareByDescending<T, String?>(nullsFirst(naturalOrder())) { visitedOn(it) }
+        .thenByDescending { createdAt(it) }
+        .thenByDescending { id(it).toString() }
 
 /** What a shop derives from its visit logs: 食べた and its 評価. */
 data class VisitSummary(val visitCount: Int, val rate: Double?) {
@@ -22,7 +24,7 @@ data class VisitSummary(val visitCount: Int, val rate: Double?) {
     }
 }
 
-private val SUMMARY_ORDER = latestFirst<FindAllVisitSummaries>({ it.visited_on }, { it.created_at })
+private val SUMMARY_ORDER = latestFirst<FindAllVisitSummaries>({ it.visited_on }, { it.created_at }, { it.id })
 
 /** The shop's 評価 is the rate of its latest visit log that has one. */
 internal fun summarize(visits: List<FindAllVisitSummaries>): VisitSummary =

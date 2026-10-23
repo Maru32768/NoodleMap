@@ -31,16 +31,19 @@ class OgCardTest {
         val wish = shop.copy(eaten = false, rate = 0.0, visitCount = 0, wishLevel = "high", category = CategorySlug.UDON)
         OgCard.of(wish, today).let {
             it.category shouldBe "うどん"
-            it.statuses.map { s -> s.label } shouldBe listOf("気になる")
+            // The 気になる度 replaces the plain 気になる status.
+            it.statuses.map { s -> s.label } shouldBe listOf("絶対行きたい")
             it.hearts shouldBe 0.0
             it.visitCountLabel shouldBe null
-            it.wishLevel shouldBe "絶対行きたい"
-            it.description() shouldBe "うどん・家系・気になる・絶対行きたい・東京都新宿区"
+            it.description() shouldBe "うどん・家系・絶対行きたい・東京都新宿区"
         }
-        OgCard.of(wish.copy(wishLevel = "low"), today).wishLevel shouldBe "ちょっと気になる"
-        OgCard.of(wish.copy(wishLevel = null), today).wishLevel shouldBe null
+        fun status(s: Shop) = OgCard.of(s, today).statuses.first().label
+        status(wish.copy(wishLevel = "medium")) shouldBe "気になる"
+        OgCard.of(wish.copy(wishLevel = "medium"), today).description() shouldBe "うどん・家系・気になる・東京都新宿区"
+        status(wish.copy(wishLevel = "low")) shouldBe "ちょっと気になる"
+        status(wish.copy(wishLevel = null)) shouldBe "気になる"
         // 気になる度 only means something before the shop is eaten.
-        OgCard.of(shop.copy(wishLevel = "high"), today).wishLevel shouldBe null
+        status(shop.copy(wishLevel = "high")) shouldBe "食べた"
     }
 
     @Test
@@ -72,8 +75,9 @@ class OgCardTest {
             shop.copy(visitCount = 4),
         ).forEach { hash(it) shouldNotBe base }
         val wish = shop.copy(eaten = false, rate = 0.0, visitCount = 0)
-        listOf(wish.copy(wishLevel = "low"), wish.copy(wishLevel = "medium"), wish.copy(wishLevel = "high")).map { hash(it) }
-            .plus(hash(wish)).toSet().size shouldBe 4
+        listOf(wish.copy(wishLevel = "low"), wish.copy(wishLevel = "high"), wish).map { hash(it) }.toSet().size shouldBe 3
+        // Medium is drawn as the plain 気になる, so it shares the unset shop's image.
+        hash(wish.copy(wishLevel = "medium")) shouldBe hash(wish)
     }
 
     @Test

@@ -122,9 +122,20 @@ private fun applyWithoutTransaction(conn: Connection, m: Migration) {
     }
 }
 
+/**
+ * Runs the statements and records the version. A NO TRANSACTION migration that opens its own transaction
+ * gets the version recorded just before its last COMMIT, so a crash after that COMMIT cannot leave the
+ * schema changed but unrecorded (a re-run would then fail on, e.g., ADD COLUMN).
+ */
 private fun apply(conn: Connection, m: Migration) {
-    conn.createStatement().use { st -> m.statements.forEach { st.execute(it) } }
-    recordVersion(conn, m.version)
+    val recordAt = if (m.useTransaction) -1 else m.statements.indexOfLast { it.trimEnd(';').trim().equals("COMMIT", ignoreCase = true) }
+    conn.createStatement().use { st ->
+        m.statements.forEachIndexed { i, sql ->
+            if (i == recordAt) recordVersion(conn, m.version)
+            st.execute(sql)
+        }
+    }
+    if (recordAt < 0) recordVersion(conn, m.version)
 }
 
 private fun currentVersion(conn: Connection): Long? =

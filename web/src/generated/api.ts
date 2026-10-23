@@ -540,8 +540,8 @@ export interface components {
              */
             rate?: number;
             tagIds: components["schemas"]["uuid"][];
-            /** @description Omit to keep the stored 気になる度 (older clients); null clears it. */
-            wishLevel?: components["schemas"]["WishLevel"] | null;
+            /** @description Omit to keep the stored 気になる度 (older clients); an empty string clears it. */
+            wishLevel?: components["schemas"]["WishLevel"] | "";
             /** @description Omit to keep the stored links (older clients); an array replaces them all, in array order. At most 10. */
             links?: components["schemas"]["ShopLinkInput"][];
         };

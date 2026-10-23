@@ -2,7 +2,7 @@ package dev.marulabs.noodlemap.visits
 
 import dev.marulabs.noodlemap.addShopRequest
 import dev.marulabs.noodlemap.body
-import dev.marulabs.noodlemap.common.JST
+import dev.marulabs.noodlemap.TestDb
 import dev.marulabs.noodlemap.deleteWithSession
 import dev.marulabs.noodlemap.encode
 import dev.marulabs.noodlemap.errors.ErrorBody
@@ -27,9 +27,16 @@ import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.testing.ApplicationTestBuilder
-import java.time.LocalDate
 import java.util.UUID
 import org.junit.jupiter.api.Test
+
+private fun TestDb.setCreatedAt(visitId: String, createdAt: String) = dataSource.connection.use { c ->
+    c.prepareStatement("UPDATE visit_logs SET created_at = ? WHERE id = ?").use {
+        it.setString(1, createdAt)
+        it.setString(2, visitId)
+        it.executeUpdate()
+    }
+}
 
 class VisitLogApiTest {
 
@@ -89,6 +96,9 @@ class VisitLogApiTest {
         val id = addShop(admin)
         val first = client.addVisit(id, visit(rate = 50.0), admin)
         val second = client.addVisit(id, visit(rate = 70.0), admin)
+        // Pinned so the test does not depend on the two requests landing in different milliseconds.
+        t.setCreatedAt(first.id, "2025-01-01 00:00:00.000")
+        t.setCreatedAt(second.id, "2025-01-01 00:00:00.001")
 
         client.visits(id).map { it.id } shouldContainExactly listOf(second.id, first.id)
         client.shops().single().rate shouldBe 70.0
@@ -192,21 +202,21 @@ class VisitLogApiTest {
     }
 
     @Test
-    fun `visit dates must be real dates no later than tomorrow, and limits are inclusive`() = testApp { t ->
+    fun `visit dates must be real dates, and limits are inclusive`() = testApp { t ->
         val admin = t.adminToken()
         val id = addShop(admin)
-        val today = LocalDate.now(JST)
         suspend fun fieldError(input: VisitLogInput) =
             client.postJson("/api/v1/auth/shops/$id/visits", encode(input), admin).body<ErrorBody>().fieldErrors
 
-        fieldError(visit(today.plusDays(2).toString())) shouldBe listOf(FieldError("visitedOn", FieldErrorType.OUT_OF_RANGE))
+        // The latest allowed date (tomorrow) is checked against a fixed day in VisitsTest.
+        fieldError(visit("9999-12-31")) shouldBe listOf(FieldError("visitedOn", FieldErrorType.OUT_OF_RANGE))
         for (bad in listOf("2024-02-30", "24-01-01", "+2024-01-01", "2024-1-1")) {
             fieldError(visit(bad)) shouldBe listOf(FieldError("visitedOn", FieldErrorType.INVALID_FORMAT))
         }
         fieldError(VisitLogInput(isLimitedMenu = false, price = 10_000_001)) shouldBe listOf(FieldError("price", FieldErrorType.OUT_OF_RANGE))
         fieldError(visit(rate = -0.5)) shouldBe listOf(FieldError("rate", FieldErrorType.OUT_OF_RANGE))
 
-        client.addVisit(id, visit(today.plusDays(1).toString(), rate = 0.0), admin).visitedOn shouldBe today.plusDays(1).toString()
+        client.addVisit(id, visit("2024-02-29", rate = 0.0), admin).visitedOn shouldBe "2024-02-29"
         client.addVisit(
             id,
             VisitLogInput(

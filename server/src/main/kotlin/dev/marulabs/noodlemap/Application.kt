@@ -9,7 +9,6 @@ import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import io.ktor.server.plugins.calllogging.CallLogging
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.server.plugins.doublereceive.DoubleReceive
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
@@ -84,8 +83,6 @@ fun Application.installApp(
         // ignoreUnknownKeys matches Gin's BindJSON tolerance for extra fields.
         json(Json { ignoreUnknownKeys = true })
     }
-    // Request bodies (small JSON) are cached so a handler can re-read the raw body (http/JsonBody.kt).
-    install(DoubleReceive)
     install(CallLogging)
     install(NoCache)
     installStatusPages()

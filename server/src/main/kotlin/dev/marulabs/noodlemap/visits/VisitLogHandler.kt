@@ -28,7 +28,7 @@ private const val NOTE_MAX_LENGTH = 2000
 private const val PRICE_MAX = 10_000_000
 private val ISO_DATE = Regex("""\d{4}-\d{2}-\d{2}""")
 
-private val VISIT_ORDER = latestFirst<Visit_logs>({ it.visited_on }, { it.created_at })
+private val VISIT_ORDER = latestFirst<Visit_logs>({ it.visited_on }, { it.created_at }, { it.id })
 
 /** A visit log as validated for storage. */
 internal data class VisitFields(
@@ -50,7 +50,8 @@ internal fun normalizeVisit(input: VisitLogInput, today: LocalDate): VisitFields
     val errors = mutableListOf<FieldError>()
     fun text(field: String, raw: String?, max: Int): String? {
         val value = raw?.trim()?.takeIf { it.isNotEmpty() } ?: return null
-        if (value.length > max) errors += FieldError(field, FieldErrorType.TOO_LONG)
+        // Counted in code points, as OpenAPI maxLength counts characters.
+        if (value.codePointCount(0, value.length) > max) errors += FieldError(field, FieldErrorType.TOO_LONG)
         return value
     }
 

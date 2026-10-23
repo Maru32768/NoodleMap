@@ -29,7 +29,6 @@ import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import java.util.UUID
-import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.jsonObject
@@ -312,6 +311,12 @@ class ShopApiTest {
             it.visitCount shouldBe 0
             it.tags.map { tag -> tag.id } shouldContainExactly listOf(SHIO, MISO)
         }
+
+        client.putJson("/api/v1/auth/shops/$id", encode(req.toUpdate(tagIds = listOf(SHOYU))), admin)
+        client.shops().single().tags.map { tag -> tag.id } shouldContainExactly listOf(SHOYU)
+
+        client.putJson("/api/v1/auth/shops/$id", encode(req.toUpdate(tagIds = emptyList())), admin)
+        client.shops().single().tags.shouldBeEmpty()
     }
 
     @Test
@@ -331,7 +336,7 @@ class ShopApiTest {
     }
 
     @Test
-    fun `wish level is set on add, kept when omitted, replaced when sent and cleared by null`() = testApp { t ->
+    fun `wish level is set on add, kept when omitted, replaced when sent and cleared when empty`() = testApp { t ->
         val admin = t.adminToken()
         val req = addShopRequest().copy(wishLevel = "high")
         val added = client.postJson("/api/v1/auth/shops", encode(req), admin).body<Shop>()
@@ -346,8 +351,7 @@ class ShopApiTest {
         client.putJson("/api/v1/auth/shops/${added.id}", encode(req.toUpdate().copy(wishLevel = "low")), admin)
         client.shops().single().wishLevel shouldBe "low"
 
-        val cleared = JsonObject(testJson.encodeToJsonElement(req.toUpdate()).jsonObject + ("wishLevel" to JsonNull))
-        client.putJson("/api/v1/auth/shops/${added.id}", cleared.toString(), admin).status shouldBe HttpStatusCode.OK
+        client.putJson("/api/v1/auth/shops/${added.id}", encode(req.toUpdate().copy(wishLevel = "")), admin).status shouldBe HttpStatusCode.OK
         client.shops().single().wishLevel shouldBe null
     }
 

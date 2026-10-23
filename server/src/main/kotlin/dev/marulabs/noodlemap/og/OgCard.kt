@@ -27,8 +27,6 @@ data class OgCard(
     val hearts: Double,
     /** Number of visit logs; 0 for a shop not eaten, and then nothing is drawn. */
     val visitCount: Int,
-    /** 気になる度 label, only for a shop not eaten (it means nothing after); null draws nothing. */
-    val wishLevel: String?,
     val area: String,
 ) {
     /** 「3回訪問」, or null for a shop not eaten. */
@@ -47,7 +45,6 @@ data class OgCard(
             }
             field(hearts)
             field(visitCount)
-            field(wishLevel.orEmpty())
             field(area)
         }
         return MessageDigest.getInstance("SHA-256").digest(input.toByteArray())
@@ -56,7 +53,7 @@ data class OgCard(
     }
 
     fun description(): String =
-        (listOf(category) + tags.map { it.label } + statuses.map { it.label } + listOfNotNull(wishLevel, visitCountLabel) + area)
+        (listOf(category) + tags.map { it.label } + statuses.map { it.label } + listOfNotNull(visitCountLabel) + area)
             .filter { it.isNotEmpty() }.joinToString("・")
 
     companion object {
@@ -66,16 +63,20 @@ data class OgCard(
                 CategorySlug.RAMEN -> "ラーメン"
                 CategorySlug.UDON -> "うどん"
             },
-            statuses = listOf(if (shop.eaten) Chip("食べた", "#b54a3c") else Chip("気になる", "#6b5e52")) +
-                lifecycleChips(shop.openedAt, shop.closedAt, today),
+            statuses = listOf(eatenChip(shop)) + lifecycleChips(shop.openedAt, shop.closedAt, today),
             tags = shop.tags.take(3).map { Chip(it.label, it.color) },
             // Down to the half heart the image can show, so rates drawn alike share one hash.
             hearts = if (shop.rate > 0) floor(minOf(5.0, shop.rate / 20) * 2) / 2 else 0.0,
             visitCount = if (shop.eaten) shop.visitCount else 0,
-            wishLevel = if (shop.eaten) null else shop.wishLevel?.let(WishLevel::fromValue)?.let(::wishLevelLabel),
             area = areaOf(shop.address),
         )
     }
+}
+
+/** 食べた, or for a shop not eaten its 気になる度 (plain 気になる when not set); the level means nothing once eaten. */
+private fun eatenChip(shop: Shop): Chip = when {
+    shop.eaten -> Chip("食べた", "#b54a3c")
+    else -> Chip(shop.wishLevel?.let(WishLevel::fromValue)?.let(::wishLevelLabel) ?: "気になる", "#6b5e52")
 }
 
 /** 気になる度 as the web shows it (GLOSSARY.md). */

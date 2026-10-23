@@ -38,11 +38,6 @@ export type Shop = ApiShop & {
   readonly eatenStatus: ShopEatenStatus;
 };
 
-// Mirrors the server's favorite rule (ShopHandler.isFavorite) for test fixtures.
-export function isFavorite(eaten: boolean, rate: number): boolean {
-  return eaten && rate >= 80;
-}
-
 // Attaches the cached parsed dates used by the status helpers. Run wherever a
 // raw API shop enters the SWR cache (fetch, optimistic add, optimistic update).
 export function decorateShop(shop: ApiShop): Shop {
@@ -178,11 +173,11 @@ export function useShops(config?: SWRConfiguration<Shop[]>) {
             copy[i] = decorateShop({
               ...current[i],
               ...shopFields,
-              // Mirror the server: omitted keeps the 気になる度, null clears it.
+              // Mirror the server: omitted keeps the 気になる度, "" clears it.
               wishLevel:
                 shopFields.wishLevel === undefined
                   ? current[i].wishLevel
-                  : (shopFields.wishLevel ?? undefined),
+                  : shopFields.wishLevel || undefined,
               // Mirror the server: omitted keeps the reading, blank clears it.
               nameKana:
                 shopFields.nameKana === undefined

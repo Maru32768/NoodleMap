@@ -1,9 +1,4 @@
-import {
-  decorateShop,
-  isFavorite,
-  Shop,
-  Tag,
-} from "@/features/shops/api/use-shops.ts";
+import { decorateShop, Shop, Tag } from "@/features/shops/api/use-shops.ts";
 import type { components } from "@/generated/api.ts";
 
 type ApiShop = components["schemas"]["Shop"];
@@ -40,7 +35,8 @@ export function makeShop(overrides: Partial<ApiShop> = {}): Shop {
     address: "東京都新宿区新宿3-1-1",
     eaten,
     rate,
-    favorite: isFavorite(eaten, rate),
+    // The server's お気に入り rule: a 評価 of 80 or more, which only an eaten shop has.
+    favorite: eaten && rate >= 80,
     visitCount: eaten ? 1 : 0,
     category: "ramen",
     tags: [],

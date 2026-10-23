@@ -1,5 +1,5 @@
--- 訪問ログ. Reads return the newest-inserted row first (rowid DESC); the "latest visit" order itself
--- lives in Kotlin (`visits/Visits.kt` LATEST_FIRST), which sorts these rows stably.
+-- 訪問ログ. Reads come back unordered: the "latest visit" order lives in Kotlin (`latestFirst` in
+-- visits/Visits.kt), which sorts these rows.
 CREATE TABLE visit_logs (
     id              TEXT AS java.util.UUID NOT NULL PRIMARY KEY,
     shop_id         TEXT AS java.util.UUID NOT NULL,
@@ -11,7 +11,7 @@ CREATE TABLE visit_logs (
     event_name      TEXT,
     public_note     TEXT,
     private_note    TEXT,
-    created_at      TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%f', 'now')),
     updated_at      TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (shop_id) REFERENCES shops (id)
 );
@@ -42,14 +42,12 @@ DELETE FROM visit_logs WHERE id = ?;
 findVisitLogsByShopId:
 SELECT *
 FROM visit_logs
-WHERE shop_id = ?
-ORDER BY rowid DESC;
+WHERE shop_id = ?;
 
 -- Only what the shop list derives 食べた and 評価 from, for every shop in one query.
 findAllVisitSummaries:
-SELECT shop_id, visited_on, rate, created_at
-FROM visit_logs
-ORDER BY rowid DESC;
+SELECT id, shop_id, visited_on, rate, created_at
+FROM visit_logs;
 
 shopHasVisitLogs:
 SELECT EXISTS (SELECT 1 FROM visit_logs WHERE shop_id = ?);

@@ -167,7 +167,10 @@ class OgApiTest {
             admin,
         ).status shouldBe HttpStatusCode.OK
         val wishPath = client.imagePath(shop.id)
-        client.get("/r/${shop.id}").bodyAsText() shouldContain "気になる・絶対行きたい"
+        client.get("/r/${shop.id}").bodyAsText().let {
+            it shouldContain "絶対行きたい"
+            it shouldNotContain "気になる"
+        }
         client.get(wishPath).status shouldBe HttpStatusCode.OK
 
         client.postJson("/api/v1/auth/shops/${shop.id}/visits", """{"isLimitedMenu":false,"rate":90}""", admin).status shouldBe HttpStatusCode.OK

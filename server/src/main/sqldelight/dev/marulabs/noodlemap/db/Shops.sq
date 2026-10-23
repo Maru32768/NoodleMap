@@ -51,12 +51,10 @@ SET name            = :name,
     closed_at       = :closedAt,
     -- Same for the place id: NULL keeps it, '' clears it.
     google_place_id = NULLIF(COALESCE(:googlePlaceId, google_place_id), ''),
-    category        = :category
+    category        = :category,
+    -- Same for the 気になる度: NULL keeps it, '' clears it.
+    wish_level      = NULLIF(COALESCE(:wishLevel, wish_level), '')
 WHERE id = :id;
-
--- Separate from updateShop: an omitted wishLevel keeps the stored value, while null clears it.
-updateShopWishLevel:
-UPDATE shops SET wish_level = :wishLevel WHERE id = :id;
 
 shopExists:
 SELECT EXISTS (SELECT 1 FROM shops WHERE id = ?);

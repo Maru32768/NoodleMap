@@ -22,7 +22,9 @@ CREATE TABLE IF NOT EXISTS visit_logs
     event_name      TEXT     NULL,
     public_note     TEXT     NULL,
     private_note    TEXT     NULL,
-    created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    -- UTC 'YYYY-MM-DD HH:MM:SS.SSS': with milliseconds, so the latest-visit order (created_at as text)
+    -- separates visits added in the same second.
+    created_at      DATETIME NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%f', 'now')),
     updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (shop_id) REFERENCES shops (id)
 );
@@ -44,14 +46,17 @@ ALTER TABLE shops ADD COLUMN wish_level TEXT NULL CHECK (wish_level IN ('low', '
 
 -- Each eaten record becomes one visit log with an unknown visit date, keeping its id, rate and timestamps.
 -- Rates were only range-checked by the API, so one outside 0..100 is clamped rather than failing the CHECK.
+-- created_at is rewritten in the visit_logs format so text comparison orders it; a value strftime cannot
+-- read whole (such as Go's '2006-01-02 15:04:05.999 +0000 UTC') is read from its first 19 characters.
 INSERT INTO visit_logs (id, shop_id, visited_on, rate, created_at, updated_at)
-SELECT lower(id), lower(shop_id), NULL, max(0, min(100, rate)), created_at, updated_at
+SELECT lower(id), lower(shop_id), NULL, max(0, min(100, rate)),
+       coalesce(strftime('%Y-%m-%d %H:%M:%f', created_at),
+                strftime('%Y-%m-%d %H:%M:%f', substr(created_at, 1, 19)),
+                strftime('%Y-%m-%d %H:%M:%f', 'now')),
+       updated_at
 FROM eaten_shops;
 
 DROP TABLE eaten_shops;
-
--- Never written by any handler; 訪問画像 will belong to visit logs instead.
-DROP TABLE shop_images;
 
 COMMIT;
 

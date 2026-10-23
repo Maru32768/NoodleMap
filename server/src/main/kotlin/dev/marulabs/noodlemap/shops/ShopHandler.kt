@@ -26,7 +26,6 @@ import dev.marulabs.noodlemap.generated.models.Tag
 import dev.marulabs.noodlemap.generated.models.TagsResponse
 import dev.marulabs.noodlemap.generated.models.UpdateShopRequest
 import dev.marulabs.noodlemap.generated.models.WishLevel
-import dev.marulabs.noodlemap.http.jsonBodyHasKey
 import dev.marulabs.noodlemap.visits.VisitSummary
 import dev.marulabs.noodlemap.visits.visitSummariesByShop
 import java.net.IDN
@@ -175,21 +174,19 @@ class ShopHandler(
         val googlePlaceId = req.googlePlaceId?.trim()
         // Missing (older clients) keeps the stored links; an array replaces them all.
         val links = req.links?.let { normalizeLinks(it) }
-        // Missing (older clients) keeps the stored 気になる度; null clears it. The generated model reads both
-        // as null, so presence is checked on the raw body.
-        val wishLevelSent = call.jsonBodyHasKey("wishLevel")
-        val wishLevel = req.wishLevel?.let(::parseWishLevel)
+        // Same for the 気になる度: missing keeps it, '' clears it.
+        val wishLevel = req.wishLevel?.let { if (it.isEmpty()) "" else parseWishLevel(it).value }
         db.transaction {
             // Write first and judge existence by rows affected: a SELECT before the first write
             // in a deferred WAL transaction can fail with SQLITE_BUSY_SNAPSHOT under contention.
             val updated = rejectingDuplicatePlaceId {
                 db.shopsQueries.updateShop(
                     req.name, nameKana, req.lat, req.lng, req.postalCode, req.address,
-                    ShopDate.encode(req.openedAt), ShopDate.encode(req.closedAt), googlePlaceId, req.category.value, shopId,
+                    ShopDate.encode(req.openedAt), ShopDate.encode(req.closedAt), googlePlaceId, req.category.value,
+                    wishLevel, shopId,
                 ).value
             }
             if (updated == 0L) throw DomainException.NotFound()
-            if (wishLevelSent) db.shopsQueries.updateShopWishLevel(wishLevel?.value, shopId)
             replaceShopTags(shopId, req.tagIds)
             links?.let { replaceShopLinks(shopId, it) }
         }
@@ -214,6 +211,8 @@ class ShopHandler(
             db.shopsTagsQueries.deleteShopTagsByShopId(shopId)
             // A shop with visit logs is never deleted (GLOSSARY.md 店舗); throwing rolls the tag delete back.
             if (db.visitLogsQueries.shopHasVisitLogs(shopId).executeAsOne()) throw DomainException.ShopHasVisitLogs()
+            // Legacy shop_images rows have no ON DELETE CASCADE, so they go before the shop.
+            db.shopImagesQueries.deleteShopImagesByShopId(shopId)
             db.shopLinksQueries.deleteShopLinksByShopId(shopId)
             if (db.shopsQueries.deleteShop(shopId).value == 0L) throw DomainException.NotFound()
         }

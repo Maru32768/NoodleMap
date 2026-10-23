@@ -48,6 +48,7 @@ fun buildDatabase(dataSource: DataSource): NoodleMapDb {
     dataSource.connection.use {
         migrate(it, loadMigrations())
         warnForeignKeyViolations(it)
+        warnLegacyShopImages(it)
     }
     return NoodleMapDb(
         driver = driver,
@@ -62,12 +63,19 @@ fun buildDatabase(dataSource: DataSource): NoodleMapDb {
             shop_idAdapter = UuidAdapter,
             tag_idAdapter = UuidAdapter,
         ),
+        shop_imagesAdapter = Shop_images.Adapter(idAdapter = UuidAdapter, shop_idAdapter = UuidAdapter),
         shop_linksAdapter = Shop_links.Adapter(idAdapter = UuidAdapter, shop_idAdapter = UuidAdapter),
         visit_logsAdapter = Visit_logs.Adapter(idAdapter = UuidAdapter, shop_idAdapter = UuidAdapter),
     )
 }
 
 private const val VIOLATION_ROWIDS_LOGGED = 5
+
+/** `shop_images` is unused legacy; its rows are reported so the table can be dropped deliberately later. */
+private fun warnLegacyShopImages(conn: Connection) {
+    val rows = conn.createStatement().use { st -> st.executeQuery("SELECT count(*) FROM shop_images").use { it.getLong(1) } }
+    if (rows > 0) log.warn("legacy shop_images holds {} rows; no code uses them (drop the table once they are not needed)", rows)
+}
 
 /**
  * Logs one WARN summarising rows whose foreign key points at nothing, per table. Enforcement

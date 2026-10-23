@@ -87,18 +87,13 @@ fun renderOgImage(card: OgCard): ByteArray {
             x += w + 14
         }
 
-        // The row under the chips: hearts and the visit count for an eaten shop, 気になる度 for the others.
+        // The row under the chips: hearts and the visit count of an eaten shop.
         var rowX = MARGIN
         if (card.hearts > 0) rowX = drawHearts(g, card.hearts, MARGIN, 410, 52) + 28
         card.visitCountLabel?.let {
             g.font = baseFont.deriveFont(36f)
             g.color = INK_MUTED
             g.drawString(it, rowX, centerBaseline(g, 410, 52))
-        }
-        card.wishLevel?.let {
-            g.font = baseFont.deriveFont(44f)
-            g.color = SHU
-            g.drawString(ellipsize(it, g.fontMetrics, CONTENT_WIDTH), MARGIN, centerBaseline(g, 404, 64))
         }
 
         if (card.area.isNotEmpty()) {

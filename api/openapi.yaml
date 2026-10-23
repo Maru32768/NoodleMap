@@ -1323,10 +1323,12 @@ components:
           items:
             $ref: '#/components/schemas/uuid'
         wishLevel:
-          allOf:
+          anyOf:
             - $ref: '#/components/schemas/WishLevel'
-          nullable: true
-          description: Omit to keep the stored 気になる度 (older clients); null clears it.
+            - type: string
+              enum:
+                - ''
+          description: Omit to keep the stored 気になる度 (older clients); an empty string clears it.
         links:
           type: array
           items:
