@@ -15,6 +15,8 @@ mkdirSync(dirname(dbPath), { recursive: true });
 for (const suffix of ["", "-wal", "-shm", ".bak"]) {
   rmSync(dbPath + suffix, { force: true });
 }
+// Local-disk visit images live next to the database.
+rmSync(resolve(dirname(dbPath), "visit-images"), { recursive: true, force: true });
 
 const gradlew = resolve(serverDir, process.platform === "win32" ? "gradlew.bat" : "gradlew");
 // A .bat needs a shell on Windows; one command string avoids Node's DEP0190 warning.

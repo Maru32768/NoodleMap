@@ -72,6 +72,9 @@ export default defineConfig({
         S3_BUCKET: "",
         // No Places key: the add form's Google Place search shows its manual-entry fallback.
         GOOGLE_PLACES_API_KEY: "",
+        // An http site without VISIT_IMAGES_R2_*: visit images are stored on local disk and
+        // served under /api, which the web server proxies, so their URLs are on BASE_URL.
+        PUBLIC_BASE_URL: BASE_URL,
       },
     },
     {

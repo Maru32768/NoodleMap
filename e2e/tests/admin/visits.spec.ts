@@ -1,5 +1,9 @@
 import type { Browser, Page } from "@playwright/test";
+import { fileURLToPath } from "node:url";
 import { expect, test, uid } from "../../support/fixtures.ts";
+
+// A 320 x 240 JPEG of a few KB.
+const VISIT_IMAGE = fileURLToPath(new URL("../../fixtures/visit-image.jpg", import.meta.url));
 
 async function openEditModal(page: Page, name: string, filter: string) {
   await page.goto("/admin");
@@ -86,6 +90,62 @@ test("deleting a shop's only visit returns it to 気になる", async ({ page, a
     await expect(guestPage.getByRole("button", { name: "閉じる" })).toBeVisible();
     await expect(guestPage.getByText("評価 - Rating")).toHaveCount(0);
     await expect(guestPage.getByRole("list", { name: "訪問ログ" })).toHaveCount(0);
+  });
+});
+
+test("admin adds a visit image that guests see in the visit and as the 代表写真", async ({
+  page,
+  api,
+  browser,
+  baseURL,
+}) => {
+  const id = uid();
+  const shop = await api.createShop({ name: `${id} 写真のある店`, eaten: true, rate: 80 });
+  const caption = `${id} 特製中華そば`;
+
+  const dialog = await openEditModal(page, shop.name, id);
+  await dialog.getByRole("button", { name: "訪問ログ", exact: true }).click();
+  await dialog.getByLabel("追加する画像ファイル").setInputFiles(VISIT_IMAGE);
+
+  const images = dialog.getByRole("list", { name: "訪問画像" });
+  await expect(images.getByRole("listitem")).toHaveCount(1);
+  await expect(images.getByText("代表")).toBeVisible();
+  // The stored JPEG loads (320 x 240, under the server's 2048 px limit).
+  await expect(images.getByRole("img", { name: "画像 1" })).toHaveJSProperty("naturalWidth", 320);
+  await images.getByRole("button", { name: "画像 1 のキャプションを編集" }).click();
+  await images.getByRole("textbox", { name: "キャプション" }).fill(caption);
+  await images.getByRole("button", { name: "保存", exact: true }).click();
+  await expect(images.getByText(caption)).toBeVisible();
+  expect((await api.getShop(shop.id)).coverPhotoUrl).toBeTruthy();
+
+  await asGuest(browser, baseURL, async (guestPage) => {
+    await guestPage.goto(`/search?shop=${shop.id}`);
+    const cover = guestPage.getByRole("img", { name: `${shop.name}の代表写真` }).filter({ visible: true });
+    await expect(cover).toHaveJSProperty("naturalWidth", 320);
+    const visitImages = guestPage.getByRole("list", { name: "訪問画像" }).filter({ visible: true });
+    await visitImages.getByRole("button", { name: `画像 1 / 1: ${caption}を拡大` }).click();
+    const lightbox = guestPage.getByRole("dialog");
+    await expect(lightbox.getByRole("img", { name: caption })).toHaveJSProperty("naturalWidth", 320);
+    await expect(lightbox).toContainText(caption);
+    await guestPage.keyboard.press("Escape");
+    await expect(lightbox).toBeHidden();
+    // Esc closed only the lightbox.
+    await expect(cover).toBeVisible();
+  });
+
+  await images.getByRole("button", { name: "画像 1 を削除" }).click();
+  const confirm = page.getByRole("dialog").filter({ hasText: "この画像を削除しますか？" });
+  await confirm.getByRole("button", { name: "削除", exact: true }).click();
+  await expect(page.getByText("画像を削除しました")).toBeVisible();
+  await expect(images).toHaveCount(0);
+  expect((await api.getShop(shop.id)).coverPhotoUrl).toBeUndefined();
+
+  await asGuest(browser, baseURL, async (guestPage) => {
+    await guestPage.goto(`/search?shop=${shop.id}`);
+    await expect(guestPage.getByRole("button", { name: "閉じる" })).toBeVisible();
+    await expect(guestPage.getByRole("list", { name: "訪問ログ" }).filter({ visible: true })).toBeVisible();
+    await expect(guestPage.getByRole("img", { name: `${shop.name}の代表写真` })).toHaveCount(0);
+    await expect(guestPage.getByRole("list", { name: "訪問画像" })).toHaveCount(0);
   });
 });
 
