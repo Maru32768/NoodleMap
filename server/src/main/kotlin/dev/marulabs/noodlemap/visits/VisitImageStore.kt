@@ -83,6 +83,9 @@ class R2VisitImageStore(private val cfg: Config.R2Config) : VisitImageStore {
 
     override suspend fun read(key: String): ByteArray =
         s3.getObject(GetObjectRequest { bucket = cfg.bucket; this.key = key }) {
+            // Checked before buffering: nothing this server stores is larger than an upload may be.
+            val length = it.contentLength ?: throw IllegalStateException("visit image object $key has no length")
+            if (length > VISIT_IMAGE_MAX_BYTES) throw IllegalStateException("visit image object $key is $length bytes")
             it.body?.toByteArray() ?: throw IllegalStateException("empty visit image object $key")
         }
 

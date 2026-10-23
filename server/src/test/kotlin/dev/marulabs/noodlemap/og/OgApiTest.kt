@@ -15,8 +15,8 @@ import dev.marulabs.noodlemap.shops.MISO
 import dev.marulabs.noodlemap.shops.SHOYU
 import dev.marulabs.noodlemap.testApp
 import dev.marulabs.noodlemap.toUpdate
-import dev.marulabs.noodlemap.visits.LOCAL_VISIT_IMAGES_PATH
 import dev.marulabs.noodlemap.visits.R2VisitImageStore
+import dev.marulabs.noodlemap.visits.VISIT_IMAGE_MAX_BYTES
 import dev.marulabs.noodlemap.visits.jpeg
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldContainExactly
@@ -42,9 +42,9 @@ import io.ktor.server.testing.ApplicationTestBuilder
 import java.awt.Color
 import java.awt.image.BufferedImage
 import java.io.ByteArrayInputStream
-import java.nio.file.Files
 import javax.imageio.ImageIO
 import kotlin.math.abs
+import kotlin.time.Duration
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -58,10 +58,12 @@ class OgApiTest {
 
     private val s3 = FakeS3()
     private val store = R2OgImageStore(s3.r2Config("og", "https://og.example"))
+    private val images = R2VisitImageStore(s3.r2Config("images", "https://images.example"))
 
     @AfterEach
     fun tearDown() {
         store.close()
+        images.close()
         s3.stop()
     }
 
@@ -186,46 +188,73 @@ class OgApiTest {
     }
 
     @Test
-    fun `an unreadable cover falls back to the text card, uncached and unstored, until it reads again`() =
-        testApp(ogStore = store) { t ->
+    fun `a cover that will not decode gets the text card, uncached, unstored and remembered`() =
+        testApp(ogStore = store, visitImageStore = images) { t ->
             val admin = t.adminToken()
-            val shop = addShop("消えた写真", admin)
-            val key = addCover(shop.id, admin).url.substringAfter("$LOCAL_VISIT_IMAGES_PATH/")
-            val file = t.localVisitImages.file(key)!!
-            val jpeg = Files.readAllBytes(file)
+            val shop = addShop("壊れた写真", admin)
+            val key = addCover(shop.id, admin).url.removePrefix("https://images.example/")
+            s3.objects["/images/$key"] = byteArrayOf(1, 2, 3)
             val path = client.imagePath(shop.id)
-            val ogKey = "og/shops/${shop.id}/${path.substringAfterLast('/')}"
 
-            // Missing from storage, then not a JPEG.
-            for (stored in listOf(null, byteArrayOf(1, 2, 3))) {
-                if (stored == null) Files.delete(file) else Files.write(file, stored)
+            repeat(2) {
                 val res = noRedirects().get(path)
                 res.status shouldBe HttpStatusCode.OK
                 res.headers.getAll(HttpHeaders.CacheControl) shouldBe listOf("no-store")
                 Color(png(res.readRawBytes()).getRGB(5, 5)) shouldBe TEXT_CARD_BG
             }
-            s3.requests.none { it.startsWith("PUT") } shouldBe true
+            // The second answer came from memory: storage was read once, and nothing was uploaded.
+            s3.requests.count { it == "GET /images/$key" } shouldBe 1
+            s3.requests.none { it.startsWith("PUT /og/") } shouldBe true
+        }
 
-            Files.write(file, jpeg)
+    @Test
+    fun `a cover that cannot be read answers 503 and is not read again for a while`() =
+        testApp(ogStore = store, visitImageStore = images) { t ->
+            val admin = t.adminToken()
+            val shop = addShop("消えた写真", admin)
+            val key = addCover(shop.id, admin).url.removePrefix("https://images.example/")
+            s3.objects.remove("/images/$key")
+            val path = client.imagePath(shop.id)
+
+            repeat(2) {
+                client.get(path).let {
+                    it.status shouldBe HttpStatusCode.ServiceUnavailable
+                    it.headers[HttpHeaders.RetryAfter] shouldBe "5"
+                }
+            }
+            s3.requests.count { it == "GET /images/$key" } shouldBe 1
+            s3.requests.none { it.startsWith("PUT /og/") } shouldBe true
+        }
+
+    @Test
+    fun `an oversized cover object is refused, and the photo card follows once the cover reads`() =
+        testApp(ogStore = store, visitImageStore = images, ogCoverFailureTtl = Duration.ZERO) { t ->
+            val admin = t.adminToken()
+            val shop = addShop("巨大な写真", admin)
+            val key = addCover(shop.id, admin).url.removePrefix("https://images.example/")
+            val jpeg = s3.objects.getValue("/images/$key")
+            val path = client.imagePath(shop.id)
+            val ogKey = "og/shops/${shop.id}/${path.substringAfterLast('/')}"
+
+            s3.objects["/images/$key"] = ByteArray(VISIT_IMAGE_MAX_BYTES.toInt() + 1)
+            client.get(path).status shouldBe HttpStatusCode.ServiceUnavailable
+
+            s3.objects["/images/$key"] = jpeg
             noRedirects().get(path).headers[HttpHeaders.Location] shouldBe "https://og.example/$ogKey"
             png(s3.objects.getValue("/og/$ogKey")).shouldShowPhotoOnTop()
         }
 
     @Test
-    fun `the cover is read from R2 by its storage key`() {
-        R2VisitImageStore(s3.r2Config("images", "https://images.example")).use { images ->
-            testApp(ogStore = store, visitImageStore = images) { t ->
-                val admin = t.adminToken()
-                val shop = addShop("R2の店", admin)
-                val key = addCover(shop.id, admin).url.removePrefix("https://images.example/")
-                val path = client.imagePath(shop.id)
-                val ogKey = "og/shops/${shop.id}/${path.substringAfterLast('/')}"
+    fun `the cover is read from R2 by its storage key`() = testApp(ogStore = store, visitImageStore = images) { t ->
+        val admin = t.adminToken()
+        val shop = addShop("R2の店", admin)
+        val key = addCover(shop.id, admin).url.removePrefix("https://images.example/")
+        val path = client.imagePath(shop.id)
+        val ogKey = "og/shops/${shop.id}/${path.substringAfterLast('/')}"
 
-                noRedirects().get(path).headers[HttpHeaders.Location] shouldBe "https://og.example/$ogKey"
-                s3.requests shouldContain "GET /images/$key"
-                png(s3.objects.getValue("/og/$ogKey")).shouldShowPhotoOnTop()
-            }
-        }
+        noRedirects().get(path).headers[HttpHeaders.Location] shouldBe "https://og.example/$ogKey"
+        s3.requests shouldContain "GET /images/$key"
+        png(s3.objects.getValue("/og/$ogKey")).shouldShowPhotoOnTop()
     }
 
     @Test

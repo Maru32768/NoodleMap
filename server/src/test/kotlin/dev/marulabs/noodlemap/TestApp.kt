@@ -38,6 +38,8 @@ import java.net.http.HttpClient as JdkHttpClient
 import java.nio.file.Files
 import java.time.Instant
 import java.util.UUID
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.minutes
 import kotlinx.serialization.json.Json
 
 const val ADMIN_EMAIL = "admin@example.com"
@@ -114,6 +116,7 @@ fun testApp(
     placesBaseUrl: String = "http://127.0.0.1:9",
     ogStore: R2OgImageStore? = null,
     maxPendingBitmapWork: Int = 3,
+    ogCoverFailureTtl: Duration = 5.minutes,
     // Null stores visit images on local disk next to the test database, as the app does without R2.
     visitImageStore: VisitImageStore? = null,
     // An http URL puts the app in local-development mode (local-disk images, localhost upload origins).
@@ -131,7 +134,7 @@ fun testApp(
                 VisitLogHandler(t.db, t.sessions, images),
                 VisitImageHandler(t.db, t.sessions, images, bitmapWork, t.config.publicBaseUrl),
                 PlacesHandler(t.sessions, placesApiKey, placesBaseUrl, placesHttp),
-                OgHandler(shopHandler, t.config.publicBaseUrl, ogStore, images, bitmapWork),
+                OgHandler(shopHandler, t.config.publicBaseUrl, ogStore, images, bitmapWork, ogCoverFailureTtl),
             )
         }
         block(t)

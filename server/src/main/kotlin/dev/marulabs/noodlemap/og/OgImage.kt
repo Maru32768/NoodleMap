@@ -1,6 +1,7 @@
 package dev.marulabs.noodlemap.og
 
 import dev.marulabs.noodlemap.visits.VISIT_IMAGE_MAX_EDGE
+import dev.marulabs.noodlemap.visits.decodeSubsampled
 import java.awt.BasicStroke
 import java.awt.Color
 import java.awt.Font
@@ -12,7 +13,6 @@ import java.awt.RenderingHints
 import java.awt.geom.AffineTransform
 import java.awt.geom.Path2D
 import java.awt.image.BufferedImage
-import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import javax.imageio.ImageIO
@@ -33,6 +33,7 @@ private val SHU = Color(0xb54a3c)
 private val ON_PHOTO = PAPER
 private val ON_PHOTO_MUTED = Color(0xfa, 0xf6, 0xec, 215)
 private val ON_PHOTO_FAINT = Color(0xfa, 0xf6, 0xec, 150)
+private val CATEGORY_ON_PHOTO = Color(0xfa, 0xf6, 0xec, 56)
 private val TEXT_SHADOW = Color(0, 0, 0, 150)
 
 private val baseFont: Font by lazy {
@@ -74,23 +75,22 @@ fun renderOgImage(card: OgCard, cover: BufferedImage?): ByteArray {
     return ByteArrayOutputStream().also { ImageIO.write(img, "png", it) }.toByteArray()
 }
 
+/** A cover more than this many times wider than tall (or taller than wide) loses too much to the crop. */
+private const val MAX_COVER_ASPECT = 3.0
+
+/** Decoded covers stay within a stored 訪問画像's pixels: 2048 x 2048 x 4 B = 16 MB. */
+private const val MAX_COVER_PIXELS = VISIT_IMAGE_MAX_EDGE.toLong() * VISIT_IMAGE_MAX_EDGE
+
 /**
- * Decodes a stored 訪問画像 for [renderOgImage]. Only JPEGs no larger than the upload pipeline writes
- * ([VISIT_IMAGE_MAX_EDGE] on the long edge) get a bitmap, so its memory stays bounded; anything else throws.
+ * Decodes a stored 訪問画像 for [renderOgImage], subsampled as coarsely as still covers the card without
+ * upscaling. Throws for undecodable bytes, an extreme aspect ratio or a bitmap over [MAX_COVER_PIXELS], and the
+ * text card is drawn instead.
  */
-fun decodeCover(jpeg: ByteArray): BufferedImage {
-    val input = ImageIO.createImageInputStream(ByteArrayInputStream(jpeg)) ?: throw IOException("no image input")
-    input.use {
-        val reader = ImageIO.getImageReadersByFormatName("jpeg").next()
-        try {
-            reader.setInput(input, true, true)
-            val edge = maxOf(reader.getWidth(0), reader.getHeight(0))
-            if (edge > VISIT_IMAGE_MAX_EDGE) throw IOException("cover is $edge px, over $VISIT_IMAGE_MAX_EDGE px")
-            return reader.read(0)
-        } finally {
-            reader.dispose()
-        }
-    }
+fun decodeCover(bytes: ByteArray): BufferedImage = decodeSubsampled(bytes) { width, height ->
+    if (maxOf(width, height).toDouble() / minOf(width, height) > MAX_COVER_ASPECT) throw IOException("cover is ${width}x$height")
+    val step = maxOf(1, minOf(width / OG_WIDTH, height / OG_HEIGHT))
+    if ((width / step).toLong() * (height / step) > MAX_COVER_PIXELS) throw IOException("cover is ${width}x$height")
+    step
 }
 
 private fun drawTextCard(g: Graphics2D, card: OgCard) {
@@ -114,7 +114,7 @@ private fun drawTextCard(g: Graphics2D, card: OgCard) {
     g.drawString(ellipsize(card.name, g.fontMetrics, CONTENT_WIDTH), MARGIN, 270)
 
     // Category, statuses, then up to 3 tags.
-    drawChips(g, listOf(Chip(card.category, "#1a1614")) + card.statuses + card.tags, MARGIN, 318, MARGIN + CONTENT_WIDTH)
+    drawPills(g, (listOf(Chip(card.category, "#1a1614")) + card.statuses + card.tags).map { it.pill() }, MARGIN, 318, MARGIN + CONTENT_WIDTH)
 
     // The row under the chips: hearts and the visit count of an eaten shop.
     var rowX = MARGIN
@@ -158,8 +158,13 @@ private fun drawPhotoCard(g: Graphics2D, card: OgCard, cover: BufferedImage) {
     g.font = baseFont.deriveFont(size)
     drawShadowed(g, ellipsize(card.name, g.fontMetrics, PHOTO_CONTENT_WIDTH), PHOTO_MARGIN, 372, ON_PHOTO)
 
-    // Category, then up to 3 tags.
-    drawChips(g, listOf(Chip(card.category, "#1a1614")) + card.tags, PHOTO_MARGIN, 396, PHOTO_MARGIN + PHOTO_CONTENT_WIDTH)
+    // Category (a light glass pill), statuses, then up to 3 tags, all outlined so dark fills hold on the scrim.
+    drawPills(
+        g,
+        listOf(Pill(card.category, CATEGORY_ON_PHOTO, ON_PHOTO)) + (card.statuses + card.tags).map { it.pill() },
+        PHOTO_MARGIN, 396, PHOTO_MARGIN + PHOTO_CONTENT_WIDTH,
+        outline = ON_PHOTO_FAINT,
+    )
 
     // Hearts and the visit count.
     var rowX = PHOTO_MARGIN
@@ -191,18 +196,27 @@ private fun drawShadowed(g: Graphics2D, text: String, x: Int, y: Int, color: Col
     g.drawString(text, x, y)
 }
 
-/** Pills from [left] rightwards; whatever would pass [right] is dropped. */
-private fun drawChips(g: Graphics2D, chips: List<Chip>, left: Int, top: Int, right: Int) {
+/** A pill as drawn: its fill and its label's color. */
+private class Pill(val label: String, val fill: Color, val text: Color)
+
+private fun Chip.pill(): Pill = parseColor(color).let { Pill(label, it, textColorOn(it)) }
+
+/** Pills from [left] rightwards, each with an [outline] when given; whatever would pass [right] is dropped. */
+private fun drawPills(g: Graphics2D, pills: List<Pill>, left: Int, top: Int, right: Int, outline: Color? = null) {
     g.font = baseFont.deriveFont(28f)
+    g.stroke = BasicStroke(2f)
     var x = left
-    for (chip in chips) {
-        val w = g.fontMetrics.stringWidth(chip.label) + 44
+    for (pill in pills) {
+        val w = g.fontMetrics.stringWidth(pill.label) + 44
         if (x + w > right) break
-        val bg = parseColor(chip.color)
-        g.color = bg
+        g.color = pill.fill
         g.fillRoundRect(x, top, w, 56, 56, 56)
-        g.color = textColorOn(bg)
-        g.drawString(chip.label, x + 22, centerBaseline(g, top, 56))
+        outline?.let {
+            g.color = it
+            g.drawRoundRect(x, top, w, 56, 56, 56)
+        }
+        g.color = pill.text
+        g.drawString(pill.label, x + 22, centerBaseline(g, top, 56))
         x += w + 14
     }
 }
