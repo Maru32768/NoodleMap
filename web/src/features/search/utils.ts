@@ -1,3 +1,4 @@
+import type { SegmentedOption } from "@/components/segmented-picker.tsx";
 import { Shop } from "@/features/shops/api/use-shops.ts";
 import {
   isSystemTagSlug,
@@ -31,17 +32,14 @@ export type SearchFilters = FilterToggles & {
 // would hide nothing.
 export type WishFilter = "all" | Exclude<WishLevel, "low">;
 
-export const WISH_FILTER_OPTIONS: readonly {
-  value: WishFilter;
-  label: string;
-}[] = [
-  { value: "all", label: "すべて" },
-  { value: "medium", label: "気になる以上" },
-  { value: "high", label: "絶対行きたいのみ" },
+export const WISH_FILTER_OPTIONS: readonly SegmentedOption<WishFilter>[] = [
+  { id: "all", label: "すべて" },
+  { id: "medium", label: "気になる以上" },
+  { id: "high", label: "絶対行きたいのみ" },
 ];
 
 export function isWishFilter(value: unknown): value is WishFilter {
-  return WISH_FILTER_OPTIONS.some((option) => option.value === value);
+  return WISH_FILTER_OPTIONS.some((option) => option.id === value);
 }
 
 /**

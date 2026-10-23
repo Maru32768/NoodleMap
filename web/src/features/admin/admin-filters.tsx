@@ -1,3 +1,7 @@
+import {
+  SegmentedOption,
+  SegmentedPicker,
+} from "@/components/segmented-picker.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import type { VisitFilter } from "@/features/admin/visit-filter.ts";
 import {
@@ -20,37 +24,46 @@ interface AdminFiltersProps {
   onClearAll: () => void;
 }
 
-function SegBtn({
-  active,
-  onClick,
+const CATEGORY_OPTIONS: readonly SegmentedOption<CategoryType>[] = [
+  { id: "all", label: "すべて" },
+  { id: "ramen", label: "ラーメン" },
+  { id: "udon", label: "うどん" },
+];
+
+const VISIT_OPTIONS: readonly SegmentedOption<VisitFilter>[] = [
+  { id: "all", label: "全て" },
+  { id: "eaten", label: "食べた" },
+  { id: "wish", label: "気になる" },
+  { id: "closed", label: "閉店" },
+];
+
+// Visual only: each group carries its own accessible name, also on mobile
+// where these labels are hidden.
+function GroupLabel({
   children,
+  ml,
+  dimmed = false,
 }: {
-  active: boolean;
-  onClick: () => void;
   children: React.ReactNode;
+  ml?: string;
+  dimmed?: boolean;
 }) {
   return (
-    <Button
-      variant="plain"
-      px="10px"
-      py="5px"
-      minH="auto"
-      h="auto"
-      fontSize="12px"
-      fontWeight={active ? "600" : "500"}
-      color={active ? "nm.ink" : "nm.inkMuted"}
-      bg={active ? "nm.paper" : "transparent"}
-      rounded="4px"
-      transition="all 0.15s"
-      whiteSpace="nowrap"
-      fontFamily="body"
-      boxShadow={active ? "nmSm" : undefined}
-      _hover={{ bg: active ? "nm.paper" : "transparent" }}
-      aria-pressed={active}
-      onClick={onClick}
+    <Box
+      as="span"
+      aria-hidden
+      display={{ base: "none", md: "inline" }}
+      fontFamily="mono"
+      fontSize="9.5px"
+      letterSpacing="0.18em"
+      color="nm.inkMuted"
+      textTransform="uppercase"
+      ml={ml}
+      mr="2px"
+      opacity={dimmed ? 0.45 : undefined}
     >
       {children}
-    </Button>
+    </Box>
   );
 }
 
@@ -80,46 +93,14 @@ export function AdminFilters({
         borderBottomColor="nm.lineFaint"
         overflowX={{ base: "auto", md: "visible" }}
       >
-        <Box
-          as="span"
-          display={{ base: "none", md: "inline" }}
-          fontFamily="mono"
-          fontSize="9.5px"
-          letterSpacing="0.18em"
-          color="nm.inkMuted"
-          textTransform="uppercase"
-          mr="2px"
-        >
-          カテゴリ
-        </Box>
-        <Box
-          display="inline-flex"
-          bg="nm.bg"
-          border="1px solid"
-          borderColor="nm.line"
-          rounded="nmMd"
-          p="2px"
-          gap="1px"
-        >
-          <SegBtn
-            active={categoryFilter === "all"}
-            onClick={() => setCategoryFilter("all")}
-          >
-            すべて
-          </SegBtn>
-          <SegBtn
-            active={categoryFilter === "ramen"}
-            onClick={() => setCategoryFilter("ramen")}
-          >
-            ラーメン
-          </SegBtn>
-          <SegBtn
-            active={categoryFilter === "udon"}
-            onClick={() => setCategoryFilter("udon")}
-          >
-            うどん
-          </SegBtn>
-        </Box>
+        <GroupLabel>カテゴリ</GroupLabel>
+        <SegmentedPicker
+          label="カテゴリ"
+          variant="segment"
+          options={CATEGORY_OPTIONS}
+          value={categoryFilter}
+          onChange={setCategoryFilter}
+        />
 
         <Box
           display={{ base: "none", md: "block" }}
@@ -129,88 +110,27 @@ export function AdminFilters({
           mx="2px"
         />
 
-        <Box
-          as="span"
-          display={{ base: "none", md: "inline" }}
-          fontFamily="mono"
-          fontSize="9.5px"
-          letterSpacing="0.18em"
-          color="nm.inkMuted"
-          textTransform="uppercase"
-          mr="2px"
-        >
-          状態
-        </Box>
-        <Box
-          display="inline-flex"
-          bg="nm.bg"
-          border="1px solid"
-          borderColor="nm.line"
-          rounded="nmMd"
-          p="2px"
-          gap="1px"
-        >
-          <SegBtn
-            active={visitFilter === "all"}
-            onClick={() => setVisitFilter("all")}
-          >
-            全て
-          </SegBtn>
-          <SegBtn
-            active={visitFilter === "eaten"}
-            onClick={() => setVisitFilter("eaten")}
-          >
-            食べた
-          </SegBtn>
-          <SegBtn
-            active={visitFilter === "wish"}
-            onClick={() => setVisitFilter("wish")}
-          >
-            気になる
-          </SegBtn>
-          <SegBtn
-            active={visitFilter === "closed"}
-            onClick={() => setVisitFilter("closed")}
-          >
-            閉店
-          </SegBtn>
-        </Box>
+        <GroupLabel>状態</GroupLabel>
+        <SegmentedPicker
+          label="状態"
+          variant="segment"
+          options={VISIT_OPTIONS}
+          value={visitFilter}
+          onChange={setVisitFilter}
+        />
 
-        <Box
-          as="span"
-          display={{ base: "none", md: "inline" }}
-          fontFamily="mono"
-          fontSize="9.5px"
-          letterSpacing="0.18em"
-          color="nm.inkMuted"
-          textTransform="uppercase"
-          ml="6px"
-          mr="2px"
-        >
+        <GroupLabel ml="6px" dimmed={visitFilter === "eaten"}>
           気になる度
-        </Box>
-        <Box
-          role="group"
-          aria-label="気になる度"
-          display="inline-flex"
-          flexShrink={0}
-          bg="nm.bg"
-          border="1px solid"
-          borderColor="nm.line"
-          rounded="nmMd"
-          p="2px"
-          gap="1px"
-        >
-          {WISH_FILTER_OPTIONS.map((option) => (
-            <SegBtn
-              key={option.value}
-              active={wishFilter === option.value}
-              onClick={() => setWishFilter(option.value)}
-            >
-              {option.label}
-            </SegBtn>
-          ))}
-        </Box>
+        </GroupLabel>
+        {/* Eaten shops are never narrowed by 気になる度, so 食べた leaves it nothing to do. */}
+        <SegmentedPicker
+          label="気になる度"
+          variant="segment"
+          options={WISH_FILTER_OPTIONS}
+          value={wishFilter}
+          onChange={setWishFilter}
+          disabled={visitFilter === "eaten"}
+        />
 
         <Box flex="1" />
         {hasFilters && (

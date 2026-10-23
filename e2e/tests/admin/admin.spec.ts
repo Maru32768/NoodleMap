@@ -16,6 +16,25 @@ async function openEditModal(page: Page, name: string, filter: string) {
   return page.getByRole("dialog").filter({ hasText: name });
 }
 
+test("admin narrows by 気になる度 and × クリア resets it to すべて", async ({ page, api }) => {
+  const id = uid();
+  const shop = await api.createShop({ name: `${id} 気になる店` });
+  await openAdmin(page);
+  await page.getByPlaceholder("店名・読み・住所・タグで絞り込み...").filter({ visible: true }).fill(id);
+  const row = page.getByRole("row").filter({ hasText: shop.name });
+  await expect(row).toHaveCount(1);
+
+  const wishLevel = page.getByRole("radiogroup", { name: "気になる度" });
+  const wishOption = (name: string) => wishLevel.getByRole("radio", { name, exact: true });
+  // An unset 気になる度 ranks as 気になる, below 絶対行きたい.
+  await wishOption("絶対行きたいのみ").click();
+  await expect(row).toHaveCount(0);
+
+  await page.getByRole("button", { name: "× クリア" }).click();
+  await expect(wishOption("すべて")).toBeChecked();
+  await expect(row).toHaveCount(1);
+});
+
 test("admin edits a shop's tags", async ({ page, api }) => {
   const id = uid();
   const tag = await api.addTag({ label: `${id}-tag`, slug: `${id}-tag`, category: "ramen" });
@@ -103,7 +122,11 @@ test("admin adds a tag in tag management", async ({ page, api }) => {
   await expect(dialog.getByText(`${id}-slug · 共通 · 100`)).toBeVisible();
 
   const save = dialog.getByRole("button", { name: "変更を保存" });
+  const saveResponse = page.waitForResponse(
+    (res) => res.url().endsWith("/api/v1/auth/tags") && res.request().method() === "PUT",
+  );
   await save.click();
+  expect((await saveResponse).ok()).toBe(true);
   await expect(save).toBeDisabled();
 
   const saved = (await api.listTags()).find((t) => t.slug === `${id}-slug`);

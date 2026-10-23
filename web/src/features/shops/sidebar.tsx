@@ -1,3 +1,4 @@
+import { SegmentedPicker } from "@/components/segmented-picker.tsx";
 import { ShopThumb } from "@/components/shop-thumb.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { AccountLink } from "@/features/auth/account-link.tsx";
@@ -24,7 +25,7 @@ import {
 } from "@/features/shops/tag-chips.tsx";
 import { Box, Input } from "@chakra-ui/react";
 import { isEqual } from "es-toolkit";
-import { useId, useState } from "react";
+import { useState } from "react";
 import { Virtuoso } from "react-virtuoso";
 
 const STATUS_PILL: Record<
@@ -405,7 +406,6 @@ export type ShopFiltersProps = Pick<SidebarProps, "filters" | "onFilterChange">;
 
 export function ShopFilters({ filters, onFilterChange }: ShopFiltersProps) {
   const { tags } = useTags();
-  const wishLabelId = useId();
   const toggleTag = (id: string) => {
     onFilterChange(
       "tagIds",
@@ -481,32 +481,25 @@ export function ShopFilters({ filters, onFilterChange }: ShopFiltersProps) {
           </Chip>
         </Box>
         <Box
-          id={wishLabelId}
+          aria-hidden
           fontSize="0.6875rem"
           color="nm.inkMuted"
           mt="0.75rem"
           mb="0.375rem"
+          opacity={filters.wish ? undefined : 0.45}
         >
           気になる度
         </Box>
-        <Box
-          role="group"
-          aria-labelledby={wishLabelId}
-          display="flex"
-          flexWrap="wrap"
-          gap="0.375rem"
-        >
-          {WISH_FILTER_OPTIONS.map((option) => (
-            <Chip
-              key={option.value}
-              color="kincha"
-              active={filters.wishMin === option.value}
-              onClick={() => onFilterChange("wishMin", option.value)}
-            >
-              {option.label}
-            </Chip>
-          ))}
-        </Box>
+        {/* Only shops not eaten yet are narrowed, so it does nothing while 気になる is off. */}
+        <SegmentedPicker
+          label="気になる度"
+          variant="chip"
+          accent="nm.kincha"
+          options={WISH_FILTER_OPTIONS}
+          value={filters.wishMin}
+          onChange={(value) => onFilterChange("wishMin", value)}
+          disabled={!filters.wish}
+        />
       </Box>
 
       <Box pt="0.875rem" pb="0.625rem">
