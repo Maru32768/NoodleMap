@@ -408,6 +408,24 @@ class ShopApiTest {
     }
 
     @Test
+    fun `a shop with legacy shop_images rows can still be deleted`() = testApp { t ->
+        val admin = t.adminToken()
+        val id = client.postJson("/api/v1/auth/shops", encode(addShopRequest()), admin).body<Shop>().id
+        t.dataSource.connection.use { c ->
+            c.prepareStatement("INSERT INTO shop_images (id, shop_id, path) VALUES (?, ?, 'legacy.jpg')").use {
+                it.setString(1, UUID.randomUUID().toString())
+                it.setString(2, id)
+                it.executeUpdate()
+            }
+        }
+
+        client.deleteWithSession("/api/v1/auth/shops/$id", admin).status shouldBe HttpStatusCode.NoContent
+
+        client.shops().shouldBeEmpty()
+        t.countRows("shop_images", id) shouldBe 0L
+    }
+
+    @Test
     fun `a shop with visit logs cannot be deleted until they are`() = testApp { t ->
         val admin = t.adminToken()
         val req = addShopRequest(tagIds = listOf(SHOYU)).copy(links = listOf(ShopLinkInput(ShopLinkType.OFFICIAL, url = "https://a.example")))

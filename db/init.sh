@@ -30,14 +30,16 @@ FROM tmp_shops;
 DROP TABLE tmp_shops;
 SQL
 
-# eaten_shops.csv (id,shop_id,rate): each row is one 訪問ログ with an unknown visit date, as the
-# migration converted the former eaten_shops table.
+# eaten_shops.csv (id,shop_id,rate): each row is one 訪問ログ with an unknown visit date, converted as
+# migration 00014 converted the former eaten_shops table: rate 0 means not rated, others are clamped to
+# 0..100 so the CHECK constraint never silently drops a row.
 sqlite3 "$DB_PATH" <<SQL
 .mode csv
 CREATE TEMP TABLE tmp_eaten (id, shop_id, rate);
 .import --skip 1 ${DATA_DIR}/eaten_shops.csv tmp_eaten
 INSERT OR IGNORE INTO visit_logs (id, shop_id, visited_on, rate)
-SELECT lower(id), lower(shop_id), NULL, CAST(rate AS REAL)
+SELECT lower(id), lower(shop_id), NULL,
+       CASE WHEN CAST(rate AS REAL) = 0 THEN NULL ELSE max(0, min(100, CAST(rate AS REAL))) END
 FROM tmp_eaten;
 DROP TABLE tmp_eaten;
 SQL

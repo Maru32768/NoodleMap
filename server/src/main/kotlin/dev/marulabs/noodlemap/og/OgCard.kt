@@ -67,17 +67,19 @@ data class OgCard(
             tags = shop.tags.take(3).map { Chip(it.label, it.color) },
             // Down to the half heart the image can show, so rates drawn alike share one hash.
             hearts = if (shop.rate > 0) floor(minOf(5.0, shop.rate / 20) * 2) / 2 else 0.0,
-            visitCount = if (shop.eaten) shop.visitCount else 0,
+            visitCount = shop.visitCount,
             area = areaOf(shop.address),
         )
     }
 }
 
 /** 食べた, or for a shop not eaten its 気になる度 (plain 気になる when not set); the level means nothing once eaten. */
-private fun eatenChip(shop: Shop): Chip = when {
-    shop.eaten -> Chip("食べた", "#b54a3c")
-    else -> Chip(shop.wishLevel?.let(WishLevel::fromValue)?.let(::wishLevelLabel) ?: "気になる", "#6b5e52")
-}
+private fun eatenChip(shop: Shop): Chip =
+    if (shop.eaten) {
+        Chip("食べた", "#b54a3c")
+    } else {
+        Chip(shop.wishLevel?.let(WishLevel::fromValue)?.let(::wishLevelLabel) ?: "気になる", "#6b5e52")
+    }
 
 /** 気になる度 as the web shows it (GLOSSARY.md). */
 internal fun wishLevelLabel(level: WishLevel): String = when (level) {

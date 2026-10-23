@@ -45,11 +45,12 @@ CREATE INDEX IF NOT EXISTS idx_visit_logs_shop_id ON visit_logs (shop_id);
 ALTER TABLE shops ADD COLUMN wish_level TEXT NULL CHECK (wish_level IN ('low', 'medium', 'high'));
 
 -- Each eaten record becomes one visit log with an unknown visit date, keeping its id, rate and timestamps.
--- Rates were only range-checked by the API, so one outside 0..100 is clamped rather than failing the CHECK.
+-- A rate of 0 was the old form's default for "not rated", so it becomes NULL. Rates were only range-checked
+-- by the API, so another one outside 0..100 is clamped rather than failing the CHECK.
 -- created_at is rewritten in the visit_logs format so text comparison orders it; a value strftime cannot
 -- read whole (such as Go's '2006-01-02 15:04:05.999 +0000 UTC') is read from its first 19 characters.
 INSERT INTO visit_logs (id, shop_id, visited_on, rate, created_at, updated_at)
-SELECT lower(id), lower(shop_id), NULL, max(0, min(100, rate)),
+SELECT lower(id), lower(shop_id), NULL, CASE WHEN rate = 0 THEN NULL ELSE max(0, min(100, rate)) END,
        coalesce(strftime('%Y-%m-%d %H:%M:%f', created_at),
                 strftime('%Y-%m-%d %H:%M:%f', substr(created_at, 1, 19)),
                 strftime('%Y-%m-%d %H:%M:%f', 'now')),

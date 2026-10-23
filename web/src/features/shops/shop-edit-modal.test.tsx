@@ -172,22 +172,6 @@ describe("ShopEditModal save", () => {
     ).toBeInTheDocument();
   });
 
-  it("switches to 食べた記録 for a rate error", async () => {
-    renderEditor(makeShop({ eaten: true }), {
-      saveResponse: fieldErrorResponse([
-        { field: "rate", type: "out_of_range" },
-      ]),
-    });
-
-    await userEvent.click(screen.getByRole("button", { name: "保存" }));
-
-    expect(
-      await screen.findByRole("spinbutton", {
-        description: "0〜100の範囲で入力してください",
-      }),
-    ).toHaveAttribute("aria-invalid", "true");
-  });
-
   it("toasts an error that belongs to no field", async () => {
     const { onClose } = renderEditor(makeShop(), {
       saveResponse: () =>

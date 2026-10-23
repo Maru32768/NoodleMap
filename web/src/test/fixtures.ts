@@ -25,7 +25,7 @@ export function makeTag(overrides: Partial<Tag> = {}): Tag {
 // app does after fetching, so lifecycle follows openedAt/closedAt.
 export function makeShop(overrides: Partial<ApiShop> = {}): Shop {
   const eaten = overrides.eaten ?? true;
-  const rate = overrides.rate ?? 80;
+  const rate = overrides.rate ?? (eaten ? 80 : 0);
   return decorateShop({
     id: fixtureUuid(),
     name: "麺屋 まる",

@@ -170,7 +170,9 @@ class MigrationsTest {
                     INSERT INTO eaten_shops (id, shop_id, rate, created_at, updated_at) VALUES
                         ('E1', 'S1', 5, '2020-01-02 03:04:05', '2021-01-02 03:04:05'),
                         ('e2', 's2', 90, '2022-01-01 00:00:00.123456789 +0000 UTC', '2022-01-01 00:00:00'),
-                        ('e3', 'gone', 150, '2023-01-01T00:00:00Z', '2023-01-01 00:00:00')
+                        ('e3', 'gone', 150, '2023-01-01T00:00:00Z', '2023-01-01 00:00:00'),
+                        ('e4', 's3', 0, '2024-01-01 00:00:00', '2024-01-01 00:00:00'),
+                        ('e5', 'gone-too', -3, '2024-01-01 00:00:00', '2024-01-01 00:00:00')
                     """.trimIndent(),
                 )
                 st.executeUpdate("INSERT INTO shop_images (id, shop_id, path) VALUES ('i1', 's2', 'x.jpg')")
@@ -180,13 +182,16 @@ class MigrationsTest {
             migrate(conn, loadMigrations())
 
             conn.strings(
-                "SELECT id || '|' || shop_id || '|' || ifnull(visited_on, 'NULL') || '|' || rate || '|' || is_limited_menu || '|' || created_at || '|' || updated_at FROM visit_logs ORDER BY id",
+                "SELECT id || '|' || shop_id || '|' || ifnull(visited_on, 'NULL') || '|' || ifnull(rate, 'NULL') || '|' || is_limited_menu || '|' || created_at || '|' || updated_at FROM visit_logs ORDER BY id",
             ) shouldBe listOf(
                 // created_at is rewritten as 'YYYY-MM-DD HH:MM:SS.SSS', the format new visit logs get.
                 "e1|s1|NULL|5.0|0|2020-01-02 03:04:05.000|2021-01-02 03:04:05",
                 "e2|s2|NULL|90.0|0|2022-01-01 00:00:00.000|2022-01-01 00:00:00",
                 // Kept (and reported at startup) although its shop is gone; an out-of-range rate is clamped.
                 "e3|gone|NULL|100.0|0|2023-01-01 00:00:00.000|2023-01-01 00:00:00",
+                // 0 was the old form's default for "not rated"; other values below 0 are clamped.
+                "e4|s3|NULL|NULL|0|2024-01-01 00:00:00.000|2024-01-01 00:00:00",
+                "e5|gone-too|NULL|0.0|0|2024-01-01 00:00:00.000|2024-01-01 00:00:00",
             )
             conn.strings("SELECT name FROM sqlite_master WHERE name = 'eaten_shops'") shouldBe emptyList()
             // Legacy images stay until they are dropped deliberately.
@@ -251,6 +256,34 @@ class MigrationsTest {
             conn.version() shouldBe 0
             // No transaction is left open: starting a new one would fail otherwise.
             conn.createStatement().use { it.execute("BEGIN"); it.execute("ROLLBACK") }
+        }
+    }
+
+    @Test
+    fun `a NO TRANSACTION migration may only run PRAGMAs after its last commit`() {
+        fun parse(vararg lines: String) =
+            parseGooseMigration(9, (listOf("-- +goose NO TRANSACTION", "-- +goose Up") + lines).joinToString("\n"))
+
+        shouldThrow<IllegalStateException> { parse("BEGIN;", "CREATE TABLE a (id TEXT);", "COMMIT;", "DROP TABLE a;") }.message shouldBe
+            "migration 9: only PRAGMA statements may follow the last COMMIT of a NO TRANSACTION migration"
+        for (commit in listOf("COMMIT;", "commit transaction;", "END;", "END TRANSACTION;")) {
+            shouldThrow<IllegalStateException> { parse("BEGIN;", "CREATE TABLE a (id TEXT);", commit, "INSERT INTO a VALUES ('x');") }
+            parse("PRAGMA foreign_keys = OFF;", "BEGIN;", "CREATE TABLE a (id TEXT);", commit, "PRAGMA foreign_keys = ON;")
+                .statements.size shouldBe 5
+        }
+        // Without a commit of its own (like 00009) nothing is recorded early, so anything may follow.
+        parse("PRAGMA foreign_keys = OFF;", "UPDATE a SET id = lower(id);", "PRAGMA foreign_keys = ON;").statements.size shouldBe 3
+        // Every real migration passes.
+        loadMigrations().size shouldBe loadMigrations().maxOf { it.version }.toInt()
+    }
+
+    @Test
+    fun `END TRANSACTION also marks where a NO TRANSACTION migration is recorded`() {
+        withPooledDb { conn ->
+            val statements = listOf("BEGIN", "CREATE TABLE once (id TEXT)", "END TRANSACTION", "NOT VALID SQL")
+            shouldThrow<Exception> { migrate(conn, listOf(Migration(1, statements, useTransaction = false))) }
+
+            conn.version() shouldBe 1
         }
     }
 
