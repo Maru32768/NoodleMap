@@ -140,7 +140,7 @@ export default function AdminPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mobileView, setMobileView] = useState<MobileAdminView>("list");
   const [editId, setEditId] = useState<string | null>(null);
-  const [editTab, setEditTab] = useState<"info" | "visit" | "images">("info");
+  const [editTab, setEditTab] = useState<"info" | "visit">("info");
   const [showAdd, setShowAdd] = useState(false);
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [showTagManagement, setShowTagManagement] = useState(false);
@@ -186,7 +186,7 @@ export default function AdminPage() {
     lg: "block",
   };
 
-  const handleEdit = (id: string, tab?: "images") => {
+  const handleEdit = (id: string, tab?: "visit") => {
     setEditId(id);
     setEditTab(tab ?? "info");
   };

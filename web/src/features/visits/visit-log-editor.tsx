@@ -7,6 +7,7 @@ import {
   useVisits,
   VisitLog,
 } from "@/features/visits/api/use-visits.ts";
+import { VisitImageManager } from "@/features/visits/visit-image-manager.tsx";
 import { VisitLogForm } from "@/features/visits/visit-log-form.tsx";
 import {
   formatVisitDate,
@@ -21,7 +22,7 @@ import {
   VISIT_DELETE_FAILED_TITLE,
 } from "@/utils/toast.ts";
 import { Box } from "@chakra-ui/react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 type Editing = { mode: "add" } | { mode: "edit"; visit: VisitLog };
 
@@ -50,7 +51,7 @@ function isGone(error: ApiError) {
 /**
  * The edit modal's 訪問ログ tab: the shop's visits with add, edit and delete.
  * `onDirtyChange` reports whether an open visit form has unsaved changes,
- * `onBusyChange` whether a visit save or delete is in flight, and
+ * `onBusyChange` whether a visit save or delete or an image upload is in flight, and
  * `onShopGone` that adding failed because the shop was deleted elsewhere.
  */
 export function VisitLogEditor({
@@ -69,9 +70,15 @@ export function VisitLogEditor({
   const [editing, setEditing] = useState<Editing | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<VisitLog | null>(null);
   const [busy, setBusy] = useState(false);
+  // Visits with image uploads pending.
+  const [uploadingVisits, setUploadingVisits] = useState(0);
+  const handleUploadBusyChange = useCallback(
+    (uploading: boolean) => setUploadingVisits((n) => n + (uploading ? 1 : -1)),
+    [],
+  );
   useEffect(() => {
-    onBusyChange?.(busy);
-  }, [busy, onBusyChange]);
+    onBusyChange?.(busy || uploadingVisits > 0);
+  }, [busy, uploadingVisits, onBusyChange]);
 
   const whileBusy = async <T,>(task: () => Promise<T>): Promise<T> => {
     setBusy(true);
@@ -159,6 +166,13 @@ export function VisitLogEditor({
         {(visits) => (
           <VisitLogList
             visits={visits}
+            images={(visit) => (
+              <VisitImageManager
+                shopId={shopId}
+                visit={visit}
+                onBusyChange={handleUploadBusyChange}
+              />
+            )}
             actions={(visit) => (
               <>
                 <Button

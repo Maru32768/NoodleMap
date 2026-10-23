@@ -91,14 +91,18 @@ export function useVisits(shopId: string | null) {
   };
 }
 
-/** Admin writes to a shop's 訪問ログ. Each success refetches the visits and the shop list (食べた, 評価, visitCount). */
-export function useVisitMutations(shopId: string) {
+/** Refetches every cached visits entry of the shop and the shop list (食べた, 評価, visitCount, 代表写真). */
+export function useRevalidateShopVisits(shopId: string) {
   const { mutate } = useSWRConfig();
-
-  const revalidate = useCallback(
+  return useCallback(
     () => Promise.all([mutate(isVisitsKeyOf(shopId)), mutate(SHOPS_KEY)]),
     [mutate, shopId],
   );
+}
+
+/** Admin writes to a shop's 訪問ログ. Each success refetches the visits and the shop list (食べた, 評価, visitCount). */
+export function useVisitMutations(shopId: string) {
+  const revalidate = useRevalidateShopVisits(shopId);
 
   const addVisit = useCallback(
     (input: VisitLogInput) =>

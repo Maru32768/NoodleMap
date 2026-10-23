@@ -19,7 +19,7 @@ import {
 import { SystemTagChips, TagChips } from "@/features/shops/tag-chips.tsx";
 import { ShopRating } from "@/features/visits/shop-rating.tsx";
 import { ShopVisitHistory } from "@/features/visits/shop-visit-history.tsx";
-import { Box } from "@chakra-ui/react";
+import { Box, Image } from "@chakra-ui/react";
 import { useEffect, useEffectEvent } from "react";
 
 // The hero badge shows visit status only; lifecycle/new are shown as system tag
@@ -147,6 +147,19 @@ export function DetailPanel({ shop, onAdminEdit, onClose }: DetailPanelProps) {
             />
           </Box>
         </Box>
+        {shop.coverPhotoUrl && (
+          <Image
+            src={shop.coverPhotoUrl}
+            alt={`${shop.name}の代表写真`}
+            loading="lazy"
+            decoding="async"
+            position="absolute"
+            inset="0"
+            w="100%"
+            h="100%"
+            objectFit="cover"
+          />
+        )}
         <Box
           position="absolute"
           top="0.875rem"

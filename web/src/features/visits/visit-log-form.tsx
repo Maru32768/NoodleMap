@@ -401,9 +401,16 @@ export function VisitLogForm({
       <Box
         gridColumn={{ md: "span 2" }}
         display="flex"
+        alignItems="center"
         justifyContent="flex-end"
+        flexWrap="wrap"
         gap="8px"
       >
+        {!visit && (
+          <Box as="span" mr="auto" fontSize="11px" color="nm.inkMuted">
+            画像は訪問を保存した後に追加できます
+          </Box>
+        )}
         <Button
           variant="plain"
           px="14px"

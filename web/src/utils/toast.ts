@@ -10,8 +10,9 @@ import {
   SHOP_LINKS_MAX,
   type ShopLinkProblem,
 } from "@/features/shops/shop-links.ts";
+import type { UploadVisitImageErrorBody } from "@/features/visits/api/use-visit-images.ts";
 import type { components } from "@/generated/api.ts";
-import { ApiError } from "@/utils/request.ts";
+import { ApiError, invalidRequestFieldErrors } from "@/utils/request.ts";
 
 type ErrorType = components["schemas"]["ErrorType"];
 type VisitLogField = components["schemas"]["VisitLogField"];
@@ -219,6 +220,64 @@ export function visitFieldErrorMessage(
   }
   // A field or error type added on the server after this client was built.
   return "入力内容を確認してください";
+}
+
+// Mirrors @maxLength on UpdateVisitImageRequest.caption in typespec/main.tsp.
+export const VISIT_IMAGE_CAPTION_MAX_LENGTH = 100;
+// Mirrors the server's per-visit image limit.
+export const VISIT_IMAGES_MAX = 10;
+
+export const VISIT_IMAGE_UNDECODABLE_MESSAGE = "この画像形式は読み込めません";
+export const VISIT_IMAGE_LIMIT_MESSAGE = `1つの訪問ログに追加できる画像は${VISIT_IMAGES_MAX}枚までです`;
+export const VISIT_IMAGE_CAPTION_FAILED_TITLE =
+  "キャプションを保存できませんでした";
+export const VISIT_IMAGE_REORDER_FAILED_TITLE =
+  "画像の並び順を保存できませんでした";
+export const VISIT_IMAGE_DELETE_FAILED_TITLE = "画像を削除できませんでした";
+export const VISIT_IMAGE_ALREADY_DELETED_TITLE =
+  "この画像はすでに削除されています";
+
+const VISIT_IMAGE_FILE_MESSAGE: Partial<Record<FieldErrorType, string>> = {
+  too_long: "15MB以下の画像を選んでください",
+  invalid_format: "JPEG・PNGとして読み込めない画像です",
+  out_of_range: "画像の画素数が大きすぎます",
+};
+
+const VISIT_IMAGE_UPLOAD_MESSAGE: Partial<Record<ErrorType, string>> = {
+  visit_image_limit_reached: VISIT_IMAGE_LIMIT_MESSAGE,
+  visit_image_processing_busy:
+    "サーバーが混み合っています。時間をおいてもう一度お試しください",
+  visit_images_storage_unconfigured:
+    "画像の保存先が設定されていないため追加できません",
+  not_found: "訪問ログが見つかりません。削除された可能性があります",
+};
+
+/** Why one file could not be added to a 訪問ログ, shown next to that file. */
+export function visitImageUploadErrorMessage(
+  err: ApiError<UploadVisitImageErrorBody | undefined>,
+): string {
+  const fileError = invalidRequestFieldErrors(err.body)?.find(
+    (e) => e.field === "file",
+  );
+  const fileMessage = fileError && VISIT_IMAGE_FILE_MESSAGE[fileError.type];
+  if (fileMessage) {
+    return fileMessage;
+  }
+  const typeMessage = err.type && VISIT_IMAGE_UPLOAD_MESSAGE[err.type];
+  if (typeMessage) {
+    return typeMessage;
+  }
+  const message = getApiErrorMessage(err);
+  return message.description
+    ? `${message.title}。${message.description}`
+    : message.title;
+}
+
+/** Message under the caption input for an `invalid_request` on it. */
+export function visitImageCaptionErrorMessage(type: FieldErrorType): string {
+  return type === "too_long"
+    ? `${VISIT_IMAGE_CAPTION_MAX_LENGTH}文字以内で入力してください`
+    : "入力内容を確認してください";
 }
 
 export function shopLinkProblemMessage(
