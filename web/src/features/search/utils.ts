@@ -27,14 +27,15 @@ export type SearchFilters = FilterToggles & {
   tagIds: string[];
 };
 
-export type WishFilter = "all" | WishLevel;
+// No "low" floor: an unset 気になる度 ranks as 気になる, so ちょっと気になる以上
+// would hide nothing.
+export type WishFilter = "all" | Exclude<WishLevel, "low">;
 
 export const WISH_FILTER_OPTIONS: readonly {
   value: WishFilter;
   label: string;
 }[] = [
   { value: "all", label: "すべて" },
-  { value: "low", label: "ちょっと気になる以上" },
   { value: "medium", label: "気になる以上" },
   { value: "high", label: "絶対行きたいのみ" },
 ];

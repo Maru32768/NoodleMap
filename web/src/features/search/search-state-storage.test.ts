@@ -37,6 +37,7 @@ describe("search state storage", () => {
   it.each([
     ["saved before it existed", undefined],
     ["unknown", "extreme"],
+    ["the removed ちょっと気になる以上", "low"],
   ])(
     "keeps a state whose 気になる度 filter is %s, reading it as すべて",
     (_, wishMin) => {

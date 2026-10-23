@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/button.tsx";
+import { LoadableButton } from "@/components/loadable-button.tsx";
 import { MiniHearts } from "@/features/shops/rating-hearts.tsx";
 import { formatShopDate } from "@/features/shops/status.ts";
 import type { VisitLog } from "@/features/visits/api/use-visits.ts";
@@ -178,61 +178,65 @@ export function VisitLogList({
   );
 }
 
+// Same semantics as ShopsLoadState's failure: an alert, busy while retrying.
 function RetryNotice({
   message,
+  isValidating,
   onRetry,
 }: {
   message: string;
-  onRetry: () => void;
+  isValidating: boolean;
+  onRetry: () => Promise<unknown>;
 }) {
   return (
     <Box
+      role="alert"
+      aria-busy={isValidating}
       display="flex"
+      flexWrap="wrap"
       alignItems="center"
       gap="0.5rem"
       fontSize="0.75rem"
-      color="nm.shuDeep"
+      color="nm.inkMuted"
     >
       <Box as="span">{message}</Box>
-      <Button
-        variant="plain"
-        px="0.5rem"
-        py="0.125rem"
-        h="auto"
-        minH="auto"
-        minW="auto"
-        fontSize="0.6875rem"
-        color="nm.inkMuted"
-        border="1px solid"
-        borderColor="nm.line"
-        rounded="nmMd"
-        _hover={{ borderColor: "nm.ink", color: "nm.ink" }}
+      <LoadableButton
+        size="xs"
+        variant="outline"
+        loading={isValidating}
         onClick={onRetry}
       >
         再試行
-      </Button>
+      </LoadableButton>
     </Box>
   );
 }
 
 /**
- * Loading and failure around a shop's visits. A failed refetch keeps showing
- * the cached visits with a notice; the full error shows only without data.
+ * Loading, failure and emptiness around a shop's visits. A failed refetch
+ * keeps showing the cached visits with a notice; the full error shows only
+ * without data. `children` renders a non-empty list.
  */
 export function VisitsLoadState({
   visits,
   error,
+  isValidating,
   onRetry,
   children,
 }: {
   visits: readonly VisitLog[] | undefined;
   error: unknown;
-  onRetry: () => void;
+  isValidating: boolean;
+  onRetry: () => Promise<unknown>;
   children: (visits: readonly VisitLog[]) => ReactNode;
 }) {
   if (!visits) {
     return error ? (
-      <RetryNotice message={VISITS_LOAD_FAILED_MESSAGE} onRetry={onRetry} />
+      <RetryNotice
+        message={VISITS_LOAD_FAILED_MESSAGE}
+        isValidating={isValidating}
+        onRetry={onRetry}
+      />
     ) : (
       <Box fontSize="0.75rem" color="nm.inkMuted">
         読み込み中…
@@ -245,11 +249,18 @@ export function VisitsLoadState({
         <Box mb="0.5rem">
           <RetryNotice
             message={VISITS_REFRESH_FAILED_MESSAGE}
+            isValidating={isValidating}
             onRetry={onRetry}
           />
         </Box>
       )}
-      {children(visits)}
+      {visits.length === 0 ? (
+        <Box fontSize="0.8125rem" color="nm.inkMuted">
+          まだ訪問ログがありません
+        </Box>
+      ) : (
+        children(visits)
+      )}
     </>
   );
 }

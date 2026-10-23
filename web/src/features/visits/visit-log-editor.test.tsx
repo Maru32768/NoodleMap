@@ -32,13 +32,15 @@ const visit: VisitLog = {
 
 // Renders the edit modal on 訪問ログ and records the API traffic.
 function renderVisits({
+  target = shop,
   visits = [visit],
   saveResponse = (body: VisitLogInput) =>
     HttpResponse.json({ id: "new", ...body }),
   deleteResponse = () => new HttpResponse(null, { status: 204 }),
 }: {
+  target?: typeof shop;
   visits?: VisitLog[];
-  saveResponse?: (body: VisitLogInput) => Response;
+  saveResponse?: (body: VisitLogInput) => Response | Promise<Response>;
   deleteResponse?: () => Response;
 } = {}) {
   const posted: VisitLogInput[] = [];
@@ -50,14 +52,14 @@ function renderVisits({
   server.use(
     http.get("/api/v1/shops", () => {
       fetched.shops++;
-      return HttpResponse.json({ shops: [shop] });
+      return HttpResponse.json({ shops: [target] });
     }),
     http.get("/api/v1/tags", () => HttpResponse.json({ tags: [] })),
-    http.get(`/api/v1/shops/${shop.id}/visits`, () => {
+    http.get(`/api/v1/shops/${target.id}/visits`, () => {
       fetched.visits++;
       return visitsResponse();
     }),
-    http.post(`/api/v1/auth/shops/${shop.id}/visits`, async ({ request }) => {
+    http.post(`/api/v1/auth/shops/${target.id}/visits`, async ({ request }) => {
       const body = (await request.json()) as VisitLogInput;
       posted.push(body);
       return saveResponse(body);
@@ -73,16 +75,18 @@ function renderVisits({
     }),
   );
   const onClose = vi.fn();
+  const onDeleted = vi.fn();
   renderWithProviders(
     <ShopEditModal
-      shop={shop}
+      shop={target}
       open
       initialTab="visit"
       onClose={onClose}
-      onDeleted={vi.fn()}
+      onDeleted={onDeleted}
     />,
   );
   return {
+    onDeleted,
     posted,
     put,
     deleted,
@@ -440,5 +444,116 @@ describe("VisitLogEditor", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "破棄する" }));
     await waitFor(() => expect(shopSaves).toHaveLength(1));
+  });
+
+  it("closes the modal when adding finds the shop deleted elsewhere", async () => {
+    const { onClose, onDeleted } = renderVisits({
+      saveResponse: () =>
+        HttpResponse.json({ type: "not_found" }, { status: 404 }),
+    });
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "訪問を記録" }),
+    );
+    await save();
+
+    expect(
+      await screen.findByText("この店舗はすでに削除されています"),
+    ).toBeInTheDocument();
+    expect(onDeleted).toHaveBeenCalledWith(shop.id);
+    expect(onClose).toHaveBeenCalled();
+    expect(
+      screen.queryByText("この訪問ログはすでに削除されています"),
+    ).toBeNull();
+  });
+
+  it("blocks saving a number the browser could not parse", async () => {
+    const { posted } = renderVisits({ visits: [] });
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "訪問を記録" }),
+    );
+    // jsdom cannot hold unparsable text in a number input; fake what a browser reports.
+    const price = within(form()).getByRole("spinbutton", { name: "価格" });
+    Object.defineProperty(price, "validity", { value: { badInput: true } });
+    await save();
+
+    expect(
+      await within(form()).findByText("整数で入力してください"),
+    ).toBeInTheDocument();
+    expect(posted).toHaveLength(0);
+  });
+
+  it("drops the discarded draft", async () => {
+    renderVisits();
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "訪問を記録" }),
+    );
+    await userEvent.type(
+      within(form()).getByRole("textbox", { name: "食べたメニュー" }),
+      "つけ麺",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "保存" }));
+    await userEvent.click(
+      await screen.findByRole("button", { name: "破棄する" }),
+    );
+
+    // Back on the list, and nothing left to ask about.
+    expect(screen.queryByRole("group", { name: /訪問/ })).toBeNull();
+    expect(
+      await screen.findByRole("button", { name: "訪問を記録" }),
+    ).toBeInTheDocument();
+  });
+
+  it("asks before deleting the shop with an unsaved visit draft", async () => {
+    renderVisits({
+      target: makeShop({ name: "訪問なしの店", eaten: false }),
+      visits: [],
+    });
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "訪問を記録" }),
+    );
+    await userEvent.type(
+      within(form()).getByRole("textbox", { name: "食べたメニュー" }),
+      "つけ麺",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "削除" }));
+
+    expect(
+      await screen.findByText(
+        "保存していない訪問ログがあります。破棄しますか？",
+      ),
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "破棄する" }));
+    expect(
+      await screen.findByText(
+        "「訪問なしの店」を削除しますか？この操作は取り消せません。",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("locks closing the modal while a visit save is in flight", async () => {
+    let respond!: () => void;
+    const responded = new Promise<void>((resolve) => (respond = resolve));
+    renderVisits({
+      saveResponse: async (body) => {
+        await responded;
+        return HttpResponse.json({ id: "new", ...body });
+      },
+    });
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "訪問を記録" }),
+    );
+    const footerCancel = screen
+      .getAllByRole("button", { name: "キャンセル" })
+      .find((button) => !form().contains(button))!;
+    await save();
+
+    await waitFor(() => expect(footerCancel).toBeDisabled());
+    respond();
+    await waitFor(() => expect(footerCancel).toBeEnabled());
   });
 });

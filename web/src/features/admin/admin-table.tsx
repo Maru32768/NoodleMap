@@ -10,7 +10,7 @@ import { Shop } from "@/features/shops/api/use-shops.ts";
 import { buildGoogleMapsUrl } from "@/features/shops/shop-actions.tsx";
 import {
   shopDisplaySystemTags,
-  WISH_LEVEL_LABEL,
+  shopStatusLabel,
 } from "@/features/shops/status.ts";
 import { SystemTagChips, TagChips } from "@/features/shops/tag-chips.tsx";
 import { Box, Link } from "@chakra-ui/react";
@@ -260,12 +260,10 @@ export function AdminTable({
               {visitCount}回
             </Box>
           </Box>
-        ) : shop.wishLevel ? (
-          <Box as="span" fontSize="11px" color="nm.inkMuted">
-            {WISH_LEVEL_LABEL[shop.wishLevel]}
-          </Box>
         ) : (
-          <CheckDot on={false} variant="eaten" />
+          <Box as="span" fontSize="11px" color="nm.inkMuted">
+            {shopStatusLabel(shop)}
+          </Box>
         ),
     }),
     createSortableColumn({

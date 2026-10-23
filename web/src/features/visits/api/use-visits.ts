@@ -14,7 +14,7 @@ import {
   withApiError,
   withApiResult,
 } from "@/utils/request.ts";
-import { useCallback } from "react";
+import { useCallback, useId } from "react";
 import useSWR, { useSWRConfig } from "swr";
 
 export type VisitLog = components["schemas"]["VisitLog"];
@@ -28,19 +28,39 @@ type DeleteVisitErrorBody = ApiErrorBodyFor<
   "delete"
 >;
 
-// Keyed by user so privateNote fetched as the admin never outlives a logout.
-export const visitsKey = (shopId: string, user: CurrentUser) =>
+const VISITS_PATH = "/api/v1/shops/{id}/visits";
+
+/**
+ * Keyed by user so privateNote fetched as the admin never outlives a logout.
+ * When /auth/me failed the visitor is unknown (the cookie may still be the
+ * admin's), so `unknownOwner` keeps that cache entry private to one hook.
+ */
+export const visitsKey = (
+  shopId: string,
+  user: CurrentUser,
+  unknownOwner = "unknown",
+) =>
   [
-    "/api/v1/shops/{id}/visits",
+    VISITS_PATH,
     shopId,
-    user.type === "guest" ? "guest" : user.id,
+    user.type !== "guest"
+      ? user.id
+      : user.authFailed
+        ? `unknown:${unknownOwner}`
+        : "guest",
   ] as const;
+
+// Every cached visits entry of the shop, whoever it was fetched for.
+const isVisitsKeyOf = (shopId: string) => (key: unknown) =>
+  Array.isArray(key) && key[0] === VISITS_PATH && key[1] === shopId;
 
 /** A shop's 訪問ログ, newest first; privateNote only for the admin. Pass null to skip loading. */
 export function useVisits(shopId: string | null) {
   const currentUser = useCurrentUser();
+  const hookId = useId();
+  // The app renders pages only after /auth/me has settled, so the user is known.
   const resp = useSWR(
-    shopId ? visitsKey(shopId, currentUser) : null,
+    shopId ? visitsKey(shopId, currentUser, hookId) : null,
     ([, id]) =>
       withApiError("/api/v1/shops/{id}/visits", async () => {
         const res = await apiClient.GET("/api/v1/shops/{id}/visits", {
@@ -53,6 +73,9 @@ export function useVisits(shopId: string | null) {
       }),
     { revalidateOnFocus: false, revalidateOnReconnect: false },
   );
+  const { mutate } = resp;
+  // Called with no argument: mutate(data) would replace the cache.
+  const retry = useCallback(() => mutate(), [mutate]);
 
   return {
     get visits() {
@@ -64,19 +87,17 @@ export function useVisits(shopId: string | null) {
     get isValidating() {
       return resp.isValidating;
     },
-    retry: () => void resp.mutate(),
+    retry,
   };
 }
 
 /** Admin writes to a shop's 訪問ログ. Each success refetches the visits and the shop list (食べた, 評価, visitCount). */
 export function useVisitMutations(shopId: string) {
   const { mutate } = useSWRConfig();
-  const currentUser = useCurrentUser();
 
   const revalidate = useCallback(
-    () =>
-      Promise.all([mutate(visitsKey(shopId, currentUser)), mutate(SHOPS_KEY)]),
-    [mutate, shopId, currentUser],
+    () => Promise.all([mutate(isVisitsKeyOf(shopId)), mutate(SHOPS_KEY)]),
+    [mutate, shopId],
   );
 
   const addVisit = useCallback(

@@ -7,7 +7,7 @@ import { Box } from "@chakra-ui/react";
 
 /** A shop's 訪問ログ for everyone, loaded when shown; メモ（自分用） only when the API returns it (admin). */
 export function ShopVisitHistory({ shopId }: { shopId: string }) {
-  const { visits, error, retry } = useVisits(shopId);
+  const { visits, error, isValidating, retry } = useVisits(shopId);
 
   return (
     <Box>
@@ -21,7 +21,12 @@ export function ShopVisitHistory({ shopId }: { shopId: string }) {
       >
         訪問ログ - Visits
       </Box>
-      <VisitsLoadState visits={visits} error={error} onRetry={retry}>
+      <VisitsLoadState
+        visits={visits}
+        error={error}
+        isValidating={isValidating}
+        onRetry={retry}
+      >
         {(visits) => <VisitLogList visits={visits} />}
       </VisitsLoadState>
     </Box>

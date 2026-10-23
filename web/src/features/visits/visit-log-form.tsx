@@ -27,7 +27,7 @@ import {
 } from "@/utils/toast.ts";
 import { Box, Input, Switch, Textarea } from "@chakra-ui/react";
 import { isEqual } from "es-toolkit";
-import { ChangeEvent, useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 // Strings as typed, so a cleared number input stays blank instead of becoming 0.
 interface VisitDraft {
@@ -39,10 +39,13 @@ interface VisitDraft {
   eventName: string;
   publicNote: string;
   privateNote: string;
-  // Inputs holding something the browser cannot parse (a partial date, "1e"):
-  // their value reads as "", which must not be saved as 未設定.
-  badInput: Partial<Record<"visitedOn" | "price" | "rate", boolean>>;
 }
+
+// Inputs whose browser-parsed value can read as "" while they hold something.
+type ParsedField = "visitedOn" | "price" | "rate";
+const PARSED_FIELDS: readonly ParsedField[] = ["visitedOn", "price", "rate"];
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 // Mirrors @maxValue on VisitLogInput.price in typespec/main.tsp.
 const PRICE_MAX = 10_000_000;
@@ -82,7 +85,6 @@ function toDraft(visit: VisitLog | undefined): VisitDraft {
       eventName: "",
       publicNote: "",
       privateNote: "",
-      badInput: {},
     };
   }
   return {
@@ -94,18 +96,27 @@ function toDraft(visit: VisitLog | undefined): VisitDraft {
     eventName: visit.eventName ?? "",
     publicNote: visit.publicNote ?? "",
     privateNote: visit.privateNote ?? "",
-    badInput: {},
   };
 }
 
-/** Errors the server would reject (or could not even parse), caught before saving. */
-function validate(draft: VisitDraft): ShopFieldErrors<VisitLogField> {
+/**
+ * Errors the server would reject (or could not even parse), caught before
+ * saving. `unparsable` holds the inputs the browser could not read (a partial
+ * date, "1e"): their value is "", which must not be saved as 未設定.
+ */
+function validate(
+  draft: VisitDraft,
+  unparsable: ReadonlySet<ParsedField>,
+): ShopFieldErrors<VisitLogField> {
   const errors: ShopFieldErrors<VisitLogField> = {};
-  if (draft.badInput.visitedOn) {
+  if (
+    unparsable.has("visitedOn") ||
+    (draft.visitedOn !== "" && !ISO_DATE.test(draft.visitedOn))
+  ) {
     errors.visitedOn = "invalid_format";
   }
   const price = draft.price.trim();
-  if (draft.badInput.price) {
+  if (unparsable.has("price")) {
     errors.price = "invalid_format";
   } else if (price !== "") {
     const n = Number(price);
@@ -116,7 +127,7 @@ function validate(draft: VisitDraft): ShopFieldErrors<VisitLogField> {
     }
   }
   const rate = draft.rate.trim();
-  if (draft.badInput.rate) {
+  if (unparsable.has("rate")) {
     errors.rate = "invalid_format";
   } else if (rate !== "") {
     const n = Number(rate);
@@ -208,27 +219,14 @@ export function VisitLogForm({
     ShopFieldErrors<VisitLogField>
   >({});
   const { ref, reveal } = useRevealFirstError<HTMLDivElement>();
+  const visitedOnRef = useRef<HTMLInputElement>(null);
+  const priceRef = useRef<HTMLInputElement>(null);
+  const rateRef = useRef<HTMLInputElement>(null);
 
-  const set = <K extends Exclude<keyof VisitDraft, "badInput">>(
-    k: K,
-    v: VisitDraft[K],
-  ) => {
+  const set = <K extends keyof VisitDraft>(k: K, v: VisitDraft[K]) => {
     setDraft((d) => ({ ...d, [k]: v }));
     setFieldErrors((errors) => clearShopFieldErrors(errors, [k]));
   };
-
-  // For date and number inputs: also records whether the browser could parse it.
-  const setParsed =
-    (k: "visitedOn" | "price" | "rate") =>
-    (e: ChangeEvent<HTMLInputElement>) => {
-      const bad = e.target.validity.badInput;
-      setDraft((d) => ({
-        ...d,
-        [k]: e.target.value,
-        badInput: { ...d.badInput, [k]: bad },
-      }));
-      setFieldErrors((errors) => clearShopFieldErrors(errors, [k]));
-    };
 
   const errorOf = (field: VisitLogField) => {
     const type = fieldErrors[field];
@@ -236,7 +234,11 @@ export function VisitLogForm({
   };
 
   const handleSave = async () => {
-    const invalid = validate(draft);
+    const inputs = { visitedOn: visitedOnRef, price: priceRef, rate: rateRef };
+    const unparsable = new Set(
+      PARSED_FIELDS.filter((k) => inputs[k].current?.validity.badInput),
+    );
+    const invalid = validate(draft, unparsable);
     setFieldErrors(invalid);
     if (Object.keys(invalid).length > 0) {
       reveal();
@@ -287,8 +289,9 @@ export function VisitLogForm({
           type="date"
           fontFamily="mono"
           aria-label="訪問日"
+          ref={visitedOnRef}
           value={draft.visitedOn}
-          onChange={setParsed("visitedOn")}
+          onChange={(e) => set("visitedOn", e.target.value)}
         />
       </FormField>
       <FormField
@@ -305,8 +308,9 @@ export function VisitLogForm({
             fontFamily="mono"
             aria-label="評価"
             placeholder="未評価"
+            ref={rateRef}
             value={draft.rate}
-            onChange={setParsed("rate")}
+            onChange={(e) => set("rate", e.target.value)}
           />
           {rate !== undefined && !Number.isNaN(rate) && (
             <MiniHearts rate={rate} />
@@ -336,8 +340,9 @@ export function VisitLogForm({
           step={1}
           fontFamily="mono"
           aria-label="価格"
+          ref={priceRef}
           value={draft.price}
-          onChange={setParsed("price")}
+          onChange={(e) => set("price", e.target.value)}
         />
       </FormField>
       <FormField error={errorOf("isLimitedMenu")}>

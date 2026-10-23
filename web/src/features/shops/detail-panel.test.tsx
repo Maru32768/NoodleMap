@@ -201,6 +201,15 @@ describe("DetailPanel visit logs", () => {
     expect(within(list).getByText("次は味玉")).toBeInTheDocument();
   });
 
+  it("says when the visit list is empty", async () => {
+    serveVisits([]);
+    renderPanel(eaten);
+
+    expect(
+      await screen.findByText("まだ訪問ログがありません"),
+    ).toBeInTheDocument();
+  });
+
   it("shows 未評価 instead of a 0 rating when no visit is rated", async () => {
     serveVisits([visits[1]]);
     renderPanel(makeShop({ eaten: true, rate: 0, visitCount: 1 }));

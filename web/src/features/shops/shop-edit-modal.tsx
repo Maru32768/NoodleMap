@@ -393,11 +393,15 @@ export function ShopEditModal({
   // switches; closing or saving the shop with one unsaved asks first.
   const [visitTabOpened, setVisitTabOpened] = useState(initialTab === "visit");
   const [visitDraftDirty, setVisitDraftDirty] = useState(false);
-  const [discardAction, setDiscardAction] = useState<"close" | "save" | null>(
-    null,
-  );
+  // A visit save or delete in flight locks closing like the shop save does.
+  const [visitBusy, setVisitBusy] = useState(false);
+  // Remounts the 訪問ログ tab to drop a discarded draft.
+  const [visitEditorKey, setVisitEditorKey] = useState(0);
+  const [discardAction, setDiscardAction] = useState<
+    "close" | "save" | "delete" | null
+  >(null);
   const { tags } = useTags();
-  const { updateShop, deleteShop } = useShops();
+  const { updateShop, deleteShop, mutate: mutateShops } = useShops();
 
   const { ref: formRef, reveal: revealFirstError } =
     useRevealFirstError<HTMLDivElement>();
@@ -529,28 +533,48 @@ export function ShopEditModal({
     }
   };
 
+  const runAction = (action: "close" | "save" | "delete") => {
+    switch (action) {
+      case "close":
+        onClose();
+        return;
+      case "save":
+        void handleSave();
+        return;
+      case "delete":
+        setConfirmDeleteOpen(true);
+        return;
+    }
+  };
+
   // Asks before an action that would drop an unsaved visit draft.
-  const guardVisitDraft = (action: "close" | "save") => {
+  const guardVisitDraft = (action: "close" | "save" | "delete") => {
     if (visitDraftDirty) {
       setDiscardAction(action);
       return;
     }
-    if (action === "close") {
-      onClose();
-    } else {
-      void handleSave();
-    }
+    runAction(action);
   };
 
   const discardVisitDraft = () => {
     const action = discardAction;
     setDiscardAction(null);
-    if (action === "close") {
-      onClose();
-    } else if (action === "save") {
-      void handleSave();
+    setVisitDraftDirty(false);
+    setVisitEditorKey((key) => key + 1);
+    if (action) {
+      runAction(action);
     }
   };
+
+  // Adding a visit found the shop deleted elsewhere.
+  const handleShopGone = () => {
+    toastError({ title: SHOP_ALREADY_DELETED_TITLE });
+    void mutateShops();
+    onDeleted(shop.id);
+    onClose();
+  };
+
+  const locked = saving || deleting || visitBusy;
 
   const selectTab = (t: Tab) => {
     setTab(t);
@@ -567,9 +591,7 @@ export function ShopEditModal({
       <ModalDialog
         open={open}
         // Closing while a save or delete is in flight would drop its errors.
-        onOpenChange={(o) =>
-          !o && !saving && !deleting && guardVisitDraft("close")
-        }
+        onOpenChange={(o) => !o && !locked && guardVisitDraft("close")}
         width="100%"
         maxWidth="1040px"
         height="80vh"
@@ -855,8 +877,11 @@ export function ShopEditModal({
             {visitTabOpened && (
               <Box display={tab === "visit" ? "block" : "none"}>
                 <VisitLogEditor
+                  key={visitEditorKey}
                   shopId={shop.id}
                   onDirtyChange={setVisitDraftDirty}
+                  onBusyChange={setVisitBusy}
+                  onShopGone={handleShopGone}
                 />
               </Box>
             )}
@@ -895,8 +920,8 @@ export function ShopEditModal({
               borderColor="nm.shu"
               _hover={{ bg: "nm.shu", color: "white" }}
               // The server refuses (409) to delete a shop with visit logs.
-              disabled={saving || deleting || hasVisits}
-              onClick={() => setConfirmDeleteOpen(true)}
+              disabled={locked || hasVisits}
+              onClick={() => guardVisitDraft("delete")}
             >
               削除
             </Button>
@@ -920,7 +945,7 @@ export function ShopEditModal({
               border="1px solid"
               borderColor="nm.line"
               _hover={{ borderColor: "nm.ink", color: "nm.ink" }}
-              disabled={saving || deleting}
+              disabled={locked}
               onClick={() => guardVisitDraft("close")}
             >
               キャンセル
@@ -936,9 +961,9 @@ export function ShopEditModal({
               rounded="nmMd"
               bg="nm.ink"
               color="nm.paper"
-              opacity={saving || deleting ? 0.6 : 1}
+              opacity={locked ? 0.6 : 1}
               _hover={{ bg: "nm.inkSoft" }}
-              disabled={saving || deleting}
+              disabled={locked}
               onClick={() => guardVisitDraft("save")}
             >
               保存{" "}

@@ -91,6 +91,10 @@ export function useAuth() {
     get isLoading() {
       return resp.isLoading;
     },
+    // Set when /auth/me failed for a reason other than being signed out.
+    get error() {
+      return resp.error as ApiError | undefined;
+    },
     loginWithGoogle,
     logout,
   };

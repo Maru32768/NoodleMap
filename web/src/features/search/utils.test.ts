@@ -84,7 +84,6 @@ describe("filterShops", () => {
     ];
 
     expect(filterNames(shops, { wishMin: "all" })).toEqual(names(shops));
-    expect(filterNames(shops, { wishMin: "low" })).toEqual(names(shops));
     expect(filterNames(shops, { wishMin: "medium" })).toEqual([
       "unset",
       "medium",

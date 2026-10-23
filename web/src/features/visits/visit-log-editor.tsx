@@ -21,7 +21,7 @@ import {
   VISIT_DELETE_FAILED_TITLE,
 } from "@/utils/toast.ts";
 import { Box } from "@chakra-ui/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type Editing = { mode: "add" } | { mode: "edit"; visit: VisitLog };
 
@@ -41,29 +41,49 @@ const smallButtonProps = {
   _hover: { borderColor: "nm.ink", color: "nm.ink" },
 } as const;
 
-// Already deleted elsewhere: the list was refetched, so just say so.
+// On an edit or delete: the visit was deleted elsewhere (the list was refetched).
+// On an add: the shop itself is gone.
 function isGone(error: ApiError) {
   return error.type === "not_found";
 }
 
 /**
  * The edit modal's 訪問ログ tab: the shop's visits with add, edit and delete.
- * `onDirtyChange` reports whether an open visit form has unsaved changes.
+ * `onDirtyChange` reports whether an open visit form has unsaved changes,
+ * `onBusyChange` whether a visit save or delete is in flight, and
+ * `onShopGone` that adding failed because the shop was deleted elsewhere.
  */
 export function VisitLogEditor({
   shopId,
   onDirtyChange,
+  onBusyChange,
+  onShopGone,
 }: {
   shopId: string;
   onDirtyChange?: (dirty: boolean) => void;
+  onBusyChange?: (busy: boolean) => void;
+  onShopGone?: () => void;
 }) {
-  const { visits, error, retry } = useVisits(shopId);
+  const { visits, error, isValidating, retry } = useVisits(shopId);
   const { addVisit, updateVisit, deleteVisit } = useVisitMutations(shopId);
   const [editing, setEditing] = useState<Editing | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<VisitLog | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    onBusyChange?.(busy);
+  }, [busy, onBusyChange]);
+
+  const whileBusy = async <T,>(task: () => Promise<T>): Promise<T> => {
+    setBusy(true);
+    try {
+      return await task();
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const handleDelete = async (visit: VisitLog) => {
-    const result = await deleteVisit(visit.id);
+    const result = await whileBusy(() => deleteVisit(visit.id));
     if (!result.ok && isGone(result.error)) {
       setDeleteTarget(null);
       toastError({ title: VISIT_ALREADY_DELETED_TITLE });
@@ -87,12 +107,16 @@ export function VisitLogEditor({
         onCancel={() => setEditing(null)}
         onDirtyChange={onDirtyChange}
         onSave={async (input) => {
-          const result = visit
-            ? await updateVisit(visit.id, input)
-            : await addVisit(input);
+          const result = await whileBusy(() =>
+            visit ? updateVisit(visit.id, input) : addVisit(input),
+          );
           if (!result.ok && isGone(result.error)) {
             setEditing(null);
-            toastError({ title: VISIT_ALREADY_DELETED_TITLE });
+            if (visit) {
+              toastError({ title: VISIT_ALREADY_DELETED_TITLE });
+            } else {
+              onShopGone?.();
+            }
             return null;
           }
           if (result.ok) {
@@ -126,36 +150,35 @@ export function VisitLogEditor({
         </Button>
       </Box>
 
-      <VisitsLoadState visits={visits} error={error} onRetry={retry}>
-        {(visits) =>
-          visits.length === 0 ? (
-            <Box fontSize="13px" color="nm.inkMuted">
-              まだ訪問ログがありません
-            </Box>
-          ) : (
-            <VisitLogList
-              visits={visits}
-              actions={(visit) => (
-                <>
-                  <Button
-                    {...smallButtonProps}
-                    aria-label="訪問ログを編集"
-                    onClick={() => setEditing({ mode: "edit", visit })}
-                  >
-                    編集
-                  </Button>
-                  <Button
-                    {...smallButtonProps}
-                    aria-label="訪問ログを削除"
-                    onClick={() => setDeleteTarget(visit)}
-                  >
-                    削除
-                  </Button>
-                </>
-              )}
-            />
-          )
-        }
+      <VisitsLoadState
+        visits={visits}
+        error={error}
+        isValidating={isValidating}
+        onRetry={retry}
+      >
+        {(visits) => (
+          <VisitLogList
+            visits={visits}
+            actions={(visit) => (
+              <>
+                <Button
+                  {...smallButtonProps}
+                  aria-label="訪問ログを編集"
+                  onClick={() => setEditing({ mode: "edit", visit })}
+                >
+                  編集
+                </Button>
+                <Button
+                  {...smallButtonProps}
+                  aria-label="訪問ログを削除"
+                  onClick={() => setDeleteTarget(visit)}
+                >
+                  削除
+                </Button>
+              </>
+            )}
+          />
+        )}
       </VisitsLoadState>
 
       <ModalDialog
