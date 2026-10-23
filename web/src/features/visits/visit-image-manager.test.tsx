@@ -413,7 +413,8 @@ describe("VisitImageManager", () => {
         attempt === 1
           ? HttpResponse.json(
               { type: "visit_image_processing_busy" },
-              { status: 503, headers: { "Retry-After": "1" } },
+              // Long enough for the steps below to finish before the retry, even on a loaded machine.
+              { status: 503, headers: { "Retry-After": "2" } },
             )
           : HttpResponse.json(
               {
