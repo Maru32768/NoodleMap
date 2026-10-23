@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 import { seedSession } from "../../support/db.ts";
-import { ADMIN_EMAIL, BASE_URL, SESSION_COOKIE } from "../../support/env.ts";
+import { ADMIN_EMAIL, BASE_URL, SESSION_COOKIE, WEB_HOST } from "../../support/env.ts";
 import { expect, test, uid } from "../../support/fixtures.ts";
 
 async function openAdmin(page: Page) {
@@ -52,7 +52,7 @@ test("admin adds a shop link that guests see in the shop detail", async ({ page,
   const guest = await browser.newContext({ baseURL, storageState: { cookies: [], origins: [] } });
   try {
     await guest.route(
-      (u) => u.hostname !== "localhost",
+      (u) => u.host !== WEB_HOST,
       (route) => route.abort("blockedbyclient"),
     );
     const guestPage = await guest.newPage();

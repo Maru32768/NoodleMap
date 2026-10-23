@@ -1,5 +1,6 @@
 import type { Browser, Page } from "@playwright/test";
 import { fileURLToPath } from "node:url";
+import { WEB_HOST } from "../../support/env.ts";
 import { expect, test, uid } from "../../support/fixtures.ts";
 
 // A 320 x 240 JPEG of a few KB.
@@ -19,7 +20,7 @@ async function asGuest(browser: Browser, baseURL: string | undefined, fn: (page:
   const guest = await browser.newContext({ baseURL, storageState: { cookies: [], origins: [] } });
   try {
     await guest.route(
-      (u) => u.hostname !== "localhost",
+      (u) => u.host !== WEB_HOST,
       (route) => route.abort("blockedbyclient"),
     );
     await fn(await guest.newPage());

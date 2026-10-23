@@ -28,7 +28,7 @@ Backend commands run from `server/` (JDK 21):
 - `./gradlew run`: start the API server.
 - `./gradlew test`: run all backend tests.
 
-End-to-end commands run from `e2e/` (Playwright against the real `server` and a `web` production build; needs JDK 21 and free ports 8888 and 4180):
+End-to-end commands run from `e2e/` (Playwright against the real `server` and a `web` production build; needs JDK 21 and free ports 18888 and 14180, overridable with `E2E_BACKEND_PORT` and `E2E_WEB_PORT`, so it can run alongside the dev server on 8888):
 
 - `npm test`: build and start both servers, then run the suite headless.
 - `npm run test:ui`: run the suite in Playwright UI mode.

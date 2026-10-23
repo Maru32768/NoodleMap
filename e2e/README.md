@@ -16,23 +16,44 @@ mise exec -- npm run test:ui # Playwright UI mode
 mise exec -- npm run report  # open the last HTML report
 ```
 
-Ports 8888 (backend) and 4180 (frontend) must be free. The suite never reuses a
-server that is already running, because tests write shops, tags and sessions.
+Ports 18888 (backend) and 14180 (frontend) must be free. They differ from the dev
+server's 8888, so the suite runs while `mise run dev` is up. To run several at
+once, in one checkout or in several, give each run its own ports:
+
+```sh
+E2E_BACKEND_PORT=28888 E2E_WEB_PORT=24180 mise exec -- npm test
+```
+
+```powershell
+$env:E2E_BACKEND_PORT=28888; $env:E2E_WEB_PORT=24180; mise exec -- npm test
+```
+
+The ports must be different integers from 1 to 65535. Everything a run writes
+(database, visit images, web and server builds, storage state, test results)
+lives under `.data/<backend port>-<web port>/`, so runs on different ports don't
+wipe each other; two runs on the same ports would.
+
+The suite never reuses a server that is already running, because tests write
+shops, tags and sessions.
 
 ## What `npm test` starts
 
 `playwright.config.ts` launches two web servers:
 
-- `server`: `start-server.mjs` deletes the E2E database under `.data/`, runs
-  `gradlew buildFatJar` (a no-op when the jar is current), and runs the jar on
-  port 8888 with an E2E `ADMIN_EMAIL` and a local-only backup path.
-- `web`: `vite build` into `.data/web-build`, then `vite preview` on port 4180.
-  Preview reuses the dev proxy, so `/api` goes to port 8888. A production build
+- `server`: `start-server.mjs` deletes the E2E database under `.data/<ports>/`,
+  runs `gradlew buildFatJar` (a no-op when the jar is current) into
+  `.data/<ports>/server-build` rather than `server/build`, so a `./gradlew run`
+  dev server in the same checkout keeps its classes, and runs the jar on the
+  backend port with an E2E `ADMIN_EMAIL` and a local-only backup path.
+- `web`: `vite build` into `.data/<ports>/web-build`, then `vite preview` on the
+  web port. Preview reuses the dev proxy, and `API_PROXY_TARGET` points it at the E2E
+  backend, so `/api` never reaches the dev server. A production build
   avoids dev-server dependency re-optimization reloads and the type-checker
   overlay. The build overrides `web/.env` so it never talks to Google or the
   tile CDN; the map renders the offline background-only style.
 
-Each test also blocks every request to a host other than `localhost`.
+Each test also blocks every request to a host other than the web preview's
+`localhost:<web port>`.
 
 ## How login works without Google
 
@@ -42,7 +63,7 @@ waits for the backend to migrate the database, then uses `node:sqlite`
 `server` does after a real sign-in: the cookie holds a random token and the
 `sessions.token_hash` column holds its lowercase hex SHA-256. It checks the
 session with `GET /api/v1/auth/me` and saves the cookie to
-`.data/admin.storage-state.json`.
+`.data/<ports>/admin.storage-state.json`.
 
 The `admin` project loads that storage state. The `guest` and `guest-mobile`
 projects start signed out. The `api` fixture seeds and reads data through the
