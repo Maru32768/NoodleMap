@@ -37,10 +37,10 @@ const defaultOutput = `public/maps/japan-light-${sourceDate}-${version}.pmtiles`
 const output = argsByName.output ?? process.env.BASEMAP_OUTPUT ?? defaultOutput;
 const outputPath = path.resolve(output);
 const outputDir = path.dirname(outputPath);
-const workDir = path.parse(outputPath).root;
+const outputFsRoot = path.parse(outputPath).root;
 const dockerOutput = path.posix.join(
   "/work",
-  path.relative(workDir, outputPath).split(path.sep).join(path.posix.sep),
+  path.relative(outputFsRoot, outputPath).split(path.sep).join(path.posix.sep),
 );
 
 await mkdir(outputDir, { recursive: true });
@@ -49,7 +49,7 @@ const args = [
   "run",
   "--rm",
   "-v",
-  `${workDir}:/work`,
+  `${outputFsRoot}:/work`,
   "protomaps/go-pmtiles",
   "extract",
   source,

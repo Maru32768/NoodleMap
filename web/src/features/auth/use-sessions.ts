@@ -25,8 +25,9 @@ type RevokeOtherSessionsErrorBody = ApiErrorBodyFor<
   "post"
 >;
 
-// 401 here means this session was revoked elsewhere. A full reload re-resolves
-// auth, so the user lands on login instead of a page stuck on a dead session.
+// 401 here means this session expired or was revoked elsewhere. A full reload
+// re-resolves auth, so the user lands on login instead of a page stuck on a
+// dead session.
 function redirectToLogin() {
   window.location.replace(
     `${LOGIN_PATH}?redirectTo=${encodeURIComponent(ACCOUNT_PATH)}`,

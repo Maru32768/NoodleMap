@@ -105,7 +105,8 @@ export const SHOP_ALREADY_DELETED_TITLE = "この店舗はすでに削除され�
 // 店舗リンク problems: rejected by the server, or caught before saving.
 const SHOP_LINKS_INVALID_TITLE = `リンクの内容を確認してください（http(s) の URL は${SHOP_LINK_URL_MAX_LENGTH}文字まで、表示名は${SHOP_LINK_LABEL_MAX_LENGTH}文字まで、最大${SHOP_LINKS_MAX}件）`;
 
-// Shown under the shop form input named by an `invalid_request` field error.
+// Message for an `invalid_request` field error on a shop form: shown under the
+// named input, or in a toast when the form has no input for that field.
 export function shopFieldErrorMessage(
   field: UpdateShopField,
   type: FieldErrorType,

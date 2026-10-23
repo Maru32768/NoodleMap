@@ -231,7 +231,7 @@ type ShopEditState = Omit<ShopEditDraft, "links"> & {
 };
 
 let nextLinkRowId = 0;
-const toLinkRow = (link: ShopLinkInput): ShopLinkRow => ({
+const newLinkRow = (link: ShopLinkInput): ShopLinkRow => ({
   ...link,
   rowId: nextLinkRowId++,
 });
@@ -358,7 +358,7 @@ function ShopLinksEditor({
           {...linkButtonProps}
           disabled={links.length >= SHOP_LINKS_MAX}
           onClick={() =>
-            onChange([...links, toLinkRow({ type: "other", url: "" })])
+            onChange([...links, newLinkRow({ type: "other", url: "" })])
           }
         >
           ＋ リンクを追加
@@ -452,7 +452,7 @@ export function ShopEditModal({
     images: [],
     tagIds: shop.tags.map((tag) => tag.id),
     // `links` is missing while an older server is still deployed.
-    links: (shop.links ?? []).map(toLinkRow),
+    links: (shop.links ?? []).map(newLinkRow),
   }));
   const [fieldErrors, setFieldErrors] = useState<
     ShopFieldErrors<UpdateShopField>

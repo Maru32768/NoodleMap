@@ -1,7 +1,3 @@
-export function isBooleanStr(s: string | undefined | null) {
-  return (s ?? "").toLowerCase() === "true";
-}
-
-export function assertNever(o: never): Error {
-  return new Error(`${o} is invalid type.`);
+export function assertNever(o: never): never {
+  throw new Error(`${o} is invalid type.`);
 }

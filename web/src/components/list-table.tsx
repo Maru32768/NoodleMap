@@ -280,7 +280,7 @@ export function useSortableListTableHeader<T extends DataType>(
                 setSortOrder("ASC");
                 return;
               default:
-                throw assertNever(sortOrder);
+                assertNever(sortOrder);
             }
           },
         },

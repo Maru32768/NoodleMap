@@ -407,7 +407,10 @@ export function ShopFilters({ filters, onFilterChange }: ShopFiltersProps) {
         : [...filters.tagIds, id],
     );
   };
-  const isDefaultTags = !isEqual(filters.tagIds, DEFAULT_SYSTEM_TAG_SELECTION);
+  const isCustomTagSelection = !isEqual(
+    filters.tagIds,
+    DEFAULT_SYSTEM_TAG_SELECTION,
+  );
   const visibleTags =
     tags?.filter((tag) => {
       if (filters.tagIds.includes(tag.id)) {
@@ -508,7 +511,7 @@ export function ShopFilters({ filters, onFilterChange }: ShopFiltersProps) {
             />
           ))}
         </Box>
-        {isDefaultTags && (
+        {isCustomTagSelection && (
           <Button
             variant="plain"
             minW="auto"
