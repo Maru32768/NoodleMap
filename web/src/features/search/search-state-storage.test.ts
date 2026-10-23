@@ -3,7 +3,7 @@ import {
   readSavedSearchState,
   writeSavedSearchState,
 } from "@/features/search/search-state-storage.ts";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 const KEY = "noodle-map:search-state:v1";
 
@@ -14,6 +14,10 @@ const state = {
 };
 
 describe("search state storage", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("round-trips a written state", () => {
     writeSavedSearchState(state);
 
@@ -65,5 +69,15 @@ describe("search state storage", () => {
 
     expect(readSavedSearchState()).toBeNull();
     expect(localStorage.getItem(KEY)).toBeNull();
+  });
+
+  it("returns null without throwing when storage is unavailable", () => {
+    const denied = () => {
+      throw new DOMException("Access denied", "SecurityError");
+    };
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(denied);
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(denied);
+
+    expect(readSavedSearchState()).toBeNull();
   });
 });

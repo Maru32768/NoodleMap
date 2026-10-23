@@ -95,6 +95,7 @@ function normalizeSavedSearchState(value: unknown): SavedSearchState | null {
   };
 }
 
+// Also removes a saved entry that is unreadable or from an older version.
 export function readSavedSearchState(): SavedSearchState | null {
   try {
     const raw = localStorage.getItem(SEARCH_STATE_STORAGE_KEY);
@@ -108,8 +109,16 @@ export function readSavedSearchState(): SavedSearchState | null {
     }
     return state;
   } catch {
-    localStorage.removeItem(SEARCH_STATE_STORAGE_KEY);
+    removeSavedSearchState();
     return null;
+  }
+}
+
+function removeSavedSearchState() {
+  try {
+    localStorage.removeItem(SEARCH_STATE_STORAGE_KEY);
+  } catch {
+    // Storage can be unavailable in restricted browsing modes.
   }
 }
 
