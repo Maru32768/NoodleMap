@@ -22,6 +22,9 @@ export function useRevealFirstError<T extends HTMLElement>() {
     }
     if (target.matches("input, select, textarea")) {
       target.focus();
+    } else if (target.matches("[role=radiogroup]")) {
+      // The group's Tab stop: the chosen option, or the first.
+      target.querySelector<HTMLElement>('[role=radio][tabindex="0"]')?.focus();
     }
     // jsdom has no scrollIntoView.
     target.scrollIntoView?.({ block: "center" });

@@ -31,7 +31,7 @@ import {
   toastShopFieldErrors,
 } from "@/utils/toast.ts";
 import { Box, Input } from "@chakra-ui/react";
-import { ComponentType, useState } from "react";
+import { ComponentType, useCallback, useState } from "react";
 
 type AddDraft = AddShopCommand;
 
@@ -162,22 +162,25 @@ export function AddModal({
     clearErrors([k]);
   };
 
-  const setCategory = (category: AddDraft["category"]) => {
-    const fitsCategory = (tagId: string) => {
-      const tag = tags?.find((candidate) => candidate.id === tagId);
-      return !tag?.category || tag.category === category;
-    };
-    setDraft((d) => ({
-      ...d,
-      category,
-      tagIds: (d.tagIds ?? []).filter(fitsCategory),
-    }));
-    clearErrors(
-      (draft.tagIds ?? []).every(fitsCategory)
+  const draftTagIds = draft.tagIds;
+  const setCategory = useCallback(
+    (category: AddDraft["category"]) => {
+      const fitsCategory = (tagId: string) => {
+        const tag = tags?.find((candidate) => candidate.id === tagId);
+        return !tag?.category || tag.category === category;
+      };
+      setDraft((d) => ({
+        ...d,
+        category,
+        tagIds: (d.tagIds ?? []).filter(fitsCategory),
+      }));
+      const cleared: AddShopField[] = (draftTagIds ?? []).every(fitsCategory)
         ? ["category"]
-        : ["category", "tagIds"],
-    );
-  };
+        : ["category", "tagIds"];
+      setFieldErrors((errors) => clearShopFieldErrors(errors, cleared));
+    },
+    [tags, draftTagIds],
+  );
 
   const handleSelect = (res: FindResult) => {
     setPlaceResult(res);

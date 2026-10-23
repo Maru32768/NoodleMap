@@ -12,8 +12,9 @@ const PREV_KEYS = ["ArrowLeft", "ArrowUp"];
 
 /**
  * A row of buttons choosing exactly one option, as a radio group: Tab reaches
- * the chosen option, arrow keys (and Home/End) move the choice. Inside a
- * {@link FormField} an error marks the group invalid and describes it.
+ * the chosen option, arrow keys (and Home/End) move focus, Space/Enter or a
+ * click chooses. Inside a {@link FormField} an error marks the group invalid
+ * and describes it.
  */
 export function SegmentedPicker<T extends string>({
   label,
@@ -31,7 +32,12 @@ export function SegmentedPicker<T extends string>({
   const selectedIndex = options.findIndex((o) => o.id === value);
   const tabStop = selectedIndex >= 0 ? selectedIndex : 0;
 
+  // Arrow keys only move focus; Space/Enter (native button keys) choose. A
+  // choice can drop tags, so it never happens on the way to another option.
   const handleKeyDown = (event: KeyboardEvent, index: number) => {
+    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+      return;
+    }
     const last = options.length - 1;
     let next: number;
     if (NEXT_KEYS.includes(event.key)) {
@@ -46,7 +52,6 @@ export function SegmentedPicker<T extends string>({
       return;
     }
     event.preventDefault();
-    onChange(options[next].id);
     buttonRefs.current[next]?.focus();
   };
 

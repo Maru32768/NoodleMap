@@ -192,12 +192,13 @@ describe("ShopEditModal save", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "保存" }));
 
-    expect(
-      await screen.findByRole("radiogroup", {
-        name: "気になる度",
-        description: "形式が正しくありません",
-      }),
-    ).toHaveAttribute("aria-invalid", "true");
+    const group = await screen.findByRole("radiogroup", {
+      name: "気になる度",
+      description: "形式が正しくありません",
+    });
+    expect(group).toHaveAttribute("aria-invalid", "true");
+    // The group's Tab stop takes focus, as an invalid input would.
+    expect(within(group).getByRole("radio", { name: "未設定" })).toHaveFocus();
   });
 
   it("toasts an error that belongs to no field", async () => {
@@ -502,12 +503,13 @@ describe("ShopEditModal 気になる度", () => {
 });
 
 describe("ShopEditModal 気になる度 keyboard", () => {
-  it("moves the choice with arrow keys from the one Tab stop", async () => {
+  it("moves focus with arrow keys and chooses with Space or Enter", async () => {
     const { requests } = renderEditor(
       makeShop({ eaten: false, wishLevel: "low" }),
     );
     const group = screen.getByRole("radiogroup", { name: "気になる度" });
     const radios = within(group).getAllByRole("radio");
+    const [unset, low, medium, high] = radios;
     expect(radios.map((r) => r.textContent)).toEqual([
       "未設定",
       "ちょっと気になる",
@@ -517,23 +519,32 @@ describe("ShopEditModal 気になる度 keyboard", () => {
     // Only the chosen option is in the Tab order.
     expect(radios.map((r) => r.tabIndex)).toEqual([-1, 0, -1, -1]);
 
-    radios[1].focus();
+    low.focus();
     await userEvent.keyboard("{ArrowRight}");
-    expect(
-      within(group).getByRole("radio", { name: "気になる" }),
-    ).toHaveFocus();
-    expect(
-      within(group).getByRole("radio", { name: "気になる" }),
-    ).toBeChecked();
+    expect(medium).toHaveFocus();
+    // Moving focus does not choose.
+    expect(low).toBeChecked();
+    // A modified arrow is left to the browser.
+    await userEvent.keyboard("{Shift>}{ArrowRight}{/Shift}");
+    expect(medium).toHaveFocus();
 
     await userEvent.keyboard("{End}");
+    expect(high).toHaveFocus();
     await userEvent.keyboard("{ArrowRight}");
-    // Wraps around to 未設定.
-    expect(within(group).getByRole("radio", { name: "未設定" })).toHaveFocus();
+    expect(unset).toHaveFocus();
     await userEvent.keyboard("{ArrowLeft}");
-    expect(
-      within(group).getByRole("radio", { name: "絶対行きたい" }),
-    ).toBeChecked();
+    expect(high).toHaveFocus();
+    await userEvent.keyboard("{Home}");
+    expect(unset).toHaveFocus();
+    expect(low).toBeChecked();
+
+    await userEvent.keyboard("{ArrowRight}{ArrowRight}[Space]");
+    expect(medium).toBeChecked();
+    await userEvent.keyboard("{ArrowRight}{Enter}");
+    expect(high).toBeChecked();
+    expect(within(group).getAllByRole("radio", { checked: true })).toEqual([
+      high,
+    ]);
 
     await userEvent.click(screen.getByRole("button", { name: "保存" }));
     await waitFor(() => expect(requests).toHaveLength(1));

@@ -49,7 +49,7 @@ import {
   toastShopFieldErrors,
 } from "@/utils/toast.ts";
 import { Box, Input, NativeSelect } from "@chakra-ui/react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 interface ShopEditDraft {
   id: string;
@@ -420,20 +420,25 @@ export function ShopEditModal({
     }
   };
 
-  const setCategory = (category: ShopEditDraft["category"]) => {
-    const fitsCategory = (tagId: string) => {
-      const tag = tags?.find((candidate) => candidate.id === tagId);
-      return !tag?.category || tag.category === category;
-    };
-    setDraft((current) => ({
-      ...current,
-      category,
-      tagIds: current.tagIds.filter(fitsCategory),
-    }));
-    clearErrors(
-      draft.tagIds.every(fitsCategory) ? ["category"] : ["category", "tagIds"],
-    );
-  };
+  const draftTagIds = draft.tagIds;
+  const setCategory = useCallback(
+    (category: ShopEditDraft["category"]) => {
+      const fitsCategory = (tagId: string) => {
+        const tag = tags?.find((candidate) => candidate.id === tagId);
+        return !tag?.category || tag.category === category;
+      };
+      setDraft((current) => ({
+        ...current,
+        category,
+        tagIds: current.tagIds.filter(fitsCategory),
+      }));
+      const cleared: UpdateShopField[] = draftTagIds.every(fitsCategory)
+        ? ["category"]
+        : ["category", "tagIds"];
+      setFieldErrors((errors) => clearShopFieldErrors(errors, cleared));
+    },
+    [tags, draftTagIds],
+  );
 
   // Whether the field's input is on screen to show an error.
   const hasInput = (field: UpdateShopField) =>
