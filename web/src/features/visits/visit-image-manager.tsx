@@ -29,7 +29,15 @@ import {
   visitImageCaptionErrorMessage,
 } from "@/utils/toast.ts";
 import { Box, Input } from "@chakra-ui/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  ClipboardEvent,
+  DragEvent,
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from "react";
 
 const PENDING_LABEL: Record<
   Exclude<PendingUpload["status"], "failed">,
@@ -58,8 +66,24 @@ const smallButtonProps = {
   _disabled: { opacity: 0.4, cursor: "default" },
 } as const;
 
+// What the file input accepts: HEIC may come without a MIME type.
+const isImageFile = (file: File) =>
+  file.type.startsWith("image/") || /\.hei[cf]$/i.test(file.name);
+
+// React events bubble out of portals: the delete dialog is not the area.
+const fromArea = (event: DragEvent | ClipboardEvent) =>
+  event.currentTarget.contains(event.target as Node);
+
+const hasFiles = (event: DragEvent) =>
+  fromArea(event) && event.dataTransfer.types.includes("Files");
+
+const isTextInput = (target: EventTarget) =>
+  target instanceof HTMLElement &&
+  (target.isContentEditable || target.matches("input, textarea"));
+
 /**
- * The 訪問画像 of one saved 訪問ログ for the admin: add (one upload at a time),
+ * The 訪問画像 of one saved 訪問ログ for the admin: add (one upload at a time,
+ * from the file input, a drop or a paste while focus is in the area),
  * reorder, caption and delete. The first image represents the visit.
  * Uploads live in a store outside the component, so they and their failures
  * outlast it (the editor marks itself busy from that store).
@@ -89,6 +113,8 @@ export function VisitImageManager({
   const [reordering, setReordering] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
+  const hintId = useId();
 
   const inFlight = pending.filter((p) => p.status !== "failed").length;
   const remaining = VISIT_IMAGES_MAX - images.length - inFlight;
@@ -104,6 +130,51 @@ export function VisitImageManager({
       revalidateVisits: () => void revalidateVisits(),
       onDrained: () => void revalidateShops(),
     });
+
+  const canAdd = remaining > 0;
+
+  const handleDragOver = (event: DragEvent) => {
+    if (!hasFiles(event)) {
+      return;
+    }
+    // Without this the browser opens a file dropped here.
+    event.preventDefault();
+    event.dataTransfer.dropEffect = canAdd ? "copy" : "none";
+    setDragging(canAdd);
+  };
+
+  const handleDragLeave = (event: DragEvent) => {
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+      setDragging(false);
+    }
+  };
+
+  const handleDrop = (event: DragEvent) => {
+    if (!hasFiles(event)) {
+      return;
+    }
+    event.preventDefault();
+    setDragging(false);
+    const files = Array.from(event.dataTransfer.files).filter(isImageFile);
+    if (canAdd && files.length > 0) {
+      addFiles(files);
+    }
+  };
+
+  const handlePaste = (event: ClipboardEvent) => {
+    // A caption keeps its own paste.
+    if (!fromArea(event) || isTextInput(event.target)) {
+      return;
+    }
+    const files = Array.from(event.clipboardData.files).filter(isImageFile);
+    if (files.length === 0) {
+      return;
+    }
+    event.preventDefault();
+    if (canAdd) {
+      addFiles(files);
+    }
+  };
 
   const move = async (index: number, delta: number) => {
     const ids = images.map((image) => image.id);
@@ -144,10 +215,25 @@ export function VisitImageManager({
 
   return (
     <Box
+      role="group"
+      aria-label="画像の追加"
+      aria-describedby={canAdd ? hintId : undefined}
+      // Focusable so a paste reaches it.
+      tabIndex={0}
       mt="0.625rem"
       pt="0.625rem"
       borderTop="1px dashed"
       borderTopColor="nm.lineFaint"
+      outline={dragging ? "2px dashed" : undefined}
+      outlineColor="nm.shu"
+      outlineOffset="2px"
+      bg={dragging ? "nm.bg" : undefined}
+      _focusVisible={{ outline: "2px solid", outlineColor: "nm.ink" }}
+      onDragEnter={handleDragOver}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      onPaste={handlePaste}
     >
       {images.length > 0 && (
         <Box
@@ -321,16 +407,21 @@ export function VisitImageManager({
           {...smallButtonProps}
           px="10px"
           py="5px"
-          disabled={remaining <= 0}
+          disabled={!canAdd}
           onClick={() => fileInputRef.current?.click()}
         >
           画像を追加
         </Button>
         <Box as="span" fontSize="11px" color="nm.inkMuted">
-          {remaining <= 0
-            ? `画像は${VISIT_IMAGES_MAX}枚までです`
-            : `あと${remaining}枚・1枚目が代表`}
+          {canAdd
+            ? `あと${remaining}枚・1枚目が代表`
+            : `画像は${VISIT_IMAGES_MAX}枚までです`}
         </Box>
+        {canAdd && (
+          <Box as="span" id={hintId} fontSize="11px" color="nm.inkFaint">
+            ドラッグ＆ドロップ・貼り付けでも追加できます
+          </Box>
+        )}
         <input
           ref={fileInputRef}
           type="file"

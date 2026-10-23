@@ -144,6 +144,7 @@ function renderImages({
 
 const imageList = () => screen.findByRole("list", { name: "訪問画像" });
 const fileInput = () => screen.getByLabelText("追加する画像ファイル");
+const dropArea = () => screen.getByRole("group", { name: "画像の追加" });
 
 async function upload(...files: File[]) {
   await screen.findByRole("list", { name: "訪問ログ" });
@@ -531,6 +532,146 @@ describe("VisitImageManager", () => {
     expect(traffic.captions).toEqual([]);
     expect(traffic.onClose).not.toHaveBeenCalled();
     expect(screen.getByRole("list", { name: "訪問ログ" })).toBeInTheDocument();
+  });
+
+  it("hints at drop and paste only while images can be added", async () => {
+    const nine = Array.from({ length: 9 }, (_, i) => image(i + 1));
+    renderImages({ images: nine });
+    await imageList();
+
+    expect(
+      screen.getByText("ドラッグ＆ドロップ・貼り付けでも追加できます"),
+    ).toBeInTheDocument();
+    await upload(jpeg("a.jpg"));
+    await waitFor(() =>
+      expect(screen.getByText("画像は10枚までです")).toBeInTheDocument(),
+    );
+    expect(
+      screen.queryByText("ドラッグ＆ドロップ・貼り付けでも追加できます"),
+    ).toBeNull();
+  });
+
+  it("queues dropped image files in order and ignores other files", async () => {
+    // Every upload fails, so each file stays listed in queue order.
+    const traffic = renderImages({
+      uploadResponse: () =>
+        HttpResponse.json(
+          {
+            type: "invalid_request",
+            fieldErrors: [{ field: "file", type: "too_long" }],
+          },
+          { status: 400 },
+        ),
+    });
+    await screen.findByRole("list", { name: "訪問ログ" });
+    const area = dropArea();
+    const files = [
+      jpeg("a.jpg"),
+      new File(["memo"], "memo.txt", { type: "text/plain" }),
+      new File(["png"], "b.png", { type: "image/png" }),
+    ];
+    const dataTransfer = { types: ["Files"], files, dropEffect: "none" };
+
+    // Allowing the drop keeps the browser from opening the file.
+    expect(fireEvent.dragOver(area, { dataTransfer })).toBe(false);
+    expect(dataTransfer.dropEffect).toBe("copy");
+    expect(fireEvent.drop(area, { dataTransfer })).toBe(false);
+
+    const pending = await screen.findByRole("list", { name: "追加中の画像" });
+    await waitFor(() =>
+      expect(within(pending).getAllByRole("alert")).toHaveLength(2),
+    );
+    expect(
+      within(pending)
+        .getAllByRole("listitem")
+        .map((item) => item.textContent),
+    ).toEqual([
+      expect.stringContaining("a.jpg"),
+      expect.stringContaining("b.png"),
+    ]);
+    expect(pending).not.toHaveTextContent("memo.txt");
+    expect(traffic.uploads).toBe(2);
+  });
+
+  it("drops only up to 10 images and refuses a drop when full", async () => {
+    const nine = Array.from({ length: 9 }, (_, i) => image(i + 1));
+    const traffic = renderImages({ images: nine });
+    await imageList();
+
+    fireEvent.drop(dropArea(), {
+      dataTransfer: { types: ["Files"], files: [jpeg("a.jpg"), jpeg("b.jpg")] },
+    });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "1つの訪問ログに追加できる画像は10枚までです",
+    );
+    await waitFor(async () =>
+      expect(within(await imageList()).getAllByRole("listitem")).toHaveLength(
+        10,
+      ),
+    );
+    expect(traffic.uploads).toBe(1);
+
+    const dataTransfer = {
+      types: ["Files"],
+      files: [jpeg("c.jpg")],
+      dropEffect: "copy",
+    };
+    fireEvent.dragOver(dropArea(), { dataTransfer });
+    expect(dataTransfer.dropEffect).toBe("none");
+    fireEvent.drop(dropArea(), { dataTransfer });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(traffic.uploads).toBe(1);
+    expect(
+      screen.getByRole("list", { name: "追加中の画像" }),
+    ).not.toHaveTextContent("c.jpg");
+  });
+
+  it("uploads an image pasted while focus is in the image area", async () => {
+    const traffic = renderImages();
+    await screen.findByRole("list", { name: "訪問ログ" });
+    const area = dropArea();
+    // The area itself takes focus, so a paste reaches it.
+    area.focus();
+    expect(area).toHaveFocus();
+
+    const pasted = fireEvent.paste(area, {
+      clipboardData: {
+        files: [new File(["png"], "image.png", { type: "image/png" })],
+      },
+    });
+
+    expect(pasted).toBe(false);
+    await waitFor(async () =>
+      expect(within(await imageList()).getAllByRole("listitem")).toHaveLength(
+        1,
+      ),
+    );
+    expect(traffic.uploads).toBe(1);
+  });
+
+  it("leaves a paste into the caption input alone", async () => {
+    const traffic = renderImages({ images: [image(1)] });
+    const list = await imageList();
+    await userEvent.click(
+      within(list).getByRole("button", {
+        name: "画像 1 のキャプションを編集",
+      }),
+    );
+
+    const pasted = fireEvent.paste(
+      within(list).getByRole("textbox", { name: "キャプション" }),
+      {
+        clipboardData: {
+          files: [new File(["png"], "image.png", { type: "image/png" })],
+        },
+      },
+    );
+
+    expect(pasted).toBe(true);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(traffic.uploads).toBe(0);
+    expect(screen.queryByRole("list", { name: "追加中の画像" })).toBeNull();
   });
 
   it("asks to save a new visit before adding images", async () => {

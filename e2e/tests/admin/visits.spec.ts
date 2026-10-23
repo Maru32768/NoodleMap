@@ -1,4 +1,5 @@
 import type { Browser, Page } from "@playwright/test";
+import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { WEB_HOST } from "../../support/env.ts";
 import { expect, test, uid } from "../../support/fixtures.ts";
@@ -160,12 +161,35 @@ test("admin adds a visit image that guests see in the visit and as the 代表写
   });
 });
 
+test("admin adds a visit image by dropping the file onto the image area", async ({ page, api }) => {
+  const id = uid();
+  const shop = await api.createShop({ name: `${id} ドロップする店`, eaten: true, rate: 80 });
+
+  const dialog = await openEditModal(page, shop.name, id);
+  await dialog.getByRole("button", { name: "訪問ログ", exact: true }).click();
+  const jpeg = (await readFile(VISIT_IMAGE)).toString("base64");
+  const dataTransfer = await page.evaluateHandle((base64) => {
+    const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+    const transfer = new DataTransfer();
+    transfer.items.add(new File([bytes], "dropped.jpg", { type: "image/jpeg" }));
+    return transfer;
+  }, jpeg);
+  const area = dialog.getByRole("group", { name: "画像の追加" });
+  await area.dispatchEvent("dragenter", { dataTransfer });
+  await area.dispatchEvent("dragover", { dataTransfer });
+  await area.dispatchEvent("drop", { dataTransfer });
+
+  const images = dialog.getByRole("list", { name: "訪問画像" });
+  await expect(images.getByRole("listitem")).toHaveCount(1);
+  await expect(images.getByRole("img", { name: "画像 1" })).toHaveJSProperty("naturalWidth", 320);
+});
+
 test("admin sets 絶対行きたい and a guest sees it", async ({ page, api, browser, baseURL }) => {
   const id = uid();
   const shop = await api.createShop({ name: `${id} 絶対行きたい店` });
 
   const dialog = await openEditModal(page, shop.name, id);
-  await dialog.getByRole("combobox", { name: "気になる度" }).selectOption({ label: "絶対行きたい" });
+  await dialog.getByRole("radiogroup", { name: "気になる度" }).getByRole("radio", { name: "絶対行きたい" }).click();
   await dialog.getByRole("button", { name: "保存", exact: true }).click();
 
   await expect(page.getByText("保存しました")).toBeVisible();
