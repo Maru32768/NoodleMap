@@ -408,12 +408,14 @@ describe("VisitImageManager", () => {
   });
 
   it("keeps uploads and their failures across opening a visit form, locking the modal meanwhile", async () => {
-    // The busy server's wait runs only when the test advances the clock, so
-    // the steps below never race the retry.
+    // The fake clock also follows real time, but the busy server asks for
+    // 30 s, longer than the test may run: the retry happens only when the
+    // test advances the clock, after the steps below.
     vi.useFakeTimers({
       shouldAdvanceTime: true,
       toFake: ["setTimeout", "clearTimeout"],
     });
+    const timeouts = vi.spyOn(globalThis, "setTimeout");
     onTestFinished(() => {
       vi.useRealTimers();
     });
@@ -465,6 +467,10 @@ describe("VisitImageManager", () => {
 
     // The retry fails while the form is open; closing it shows the failure.
     expect(traffic.uploads).toBe(1);
+    // The client waits out Retry-After before retrying.
+    await waitFor(() =>
+      expect(timeouts).toHaveBeenCalledWith(expect.any(Function), 30_000),
+    );
     await vi.advanceTimersByTimeAsync(30_000);
     await waitFor(() => expect(traffic.uploads).toBe(2));
     await waitFor(() => expect(footerCancel()).toBeEnabled());
