@@ -209,6 +209,12 @@ class MigrationsTest {
                 shouldThrow<Exception> { st.executeUpdate("UPDATE shops SET wish_level = 'urgent' WHERE id = 's3'") }
                 shouldThrow<Exception> { st.executeUpdate("INSERT INTO visit_logs (id, shop_id, rate) VALUES ('v1', 's3', 101)") }
                 st.executeUpdate("INSERT INTO visit_logs (id, shop_id) VALUES ('v3', 's3')")
+                // A visit date is NULL or a real 'YYYY-MM-DD' date.
+                st.executeUpdate("INSERT INTO visit_logs (id, shop_id, visited_on) VALUES ('v4', 's3', NULL), ('v5', 's3', '2026-10-01')")
+                for (bad in listOf("2026-02-30", "2026-1-1", "20261001", "2026-10-01T00:00")) {
+                    shouldThrow<Exception> { st.executeUpdate("INSERT INTO visit_logs (id, shop_id, visited_on) VALUES ('v6', 's3', '$bad')") }
+                    shouldThrow<Exception> { st.executeUpdate("UPDATE visit_logs SET visited_on = '$bad' WHERE id = 'v5'") }
+                }
                 // 食べたメニュー pin their visit log, need a name of 1..200 characters and a price in 0..10,000,000.
                 st.executeUpdate(
                     "INSERT INTO visit_menu_items (id, visit_log_id, name, is_limited, price, sort_order) " +
