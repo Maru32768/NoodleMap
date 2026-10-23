@@ -113,7 +113,7 @@ class VisitImageApiTest {
         ErrorBody(ErrorType.INVALID_REQUEST, message, listOf(FieldError("file", type)))
 
     @Test
-    fun `a JPEG is stored upright, subsampled below a 2048 px long edge and without its EXIF`() = testApp { t ->
+    fun `a JPEG is stored upright, scaled to a 2048 px long edge and without its EXIF`() = testApp { t ->
         val admin = t.adminToken()
         val (shopId, visitId) = addVisit(admin)
         // Left half red, right half blue; orientation 6 means the camera was turned 90 degrees clockwise.
@@ -122,9 +122,9 @@ class VisitImageApiTest {
 
         val image = client.uploadOk(visitId, source, admin)
 
-        // Subsampled by ceil(3000 / 2048) = 2, then turned upright.
-        image.width shouldBe 500
-        image.height shouldBe 1500
+        // 3000 x 1000 scaled to 2048 x 683, then turned upright.
+        image.width shouldBe 683
+        image.height shouldBe 2048
         image.caption shouldBe null
         image.url shouldBe "$PUBLIC_BASE_URL/api/v1/visit-images/visits/$visitId/${image.id}.jpg"
         val res = client.stored(image.url)
@@ -135,11 +135,11 @@ class VisitImageApiTest {
         exifOrientation(bytes) shouldBe 1
         String(bytes, Charsets.ISO_8859_1).contains("Exif") shouldBe false
         val stored = ImageIO.read(ByteArrayInputStream(bytes))
-        stored.width shouldBe 500
-        stored.height shouldBe 1500
+        stored.width shouldBe 683
+        stored.height shouldBe 2048
         // Rotated clockwise: the left (red) half is now on top.
-        Color(stored.getRGB(250, 150)).let { it.red shouldBeGreaterThan 200; it.blue shouldBeLessThan 60 }
-        Color(stored.getRGB(250, 1350)).let { it.blue shouldBeGreaterThan 200; it.red shouldBeLessThan 60 }
+        Color(stored.getRGB(341, 200)).let { it.red shouldBeGreaterThan 200; it.blue shouldBeLessThan 60 }
+        Color(stored.getRGB(341, 1848)).let { it.blue shouldBeGreaterThan 200; it.red shouldBeLessThan 60 }
 
         client.visitImages(shopId) shouldBe listOf(listOf(image))
     }
@@ -209,7 +209,10 @@ class VisitImageApiTest {
         val admin = t.adminToken()
         val (shopId, visitId) = addVisit(admin)
 
-        for (origin in listOf(null, "https://evil.example", "http://noodle.example", "https://noodle.example.evil.example")) {
+        // localhost is only trusted in local development (an http site).
+        for (origin in listOf(
+            null, "https://evil.example", "http://noodle.example", "https://noodle.example.evil.example", "https://localhost:5173",
+        )) {
             client.upload(visitId, jpeg(halves(16, 8)), admin, origin = origin).let {
                 it.status shouldBe HttpStatusCode.Forbidden
                 it.body<ErrorBody>().type shouldBe ErrorType.PERMISSION_DENIED
@@ -217,6 +220,20 @@ class VisitImageApiTest {
         }
         client.visitImages(shopId) shouldBe listOf(emptyList())
         client.uploadOk(visitId, jpeg(halves(16, 8)), admin)
+    }
+
+    @Test
+    fun `in local development uploads also come from localhost web servers`() = testApp(publicBaseUrl = "http://localhost:8888") { t ->
+        val admin = t.adminToken()
+        val (_, visitId) = addVisit(admin)
+
+        // The Vite dev server, the e2e preview, 127.0.0.1, and the API's own origin.
+        for (origin in listOf("https://localhost:5173", "http://localhost:4180", "http://127.0.0.1:4180", "http://localhost:8888")) {
+            client.upload(visitId, jpeg(halves(16, 8)), admin, origin = origin).status shouldBe HttpStatusCode.OK
+        }
+        for (origin in listOf(null, "https://evil.example", "http://localhost.evil.example:4180", "http://127.0.0.2:4180")) {
+            client.upload(visitId, jpeg(halves(16, 8)), admin, origin = origin).status shouldBe HttpStatusCode.Forbidden
+        }
     }
 
     @Test

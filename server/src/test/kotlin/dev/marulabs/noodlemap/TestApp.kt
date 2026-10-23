@@ -68,7 +68,12 @@ class TestDb(val config: Config, val dataSource: HikariDataSource, val db: Noodl
         dataSource.connection.use { c -> c.createStatement().executeQuery("SELECT count(*) FROM sessions").use { it.getLong(1) } }
 }
 
-fun testConfig(dbPath: String, adminEmail: String = ADMIN_EMAIL, cookieSecure: Boolean = false) = Config(
+fun testConfig(
+    dbPath: String,
+    adminEmail: String = ADMIN_EMAIL,
+    cookieSecure: Boolean = false,
+    publicBaseUrl: String = PUBLIC_BASE_URL,
+) = Config(
     dbPath = dbPath,
     serverPort = 0,
     googleOAuthClientId = "test-client",
@@ -76,16 +81,21 @@ fun testConfig(dbPath: String, adminEmail: String = ADMIN_EMAIL, cookieSecure: B
     cookieSecure = cookieSecure,
     googlePlacesApiKey = "",
     backup = Config.BackupConfig(snapshotPath = "$dbPath.bak", s3Bucket = null, s3Prefix = null, awsRegion = null),
-    publicBaseUrl = PUBLIC_BASE_URL,
+    publicBaseUrl = publicBaseUrl,
     ogR2 = null,
     visitImagesR2 = null,
 )
 
 const val PUBLIC_BASE_URL = "https://noodle.example"
 
-fun withTestDb(adminEmail: String = ADMIN_EMAIL, cookieSecure: Boolean = false, block: (TestDb) -> Unit) {
+fun withTestDb(
+    adminEmail: String = ADMIN_EMAIL,
+    cookieSecure: Boolean = false,
+    publicBaseUrl: String = PUBLIC_BASE_URL,
+    block: (TestDb) -> Unit,
+) {
     val dir = Files.createTempDirectory("noodlemap-test")
-    val config = testConfig(dir.resolve("test.db").toString(), adminEmail, cookieSecure)
+    val config = testConfig(dir.resolve("test.db").toString(), adminEmail, cookieSecure, publicBaseUrl)
     val ds = buildDataSource(config.dbPath)
     try {
         block(TestDb(config, ds, buildDatabase(ds)))
@@ -106,8 +116,10 @@ fun testApp(
     maxPendingBitmapWork: Int = 3,
     // Null stores visit images on local disk next to the test database, as the app does without R2.
     visitImageStore: VisitImageStore? = null,
+    // An http URL puts the app in local-development mode (local-disk images, localhost upload origins).
+    publicBaseUrl: String = PUBLIC_BASE_URL,
     block: suspend ApplicationTestBuilder.(TestDb) -> Unit,
-) = withTestDb(adminEmail, cookieSecure) { t ->
+) = withTestDb(adminEmail, cookieSecure, publicBaseUrl) { t ->
     testApplication {
         application {
             val images = visitImageStore ?: t.localVisitImages

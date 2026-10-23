@@ -43,11 +43,14 @@ class VisitImageProcessingTest {
     }
 
     @Test
-    fun `a source up to the size limit keeps its size, and a larger one is subsampled below it`() {
+    fun `a source up to the size limit keeps its size, and a larger one is stored at exactly 2048 px`() {
         val result = processVisitImage(jpeg(halves(2048, 100)))
         (result.width to result.height) shouldBe (2048 to 100)
-        // ceil(4100 / 2048) = 3: every third pixel, rounded up.
+        // Not subsampled (3000 / 2048 rounds down to 1), only scaled.
+        val wide = processVisitImage(jpeg(halves(3000, 100)))
+        (wide.width to wide.height) shouldBe (2048 to 68)
+        // Every second pixel (4100 / 2048 rounds down to 2) gives 50 x 2050, then scaled.
         val tall = processVisitImage(jpeg(halves(100, 4100)))
-        (tall.width to tall.height) shouldBe (34 to 1367)
+        (tall.width to tall.height) shouldBe (50 to 2048)
     }
 }

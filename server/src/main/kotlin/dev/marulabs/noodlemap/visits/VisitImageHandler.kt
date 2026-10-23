@@ -43,6 +43,8 @@ import org.sqlite.SQLiteException
 const val VISIT_IMAGE_MAX_BYTES = 15L * 1024 * 1024
 const val VISIT_IMAGES_PER_VISIT_MAX = 10
 private const val CAPTION_MAX_LENGTH = 100
+private val LOCAL_ORIGIN = Regex("""https?://(localhost|127\.0\.0\.1)(:\d{1,5})?""", RegexOption.IGNORE_CASE)
+
 /** Room for the multipart boundaries and part headers around the file in the request's Content-Length. */
 private const val MULTIPART_OVERHEAD_BYTES = 16L * 1024
 
@@ -92,18 +94,28 @@ class VisitImageHandler(
     private val store: VisitImageStore,
     /** Shared with OGP rendering: bounds memory on the 512 MB instance. */
     private val bitmapWork: BitmapWorkGate,
-    /** The site's origin; uploads from any other `Origin` are refused. */
+    /** The site's origin; uploads from any other `Origin` are refused (but see [originAllowed]). */
     publicBaseUrl: String,
 ) : ApiV1AuthVisitsImagesOrderController, ApiV1AuthVisitImagesController {
 
-    private val allowedOrigin = URI(publicBaseUrl).let { "${it.scheme}://${it.rawAuthority}" }
+    private val siteOrigin = URI(publicBaseUrl).let { "${it.scheme}://${it.rawAuthority}" }
+
+    // An http site is local dev or e2e, whose web servers (Vite dev, preview) run on other localhost ports.
+    private val localDevelopment = publicBaseUrl.startsWith("http://", ignoreCase = true)
+
+    /** A missing Origin is never allowed: browsers always send one on a cross-site POST. */
+    private fun originAllowed(origin: String?): Boolean = when {
+        origin == null -> false
+        origin.equals(siteOrigin, ignoreCase = true) -> true
+        else -> localDevelopment && LOCAL_ORIGIN.matches(origin)
+    }
 
     /** POST /auth/visits/{visitId}/images with one multipart file part named `file`. */
     suspend fun upload(call: ApplicationCall) {
         sessions.requireAdmin(call)
         // A multipart POST is a CORS "simple" request that any site can make with the admin's cookie, so the
         // browser-set Origin must be this site's.
-        if (!call.request.header(HttpHeaders.Origin).equals(allowedOrigin, ignoreCase = true)) throw DomainException.PermissionDenied()
+        if (!originAllowed(call.request.header(HttpHeaders.Origin))) throw DomainException.PermissionDenied()
         if (!store.acceptsUploads) throw DomainException.VisitImagesStorageUnconfigured()
         val visitId = uuidOrNull(call.parameters["visitId"]) ?: throw DomainException.NotFound()
         if (!db.visitLogsQueries.visitLogExists(visitId).executeAsOne()) throw DomainException.NotFound()

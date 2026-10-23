@@ -14,7 +14,6 @@ import javax.imageio.ImageIO
 import javax.imageio.ImageReader
 import javax.imageio.ImageWriteParam
 import javax.imageio.stream.MemoryCacheImageOutputStream
-import kotlin.math.ceil
 import kotlin.math.max
 import org.w3c.dom.Node
 import kotlin.math.roundToInt
@@ -38,8 +37,8 @@ class UnacceptableImage(val type: FieldErrorType) : Exception()
 
 /**
  * Turns an uploaded JPEG or PNG into a [ProcessedImage]: refuses other formats and absurd dimensions before
- * decoding, decodes with source subsampling so the bitmap is at most [VISIT_IMAGE_MAX_EDGE] on the long edge,
- * scales down to that edge if still larger, applies the EXIF orientation and encodes JPEG at quality 85.
+ * decoding, decodes with source subsampling so the bitmap stays under twice [VISIT_IMAGE_MAX_EDGE] on the long
+ * edge, scales down to that edge, applies the EXIF orientation and encodes JPEG at quality 85.
  * CPU and memory heavy: callers bound how many run at once.
  */
 fun processVisitImage(bytes: ByteArray): ProcessedImage {
@@ -70,8 +69,10 @@ private fun decodeSubsampled(bytes: ByteArray): BufferedImage {
             val pixels = width.toLong() * height
             if (pixels > MAX_SOURCE_PIXELS) throw UnacceptableImage(FieldErrorType.OUT_OF_RANGE)
             if (jpeg && pixels > MAX_PROGRESSIVE_JPEG_PIXELS && isProgressive(reader)) throw UnacceptableImage(FieldErrorType.OUT_OF_RANGE)
-            // Rounded up, so the decoded bitmap is never larger than the stored image.
-            val step = max(1, ceil(max(width, height).toDouble() / VISIT_IMAGE_MAX_EDGE).toInt())
+            // Rounded down, for quality: the decoded long edge is at least 2048 px (for larger sources) and
+            // below 4096 px, so at most 4096 x 4096 x 4 B = 64 MB, one at a time behind the BitmapWorkGate;
+            // scaleToFit then brings it to exactly 2048 px.
+            val step = max(1, max(width, height) / VISIT_IMAGE_MAX_EDGE)
             val param = reader.defaultReadParam.apply { if (step > 1) setSourceSubsampling(step, step, 0, 0) }
             return reader.read(0, param)
         } catch (e: IOException) {
