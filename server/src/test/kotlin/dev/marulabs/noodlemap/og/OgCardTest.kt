@@ -15,7 +15,7 @@ class OgCardTest {
     private val shop = Shop(
         id = "0f8e5d0c-1111-4222-8333-444455556666", name = "麺屋", lat = 35.0, lng = 139.0,
         postalCode = "160-0023", address = "日本、〒160-0023 東京都新宿区西新宿1-1", googlePlaceId = "p",
-        eaten = true, rate = 70.0, favorite = false, category = CategorySlug.RAMEN, tags = listOf(tag), links = emptyList(),
+        eaten = true, rate = 70.0, favorite = false, visitCount = 3, category = CategorySlug.RAMEN, tags = listOf(tag), links = emptyList(),
     )
 
     private fun hash(s: Shop, day: LocalDate = today) = OgCard.of(s, day).hash()
@@ -25,13 +25,25 @@ class OgCardTest {
         val card = OgCard.of(shop.copy(openedAt = "2026-06-01"), today)
         card.statuses.map { it.label } shouldBe listOf("食べた", "新店")
         card.hearts shouldBe 3.5
+        card.visitCountLabel shouldBe "3回訪問"
         card.area shouldBe "東京都新宿区"
-        card.description() shouldBe "ラーメン・家系・食べた・新店・東京都新宿区"
-        OgCard.of(shop.copy(eaten = false, rate = 0.0, category = CategorySlug.UDON), today).let {
+        card.description() shouldBe "ラーメン・家系・食べた・新店・3回訪問・東京都新宿区"
+        val wish = shop.copy(eaten = false, rate = 0.0, visitCount = 0, wishLevel = "high", category = CategorySlug.UDON)
+        OgCard.of(wish, today).let {
             it.category shouldBe "うどん"
-            it.statuses.map { s -> s.label } shouldBe listOf("気になる")
+            // The 気になる度 replaces the plain 気になる status.
+            it.statuses.map { s -> s.label } shouldBe listOf("絶対行きたい")
             it.hearts shouldBe 0.0
+            it.visitCountLabel shouldBe null
+            it.description() shouldBe "うどん・家系・絶対行きたい・東京都新宿区"
         }
+        fun status(s: Shop) = OgCard.of(s, today).statuses.first().label
+        status(wish.copy(wishLevel = "medium")) shouldBe "気になる"
+        OgCard.of(wish.copy(wishLevel = "medium"), today).description() shouldBe "うどん・家系・気になる・東京都新宿区"
+        status(wish.copy(wishLevel = "low")) shouldBe "ちょっと気になる"
+        status(wish.copy(wishLevel = null)) shouldBe "気になる"
+        // 気になる度 only means something before the shop is eaten.
+        status(shop.copy(wishLevel = "high")) shouldBe "食べた"
     }
 
     @Test
@@ -42,6 +54,8 @@ class OgCardTest {
         hash(shop) shouldBe hash(shop.copy(lat = 1.0, nameKana = "めんや", postalCode = "000-0000", address = "東京都新宿区歌舞伎町"))
         // Rates drawn with the same hearts (70 and 79 are both 3.5) keep the hash.
         hash(shop) shouldBe hash(shop.copy(rate = 79.0))
+        // 気になる度 is not drawn for an eaten shop.
+        hash(shop) shouldBe hash(shop.copy(wishLevel = "high"))
         // A later day with the same derived statuses keeps the hash.
         hash(shop, today.plusDays(30)) shouldBe hash(shop)
     }
@@ -58,7 +72,12 @@ class OgCardTest {
             shop.copy(tags = emptyList()),
             shop.copy(address = "大阪府大阪市北区梅田1-1"),
             shop.copy(closedAt = "2026-10-01"),
+            shop.copy(visitCount = 4),
         ).forEach { hash(it) shouldNotBe base }
+        val wish = shop.copy(eaten = false, rate = 0.0, visitCount = 0)
+        listOf(wish.copy(wishLevel = "low"), wish.copy(wishLevel = "high"), wish).map { hash(it) }.toSet().size shouldBe 3
+        // Medium is drawn as the plain 気になる, so it shares the unset shop's image.
+        hash(wish.copy(wishLevel = "medium")) shouldBe hash(wish)
     }
 
     @Test

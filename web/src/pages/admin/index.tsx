@@ -10,7 +10,12 @@ import {
   VisitFilter,
 } from "@/features/admin/visit-filter.ts";
 import { AccountLink } from "@/features/auth/account-link.tsx";
-import { CategoryType, createQueryMatcher } from "@/features/search/utils.ts";
+import {
+  CategoryType,
+  createQueryMatcher,
+  matchesWishFilter,
+  WishFilter,
+} from "@/features/search/utils.ts";
 import { useShops } from "@/features/shops/api/use-shops.ts";
 import { ShopEditModal } from "@/features/shops/shop-edit-modal.tsx";
 import { ShopsLoadState } from "@/features/shops/shops-load-state.tsx";
@@ -130,6 +135,7 @@ export default function AdminPage() {
   const deferredKeyword = useDeferredValue(keyword);
   const [categoryFilter, setCategoryFilter] = useState<CategoryType>("all");
   const [visitFilter, setVisitFilter] = useState<VisitFilter>("all");
+  const [wishFilter, setWishFilter] = useState<WishFilter>("all");
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mobileView, setMobileView] = useState<MobileAdminView>("list");
@@ -156,7 +162,10 @@ export default function AdminPage() {
           return false;
         }
       }
-      return matchesVisitFilter(shop, visitFilter);
+      return (
+        matchesVisitFilter(shop, visitFilter) &&
+        matchesWishFilter(shop, wishFilter)
+      );
     }) ?? [];
 
   // Counts stay undefined until the shops load so the UI shows a placeholder, not 0.
@@ -509,11 +518,14 @@ export default function AdminPage() {
             setCategoryFilter={setCategoryFilter}
             visitFilter={visitFilter}
             setVisitFilter={setVisitFilter}
+            wishFilter={wishFilter}
+            setWishFilter={setWishFilter}
             filteredCount={shops && filtered.length}
             totalCount={total}
             onClearAll={() => {
               setCategoryFilter("all");
               setVisitFilter("all");
+              setWishFilter("all");
             }}
           />
           <ShopsLoadState>

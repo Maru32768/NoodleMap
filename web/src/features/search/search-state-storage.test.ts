@@ -24,6 +24,40 @@ describe("search state storage", () => {
     expect(readSavedSearchState()).toEqual({ version: 5, ...state });
   });
 
+  it("round-trips the 気になる度 filter", () => {
+    const withWish = {
+      ...state,
+      filters: { ...state.filters, wishMin: "high" as const },
+    };
+    writeSavedSearchState(withWish);
+
+    expect(readSavedSearchState()).toEqual({ version: 5, ...withWish });
+  });
+
+  it.each([
+    ["saved before it existed", undefined],
+    ["unknown", "extreme"],
+    ["the removed ちょっと気になる以上", "low"],
+  ])(
+    "keeps a state whose 気になる度 filter is %s, reading it as すべて",
+    (_, wishMin) => {
+      localStorage.setItem(
+        KEY,
+        JSON.stringify({
+          ...state,
+          version: 5,
+          filters: { ...state.filters, wishMin },
+        }),
+      );
+
+      expect(readSavedSearchState()).toEqual({
+        version: 5,
+        ...state,
+        filters: { ...state.filters, wishMin: "all" },
+      });
+    },
+  );
+
   it("returns null when nothing is saved", () => {
     expect(readSavedSearchState()).toBeNull();
   });

@@ -15,7 +15,8 @@ type UpdateShopRequest = components["schemas"]["UpdateShopRequest"];
 // The toaster store is global; clear it so one test's toast never leaks into the next.
 afterEach(() => toaster.remove());
 
-const shop = makeShop({ name: "中華そば 青葉" });
+// No visit logs: a shop with any cannot be deleted.
+const shop = makeShop({ name: "中華そば 青葉", eaten: false });
 
 function renderModal(deleteResponse: () => Response) {
   server.use(
@@ -46,6 +47,9 @@ function renderEditor(
   server.use(
     http.get("/api/v1/shops", () => HttpResponse.json({ shops: [target] })),
     http.get("/api/v1/tags", () => HttpResponse.json({ tags: [] })),
+    http.get(`/api/v1/shops/${target.id}/visits`, () =>
+      HttpResponse.json({ visits: [] }),
+    ),
     http.put(`/api/v1/auth/shops/${target.id}`, async ({ request }) => {
       requests.push((await request.json()) as UpdateShopRequest);
       return saveResponse();
@@ -53,16 +57,22 @@ function renderEditor(
   );
   const onClose = vi.fn();
   const onDeleted = vi.fn();
-  renderWithProviders(
+  const modal = (shop: Shop) => (
     <ShopEditModal
-      shop={target}
+      shop={shop}
       open
       initialTab={initialTab}
       onClose={onClose}
       onDeleted={onDeleted}
-    />,
+    />
   );
-  return { requests, onClose, onDeleted };
+  const { rerender } = renderWithProviders(modal(target));
+  return {
+    requests,
+    onClose,
+    onDeleted,
+    rerender: (shop: Shop) => rerender(modal(shop)),
+  };
 }
 
 function fieldErrorResponse(
@@ -172,18 +182,20 @@ describe("ShopEditModal save", () => {
     ).toBeInTheDocument();
   });
 
-  it("switches to 食べた記録 for a rate error", async () => {
-    renderEditor(makeShop({ eaten: true }), {
+  it("switches to 店舗情報 for a 気になる度 error", async () => {
+    renderEditor(makeShop({ eaten: false }), {
+      initialTab: "visit",
       saveResponse: fieldErrorResponse([
-        { field: "rate", type: "out_of_range" },
+        { field: "wishLevel", type: "invalid_format" },
       ]),
     });
 
     await userEvent.click(screen.getByRole("button", { name: "保存" }));
 
     expect(
-      await screen.findByRole("spinbutton", {
-        description: "0〜100の範囲で入力してください",
+      await screen.findByRole("combobox", {
+        name: "気になる度",
+        description: "形式が正しくありません",
       }),
     ).toHaveAttribute("aria-invalid", "true");
   });
@@ -221,7 +233,7 @@ describe("ShopEditModal save", () => {
   it("toasts a field error that has no input on screen", async () => {
     renderEditor(makeShop({ eaten: false }), {
       saveResponse: fieldErrorResponse([
-        // The rate input is hidden while 食べた is off.
+        // Deprecated: the server derives the rate from visit logs, so no input.
         { field: "rate", type: "out_of_range" },
         // A field from a newer server.
         { field: "visitLogs", type: "required" } as unknown as {
@@ -234,42 +246,11 @@ describe("ShopEditModal save", () => {
     await userEvent.click(screen.getByRole("button", { name: "保存" }));
 
     // One toast per error.
-    expect(
-      await screen.findByText("0〜100の範囲で入力してください"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("範囲外の値です")).toBeInTheDocument();
     expect(await screen.findByText("入力してください")).toBeInTheDocument();
     expect(screen.getAllByText("店舗を更新できませんでした")).toHaveLength(2);
     // Stays on 店舗情報 rather than switching to an empty tab.
     expect(screen.getByText("読み（ひらがな）")).toBeInTheDocument();
-  });
-
-  it("opens 店舗情報 and points at 食べた記録 when errors span both tabs", async () => {
-    renderEditor(makeShop({ eaten: true }), {
-      initialTab: "visit",
-      saveResponse: fieldErrorResponse([
-        { field: "rate", type: "out_of_range" },
-        { field: "nameKana", type: "too_long" },
-      ]),
-    });
-
-    await userEvent.click(screen.getByRole("button", { name: "保存" }));
-
-    expect(
-      await screen.findByRole("textbox", {
-        description: "100文字以内で入力してください",
-      }),
-    ).toBeInTheDocument();
-    expect(
-      await screen.findByText("「食べた記録」タブにも入力エラーがあります"),
-    ).toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole("button", { name: "食べた記録" }));
-
-    expect(
-      await screen.findByRole("spinbutton", {
-        description: "0〜100の範囲で入力してください",
-      }),
-    ).toBeInTheDocument();
   });
 
   it("cannot be cancelled while saving", async () => {
@@ -470,5 +451,71 @@ describe("ShopEditModal links", () => {
 
     await waitFor(() => expect(requests).toHaveLength(1));
     expect(requests[0]).not.toHaveProperty("links");
+  });
+});
+
+describe("ShopEditModal 気になる度", () => {
+  const wishSelect = () => screen.getByRole("combobox", { name: "気になる度" });
+
+  it("omits 気になる度 when unchanged so the stored value is kept", async () => {
+    const { requests } = renderEditor(
+      makeShop({ eaten: false, wishLevel: "medium" }),
+    );
+
+    expect(wishSelect()).toHaveValue("medium");
+    await userEvent.click(screen.getByRole("button", { name: "保存" }));
+
+    await waitFor(() => expect(requests).toHaveLength(1));
+    expect(requests[0]).not.toHaveProperty("wishLevel");
+    // 食べた and 評価 come from visit logs; the deprecated fields are not sent.
+    expect(requests[0]).not.toHaveProperty("eaten");
+    expect(requests[0]).not.toHaveProperty("rate");
+  });
+
+  it("sends the chosen 気になる度", async () => {
+    const { requests } = renderEditor(makeShop({ eaten: false }));
+
+    await userEvent.selectOptions(wishSelect(), "絶対行きたい");
+    await userEvent.click(screen.getByRole("button", { name: "保存" }));
+
+    await waitFor(() => expect(requests).toHaveLength(1));
+    expect(requests[0].wishLevel).toBe("high");
+  });
+
+  it("sends an empty string to clear 気になる度", async () => {
+    const { requests } = renderEditor(
+      makeShop({ eaten: false, wishLevel: "high" }),
+    );
+
+    await userEvent.selectOptions(wishSelect(), "未設定");
+    await userEvent.click(screen.getByRole("button", { name: "保存" }));
+
+    await waitFor(() => expect(requests).toHaveLength(1));
+    expect(requests[0].wishLevel).toBe("");
+  });
+});
+
+describe("ShopEditModal 気になる度 across a refresh", () => {
+  it("keeps omitting an untouched 気になる度 when the shop prop changes", async () => {
+    const before = makeShop({ eaten: false, wishLevel: "medium" });
+    const { requests, rerender } = renderEditor(before);
+
+    // A refetch brings a newer 気になる度 while the modal is open.
+    rerender({ ...before, wishLevel: "high" });
+    await userEvent.click(screen.getByRole("button", { name: "保存" }));
+
+    await waitFor(() => expect(requests).toHaveLength(1));
+    expect(requests[0]).not.toHaveProperty("wishLevel");
+  });
+});
+
+describe("ShopEditModal shop with visit logs", () => {
+  it("disables 削除 and says why", () => {
+    renderEditor(makeShop({ eaten: true, visitCount: 2 }));
+
+    expect(screen.getByRole("button", { name: "削除" })).toBeDisabled();
+    expect(
+      screen.getByText("訪問ログがある店舗は削除できません"),
+    ).toBeInTheDocument();
   });
 });

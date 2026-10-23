@@ -116,7 +116,6 @@ function toGeoJson(shops: Shop[]) {
   return {
     type: "FeatureCollection" as const,
     features: shops.map((shop) => {
-      const highRate = shop.favorite;
       const nearestKm = nearestKmMap.get(shop.id) ?? 99;
       const state: State =
         shop.lifecycleStatus === "closed"
@@ -124,6 +123,11 @@ function toGeoJson(shops: Shop[]) {
           : shop.eatenStatus === "eaten"
             ? "eaten"
             : "wish";
+      // お気に入り on a 食べた pin, 絶対行きたい on a 気になる pin.
+      const accent =
+        state === "eaten"
+          ? shop.favorite
+          : state === "wish" && shop.wishLevel === "high";
 
       return {
         type: "Feature" as const,
@@ -134,8 +138,8 @@ function toGeoJson(shops: Shop[]) {
           nearestKm,
           catType: shop.category,
           state,
-          highRate,
-          icon: getPinImageId(state, shop.category, highRate),
+          accent,
+          icon: getPinImageId(state, shop.category, accent),
         },
         geometry: {
           type: "Point" as const,
@@ -182,8 +186,8 @@ function toUserLocationGeoJson(userLocation: UserLocation | null) {
   };
 }
 
-function getPinImageId(state: State, catType: string, highRate: boolean) {
-  return `shop-pin-${state}-${catType}-${highRate ? "high" : "normal"}`;
+function getPinImageId(state: State, catType: string, accent: boolean) {
+  return `shop-pin-${state}-${catType}-${accent ? "accent" : "normal"}`;
 }
 
 function getPinStyle(state: State, catType: string) {
@@ -215,7 +219,7 @@ function getPinStyle(state: State, catType: string) {
 function createPinImage(
   state: State,
   catType: string,
-  highRate: boolean,
+  accent: boolean,
   glyphImage: HTMLImageElement | null,
 ) {
   const canvas = document.createElement("canvas");
@@ -228,7 +232,7 @@ function createPinImage(
   }
 
   ctx.scale(PIN_IMAGE_PIXEL_RATIO, PIN_IMAGE_PIXEL_RATIO);
-  drawPinImage(ctx, state, catType, highRate, glyphImage);
+  drawPinImage(ctx, state, catType, accent, glyphImage);
   return ctx.getImageData(0, 0, canvas.width, canvas.height);
 }
 
@@ -283,7 +287,7 @@ function drawPinImage(
   ctx: CanvasRenderingContext2D,
   state: State,
   catType: string,
-  highRate: boolean,
+  accent: boolean,
   glyphImage: HTMLImageElement | null,
 ) {
   const { bodyColor, ringColor, glyphColor } = getPinStyle(state, catType);
@@ -333,10 +337,11 @@ function drawPinImage(
     );
   }
 
-  if (state === "eaten" && highRate) {
+  // A dot on the shoulder: gold for お気に入り, the ring color for 絶対行きたい.
+  if (accent && state !== "closed") {
     ctx.beginPath();
     ctx.arc(x + 10, top + 8, 5, 0, Math.PI * 2);
-    ctx.fillStyle = "#f6b552";
+    ctx.fillStyle = state === "eaten" ? "#f6b552" : ringColor;
     ctx.fill();
     ctx.strokeStyle = "#fffaf0";
     ctx.lineWidth = 1;
@@ -402,11 +407,11 @@ async function ensurePinImages(map: MapLibreMap) {
 
   for (const state of ["closed", "eaten", "wish"] as const) {
     for (const catType of ["ramen", "udon"]) {
-      for (const highRate of [false, true]) {
-        const id = getPinImageId(state, catType, highRate);
+      for (const accent of [false, true]) {
+        const id = getPinImageId(state, catType, accent);
         const { glyphColor } = getPinStyle(state, catType);
         const glyphImage = glyphs[`${catType}:${glyphColor}`] ?? null;
-        const image = createPinImage(state, catType, highRate, glyphImage);
+        const image = createPinImage(state, catType, accent, glyphImage);
         if (map.hasImage(id)) {
           map.updateImage(id, image);
         } else {

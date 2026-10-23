@@ -17,8 +17,8 @@ import React, { Suspense, useEffect } from "react";
 import { Navigate, Outlet, Route, Routes, useLocation } from "react-router";
 
 function App() {
-  const { currentUser: authUser, isLoading } = useAuth();
-  const currentUser = toCurrentUser(authUser);
+  const { currentUser: authUser, isLoading, error: authError } = useAuth();
+  const currentUser = toCurrentUser(authUser, !!authError);
   const location = useLocation();
 
   useEffect(() => {

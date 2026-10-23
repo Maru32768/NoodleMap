@@ -2,13 +2,14 @@ package dev.marulabs.noodlemap.og
 
 import dev.marulabs.noodlemap.generated.models.CategorySlug
 import dev.marulabs.noodlemap.generated.models.Shop
+import dev.marulabs.noodlemap.generated.models.WishLevel
 import java.security.MessageDigest
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 import kotlin.math.floor
 
 /** Bump whenever the image layout changes, so every OGP image URL changes with it. */
-private const val TEMPLATE_VERSION = 3
+private const val TEMPLATE_VERSION = 4
 
 /** A pill label with its background color (`#rrggbb`). */
 data class Chip(val label: String, val color: String)
@@ -24,8 +25,13 @@ data class OgCard(
     val tags: List<Chip>,
     /** 0-5 in half steps (the web's favToHearts as drawn); 0 draws nothing. */
     val hearts: Double,
+    /** Number of visit logs; 0 for a shop not eaten, and then nothing is drawn. */
+    val visitCount: Int,
     val area: String,
 ) {
+    /** 「3回訪問」, or null for a shop not eaten. */
+    val visitCountLabel: String? get() = if (visitCount > 0) "${visitCount}回訪問" else null
+
     fun hash(): String {
         // Length-prefixed fields, so no value can shift into its neighbour.
         val input = buildString {
@@ -38,6 +44,7 @@ data class OgCard(
                 chips.forEach { field(it.label); field(it.color) }
             }
             field(hearts)
+            field(visitCount)
             field(area)
         }
         return MessageDigest.getInstance("SHA-256").digest(input.toByteArray())
@@ -46,7 +53,8 @@ data class OgCard(
     }
 
     fun description(): String =
-        (listOf(category) + tags.map { it.label } + statuses.map { it.label } + area).filter { it.isNotEmpty() }.joinToString("・")
+        (listOf(category) + tags.map { it.label } + statuses.map { it.label } + listOfNotNull(visitCountLabel) + area)
+            .filter { it.isNotEmpty() }.joinToString("・")
 
     companion object {
         fun of(shop: Shop, today: LocalDate) = OgCard(
@@ -55,14 +63,29 @@ data class OgCard(
                 CategorySlug.RAMEN -> "ラーメン"
                 CategorySlug.UDON -> "うどん"
             },
-            statuses = listOf(if (shop.eaten) Chip("食べた", "#b54a3c") else Chip("気になる", "#6b5e52")) +
-                lifecycleChips(shop.openedAt, shop.closedAt, today),
+            statuses = listOf(eatenChip(shop)) + lifecycleChips(shop.openedAt, shop.closedAt, today),
             tags = shop.tags.take(3).map { Chip(it.label, it.color) },
             // Down to the half heart the image can show, so rates drawn alike share one hash.
             hearts = if (shop.rate > 0) floor(minOf(5.0, shop.rate / 20) * 2) / 2 else 0.0,
+            visitCount = shop.visitCount,
             area = areaOf(shop.address),
         )
     }
+}
+
+/** 食べた, or for a shop not eaten its 気になる度 (plain 気になる when not set); the level means nothing once eaten. */
+private fun eatenChip(shop: Shop): Chip =
+    if (shop.eaten) {
+        Chip("食べた", "#b54a3c")
+    } else {
+        Chip(shop.wishLevel?.let(WishLevel::fromValue)?.let(::wishLevelLabel) ?: "気になる", "#6b5e52")
+    }
+
+/** 気になる度 as the web shows it (GLOSSARY.md). */
+internal fun wishLevelLabel(level: WishLevel): String = when (level) {
+    WishLevel.LOW -> "ちょっと気になる"
+    WishLevel.MEDIUM -> "気になる"
+    WishLevel.HIGH -> "絶対行きたい"
 }
 
 private const val NEW_SHOP_WINDOW_DAYS = 365

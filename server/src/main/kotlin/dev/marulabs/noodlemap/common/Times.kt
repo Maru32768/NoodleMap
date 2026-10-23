@@ -2,8 +2,12 @@ package dev.marulabs.noodlemap.common
 
 import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+
+/** Calendar days (新店/閉店, the latest allowed visit date) follow the Japanese day the app is used in. */
+val JST: ZoneId = ZoneId.of("Asia/Tokyo")
 
 /**
  * Session timestamps. Stored as UTC "yyyy-MM-dd HH:mm:ss" text — lexicographically

@@ -14,6 +14,7 @@ import type { components } from "@/generated/api.ts";
 import { ApiError } from "@/utils/request.ts";
 
 type ErrorType = components["schemas"]["ErrorType"];
+type VisitLogField = components["schemas"]["VisitLogField"];
 
 export function toastError(options: Parameters<typeof toaster.error>[0]) {
   toaster.error(options);
@@ -65,6 +66,10 @@ const apiErrorMessages: Readonly<Record<ErrorType, UserErrorMessage>> = {
     title: "Google Place 検索に失敗しました",
     description:
       "時間をおいてもう一度お試しください。店舗情報はフォームに直接入力することもできます。",
+  },
+  shop_has_visit_logs: {
+    title: "店舗を削除できませんでした",
+    description: "訪問ログがある店舗は削除できません",
   },
 };
 
@@ -123,9 +128,7 @@ export function shopFieldErrorMessage(
     case "invalid_format":
       return "形式が正しくありません";
     case "out_of_range":
-      return field === "rate"
-        ? "0〜100の範囲で入力してください"
-        : "範囲外の値です";
+      return "範囲外の値です";
     case "too_long":
       return field === "nameKana"
         ? `${SHOP_NAME_KANA_MAX_LENGTH}文字以内で入力してください`
@@ -154,12 +157,57 @@ export function toastShopFieldErrors(
   }
 }
 
-// The edit modal shows one tab at a time; this points at errors on another one.
-export function shopOtherTabErrorsMessage(tabLabel: string): UserErrorMessage {
-  return {
-    title: `「${tabLabel}」タブにも入力エラーがあります`,
-    description: "タブを切り替えて確認してください。",
-  };
+export const VISIT_SAVE_FAILED_TITLE = "訪問ログを保存できませんでした";
+export const VISIT_DELETE_FAILED_TITLE = "訪問ログを削除できませんでした";
+export const VISIT_ALREADY_DELETED_TITLE =
+  "この訪問ログはすでに削除されています";
+export const VISIT_INPUT_INVALID_DESCRIPTION = "入力内容を確認してください";
+export const VISITS_LOAD_FAILED_MESSAGE = "訪問ログを読み込めませんでした";
+export const VISITS_REFRESH_FAILED_MESSAGE =
+  "訪問ログを更新できませんでした。表示は前回の内容です";
+
+// Mirrors @maxLength on VisitLogInput in typespec/main.tsp.
+const VISIT_TEXT_MAX_LENGTH: Partial<Record<VisitLogField, number>> = {
+  menuName: 200,
+  eventName: 100,
+  publicNote: 2000,
+  privateNote: 2000,
+};
+
+const VISIT_FORMAT_MESSAGE: Partial<Record<VisitLogField, string>> = {
+  visitedOn: "日付の形式が正しくありません",
+  price: "整数で入力してください",
+  rate: "数値で入力してください",
+};
+
+const VISIT_RANGE_MESSAGE: Partial<Record<VisitLogField, string>> = {
+  visitedOn: "明日以前の日付を入力してください",
+  price: "0〜10,000,000の範囲で入力してください",
+  rate: "0〜100の範囲で入力してください",
+};
+
+// Message for an `invalid_request` field error on the 訪問ログ form.
+export function visitFieldErrorMessage(
+  field: VisitLogField,
+  type: FieldErrorType,
+): string {
+  switch (type) {
+    case "required":
+      return "入力してください";
+    case "invalid_format":
+      return VISIT_FORMAT_MESSAGE[field] ?? "形式が正しくありません";
+    case "out_of_range":
+      return VISIT_RANGE_MESSAGE[field] ?? "範囲外の値です";
+    case "too_long": {
+      const max = VISIT_TEXT_MAX_LENGTH[field];
+      return max ? `${max}文字以内で入力してください` : "長すぎます";
+    }
+    case "duplicate":
+    case "unknown":
+      return "入力内容を確認してください";
+  }
+  // A field or error type added on the server after this client was built.
+  return "入力内容を確認してください";
 }
 
 export function shopLinkProblemMessage(

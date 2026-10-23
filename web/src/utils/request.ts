@@ -215,6 +215,7 @@ const errors: Readonly<Record<number, string>> = {
   401: "Unauthorized",
   403: "Forbidden",
   404: "Not Found",
+  409: "Conflict",
   500: "Internal Server Error",
   502: "Bad Gateway",
   503: "Service Unavailable",
@@ -230,6 +231,7 @@ const errorTypes = new Set<ErrorType>([
   "internal_error",
   "google_places_not_configured",
   "google_places_failed",
+  "shop_has_visit_logs",
 ]);
 
 function getErrorType(body: ApiErrorBody | undefined): ErrorType | undefined {

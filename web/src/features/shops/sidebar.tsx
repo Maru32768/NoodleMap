@@ -1,15 +1,20 @@
 import { ShopThumb } from "@/components/shop-thumb.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { AccountLink } from "@/features/auth/account-link.tsx";
-import { favToHearts, SearchFilters } from "@/features/search/utils.ts";
+import {
+  favToHearts,
+  isWishFilter,
+  SearchFilters,
+  WISH_FILTER_OPTIONS,
+} from "@/features/search/utils.ts";
 import { Shop, Tag, useTags } from "@/features/shops/api/use-shops.ts";
 import { HeartIcon, MiniHearts } from "@/features/shops/rating-hearts.tsx";
 import { ShopsLoadState } from "@/features/shops/shops-load-state.tsx";
 import {
   DEFAULT_SYSTEM_TAG_SELECTION,
-  SHOP_EATEN_STATUS_LABEL,
   shopDisplaySystemTags,
   ShopEatenStatus,
+  shopStatusLabel,
   SYSTEM_TAGS,
   SystemTagDef,
 } from "@/features/shops/status.ts";
@@ -18,7 +23,7 @@ import {
   SystemTagChips,
   TagChips,
 } from "@/features/shops/tag-chips.tsx";
-import { Box, Input } from "@chakra-ui/react";
+import { Box, Input, NativeSelect } from "@chakra-ui/react";
 import { isEqual } from "es-toolkit";
 import { useState } from "react";
 import { Virtuoso } from "react-virtuoso";
@@ -37,7 +42,7 @@ function StatusPill({ shop }: { shop: Shop }) {
   const status = shop.eatenStatus;
   const props = {
     ...STATUS_PILL[status],
-    label: SHOP_EATEN_STATUS_LABEL[status],
+    label: shopStatusLabel(shop),
   };
 
   return (
@@ -472,6 +477,34 @@ export function ShopFilters({ filters, onFilterChange }: ShopFiltersProps) {
           >
             気になる
           </Chip>
+        </Box>
+        <Box display="flex" alignItems="center" gap="0.5rem" mt="0.625rem">
+          <Box
+            as="span"
+            fontSize="0.6875rem"
+            color="nm.inkMuted"
+            flexShrink={0}
+          >
+            気になる度
+          </Box>
+          <NativeSelect.Root size="xs" width="auto">
+            <NativeSelect.Field
+              aria-label="気になる度"
+              value={filters.wishMin}
+              onChange={(e) => {
+                if (isWishFilter(e.target.value)) {
+                  onFilterChange("wishMin", e.target.value);
+                }
+              }}
+            >
+              {WISH_FILTER_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </NativeSelect.Field>
+            <NativeSelect.Indicator />
+          </NativeSelect.Root>
         </Box>
       </Box>
 

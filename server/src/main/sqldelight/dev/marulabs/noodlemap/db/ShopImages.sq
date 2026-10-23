@@ -1,4 +1,6 @@
--- Present in the prod DB; no handler reads/writes images today, only shop deletion clears them.
+-- Legacy, kept only because the prod DB may hold rows imported from PostgreSQL: startup warns with their
+-- count (Database.kt) so the table can be dropped deliberately. No handler reads or writes images (訪問画像
+-- will belong to visit logs); only shop deletion clears a shop's rows, since the foreign key has no cascade.
 CREATE TABLE shop_images (
     id         TEXT AS java.util.UUID NOT NULL PRIMARY KEY,
     shop_id    TEXT AS java.util.UUID NOT NULL,

@@ -5,15 +5,19 @@ export type UserType = "guest" | "admin" | "normal";
 
 type UserProfile = Omit<User, "isAdmin">;
 
-export type GuestUser = { type: "guest" };
+// `authFailed`: /auth/me failed, so the visitor may in fact be signed in.
+export type GuestUser = { type: "guest"; authFailed?: boolean };
 export type AuthenticatedUser = UserProfile & { type: "admin" | "normal" };
 export type CurrentUser = GuestUser | AuthenticatedUser;
 
 export const GUEST_USER: GuestUser = { type: "guest" };
 
-export function toCurrentUser(user: User | undefined): CurrentUser {
+export function toCurrentUser(
+  user: User | undefined,
+  authFailed = false,
+): CurrentUser {
   if (!user) {
-    return GUEST_USER;
+    return authFailed ? { type: "guest", authFailed } : GUEST_USER;
   }
 
   const { isAdmin, ...profile } = user;

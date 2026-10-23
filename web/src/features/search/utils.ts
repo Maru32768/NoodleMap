@@ -2,6 +2,8 @@ import { Shop } from "@/features/shops/api/use-shops.ts";
 import {
   isSystemTagSlug,
   shopSystemTagSlugs,
+  WISH_LEVELS,
+  WishLevel,
 } from "@/features/shops/status.ts";
 
 export type CategoryType = "all" | "ramen" | "udon";
@@ -20,8 +22,42 @@ export type FilterToggles = {
 // filterShops because their empty-selection meaning differs (see below).
 export type SearchFilters = FilterToggles & {
   favMin: number;
+  // 気になる度 floor for shops not eaten yet; eaten shops are not narrowed.
+  wishMin: WishFilter;
   tagIds: string[];
 };
+
+// No "low" floor: an unset 気になる度 ranks as 気になる, so ちょっと気になる以上
+// would hide nothing.
+export type WishFilter = "all" | Exclude<WishLevel, "low">;
+
+export const WISH_FILTER_OPTIONS: readonly {
+  value: WishFilter;
+  label: string;
+}[] = [
+  { value: "all", label: "すべて" },
+  { value: "medium", label: "気になる以上" },
+  { value: "high", label: "絶対行きたいのみ" },
+];
+
+export function isWishFilter(value: unknown): value is WishFilter {
+  return WISH_FILTER_OPTIONS.some((option) => option.value === value);
+}
+
+/**
+ * Narrows only shops not eaten yet. An unset 気になる度 ranks as 気になる, the
+ * label such a shop shows.
+ */
+export function matchesWishFilter(
+  shop: Pick<Shop, "eatenStatus" | "wishLevel">,
+  filter: WishFilter,
+): boolean {
+  if (filter === "all" || shop.eatenStatus === "eaten") {
+    return true;
+  }
+  const level = shop.wishLevel ?? "medium";
+  return WISH_LEVELS.indexOf(level) >= WISH_LEVELS.indexOf(filter);
+}
 
 export function favToHearts(rate: number | undefined): number {
   if (!rate || rate <= 0) {
@@ -53,7 +89,7 @@ export function filterShops(
     const visitMatch =
       (r.eatenStatus === "eaten" && filters.eaten) ||
       (r.eatenStatus === "uneaten" && filters.wish);
-    if (!visitMatch) {
+    if (!visitMatch || !matchesWishFilter(r, filters.wishMin)) {
       return false;
     }
 

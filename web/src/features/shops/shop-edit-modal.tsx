@@ -16,7 +16,6 @@ import {
   useShops,
   useTags,
 } from "@/features/shops/api/use-shops.ts";
-import { MiniHearts } from "@/features/shops/rating-hearts.tsx";
 import {
   clearShopFieldErrors,
   SHOP_NAME_KANA_MAX_LENGTH,
@@ -34,14 +33,16 @@ import {
   ShopLinkType,
   withLinkUrl,
 } from "@/features/shops/shop-links.ts";
+import type { WishLevel } from "@/features/shops/status.ts";
 import { TagSelector } from "@/features/shops/tag-chips.tsx";
+import { WishLevelSelect } from "@/features/shops/wish-level-select.tsx";
+import { VisitLogEditor } from "@/features/visits/visit-log-editor.tsx";
 import { invalidRequestFieldErrors } from "@/utils/request.ts";
 import {
   SHOP_ALREADY_DELETED_TITLE,
   SHOP_UPDATE_FAILED_TITLE,
   shopFieldErrorMessage,
   shopLinkProblemMessage,
-  shopOtherTabErrorsMessage,
   toastApiError,
   toastError,
   toastShopFieldErrors,
@@ -61,8 +62,8 @@ interface ShopEditDraft {
   category: CategorySlug;
   openedAt?: string;
   closedAt?: string;
-  eaten: boolean;
-  rate: number;
+  // "" is 未設定.
+  wishLevel: WishLevel | "";
   images: AdminImage[];
   tagIds: string[];
   // Omitted when the cached shop has no `links` (older server), so saving keeps them.
@@ -129,83 +130,6 @@ function FormInput({
       // Field.Root marks the input invalid; the borderColor above would hide it.
       _invalid={{ borderColor: "border.error" }}
     />
-  );
-}
-
-function Toggle({
-  label,
-  on,
-  color = "ink",
-  onClick,
-}: {
-  label: string;
-  on: boolean;
-  color?: "ink" | "shu";
-  onClick: () => void;
-}) {
-  const activeBg = color === "shu" ? "nm.shu" : "nm.ink";
-  return (
-    <Box
-      as="button"
-      role="switch"
-      aria-checked={on}
-      aria-label={label}
-      w="40px"
-      h="22px"
-      rounded="full"
-      bg={on ? activeBg : "nm.lineFaint"}
-      border="2px solid"
-      borderColor={on ? activeBg : "nm.line"}
-      position="relative"
-      transition="all 0.2s"
-      onClick={onClick}
-      cursor="pointer"
-      flexShrink={0}
-    >
-      <Box
-        position="absolute"
-        top="1px"
-        left={on ? "19px" : "1px"}
-        w="16px"
-        h="16px"
-        rounded="full"
-        bg="white"
-        transition="left 0.2s"
-        boxShadow="0 1px 3px rgba(0,0,0,0.2)"
-      />
-    </Box>
-  );
-}
-
-function FavPicker({
-  rate,
-  onChange,
-}: {
-  rate: number;
-  onChange: (rate: number) => void;
-}) {
-  return (
-    <Box display="flex" alignItems="center" gap="8px">
-      <MiniHearts rate={rate} />
-      <Input
-        type="number"
-        min={0}
-        max={100}
-        step={1}
-        value={rate}
-        onChange={(e) => {
-          // An empty or partial entry keeps the previous rate instead of becoming 0.
-          const v = e.target.valueAsNumber;
-          if (!Number.isNaN(v)) {
-            onChange(Math.min(100, Math.max(0, v)));
-          }
-        }}
-        width="72px"
-        fontFamily="mono"
-        fontSize="13px"
-        textAlign="right"
-      />
-    </Box>
   );
 }
 
@@ -372,34 +296,36 @@ type Tab = "info" | "visit" | "images";
 
 const TAB_LABELS: Record<Tab, string> = {
   info: "店舗情報",
-  visit: "食べた記録",
+  visit: "訪問ログ",
   images: "画像",
 };
 
-// The tab that shows each field's input.
-const FIELD_TAB: Record<UpdateShopField, Tab> = {
-  name: "info",
-  nameKana: "info",
-  lat: "info",
-  lng: "info",
-  postalCode: "info",
-  address: "info",
-  openedAt: "info",
-  closedAt: "info",
-  googlePlaceId: "info",
-  category: "info",
-  tagIds: "info",
-  links: "info",
-  eaten: "visit",
-  rate: "visit",
-};
+// Fields with an input, all on 店舗情報; an error on any other field (including
+// a field added on the server after this client was built) is toasted.
+const FIELDS_WITH_INPUT: readonly UpdateShopField[] = [
+  "name",
+  "nameKana",
+  "lat",
+  "lng",
+  "postalCode",
+  "address",
+  "openedAt",
+  "closedAt",
+  "googlePlaceId",
+  "category",
+  "tagIds",
+  "links",
+  "wishLevel",
+];
 
-// Also false for a field added on the server after this client was built.
 function isUpdateShopField(key: string): key is UpdateShopField {
-  return Object.hasOwn(FIELD_TAB, key);
+  return (FIELDS_WITH_INPUT as readonly string[]).includes(key);
 }
 
-function toUpdateCommand(draft: ShopEditDraft): UpdateShopCommand {
+function toUpdateCommand(
+  draft: ShopEditDraft,
+  initialWishLevel: WishLevel | "",
+): UpdateShopCommand {
   return {
     name: draft.name,
     nameKana: draft.nameKana ?? "",
@@ -412,8 +338,9 @@ function toUpdateCommand(draft: ShopEditDraft): UpdateShopCommand {
     // Blank clears the stored Place ID.
     googlePlaceId: draft.googlePlaceId.trim(),
     category: draft.category,
-    eaten: draft.eaten,
-    rate: draft.rate,
+    // Omitted when unchanged so the stored value is kept; "" clears it.
+    wishLevel:
+      draft.wishLevel === initialWishLevel ? undefined : draft.wishLevel,
     tagIds: draft.tagIds,
     links: draft.links,
   };
@@ -447,8 +374,7 @@ export function ShopEditModal({
     category: shop.category,
     openedAt: shop.openedAt,
     closedAt: shop.closedAt,
-    eaten: shop.eaten,
-    rate: shop.rate ?? 0,
+    wishLevel: shop.wishLevel ?? "",
     images: [],
     tagIds: shop.tags.map((tag) => tag.id),
     // `links` is missing while an older server is still deployed.
@@ -461,8 +387,21 @@ export function ShopEditModal({
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   // Locks closing and saving while the DELETE is in flight.
   const [deleting, setDeleting] = useState(false);
+  // What the 気になる度 select started from: unchanged means omit (keep).
+  const [initialWishLevel] = useState<WishLevel | "">(shop.wishLevel ?? "");
+  // The 訪問ログ tab stays mounted once opened so a visit draft survives tab
+  // switches; closing or saving the shop with one unsaved asks first.
+  const [visitTabOpened, setVisitTabOpened] = useState(initialTab === "visit");
+  const [visitDraftDirty, setVisitDraftDirty] = useState(false);
+  // A visit save or delete in flight locks closing like the shop save does.
+  const [visitBusy, setVisitBusy] = useState(false);
+  // Remounts the 訪問ログ tab to drop a discarded draft.
+  const [visitEditorKey, setVisitEditorKey] = useState(0);
+  const [discardAction, setDiscardAction] = useState<
+    "close" | "save" | "delete" | null
+  >(null);
   const { tags } = useTags();
-  const { updateShop, deleteShop } = useShops();
+  const { updateShop, deleteShop, mutate: mutateShops } = useShops();
 
   const { ref: formRef, reveal: revealFirstError } =
     useRevealFirstError<HTMLDivElement>();
@@ -498,11 +437,9 @@ export function ShopEditModal({
     );
   };
 
-  // Whether the field's input is on screen (on its tab) to show an error.
+  // Whether the field's input is on screen to show an error.
   const hasInput = (field: UpdateShopField) =>
-    isUpdateShopField(field) &&
-    (field !== "tagIds" || !!tags) &&
-    (field !== "rate" || draft.eaten);
+    isUpdateShopField(field) && (field !== "tagIds" || !!tags);
 
   const handleSave = async () => {
     const problem = findShopLinkProblem(draft.links);
@@ -536,7 +473,10 @@ export function ShopEditModal({
     setFieldErrors({});
     setSaving(true);
     try {
-      const result = await updateShop(shop.id, toUpdateCommand(sanitizedDraft));
+      const result = await updateShop(
+        shop.id,
+        toUpdateCommand(sanitizedDraft, initialWishLevel),
+      );
       if (!result.ok) {
         if (result.error.type === "not_found") {
           toastApiError(result.error, {
@@ -551,18 +491,8 @@ export function ShopEditModal({
           const shown = errors.filter((e) => hasInput(e.field));
           if (shown.length > 0) {
             setFieldErrors(toShopFieldErrors(shown));
-            const tabs = new Set(shown.map((e) => FIELD_TAB[e.field]));
-            // Prefer 店舗情報; a toast points at errors left on the other tab.
-            const nextTab = tabs.has("info") ? "info" : "visit";
-            setTab(nextTab);
+            setTab("info");
             revealFirstError();
-            if (tabs.size > 1) {
-              toastError(
-                shopOtherTabErrorsMessage(
-                  TAB_LABELS[nextTab === "info" ? "visit" : "info"],
-                ),
-              );
-            }
           }
           toastShopFieldErrors(
             SHOP_UPDATE_FAILED_TITLE,
@@ -603,14 +533,65 @@ export function ShopEditModal({
     }
   };
 
+  const runAction = (action: "close" | "save" | "delete") => {
+    switch (action) {
+      case "close":
+        onClose();
+        return;
+      case "save":
+        void handleSave();
+        return;
+      case "delete":
+        setConfirmDeleteOpen(true);
+        return;
+    }
+  };
+
+  // Asks before an action that would drop an unsaved visit draft.
+  const guardVisitDraft = (action: "close" | "save" | "delete") => {
+    if (visitDraftDirty) {
+      setDiscardAction(action);
+      return;
+    }
+    runAction(action);
+  };
+
+  const discardVisitDraft = () => {
+    const action = discardAction;
+    setDiscardAction(null);
+    setVisitDraftDirty(false);
+    setVisitEditorKey((key) => key + 1);
+    if (action) {
+      runAction(action);
+    }
+  };
+
+  // Adding a visit found the shop deleted elsewhere.
+  const handleShopGone = () => {
+    toastError({ title: SHOP_ALREADY_DELETED_TITLE });
+    void mutateShops();
+    onDeleted(shop.id);
+    onClose();
+  };
+
+  const locked = saving || deleting || visitBusy;
+
+  const selectTab = (t: Tab) => {
+    setTab(t);
+    if (t === "visit") {
+      setVisitTabOpened(true);
+    }
+  };
+
   const displayName = shop.name || "(名称未設定)";
+  const hasVisits = shop.visitCount > 0;
 
   return (
     <>
       <ModalDialog
         open={open}
         // Closing while a save or delete is in flight would drop its errors.
-        onOpenChange={(o) => !o && !saving && !deleting && onClose()}
+        onOpenChange={(o) => !o && !locked && guardVisitDraft("close")}
         width="100%"
         maxWidth="1040px"
         height="80vh"
@@ -661,7 +642,7 @@ export function ShopEditModal({
                 alignItems="center"
                 gap="6px"
                 _hover={{ color: "nm.ink" }}
-                onClick={() => setTab(t)}
+                onClick={() => selectTab(t)}
               >
                 {TAB_LABELS[t]}
                 {t === "images" && (
@@ -752,6 +733,16 @@ export function ShopEditModal({
                     />
                   </FormField>
                 )}
+                <FormField
+                  gridColumn="span 2"
+                  label={<FieldLabel>気になる度</FieldLabel>}
+                  error={errorOf("wishLevel")}
+                >
+                  <WishLevelSelect
+                    value={draft.wishLevel}
+                    onChange={(v) => set("wishLevel", v)}
+                  />
+                </FormField>
                 <FormField
                   gridColumn="span 2"
                   label={
@@ -883,66 +874,15 @@ export function ShopEditModal({
               </Box>
             )}
 
-            {tab === "visit" && (
-              <Box>
-                <Box
-                  display="flex"
-                  alignItems="center"
-                  justifyContent="space-between"
-                  py="12px"
-                >
-                  <Box>
-                    <Box fontSize="13px" fontWeight={500} color="nm.ink">
-                      食べた
-                    </Box>
-                  </Box>
-                  <Toggle
-                    label="食べた"
-                    on={draft.eaten}
-                    color="shu"
-                    onClick={() => set("eaten", !draft.eaten)}
-                  />
-                </Box>
-                <FieldError error={errorOf("eaten")} />
-
-                {draft.eaten && (
-                  <Box
-                    bg="nm.bg"
-                    borderRadius="nmMd"
-                    p="16px"
-                    mt="12px"
-                    display="flex"
-                    flexDirection="column"
-                    gap="14px"
-                  >
-                    <FormField error={errorOf("rate")}>
-                      <Box
-                        display="flex"
-                        alignItems="center"
-                        justifyContent="space-between"
-                      >
-                        <Box>
-                          <Box
-                            fontSize="12px"
-                            fontFamily="mono"
-                            letterSpacing="0.1em"
-                            color="nm.inkMuted"
-                            textTransform="uppercase"
-                          >
-                            評価
-                          </Box>
-                          <Box fontSize="11px" color="nm.inkMuted" mt="2px">
-                            80以上でお気に入り
-                          </Box>
-                        </Box>
-                        <FavPicker
-                          rate={draft.rate}
-                          onChange={(v) => set("rate", v)}
-                        />
-                      </Box>
-                    </FormField>
-                  </Box>
-                )}
+            {visitTabOpened && (
+              <Box display={tab === "visit" ? "block" : "none"}>
+                <VisitLogEditor
+                  key={visitEditorKey}
+                  shopId={shop.id}
+                  onDirtyChange={setVisitDraftDirty}
+                  onBusyChange={setVisitBusy}
+                  onShopGone={handleShopGone}
+                />
               </Box>
             )}
 
@@ -979,11 +919,17 @@ export function ShopEditModal({
               border="1px solid"
               borderColor="nm.shu"
               _hover={{ bg: "nm.shu", color: "white" }}
-              disabled={saving || deleting}
-              onClick={() => setConfirmDeleteOpen(true)}
+              // The server refuses (409) to delete a shop with visit logs.
+              disabled={locked || hasVisits}
+              onClick={() => guardVisitDraft("delete")}
             >
               削除
             </Button>
+            {hasVisits && (
+              <Box fontSize="11px" color="nm.inkMuted">
+                訪問ログがある店舗は削除できません
+              </Box>
+            )}
             <Box flex="1" />
             <Button
               variant="plain"
@@ -999,8 +945,8 @@ export function ShopEditModal({
               border="1px solid"
               borderColor="nm.line"
               _hover={{ borderColor: "nm.ink", color: "nm.ink" }}
-              disabled={saving || deleting}
-              onClick={onClose}
+              disabled={locked}
+              onClick={() => guardVisitDraft("close")}
             >
               キャンセル
             </Button>
@@ -1015,15 +961,65 @@ export function ShopEditModal({
               rounded="nmMd"
               bg="nm.ink"
               color="nm.paper"
-              opacity={saving || deleting ? 0.6 : 1}
+              opacity={locked ? 0.6 : 1}
               _hover={{ bg: "nm.inkSoft" }}
-              disabled={saving || deleting}
-              onClick={handleSave}
+              disabled={locked}
+              onClick={() => guardVisitDraft("save")}
             >
               保存{" "}
             </Button>
           </Box>
         </>
+      </ModalDialog>
+      <ModalDialog
+        open={discardAction !== null}
+        onOpenChange={(o) => !o && setDiscardAction(null)}
+        width="100%"
+        maxWidth="420px"
+        title="訪問ログの入力"
+      >
+        <Box fontSize="13px" color="nm.ink">
+          保存していない訪問ログがあります。破棄しますか？
+        </Box>
+        <Box display="flex" justifyContent="flex-end" gap="8px" mt="20px">
+          <Button
+            variant="plain"
+            px="14px"
+            py="9px"
+            h="auto"
+            minH="auto"
+            fontSize="13px"
+            fontWeight={500}
+            rounded="nmMd"
+            bg="nm.paper"
+            color="nm.inkMuted"
+            border="1px solid"
+            borderColor="nm.line"
+            _hover={{ borderColor: "nm.ink", color: "nm.ink" }}
+            onClick={() => {
+              setDiscardAction(null);
+              selectTab("visit");
+            }}
+          >
+            入力に戻る
+          </Button>
+          <Button
+            variant="plain"
+            px="18px"
+            py="9px"
+            h="auto"
+            minH="auto"
+            fontSize="13px"
+            fontWeight={600}
+            rounded="nmMd"
+            bg="nm.shu"
+            color="white"
+            _hover={{ opacity: 0.9 }}
+            onClick={discardVisitDraft}
+          >
+            破棄する
+          </Button>
+        </Box>
       </ModalDialog>
       <ModalDialog
         open={confirmDeleteOpen}

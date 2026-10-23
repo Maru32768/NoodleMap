@@ -1,4 +1,5 @@
 import type { Shop } from "@/features/shops/api/use-shops.ts";
+import type { components } from "@/generated/api.ts";
 import dayjs, { Dayjs } from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
 
@@ -82,6 +83,27 @@ export const SHOP_EATEN_STATUS_LABEL: Record<ShopEatenStatus, string> = {
   eaten: "食べた",
   uneaten: "気になる",
 };
+
+export type WishLevel = components["schemas"]["WishLevel"];
+
+// Lowest first, so an index compares 気になる度.
+export const WISH_LEVELS: readonly WishLevel[] = ["low", "medium", "high"];
+
+export const WISH_LEVEL_LABEL: Record<WishLevel, string> = {
+  low: "ちょっと気になる",
+  medium: "気になる",
+  high: "絶対行きたい",
+};
+
+// 食べた, or for a shop not eaten yet its 気になる度 (plain 気になる when unset).
+export function shopStatusLabel(
+  shop: Pick<Shop, "eatenStatus" | "wishLevel">,
+): string {
+  if (shop.eatenStatus === "uneaten" && shop.wishLevel) {
+    return WISH_LEVEL_LABEL[shop.wishLevel];
+  }
+  return SHOP_EATEN_STATUS_LABEL[shop.eatenStatus];
+}
 
 // System tags are auto-computed, virtual tags derived from a shop's lifecycle
 // and recency status. Unlike user tags they are never stored (they would go

@@ -21,6 +21,7 @@ import {
   toShopFieldErrors,
 } from "@/features/shops/shop-field-errors.ts";
 import { TagSelector } from "@/features/shops/tag-chips.tsx";
+import { WishLevelSelect } from "@/features/shops/wish-level-select.tsx";
 import { invalidRequestFieldErrors } from "@/utils/request.ts";
 import {
   SHOP_ADD_FAILED_TITLE,
@@ -46,6 +47,7 @@ const FIELDS_WITH_INPUT: readonly AddShopField[] = [
   "lng",
   "openedAt",
   "closedAt",
+  "wishLevel",
 ];
 
 interface AddModalProps {
@@ -429,6 +431,17 @@ export function AddModal({
                   />
                 </FormField>
               )}
+
+              <FormField
+                gridColumn="span 2"
+                label={<FieldLabel>気になる度</FieldLabel>}
+                error={errorOf("wishLevel")}
+              >
+                <WishLevelSelect
+                  value={draft.wishLevel ?? ""}
+                  onChange={(v) => set("wishLevel", v || undefined)}
+                />
+              </FormField>
 
               <FormField
                 gridColumn="span 2"

@@ -8,11 +8,14 @@ import dev.marulabs.noodlemap.body
 import dev.marulabs.noodlemap.encode
 import dev.marulabs.noodlemap.generated.models.Shop
 import dev.marulabs.noodlemap.postJson
+import dev.marulabs.noodlemap.putJson
 import dev.marulabs.noodlemap.shops.MISO
 import dev.marulabs.noodlemap.shops.SHOYU
 import dev.marulabs.noodlemap.testApp
+import dev.marulabs.noodlemap.toUpdate
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 import io.ktor.client.HttpClient
@@ -152,6 +155,33 @@ class OgApiTest {
             it.width shouldBe 1200
             it.height shouldBe 630
         }
+    }
+
+    @Test
+    fun `visit logs and the wish level change the share text and the image`() = testApp { t ->
+        val admin = t.adminToken()
+        val shop = addShop("煮干し", admin)
+        client.putJson(
+            "/api/v1/auth/shops/${shop.id}",
+            encode(addShopRequest(tagIds = listOf(SHOYU, MISO)).copy(name = "煮干し", address = "東京都新宿区西新宿2-8-1").toUpdate().copy(wishLevel = "high")),
+            admin,
+        ).status shouldBe HttpStatusCode.OK
+        val wishPath = client.imagePath(shop.id)
+        client.get("/r/${shop.id}").bodyAsText().let {
+            it shouldContain "絶対行きたい"
+            it shouldNotContain "気になる"
+        }
+        client.get(wishPath).status shouldBe HttpStatusCode.OK
+
+        client.postJson("/api/v1/auth/shops/${shop.id}/visits", """{"isLimitedMenu":false,"rate":90}""", admin).status shouldBe HttpStatusCode.OK
+
+        val eatenPath = client.imagePath(shop.id)
+        eatenPath shouldNotBe wishPath
+        client.get("/r/${shop.id}").bodyAsText().let {
+            it shouldContain "食べた・1回訪問"
+            it shouldNotContain "絶対行きたい"
+        }
+        png(client.get(eatenPath).readRawBytes()).width shouldBe 1200
     }
 
     @Test

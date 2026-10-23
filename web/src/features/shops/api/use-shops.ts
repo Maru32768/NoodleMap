@@ -38,11 +38,6 @@ export type Shop = ApiShop & {
   readonly eatenStatus: ShopEatenStatus;
 };
 
-// Mirrors the server's favorite rule (ShopHandler.isFavorite); only for optimistic cache updates.
-export function isFavorite(eaten: boolean, rate: number): boolean {
-  return eaten && rate >= 80;
-}
-
 // Attaches the cached parsed dates used by the status helpers. Run wherever a
 // raw API shop enters the SWR cache (fetch, optimistic add, optimistic update).
 export function decorateShop(shop: ApiShop): Shop {
@@ -68,9 +63,12 @@ type UpdateShopErrorBody = ApiErrorBodyFor<"/api/v1/auth/shops/{id}", "put">;
 type DeleteShopErrorBody = ApiErrorBodyFor<"/api/v1/auth/shops/{id}", "delete">;
 export type SaveTagsErrorBody = ApiErrorBodyFor<"/api/v1/auth/tags", "put">;
 
+// Exported so other mutations (e.g. visit logs) can revalidate the shop list.
+export const SHOPS_KEY = ["/api/v1/shops"];
+
 export function useShops(config?: SWRConfiguration<Shop[]>) {
   const resp = useSWR(
-    ["/api/v1/shops"],
+    SHOPS_KEY,
     () => {
       return withApiError("/api/v1/shops", async () => {
         const res = await apiClient.GET("/api/v1/shops");
@@ -162,15 +160,27 @@ export function useShops(config?: SWRConfiguration<Shop[]>) {
             }
             // tagIds is not part of the Shop shape and tags cannot be derived
             // from ids here; the revalidation triggered below refreshes tags.
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const { tagIds: _tagIds, ...shopFields } = command;
+            // eaten/rate are ignored by the server (derived from visit logs).
+            const {
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
+              tagIds: _tagIds,
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
+              eaten: _eaten,
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
+              rate: _rate,
+              ...shopFields
+            } = command;
             const copy = [...current];
             // Re-decorate so the cached date timestamps reflect the edited
             // openedAt/closedAt values, not the previous shop's.
             copy[i] = decorateShop({
               ...current[i],
               ...shopFields,
-              favorite: isFavorite(command.eaten, command.rate),
+              // Mirror the server: omitted keeps the 気になる度, "" clears it.
+              wishLevel:
+                shopFields.wishLevel === undefined
+                  ? current[i].wishLevel
+                  : shopFields.wishLevel || undefined,
               // Mirror the server: omitted keeps the reading, blank clears it.
               nameKana:
                 shopFields.nameKana === undefined

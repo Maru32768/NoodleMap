@@ -31,6 +31,8 @@ public enum class AddShopField(
   TAG_IDS("tagIds"),
   @SerialName("links")
   LINKS("links"),
+  @SerialName("wishLevel")
+  WISH_LEVEL("wishLevel"),
   ;
 
   override fun toString(): String = value

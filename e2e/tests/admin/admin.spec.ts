@@ -16,32 +16,21 @@ async function openEditModal(page: Page, name: string, filter: string) {
   return page.getByRole("dialog").filter({ hasText: name });
 }
 
-test("admin edits a shop's tags, visit status and rating", async ({ page, api }) => {
+test("admin edits a shop's tags", async ({ page, api }) => {
   const id = uid();
   const tag = await api.addTag({ label: `${id}-tag`, slug: `${id}-tag`, category: "ramen" });
   const shop = await api.createShop({ name: `${id} 編集する店` });
 
   await openAdmin(page);
-  let dialog = await openEditModal(page, shop.name, id);
+  const dialog = await openEditModal(page, shop.name, id);
   await dialog.getByRole("button", { name: tag.label }).click();
-  await dialog.getByRole("button", { name: "食べた記録" }).click();
-  await dialog.getByRole("switch", { name: "食べた" }).click();
-  await dialog.getByRole("spinbutton").fill("60");
   await dialog.getByRole("button", { name: "保存", exact: true }).click();
 
   await expect(page.getByText("保存しました")).toBeVisible();
   await expect(dialog).toBeHidden();
   expect(await api.getShop(shop.id)).toMatchObject({
-    eaten: true,
-    rate: 60,
     tags: [expect.objectContaining({ id: tag.id })],
   });
-
-  await page.reload();
-  dialog = await openEditModal(page, shop.name, id);
-  await dialog.getByRole("button", { name: "食べた記録" }).click();
-  await expect(dialog.getByRole("switch", { name: "食べた" })).toBeChecked();
-  await expect(dialog.getByRole("spinbutton")).toHaveValue("60");
 });
 
 test("admin adds a shop link that guests see in the shop detail", async ({ page, api, browser, baseURL }) => {
@@ -85,7 +74,8 @@ test("admin adds a shop link that guests see in the shop detail", async ({ page,
 
 test("admin deletes a shop from the edit modal", async ({ page, api }) => {
   const id = uid();
-  const shop = await api.createShop({ name: `${id} 削除する店`, eaten: true, rate: 50 });
+  // A shop with visit logs cannot be deleted, so this one has none.
+  const shop = await api.createShop({ name: `${id} 削除する店` });
 
   await openAdmin(page);
   const dialog = await openEditModal(page, shop.name, id);

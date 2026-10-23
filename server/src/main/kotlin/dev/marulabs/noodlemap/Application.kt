@@ -26,8 +26,11 @@ import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthMeController.Compan
 import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthSessionsController.Companion.apiV1AuthSessionsRoutes
 import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthSessionsRevokeOthersController.Companion.apiV1AuthSessionsRevokeOthersRoutes
 import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthShopsController.Companion.apiV1AuthShopsRoutes
+import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthShopsVisitsController.Companion.apiV1AuthShopsVisitsRoutes
+import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthVisitsController.Companion.apiV1AuthVisitsRoutes
 import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthTagsController.Companion.apiV1AuthTagsRoutes
 import dev.marulabs.noodlemap.generated.controllers.ApiV1ShopsController.Companion.apiV1ShopsRoutes
+import dev.marulabs.noodlemap.generated.controllers.ApiV1ShopsVisitsController.Companion.apiV1ShopsVisitsRoutes
 import dev.marulabs.noodlemap.generated.controllers.ApiV1TagsController.Companion.apiV1TagsRoutes
 import dev.marulabs.noodlemap.http.NoCache
 import dev.marulabs.noodlemap.jobs.startBackgroundJobs
@@ -36,6 +39,7 @@ import dev.marulabs.noodlemap.og.R2OgImageStore
 import dev.marulabs.noodlemap.og.ogRoutes
 import dev.marulabs.noodlemap.places.PlacesHandler
 import dev.marulabs.noodlemap.shops.ShopHandler
+import dev.marulabs.noodlemap.visits.VisitLogHandler
 import kotlinx.serialization.json.Json
 
 fun main() {
@@ -57,19 +61,21 @@ fun Application.module(config: Config) {
     val google = GoogleVerifier(config.googleOAuthClientId)
     val authHandler = AuthHandler(db, google, sessions)
     val shopHandler = ShopHandler(db, sessions)
+    val visitLogHandler = VisitLogHandler(db, sessions)
     val placesHandler = PlacesHandler(sessions, config.googlePlacesApiKey)
     val ogStore = config.ogR2?.let(::R2OgImageStore)
     ogStore?.let { store -> monitor.subscribe(ApplicationStopped) { store.close() } }
     val ogHandler = OgHandler(shopHandler, config.publicBaseUrl, ogStore)
 
     startBackgroundJobs(config, dataSource, db, sessions)
-    installApp(authHandler, shopHandler, placesHandler, ogHandler)
+    installApp(authHandler, shopHandler, visitLogHandler, placesHandler, ogHandler)
 }
 
 /** Installs plugins and routes. Separated from [module] so tests can wire test handlers. */
 fun Application.installApp(
     authHandler: AuthHandler,
     shopHandler: ShopHandler,
+    visitLogHandler: VisitLogHandler,
     placesHandler: PlacesHandler,
     ogHandler: OgHandler,
 ) {
@@ -92,6 +98,9 @@ fun Application.installApp(
         apiV1TagsRoutes(shopHandler)
         apiV1AuthTagsRoutes(shopHandler)
         apiV1AuthShopsRoutes(shopHandler)
+        apiV1ShopsVisitsRoutes(visitLogHandler)
+        apiV1AuthShopsVisitsRoutes(visitLogHandler)
+        apiV1AuthVisitsRoutes(visitLogHandler)
 
         apiV1AuthGoogleRoutes(authHandler)
         apiV1AuthMeRoutes(authHandler)

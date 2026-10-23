@@ -19,6 +19,7 @@ const showEverything: SearchFilters = {
   ramen: true,
   udon: true,
   favMin: 0,
+  wishMin: "all",
   tagIds: ALL_SYSTEM_TAGS,
 };
 
@@ -69,6 +70,32 @@ describe("filterShops", () => {
     expect(filterNames(shops, { wish: false })).toEqual(["eaten"]);
     expect(filterNames(shops, { eaten: false })).toEqual(["wish"]);
     expect(filterNames(shops, { eaten: false, wish: false })).toEqual([]);
+  });
+
+  it("narrows only shops not eaten yet by 気になる度, unset counting as 気になる", () => {
+    const shops = [
+      makeShop({ name: "unset", eaten: false }),
+      makeShop({ name: "low", eaten: false, wishLevel: "low" }),
+      makeShop({ name: "medium", eaten: false, wishLevel: "medium" }),
+      makeShop({ name: "high", eaten: false, wishLevel: "high" }),
+      // A 食べた shop keeps its old 気になる度 but is never narrowed by it.
+      makeShop({ name: "eaten", eaten: true, wishLevel: "low" }),
+      makeShop({ name: "eaten-unset", eaten: true }),
+    ];
+
+    expect(filterNames(shops, { wishMin: "all" })).toEqual(names(shops));
+    expect(filterNames(shops, { wishMin: "medium" })).toEqual([
+      "unset",
+      "medium",
+      "high",
+      "eaten",
+      "eaten-unset",
+    ]);
+    expect(filterNames(shops, { wishMin: "high" })).toEqual([
+      "high",
+      "eaten",
+      "eaten-unset",
+    ]);
   });
 
   it("ORs the category toggles", () => {

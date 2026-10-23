@@ -4,10 +4,12 @@ import {
   GUEST_USER,
 } from "@/features/auth/use-current-user.ts";
 import { DetailPanel } from "@/features/shops/detail-panel.tsx";
+import { VisitLog, visitsKey } from "@/features/visits/api/use-visits.ts";
 import { makeShop, makeTag } from "@/test/fixtures.ts";
 import { Box } from "@chakra-ui/react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
+import { SWRConfig, unstable_serialize } from "swr";
 
 const admin: CurrentUser = {
   id: "00000000-0000-4000-8000-0000000000f6",
@@ -26,20 +28,55 @@ const shop = makeShop({
   ],
 });
 
+// Served from the SWR cache so the stories never hit the network.
+const visits: VisitLog[] = [
+  {
+    id: "00000000-0000-4000-8000-0000000000c1",
+    visitedOn: "2026-10-01",
+    menuName: "特製中華そば",
+    isLimitedMenu: false,
+    price: 1200,
+    rate: 90,
+    publicNote: "煮干しの香りが強い",
+    privateNote: "次は味玉トッピング",
+  },
+  {
+    id: "00000000-0000-4000-8000-0000000000c2",
+    menuName: "冬季限定 味噌",
+    isLimitedMenu: true,
+    eventName: "大つけ麺博",
+  },
+];
+
 const meta = {
   component: DetailPanel,
   parameters: { layout: "fullscreen" },
   decorators: [
-    (Story, { parameters }) => (
-      <CurrentUserProvider
-        value={(parameters.currentUser as CurrentUser) ?? GUEST_USER}
-      >
-        {/* The panel is absolutely positioned and hidden below the md breakpoint. */}
-        <Box position="relative" h="100vh" minH="640px" bg="nm.bg">
-          <Story />
-        </Box>
-      </CurrentUserProvider>
-    ),
+    (Story, { parameters, args }) => {
+      const user = (parameters.currentUser as CurrentUser) ?? GUEST_USER;
+      // Only the admin gets メモ（自分用） from the API.
+      const served =
+        user.type === "admin"
+          ? visits
+          : visits.map((visit) => ({ ...visit, privateNote: undefined }));
+      return (
+        <SWRConfig
+          value={{
+            fallback: {
+              [unstable_serialize(visitsKey(args.shop.id, user))]: served,
+            },
+            revalidateOnMount: false,
+          }}
+        >
+          <CurrentUserProvider value={user}>
+            {/* The panel is absolutely positioned and hidden below the md breakpoint. */}
+            <Box position="relative" h="100vh" minH="640px" bg="nm.bg">
+              <Story />
+            </Box>
+          </CurrentUserProvider>
+        </SWRConfig>
+      );
+    },
   ],
   args: { shop, onAdminEdit: fn(), onClose: fn() },
 } satisfies Meta<typeof DetailPanel>;

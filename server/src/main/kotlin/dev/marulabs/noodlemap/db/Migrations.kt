@@ -71,8 +71,21 @@ fun parseGooseMigration(version: Long, sql: String): Migration {
     }
     check(!inBlock) { "migration $version: unterminated StatementBegin" }
     check(current.isBlank()) { "migration $version: trailing statement without ';'" }
+    if (!useTransaction) {
+        // The version is recorded just before the last COMMIT (see apply), so anything after it would
+        // run unrecorded and be skipped for good if it failed. Only connection PRAGMAs may follow.
+        val commitAt = lastCommitIndex(statements)
+        check(commitAt < 0 || statements.drop(commitAt + 1).all { it.startsWith("PRAGMA", ignoreCase = true) }) {
+            "migration $version: only PRAGMA statements may follow the last COMMIT of a NO TRANSACTION migration"
+        }
+    }
     return Migration(version, statements, useTransaction)
 }
+
+private val COMMIT = Regex("""(?i)(COMMIT|END)(\s+TRANSACTION)?\s*;?""")
+
+/** Index of the last statement that commits (COMMIT / END, optionally with TRANSACTION), or -1. */
+private fun lastCommitIndex(statements: List<String>): Int = statements.indexOfLast { COMMIT.matches(it.trim()) }
 
 /**
  * Applies pending [migrations], tracking them in goose's own `goose_db_version` table so a
@@ -122,9 +135,20 @@ private fun applyWithoutTransaction(conn: Connection, m: Migration) {
     }
 }
 
+/**
+ * Runs the statements and records the version. A NO TRANSACTION migration that opens its own transaction
+ * gets the version recorded just before its last COMMIT, so a crash after that COMMIT cannot leave the
+ * schema changed but unrecorded (a re-run would then fail on, e.g., ADD COLUMN).
+ */
 private fun apply(conn: Connection, m: Migration) {
-    conn.createStatement().use { st -> m.statements.forEach { st.execute(it) } }
-    recordVersion(conn, m.version)
+    val recordAt = if (m.useTransaction) -1 else lastCommitIndex(m.statements)
+    conn.createStatement().use { st ->
+        m.statements.forEachIndexed { i, sql ->
+            if (i == recordAt) recordVersion(conn, m.version)
+            st.execute(sql)
+        }
+    }
+    if (recordAt < 0) recordVersion(conn, m.version)
 }
 
 private fun currentVersion(conn: Connection): Long? =

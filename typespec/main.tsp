@@ -20,6 +20,7 @@ union ErrorType {
   "internal_error",
   "google_places_not_configured",
   "google_places_failed",
+  "shop_has_visit_logs",
 }
 
 union FieldErrorType {
@@ -48,6 +49,7 @@ union AddShopField {
   "category",
   "tagIds",
   "links",
+  "wishLevel",
 }
 
 union CategorySlug {
@@ -79,6 +81,25 @@ union UpdateShopField {
   "rate",
   "tagIds",
   "links",
+  "wishLevel",
+}
+
+@doc("気になる度 of a shop not eaten yet: low = ちょっと気になる, medium = 気になる, high = 絶対行きたい.")
+union WishLevel {
+  "low",
+  "medium",
+  "high",
+}
+
+union VisitLogField {
+  "visitedOn",
+  "menuName",
+  "isLimitedMenu",
+  "price",
+  "rate",
+  "eventName",
+  "publicNote",
+  "privateNote",
 }
 
 union TagField {
@@ -103,6 +124,12 @@ model AddShopFieldError {
 
 model UpdateShopFieldError {
   field: UpdateShopField;
+  type: FieldErrorType;
+  message?: string;
+}
+
+model VisitLogFieldError {
+  field: VisitLogField;
   type: FieldErrorType;
   message?: string;
 }
@@ -136,6 +163,12 @@ model UpdateShopBadRequestErrorBody {
   fieldErrors?: UpdateShopFieldError[];
 }
 
+model VisitLogBadRequestErrorBody {
+  type: "invalid_request";
+  message?: string;
+  fieldErrors?: VisitLogFieldError[];
+}
+
 model TagBadRequestErrorBody {
   type: "invalid_request";
   message?: string;
@@ -159,6 +192,12 @@ model SessionCreationFailedErrorBody {
 
 model NotFoundErrorBody {
   type: "not_found";
+  message?: string;
+}
+
+@doc("The shop has visit logs, so it cannot be deleted.")
+model ShopHasVisitLogsErrorBody {
+  type: "shop_has_visit_logs";
   message?: string;
 }
 
@@ -189,6 +228,8 @@ alias ErrorBody =
   PermissionDeniedErrorBody |
   SessionCreationFailedErrorBody |
   NotFoundErrorBody |
+  ShopHasVisitLogsErrorBody |
+  VisitLogBadRequestErrorBody |
   InternalErrorBody |
   GooglePlacesNotConfiguredErrorBody |
   GooglePlacesFailedErrorBody;
@@ -210,6 +251,11 @@ model ForbiddenResponse<TError> {
 
 model NotFoundResponse<TError> {
   @statusCode statusCode: 404;
+  @body body: TError;
+}
+
+model ConflictResponse<TError> {
+  @statusCode statusCode: 409;
   @body body: TError;
 }
 
@@ -296,17 +342,88 @@ model Shop {
   @doc("Google Places place id. Absent when the shop was entered by hand.")
   googlePlaceId?: string;
 
+  @doc("Derived on the server: true when the shop has at least one visit log. Read-only.")
   eaten: boolean;
+
+  @doc("Derived on the server: the rate of the latest visit log that has one, or 0 when none has. Read-only.")
   rate: float64;
 
-  @doc("Derived on the server: true when the shop is eaten and its rate is 80 or more. Read-only.")
+  @doc("Derived on the server: true when the shop's rate comes from a visit log and is 80 or more. Read-only.")
   favorite: boolean;
+
+  @doc("Number of visit logs of the shop. Read-only.")
+  visitCount: int32;
+
+  @doc("気になる度. Absent when not set. Kept after the shop is eaten, but only meaningful before.")
+  wishLevel?: WishLevel;
 
   category: CategorySlug;
   tags: Tag[];
 
   @doc("External links (official site, SNS, ...) in display order.")
   links: ShopLink[];
+}
+
+@doc("One 訪問ログ. Visit logs are listed newest first: by visitedOn, those without one last, then by creation.")
+model VisitLog {
+  id: uuid;
+
+  @doc("Visit date as an ISO 8601 calendar date (YYYY-MM-DD). Absent when unknown.")
+  visitedOn?: string;
+
+  menuName?: string;
+  isLimitedMenu: boolean;
+
+  @doc("Price in yen.")
+  price?: int32;
+
+  @doc("0 to 100. Absent when the visit is not rated.")
+  rate?: float64;
+
+  @doc("催事 (department store fair, ramen festival, ...) where the shop was visited.")
+  eventName?: string;
+
+  publicNote?: string;
+
+  @doc("Only in responses to the admin; omitted for everyone else.")
+  privateNote?: string;
+}
+
+model VisitLogsResponse {
+  visits: VisitLog[];
+}
+
+@doc("""
+  A visit log as written by the admin. Strings are trimmed and a blank string means not set.
+  On update every field is replaced, so an omitted field is cleared.
+  """)
+model VisitLogInput {
+  @doc("ISO 8601 calendar date (YYYY-MM-DD), no later than tomorrow. Omit when unknown.")
+  visitedOn?: string;
+
+  @maxLength(200)
+  menuName?: string;
+
+  isLimitedMenu: boolean;
+
+  @doc("Price in yen, 0 to 10,000,000.")
+  @minValue(0)
+  @maxValue(10000000)
+  price?: int32;
+
+  @doc("0 to 100. Omit when not rated.")
+  @minValue(0)
+  @maxValue(100)
+  rate?: float64;
+
+  @maxLength(100)
+  eventName?: string;
+
+  @maxLength(2000)
+  publicNote?: string;
+
+  @maxLength(2000)
+  privateNote?: string;
 }
 
 model ShopLink {
@@ -375,6 +492,9 @@ model AddShopRequest {
   category: CategorySlug;
   tagIds: uuid[];
 
+  @doc("Omit when not set.")
+  wishLevel?: WishLevel;
+
   @doc("At most 10 links, stored in array order. Omit for none.")
   @maxItems(10)
   links?: ShopLinkInput[];
@@ -397,9 +517,17 @@ model UpdateShopRequest {
   googlePlaceId?: string;
 
   category: CategorySlug;
-  eaten: boolean;
-  rate: float64;
+
+  @doc("Deprecated and ignored by the server: 食べた is derived from visit logs. Older clients still send it.")
+  eaten?: boolean;
+
+  @doc("Deprecated and ignored by the server: the shop's rate is derived from visit logs. Older clients still send it.")
+  rate?: float64;
+
   tagIds: uuid[];
+
+  @doc("Omit to keep the stored 気になる度 (older clients); an empty string clears it.")
+  wishLevel?: WishLevel | "";
 
   @doc("Omit to keep the stored links (older clients); an array replaces them all, in array order. At most 10.")
   @maxItems(10)
@@ -486,11 +614,40 @@ op updateShop(
   @body body: UpdateShopRequest,
 ): OkEmptyResponse | BadRequestResponse<UpdateShopBadRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | NotFoundResponse<NotFoundErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
 
+@doc("Deletes a shop with its tags and links. A shop with visit logs cannot be deleted (409).")
 @delete
 @route("/auth/shops/{id}")
 op deleteShop(
   @path id: uuid,
-): NoContentResponse | BadRequestResponse<InvalidRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | NotFoundResponse<NotFoundErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
+): NoContentResponse | BadRequestResponse<InvalidRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | NotFoundResponse<NotFoundErrorBody> | ConflictResponse<ShopHasVisitLogsErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
+
+@doc("A shop's visit logs, newest first. privateNote is included only for the admin.")
+@get
+@route("/shops/{id}/visits")
+op listVisitLogs(
+  @path id: uuid,
+): OkResponse<VisitLogsResponse> | NotFoundResponse<NotFoundErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
+
+@post
+@route("/auth/shops/{id}/visits")
+op addVisitLog(
+  @path id: uuid,
+  @body body: VisitLogInput,
+): OkResponse<VisitLog> | BadRequestResponse<VisitLogBadRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | NotFoundResponse<NotFoundErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
+
+@doc("Replaces every field of a visit log.")
+@put
+@route("/auth/visits/{visitId}")
+op updateVisitLog(
+  @path visitId: uuid,
+  @body body: VisitLogInput,
+): OkResponse<VisitLog> | BadRequestResponse<VisitLogBadRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | NotFoundResponse<NotFoundErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
+
+@delete
+@route("/auth/visits/{visitId}")
+op deleteVisitLog(
+  @path visitId: uuid,
+): NoContentResponse | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | NotFoundResponse<NotFoundErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
 
 @doc("Admin-only Google Places (New) autocomplete proxy. A blank query returns no suggestions.")
 @get

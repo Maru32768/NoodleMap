@@ -87,7 +87,14 @@ fun renderOgImage(card: OgCard): ByteArray {
             x += w + 14
         }
 
-        if (card.hearts > 0) drawHearts(g, card.hearts, MARGIN, 410, 52)
+        // The row under the chips: hearts and the visit count of an eaten shop.
+        var rowX = MARGIN
+        if (card.hearts > 0) rowX = drawHearts(g, card.hearts, MARGIN, 410, 52) + 28
+        card.visitCountLabel?.let {
+            g.font = baseFont.deriveFont(36f)
+            g.color = INK_MUTED
+            g.drawString(it, rowX, centerBaseline(g, 410, 52))
+        }
 
         if (card.area.isNotEmpty()) {
             g.font = baseFont.deriveFont(36f)
@@ -119,8 +126,8 @@ private fun parseColor(hex: String): Color = runCatching { Color.decode(hex) }.g
 private fun textColorOn(bg: Color): Color =
     if ((0.299 * bg.red + 0.587 * bg.green + 0.114 * bg.blue) / 255 > 0.62) INK else Color.WHITE
 
-/** Five hearts like the web's MiniHearts: full, half (left-clipped) or faint outline. */
-private fun drawHearts(g: Graphics2D, hearts: Double, left: Int, top: Int, size: Int) {
+/** Five hearts like the web's MiniHearts: full, half (left-clipped) or faint outline. Returns their right edge. */
+private fun drawHearts(g: Graphics2D, hearts: Double, left: Int, top: Int, size: Int): Int {
     val scale = size / 24.0
     g.stroke = BasicStroke((1.8 * scale).toFloat())
     for (i in 1..5) {
@@ -145,4 +152,5 @@ private fun drawHearts(g: Graphics2D, hearts: Double, left: Int, top: Int, size:
             }
         }
     }
+    return left + 5 * size + 4 * 10
 }

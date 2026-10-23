@@ -3,7 +3,7 @@ import { ShopThumb } from "@/components/shop-thumb.tsx";
 import { CloseButton } from "@/components/ui/close-button.tsx";
 import { useCurrentUser } from "@/features/auth/use-current-user.ts";
 import { Shop } from "@/features/shops/api/use-shops.ts";
-import { FavoriteRating, MiniHearts } from "@/features/shops/rating-hearts.tsx";
+import { MiniHearts } from "@/features/shops/rating-hearts.tsx";
 import {
   ShopActions,
   ShopAddressLink,
@@ -12,10 +12,12 @@ import {
 import { ShopLinkList } from "@/features/shops/shop-link-list.tsx";
 import { ShopsLoadState } from "@/features/shops/shops-load-state.tsx";
 import {
-  SHOP_EATEN_STATUS_LABEL,
   shopDisplaySystemTags,
+  shopStatusLabel,
 } from "@/features/shops/status.ts";
 import { SystemTagChips, TagChips } from "@/features/shops/tag-chips.tsx";
+import { ShopRating } from "@/features/visits/shop-rating.tsx";
+import { ShopVisitHistory } from "@/features/visits/shop-visit-history.tsx";
 import { useIsPc } from "@/utils/use-is-pc.ts";
 import { Box } from "@chakra-ui/react";
 import { useEffect, useRef, useState } from "react";
@@ -299,16 +301,25 @@ export function MobileSheet({
                       mt="0.875rem"
                     >
                       <Box
-                        fontFamily="mono"
-                        fontSize="0.625rem"
-                        letterSpacing="0.18em"
-                        color="nm.inkMuted"
-                        textTransform="uppercase"
+                        display="flex"
+                        alignItems="baseline"
+                        justifyContent="space-between"
                         mb="0.5rem"
                       >
-                        評価
+                        <Box
+                          fontFamily="mono"
+                          fontSize="0.625rem"
+                          letterSpacing="0.18em"
+                          color="nm.inkMuted"
+                          textTransform="uppercase"
+                        >
+                          評価
+                        </Box>
+                        <Box fontSize="0.6875rem" color="nm.inkMuted">
+                          {shop.visitCount}回訪問
+                        </Box>
                       </Box>
-                      <FavoriteRating rate={shop.rate} compact />
+                      <ShopRating shop={shop} compact />
                     </Box>
                   )}
 
@@ -325,7 +336,7 @@ export function MobileSheet({
                       },
                       {
                         label: "STATUS",
-                        value: SHOP_EATEN_STATUS_LABEL[shop.eatenStatus],
+                        value: shopStatusLabel(shop),
                       },
                     ].map(({ label, value }) => (
                       <Box
@@ -352,6 +363,12 @@ export function MobileSheet({
                   <Box mt="0.75rem">
                     <ShopLinkList links={shop.links} />
                   </Box>
+
+                  {shop.eaten && (
+                    <Box mt="1rem">
+                      <ShopVisitHistory shopId={shop.id} />
+                    </Box>
+                  )}
 
                   <Box display="flex" gap="0.5rem" mt="1rem">
                     <ShopActions

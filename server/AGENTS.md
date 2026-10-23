@@ -49,7 +49,7 @@
 - Auth: enforce per-handler via `SessionService.requireUser`/`requireAdmin`. Sessions are
   opaque tokens hashed in the DB — never JWT sessions. Don't install ForwardedHeaders (trust no proxy).
 - Store UUIDs as lowercase text (`UuidAdapter`).
-- Keep handlers thin; put new code in the package of its domain (`auth`, `shops`, `places`, `og`, `db`,
+- Keep handlers thin; put new code in the package of its domain (`auth`, `shops`, `visits`, `places`, `og`, `db`,
   `backup`, `jobs`), and shared plumbing in `common`, `errors` or `http`.
 
 ## After editing this file
