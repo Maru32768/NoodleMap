@@ -2,11 +2,10 @@ import { Button } from "@/components/ui/button.tsx";
 import type { VisitFilter } from "@/features/admin/visit-filter.ts";
 import {
   CategoryType,
-  isWishFilter,
   WISH_FILTER_OPTIONS,
   WishFilter,
 } from "@/features/search/utils.ts";
-import { Box, NativeSelect } from "@chakra-ui/react";
+import { Box } from "@chakra-ui/react";
 
 interface AdminFiltersProps {
   categoryFilter: CategoryType;
@@ -47,6 +46,7 @@ function SegBtn({
       fontFamily="body"
       boxShadow={active ? "nmSm" : undefined}
       _hover={{ bg: active ? "nm.paper" : "transparent" }}
+      aria-pressed={active}
       onClick={onClick}
     >
       {children}
@@ -189,24 +189,28 @@ export function AdminFilters({
         >
           気になる度
         </Box>
-        <NativeSelect.Root size="xs" width="auto" flexShrink={0}>
-          <NativeSelect.Field
-            aria-label="気になる度"
-            value={wishFilter}
-            onChange={(e) => {
-              if (isWishFilter(e.target.value)) {
-                setWishFilter(e.target.value);
-              }
-            }}
-          >
-            {WISH_FILTER_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </NativeSelect.Field>
-          <NativeSelect.Indicator />
-        </NativeSelect.Root>
+        <Box
+          role="group"
+          aria-label="気になる度"
+          display="inline-flex"
+          flexShrink={0}
+          bg="nm.bg"
+          border="1px solid"
+          borderColor="nm.line"
+          rounded="nmMd"
+          p="2px"
+          gap="1px"
+        >
+          {WISH_FILTER_OPTIONS.map((option) => (
+            <SegBtn
+              key={option.value}
+              active={wishFilter === option.value}
+              onClick={() => setWishFilter(option.value)}
+            >
+              {option.label}
+            </SegBtn>
+          ))}
+        </Box>
 
         <Box flex="1" />
         {hasFilters && (

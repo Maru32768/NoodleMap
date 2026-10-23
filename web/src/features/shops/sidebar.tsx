@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button.tsx";
 import { AccountLink } from "@/features/auth/account-link.tsx";
 import {
   favToHearts,
-  isWishFilter,
   SearchFilters,
   WISH_FILTER_OPTIONS,
 } from "@/features/search/utils.ts";
@@ -23,9 +22,9 @@ import {
   SystemTagChips,
   TagChips,
 } from "@/features/shops/tag-chips.tsx";
-import { Box, Input, NativeSelect } from "@chakra-ui/react";
+import { Box, Input } from "@chakra-ui/react";
 import { isEqual } from "es-toolkit";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Virtuoso } from "react-virtuoso";
 
 const STATUS_PILL: Record<
@@ -188,6 +187,7 @@ function Chip({
       transition="all 0.15s"
       userSelect="none"
       _hover={!active ? { borderColor: "nm.lineStrong", color: "nm.ink" } : {}}
+      aria-pressed={active}
       onClick={onClick}
     >
       {children}
@@ -405,6 +405,7 @@ export type ShopFiltersProps = Pick<SidebarProps, "filters" | "onFilterChange">;
 
 export function ShopFilters({ filters, onFilterChange }: ShopFiltersProps) {
   const { tags } = useTags();
+  const wishLabelId = useId();
   const toggleTag = (id: string) => {
     onFilterChange(
       "tagIds",
@@ -479,33 +480,32 @@ export function ShopFilters({ filters, onFilterChange }: ShopFiltersProps) {
             気になる
           </Chip>
         </Box>
-        <Box display="flex" alignItems="center" gap="0.5rem" mt="0.625rem">
-          <Box
-            as="span"
-            fontSize="0.6875rem"
-            color="nm.inkMuted"
-            flexShrink={0}
-          >
-            気になる度
-          </Box>
-          <NativeSelect.Root size="xs" width="auto">
-            <NativeSelect.Field
-              aria-label="気になる度"
-              value={filters.wishMin}
-              onChange={(e) => {
-                if (isWishFilter(e.target.value)) {
-                  onFilterChange("wishMin", e.target.value);
-                }
-              }}
+        <Box
+          id={wishLabelId}
+          fontSize="0.6875rem"
+          color="nm.inkMuted"
+          mt="0.75rem"
+          mb="0.375rem"
+        >
+          気になる度
+        </Box>
+        <Box
+          role="group"
+          aria-labelledby={wishLabelId}
+          display="flex"
+          flexWrap="wrap"
+          gap="0.375rem"
+        >
+          {WISH_FILTER_OPTIONS.map((option) => (
+            <Chip
+              key={option.value}
+              color="kincha"
+              active={filters.wishMin === option.value}
+              onClick={() => onFilterChange("wishMin", option.value)}
             >
-              {WISH_FILTER_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </NativeSelect.Field>
-            <NativeSelect.Indicator />
-          </NativeSelect.Root>
+              {option.label}
+            </Chip>
+          ))}
         </Box>
       </Box>
 

@@ -32,6 +32,14 @@ test("guest searches, filters and opens a shop on the search page", async ({ pag
   await expect(card(eatenRamen.name)).toBeHidden();
   await chip("食べた").click();
 
+  // Unset 気になる度 ranks as 気になる, so only the eaten shop stays.
+  const wishLevel = sidebar.getByRole("group", { name: "気になる度" });
+  await wishLevel.getByRole("button", { name: "絶対行きたいのみ" }).click();
+  await expect(countLabel(1)).toBeVisible();
+  await expect(card(eatenRamen.name)).toBeVisible();
+  await wishLevel.getByRole("button", { name: "すべて" }).click();
+  await expect(countLabel(3)).toBeVisible();
+
   await chip("うどん").click();
   await expect(countLabel(2)).toBeVisible();
   await expect(card(wishUdon.name)).toBeHidden();
