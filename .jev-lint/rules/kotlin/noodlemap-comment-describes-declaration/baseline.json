@@ -1,0 +1,352 @@
+{
+  "schema": "jev-lint-eval-1",
+  "recorded": "2026-10-23T03:58:14.714Z",
+  "model": "jev-1.14.0",
+  "suite": "kotlin/noodlemap-comment-describes-declaration",
+  "rules": [
+    {
+      "id": "noodlemap-comment-describes-declaration",
+      "draft": "a427c8da2d34",
+      "at": 0.74
+    }
+  ],
+  "cutoffs": {},
+  "passes": [
+    [
+      {
+        "rule": "noodlemap-comment-describes-declaration",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-comment-describes-declaration\\fixtures\\TagDirectory.kt",
+        "line": 6,
+        "endLine": 84,
+        "kind": "noul",
+        "value": 0.17,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-comment-describes-declaration",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-comment-describes-declaration\\fixtures\\TagDirectory.kt",
+        "line": 12,
+        "endLine": 14,
+        "kind": "noul",
+        "value": 0.06,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-comment-describes-declaration",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-comment-describes-declaration\\fixtures\\TagDirectory.kt",
+        "line": 19,
+        "endLine": 21,
+        "kind": "noul",
+        "value": 0.98,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-comment-describes-declaration",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-comment-describes-declaration\\fixtures\\TagDirectory.kt",
+        "line": 26,
+        "endLine": 26,
+        "kind": "noul",
+        "value": 0.04,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-comment-describes-declaration",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-comment-describes-declaration\\fixtures\\TagDirectory.kt",
+        "line": 31,
+        "endLine": 31,
+        "kind": "noul",
+        "value": 0.96,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-comment-describes-declaration",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-comment-describes-declaration\\fixtures\\TagDirectory.kt",
+        "line": 38,
+        "endLine": 41,
+        "kind": "noul",
+        "value": 0.13,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-comment-describes-declaration",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-comment-describes-declaration\\fixtures\\TagDirectory.kt",
+        "line": 46,
+        "endLine": 46,
+        "kind": "noul",
+        "value": 0.97,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-comment-describes-declaration",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-comment-describes-declaration\\fixtures\\TagDirectory.kt",
+        "line": 51,
+        "endLine": 51,
+        "kind": "noul",
+        "value": 0.96,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-comment-describes-declaration",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-comment-describes-declaration\\fixtures\\TagDirectory.kt",
+        "line": 56,
+        "endLine": 58,
+        "kind": "noul",
+        "value": 0.98,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-comment-describes-declaration",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-comment-describes-declaration\\fixtures\\TagDirectory.kt",
+        "line": 65,
+        "endLine": 67,
+        "kind": "noul",
+        "value": 0.24,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-comment-describes-declaration",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-comment-describes-declaration\\fixtures\\TagDirectory.kt",
+        "line": 72,
+        "endLine": 72,
+        "kind": "noul",
+        "value": 0.21,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-comment-describes-declaration",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-comment-describes-declaration\\fixtures\\TagDirectory.kt",
+        "line": 77,
+        "endLine": 77,
+        "kind": "noul",
+        "value": 0.17,
+        "confidence": null
+      }
+    ],
+    [
+      {
+        "rule": "noodlemap-comment-describes-declaration",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-comment-describes-declaration\\fixtures\\TagDirectory.kt",
+        "line": 6,
+        "endLine": 84,
+        "kind": "noul",
+        "value": 0.2,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-comment-describes-declaration",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-comment-describes-declaration\\fixtures\\TagDirectory.kt",
+        "line": 12,
+        "endLine": 14,
+        "kind": "noul",
+        "value": 0.06,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-comment-describes-declaration",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-comment-describes-declaration\\fixtures\\TagDirectory.kt",
+        "line": 19,
+        "endLine": 21,
+        "kind": "noul",
+        "value": 0.97,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-comment-describes-declaration",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-comment-describes-declaration\\fixtures\\TagDirectory.kt",
+        "line": 26,
+        "endLine": 26,
+        "kind": "noul",
+        "value": 0.04,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-comment-describes-declaration",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-comment-describes-declaration\\fixtures\\TagDirectory.kt",
+        "line": 31,
+        "endLine": 31,
+        "kind": "noul",
+        "value": 0.96,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-comment-describes-declaration",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-comment-describes-declaration\\fixtures\\TagDirectory.kt",
+        "line": 38,
+        "endLine": 41,
+        "kind": "noul",
+        "value": 0.13,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-comment-describes-declaration",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-comment-describes-declaration\\fixtures\\TagDirectory.kt",
+        "line": 46,
+        "endLine": 46,
+        "kind": "noul",
+        "value": 0.98,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-comment-describes-declaration",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-comment-describes-declaration\\fixtures\\TagDirectory.kt",
+        "line": 51,
+        "endLine": 51,
+        "kind": "noul",
+        "value": 0.94,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-comment-describes-declaration",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-comment-describes-declaration\\fixtures\\TagDirectory.kt",
+        "line": 56,
+        "endLine": 58,
+        "kind": "noul",
+        "value": 0.97,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-comment-describes-declaration",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-comment-describes-declaration\\fixtures\\TagDirectory.kt",
+        "line": 65,
+        "endLine": 67,
+        "kind": "noul",
+        "value": 0.21,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-comment-describes-declaration",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-comment-describes-declaration\\fixtures\\TagDirectory.kt",
+        "line": 72,
+        "endLine": 72,
+        "kind": "noul",
+        "value": 0.24,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-comment-describes-declaration",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-comment-describes-declaration\\fixtures\\TagDirectory.kt",
+        "line": 77,
+        "endLine": 77,
+        "kind": "noul",
+        "value": 0.17,
+        "confidence": null
+      }
+    ],
+    [
+      {
+        "rule": "noodlemap-comment-describes-declaration",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-comment-describes-declaration\\fixtures\\TagDirectory.kt",
+        "line": 6,
+        "endLine": 84,
+        "kind": "noul",
+        "value": 0.17,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-comment-describes-declaration",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-comment-describes-declaration\\fixtures\\TagDirectory.kt",
+        "line": 12,
+        "endLine": 14,
+        "kind": "noul",
+        "value": 0.07,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-comment-describes-declaration",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-comment-describes-declaration\\fixtures\\TagDirectory.kt",
+        "line": 19,
+        "endLine": 21,
+        "kind": "noul",
+        "value": 0.97,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-comment-describes-declaration",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-comment-describes-declaration\\fixtures\\TagDirectory.kt",
+        "line": 26,
+        "endLine": 26,
+        "kind": "noul",
+        "value": 0.04,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-comment-describes-declaration",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-comment-describes-declaration\\fixtures\\TagDirectory.kt",
+        "line": 31,
+        "endLine": 31,
+        "kind": "noul",
+        "value": 0.96,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-comment-describes-declaration",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-comment-describes-declaration\\fixtures\\TagDirectory.kt",
+        "line": 38,
+        "endLine": 41,
+        "kind": "noul",
+        "value": 0.16,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-comment-describes-declaration",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-comment-describes-declaration\\fixtures\\TagDirectory.kt",
+        "line": 46,
+        "endLine": 46,
+        "kind": "noul",
+        "value": 0.98,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-comment-describes-declaration",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-comment-describes-declaration\\fixtures\\TagDirectory.kt",
+        "line": 51,
+        "endLine": 51,
+        "kind": "noul",
+        "value": 0.93,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-comment-describes-declaration",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-comment-describes-declaration\\fixtures\\TagDirectory.kt",
+        "line": 56,
+        "endLine": 58,
+        "kind": "noul",
+        "value": 0.97,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-comment-describes-declaration",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-comment-describes-declaration\\fixtures\\TagDirectory.kt",
+        "line": 65,
+        "endLine": 67,
+        "kind": "noul",
+        "value": 0.24,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-comment-describes-declaration",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-comment-describes-declaration\\fixtures\\TagDirectory.kt",
+        "line": 72,
+        "endLine": 72,
+        "kind": "noul",
+        "value": 0.22,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-comment-describes-declaration",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-comment-describes-declaration\\fixtures\\TagDirectory.kt",
+        "line": 77,
+        "endLine": 77,
+        "kind": "noul",
+        "value": 0.12,
+        "confidence": null
+      }
+    ]
+  ],
+  "spent": {
+    "calls": 3,
+    "inputTokens": 21627,
+    "usd": 0.0009083340000000001,
+    "ms": 184
+  }
+}

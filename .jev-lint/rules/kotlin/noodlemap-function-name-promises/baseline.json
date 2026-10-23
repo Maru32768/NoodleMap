@@ -1,0 +1,379 @@
+{
+  "schema": "jev-lint-eval-1",
+  "recorded": "2026-10-23T03:58:14.433Z",
+  "model": "jev-1.14.0",
+  "suite": "kotlin/noodlemap-function-name-promises",
+  "rules": [
+    {
+      "id": "noodlemap-function-name-promises",
+      "draft": "0e1c13c84237",
+      "at": 0.69
+    }
+  ],
+  "cutoffs": {},
+  "passes": [
+    [
+      {
+        "rule": "noodlemap-function-name-promises",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-function-name-promises\\fixtures\\VisitRegistry.kt",
+        "line": 11,
+        "endLine": 13,
+        "kind": "noul",
+        "value": 0.07,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-function-name-promises",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-function-name-promises\\fixtures\\VisitRegistry.kt",
+        "line": 15,
+        "endLine": 15,
+        "kind": "noul",
+        "value": 0.13,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-function-name-promises",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-function-name-promises\\fixtures\\VisitRegistry.kt",
+        "line": 17,
+        "endLine": 22,
+        "kind": "noul",
+        "value": 0.93,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-function-name-promises",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-function-name-promises\\fixtures\\VisitRegistry.kt",
+        "line": 24,
+        "endLine": 27,
+        "kind": "noul",
+        "value": 0.1,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-function-name-promises",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-function-name-promises\\fixtures\\VisitRegistry.kt",
+        "line": 29,
+        "endLine": 31,
+        "kind": "noul",
+        "value": 0.45,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-function-name-promises",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-function-name-promises\\fixtures\\VisitRegistry.kt",
+        "line": 33,
+        "endLine": 35,
+        "kind": "noul",
+        "value": 0.79,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-function-name-promises",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-function-name-promises\\fixtures\\VisitRegistry.kt",
+        "line": 37,
+        "endLine": 39,
+        "kind": "noul",
+        "value": 0.78,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-function-name-promises",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-function-name-promises\\fixtures\\VisitRegistry.kt",
+        "line": 41,
+        "endLine": 43,
+        "kind": "noul",
+        "value": 0.13,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-function-name-promises",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-function-name-promises\\fixtures\\VisitRegistry.kt",
+        "line": 45,
+        "endLine": 52,
+        "kind": "noul",
+        "value": 0.77,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-function-name-promises",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-function-name-promises\\fixtures\\VisitRegistry.kt",
+        "line": 54,
+        "endLine": 57,
+        "kind": "noul",
+        "value": 0.3,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-function-name-promises",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-function-name-promises\\fixtures\\VisitRegistry.kt",
+        "line": 59,
+        "endLine": 61,
+        "kind": "noul",
+        "value": 0.11,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-function-name-promises",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-function-name-promises\\fixtures\\VisitRegistry.kt",
+        "line": 63,
+        "endLine": 63,
+        "kind": "noul",
+        "value": 0.07,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-function-name-promises",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-function-name-promises\\fixtures\\VisitRegistry.kt",
+        "line": 65,
+        "endLine": 65,
+        "kind": "noul",
+        "value": 0.05,
+        "confidence": null
+      }
+    ],
+    [
+      {
+        "rule": "noodlemap-function-name-promises",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-function-name-promises\\fixtures\\VisitRegistry.kt",
+        "line": 11,
+        "endLine": 13,
+        "kind": "noul",
+        "value": 0.08,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-function-name-promises",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-function-name-promises\\fixtures\\VisitRegistry.kt",
+        "line": 15,
+        "endLine": 15,
+        "kind": "noul",
+        "value": 0.14,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-function-name-promises",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-function-name-promises\\fixtures\\VisitRegistry.kt",
+        "line": 17,
+        "endLine": 22,
+        "kind": "noul",
+        "value": 0.94,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-function-name-promises",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-function-name-promises\\fixtures\\VisitRegistry.kt",
+        "line": 24,
+        "endLine": 27,
+        "kind": "noul",
+        "value": 0.11,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-function-name-promises",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-function-name-promises\\fixtures\\VisitRegistry.kt",
+        "line": 29,
+        "endLine": 31,
+        "kind": "noul",
+        "value": 0.45,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-function-name-promises",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-function-name-promises\\fixtures\\VisitRegistry.kt",
+        "line": 33,
+        "endLine": 35,
+        "kind": "noul",
+        "value": 0.8,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-function-name-promises",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-function-name-promises\\fixtures\\VisitRegistry.kt",
+        "line": 37,
+        "endLine": 39,
+        "kind": "noul",
+        "value": 0.76,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-function-name-promises",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-function-name-promises\\fixtures\\VisitRegistry.kt",
+        "line": 41,
+        "endLine": 43,
+        "kind": "noul",
+        "value": 0.13,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-function-name-promises",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-function-name-promises\\fixtures\\VisitRegistry.kt",
+        "line": 45,
+        "endLine": 52,
+        "kind": "noul",
+        "value": 0.75,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-function-name-promises",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-function-name-promises\\fixtures\\VisitRegistry.kt",
+        "line": 54,
+        "endLine": 57,
+        "kind": "noul",
+        "value": 0.23,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-function-name-promises",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-function-name-promises\\fixtures\\VisitRegistry.kt",
+        "line": 59,
+        "endLine": 61,
+        "kind": "noul",
+        "value": 0.12,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-function-name-promises",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-function-name-promises\\fixtures\\VisitRegistry.kt",
+        "line": 63,
+        "endLine": 63,
+        "kind": "noul",
+        "value": 0.07,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-function-name-promises",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-function-name-promises\\fixtures\\VisitRegistry.kt",
+        "line": 65,
+        "endLine": 65,
+        "kind": "noul",
+        "value": 0.05,
+        "confidence": null
+      }
+    ],
+    [
+      {
+        "rule": "noodlemap-function-name-promises",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-function-name-promises\\fixtures\\VisitRegistry.kt",
+        "line": 11,
+        "endLine": 13,
+        "kind": "noul",
+        "value": 0.08,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-function-name-promises",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-function-name-promises\\fixtures\\VisitRegistry.kt",
+        "line": 15,
+        "endLine": 15,
+        "kind": "noul",
+        "value": 0.14,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-function-name-promises",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-function-name-promises\\fixtures\\VisitRegistry.kt",
+        "line": 17,
+        "endLine": 22,
+        "kind": "noul",
+        "value": 0.93,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-function-name-promises",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-function-name-promises\\fixtures\\VisitRegistry.kt",
+        "line": 24,
+        "endLine": 27,
+        "kind": "noul",
+        "value": 0.13,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-function-name-promises",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-function-name-promises\\fixtures\\VisitRegistry.kt",
+        "line": 29,
+        "endLine": 31,
+        "kind": "noul",
+        "value": 0.43,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-function-name-promises",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-function-name-promises\\fixtures\\VisitRegistry.kt",
+        "line": 33,
+        "endLine": 35,
+        "kind": "noul",
+        "value": 0.79,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-function-name-promises",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-function-name-promises\\fixtures\\VisitRegistry.kt",
+        "line": 37,
+        "endLine": 39,
+        "kind": "noul",
+        "value": 0.76,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-function-name-promises",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-function-name-promises\\fixtures\\VisitRegistry.kt",
+        "line": 41,
+        "endLine": 43,
+        "kind": "noul",
+        "value": 0.13,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-function-name-promises",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-function-name-promises\\fixtures\\VisitRegistry.kt",
+        "line": 45,
+        "endLine": 52,
+        "kind": "noul",
+        "value": 0.77,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-function-name-promises",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-function-name-promises\\fixtures\\VisitRegistry.kt",
+        "line": 54,
+        "endLine": 57,
+        "kind": "noul",
+        "value": 0.24,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-function-name-promises",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-function-name-promises\\fixtures\\VisitRegistry.kt",
+        "line": 59,
+        "endLine": 61,
+        "kind": "noul",
+        "value": 0.13,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-function-name-promises",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-function-name-promises\\fixtures\\VisitRegistry.kt",
+        "line": 63,
+        "endLine": 63,
+        "kind": "noul",
+        "value": 0.07,
+        "confidence": null
+      },
+      {
+        "rule": "noodlemap-function-name-promises",
+        "file": ".jev-lint\\rules\\kotlin\\noodlemap-function-name-promises\\fixtures\\VisitRegistry.kt",
+        "line": 65,
+        "endLine": 65,
+        "kind": "noul",
+        "value": 0.05,
+        "confidence": null
+      }
+    ]
+  ],
+  "spent": {
+    "calls": 3,
+    "inputTokens": 22236,
+    "usd": 0.000933912,
+    "ms": 319
+  }
+}

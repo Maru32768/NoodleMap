@@ -1,0 +1,59 @@
+# jev-lint (https://github.com/mizchi/jev-lint) asks a model whether code contradicts its own names and comments. It
+# sends the judged code to the TypeSafe API, so it runs only by hand with TYPESAFE_API_KEY set; findings are candidates
+# for a human to judge, and no rule blocks anything.
+files:
+  - web/src
+  - web/scripts
+  - e2e/tests
+  - e2e/support
+  - e2e/start-server.mjs
+  - scripts
+  - server/src/main/kotlin
+  - package.json
+  - web/package.json
+  - e2e/package.json
+  - AGENTS.md
+  - web/AGENTS.md
+  - server/AGENTS.md
+  - typespec/AGENTS.md
+  - db/AGENTS.md
+# Generated from typespec/main.tsp; a finding there is fixed in the TypeSpec, not the file.
+exclude:
+  - web/src/generated
+rules:
+  # TypeScript and TSX: every shipped rule, at its shipped cutoff.
+  typescript/catch-hides-failure: on
+  typescript/class-shape-shows-its-role: on
+  typescript/comment-describes-block: on
+  typescript/comment-describes-declaration: on
+  typescript/describe-names-subject: on
+  typescript/doc-errors-match-body: on
+  typescript/error-message-matches-condition: on
+  typescript/fn-name-promises: on
+  typescript/idempotent-name: on
+  typescript/log-level-matches-event: on
+  typescript/log-message-matches-event: on
+  typescript/method-name-promises: on
+  typescript/module-name-describes-contents: on
+  typescript/module-naming-consistent: on
+  typescript/pure-name-is-pure: on
+  typescript/safe-name-is-safe: on
+  typescript/snapshot-only-behaviour-claim: on
+  typescript/test-mocks-subject: on
+  typescript/test-name-describes-code: on
+  typescript/test-name-verifies-claim: on
+  typescript/tests-cover-failure-paths: on
+  typescript/type-name-describes-shape: on
+  typescript/var-name-describes-value: on
+  # Kotlin has no shipped rules; these two are ported into .jev-lint/rules/kotlin/ and fitted there.
+  kotlin/noodlemap-function-name-promises: on
+  kotlin/noodlemap-comment-describes-declaration: on
+  # package.json scripts against their commands.
+  json/script-name-does: on
+  # The agent guidelines. CLAUDE.md is the source and AGENTS.md its copy, so a finding on AGENTS.md is fixed in the
+  # CLAUDE.md beside it, followed by `npm run sync-agents`.
+  markdown/agent-instruction-is-unclear: on
+  markdown/agent-instructions-conflict: on
+  # `jev-lint commits --base master`: each commit message against its diff, and each change against AGENTS.md.
+  git/commit-message-describes-diff: on
+  git/diff-follows-instructions: on

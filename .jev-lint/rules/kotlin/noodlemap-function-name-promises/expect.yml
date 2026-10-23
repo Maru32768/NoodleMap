@@ -1,0 +1,16 @@
+# Every matched subject not listed here is a clean case.
+default: clean
+fixtures/VisitRegistry.kt:
+  - { line: 17, label: bad, window: 0, reason: "a check that records a new visit, so asking twice changes the answer" }
+  - { line: 29, label: bad, window: 0, reason: "counts every shop ever recorded, expired cooldowns included" }
+  - { line: 33, label: bad, window: 0, reason: "clears every cooldown, not only the expired ones" }
+  - { line: 37, label: bad, window: 0, reason: "a lookup that invents and stores an id for an unknown name" }
+  - { line: 45, label: bad, window: 0, reason: "tries once and ignores attempts" }
+  - { line: 11, label: clean, window: 0, reason: "a getter the body fits" }
+  - { line: 15, label: clean, window: 0, reason: "conventional get that may return null" }
+  - { line: 24, label: clean, window: 0, reason: "remaining time, clamped at zero; the hard clean" }
+  - { line: 41, label: clean, window: 0, reason: "ensure creates only when absent, as the name says" }
+  - { line: 54, label: clean, window: 0, reason: "filters to cooldowns still running" }
+  - { line: 59, label: clean, window: 0, reason: "records a visit, as the name says" }
+  - { line: 63, label: clean, window: 0, reason: "trims and lower-cases, a normal normalization" }
+  - { line: 65, label: clean, window: 0, reason: "conventional toString" }

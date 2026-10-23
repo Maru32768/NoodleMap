@@ -1,0 +1,44 @@
+# Ported from jev-lint's typescript/fn-name-promises, through CommandLib's Java port: the same question over Kotlin
+# functions.
+id: noodlemap-function-name-promises
+language: Kotlin
+kind: noul
+subject: node
+state: located
+# 0.69, fitted 2026-10-23 (jev-1.13.0, 3 passes); CommandLib fitted the same cutoff for its Java port. The defects of
+# fixtures/VisitRegistry.kt answer 0.69-0.92 and its cleans at most 0.29. `countActive`, which counts expired cooldowns
+# as active, answers 0.37-0.45 across runs: seeing it takes knowing that the map is never pruned, so it is kept labelled as a defect
+# under the cutoff, as in CommandLib. On server/src/main/kotlin the highest sound functions answer 0.61-0.64: the private
+# SessionService.currentSession, which slides a stale session's expiry as the comment in its body says, and
+# R2OgImageStore.exists, which caches the keys it found. 0.69 sits above them and at the floor of the fixture defects.
+threshold: 0.69
+# Calibrated on the file axis; pinned so the scheduler cannot move it.
+axis: file
+severity: warning
+rule:
+  all:
+    - kind: function_declaration
+    - has: { kind: simple_identifier, pattern: $NAME }
+    # Abstract and interface functions have no body to judge.
+    - has: { kind: function_body }
+ask: >-
+  The body of this function does something materially different from what its
+  name promises.
+criteria:
+  "true": >-
+    Someone who read only the name and the parameter list would be wrong about
+    what this function does: it returns a different kind of thing than the name
+    suggests (a count that is a list, a predicate that is a number), it changes
+    state when the name says it only reads, checks, looks up or serialises, it
+    can fail or return null when the name promises a value, it handles only a
+    narrower case than the name claims, it never performs an effect or
+    repetition the name names, it computes something no reading of the name
+    accounts for, or it does substantial work the name does not mention at all.
+  "false": >-
+    The name and parameter list describe what the body actually does. Someone
+    who read only them would not be surprised by the body, even if a longer or
+    more specific name could be imagined. A terse or conventional name (run,
+    handle, invoke, get, toString, a getter, a Ktor route or plugin installer
+    such as shopRoutes or configureX) that the body fits is not a violation, and
+    a comment inside the body that is wrong about the body is a wrong comment,
+    not a wrong name.

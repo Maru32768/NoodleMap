@@ -41,6 +41,13 @@ API generation commands run from the repository root:
 
 Use `docker-compose.yml` at the repository root for local container orchestration when database services are needed.
 
+[jev-lint](https://github.com/mizchi/jev-lint) asks a model whether code contradicts its own names, comments, and tests (`.jev-lint.yaml`; the Kotlin rules are ported in `.jev-lint/rules/kotlin/`). It sends the judged code to the TypeSafe API, so run it only when the user asks. `.mise.toml` pins it (`mise install`), and the key goes in `mise.local.toml`, which Git ignores, as `[env]` `TYPESAFE_API_KEY = "..."`. Run it through mise from the repository root, since a non-interactive shell may not have mise activated:
+
+- `mise run jev-review [base]`: judge the lines changed since `base` (`origin/master` by default).
+- `mise exec -- jev-lint check`: judge every configured file; `--dry-run` lists the subjects and the price without a request.
+
+Its findings are candidates to judge, not errors: about one in five is wrong. After changing a Kotlin rule or its fixtures, refit with `mise exec -- jev-lint eval .jev-lint/rules/kotlin/<rule> --repeat 3` and accept with `--accept`; the reasoning behind each cutoff is in its `rule.yml`. On Windows, `eval --replay` and `--accept-last` mis-score these suites, because jev-lint compares a baseline's `/` paths with the `\` paths of the labels; a fresh `eval` scores them correctly.
+
 ## Generated Code
 
 Keep `typespec/main.tsp` as the source of truth for API request and response shapes. Generated files are committed for reviewability:
@@ -89,6 +96,6 @@ Pull requests should include a short summary, affected areas, verification comma
 
 ## Security and Configuration
 
-Do not commit secrets or local environment files. Keep generated build output, local IDE files, and runtime logs out of commits unless explicitly required.
+Do not commit secrets or local environment files such as `.env` and `mise.local.toml`. Keep generated build output, local IDE files, and runtime logs out of commits unless explicitly required.
 
 Non-secret Render values live in `render.yaml`. Secret values such as `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `GOOGLE_PLACES_API_KEY`, and `VITE_GOOGLE_OAUTH_CLIENT_ID` are configured outside the repository.

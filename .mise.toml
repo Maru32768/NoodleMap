@@ -1,8 +1,17 @@
 [tools]
 node = "24"
 terraform = "1.15.5"
+# mise skips install scripts by default, and @ast-grep/cli puts its binary in place with one.
+"npm:jev-lint" = { version = "0.7.0", allow_builds = ["@ast-grep/cli"] }
 
 [env]
 AWS_REQUEST_CHECKSUM_CALCULATION = "when_required"
 AWS_RESPONSE_CHECKSUM_VALIDATION = "when_required"
 _.file = ".env"
+
+# Without a base, the review covers what is not pushed yet. On a branch, pass the ref it started from:
+# mise run jev-review master
+[tasks.jev-review]
+description = "Judge the lines changed since a base ref (origin/master by default) with jev-lint"
+usage = 'arg "[base]" help="The ref to review the changes since" default="origin/master"'
+run = "jev-lint review --base {{usage.base}}"

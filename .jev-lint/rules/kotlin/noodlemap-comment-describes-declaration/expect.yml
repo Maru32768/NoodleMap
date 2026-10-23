@@ -1,0 +1,15 @@
+# Every matched subject not listed here is a clean case.
+default: clean
+fixtures/TagDirectory.kt:
+  - { line: 19, label: bad, window: 0, reason: "promises null for an unknown name; the body throws" }
+  - { line: 31, label: bad, window: 0, reason: "promises name order; a HashMap has none" }
+  - { line: 46, label: bad, window: 0, reason: "says at most 10; the default limit is 20" }
+  - { line: 51, label: bad, window: 0, reason: "says minutes; seconds times 1000 is milliseconds" }
+  - { line: 56, label: bad, window: 0, reason: "names a fallback parameter and a move that do not exist" }
+  - { line: 6, label: clean, window: 0, reason: "accurate class summary" }
+  - { line: 12, label: clean, window: 0, reason: "add replaces a tag of the same name, as stated" }
+  - { line: 26, label: clean, window: 0, reason: "accurate" }
+  - { line: 38, label: clean, window: 0, reason: "the @throws condition matches the require; the hard clean" }
+  - { line: 65, label: clean, window: 0, reason: "vague but not false" }
+  - { line: 72, label: clean, window: 0, reason: "a caller obligation, not checkable here" }
+  - { line: 77, label: clean, window: 0, reason: "accurate, including the empty case" }
