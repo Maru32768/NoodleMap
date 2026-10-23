@@ -2,9 +2,9 @@
 
 ## Structure
 
-`db/` contains SQL schemas, SQL queries, initialization scripts, and seed CSV data.
+`db/` contains the seed CSV data in `data/` and `init.sh`, which loads it into a local database. The schema and queries live in `server/` (see Schema and Queries below).
 
-Keep schema changes, query changes, and seed data changes focused and reviewable.
+Keep seed data changes focused and reviewable.
 
 ## Encoding
 

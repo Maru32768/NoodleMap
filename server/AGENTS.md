@@ -40,7 +40,7 @@
   2. Mirror the change in the matching `.sq` `CREATE TABLE`. The `.sq` files are only
      SQLDelight's compile-time schema; it can't parse the modtime triggers.
   3. Run `./gradlew test`. `MigrationsTest` fails if the `.sq` columns or indexes drift from the migrated schema.
-- Never edit a migration that has already shipped.
+- Never edit a migration once it is on `master`: a deployed database may already have applied it.
 
 ## Conventions
 
@@ -49,7 +49,8 @@
 - Auth: enforce per-handler via `SessionService.requireUser`/`requireAdmin`. Sessions are
   opaque tokens hashed in the DB — never JWT sessions. Don't install ForwardedHeaders (trust no proxy).
 - Store UUIDs as lowercase text (`UuidAdapter`).
-- Keep handlers thin; mirror the domain-oriented package layout (`auth`, `shops`, `db`, `backup`, `jobs`).
+- Keep handlers thin; put new code in the package of its domain (`auth`, `shops`, `places`, `og`, `db`,
+  `backup`, `jobs`), and shared plumbing in `common`, `errors` or `http`.
 
 ## After editing this file
 

@@ -9,7 +9,7 @@ This repository contains a full-stack noodle map application.
 - `typespec/`: TypeSpec API contract source.
 - `api/openapi.yaml`: generated OpenAPI document.
 - `e2e/`: Playwright end-to-end tests against the real backend and frontend.
-- `db/`: SQL schemas, queries, initialization scripts, and seed CSV data.
+- `db/`: seed CSV data and the script that loads it. The schema and queries live in `server/`.
 - `render.yaml`: Render Blueprint for deployed services and non-secret environment variables.
 
 Directory-specific guidance lives in nested `CLAUDE.md` / `AGENTS.md` files. When working inside a directory, follow the closest nested guidance in addition to this root file.
