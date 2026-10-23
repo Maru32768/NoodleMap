@@ -193,7 +193,7 @@ describe("ShopEditModal save", () => {
     await userEvent.click(screen.getByRole("button", { name: "保存" }));
 
     expect(
-      await screen.findByRole("combobox", {
+      await screen.findByRole("radiogroup", {
         name: "気になる度",
         description: "形式が正しくありません",
       }),
@@ -455,14 +455,20 @@ describe("ShopEditModal links", () => {
 });
 
 describe("ShopEditModal 気になる度", () => {
-  const wishSelect = () => screen.getByRole("combobox", { name: "気になる度" });
+  const wishLevel = () =>
+    screen.getByRole("radiogroup", { name: "気になる度" });
+  const wishOption = (name: string) =>
+    within(wishLevel()).getByRole("radio", { name });
 
   it("omits 気になる度 when unchanged so the stored value is kept", async () => {
     const { requests } = renderEditor(
       makeShop({ eaten: false, wishLevel: "medium" }),
     );
 
-    expect(wishSelect()).toHaveValue("medium");
+    expect(wishOption("気になる")).toBeChecked();
+    expect(
+      within(wishLevel()).getAllByRole("radio", { checked: true }),
+    ).toHaveLength(1);
     await userEvent.click(screen.getByRole("button", { name: "保存" }));
 
     await waitFor(() => expect(requests).toHaveLength(1));
@@ -475,7 +481,7 @@ describe("ShopEditModal 気になる度", () => {
   it("sends the chosen 気になる度", async () => {
     const { requests } = renderEditor(makeShop({ eaten: false }));
 
-    await userEvent.selectOptions(wishSelect(), "絶対行きたい");
+    await userEvent.click(wishOption("絶対行きたい"));
     await userEvent.click(screen.getByRole("button", { name: "保存" }));
 
     await waitFor(() => expect(requests).toHaveLength(1));
@@ -487,11 +493,51 @@ describe("ShopEditModal 気になる度", () => {
       makeShop({ eaten: false, wishLevel: "high" }),
     );
 
-    await userEvent.selectOptions(wishSelect(), "未設定");
+    await userEvent.click(wishOption("未設定"));
     await userEvent.click(screen.getByRole("button", { name: "保存" }));
 
     await waitFor(() => expect(requests).toHaveLength(1));
     expect(requests[0].wishLevel).toBe("");
+  });
+});
+
+describe("ShopEditModal 気になる度 keyboard", () => {
+  it("moves the choice with arrow keys from the one Tab stop", async () => {
+    const { requests } = renderEditor(
+      makeShop({ eaten: false, wishLevel: "low" }),
+    );
+    const group = screen.getByRole("radiogroup", { name: "気になる度" });
+    const radios = within(group).getAllByRole("radio");
+    expect(radios.map((r) => r.textContent)).toEqual([
+      "未設定",
+      "ちょっと気になる",
+      "気になる",
+      "絶対行きたい",
+    ]);
+    // Only the chosen option is in the Tab order.
+    expect(radios.map((r) => r.tabIndex)).toEqual([-1, 0, -1, -1]);
+
+    radios[1].focus();
+    await userEvent.keyboard("{ArrowRight}");
+    expect(
+      within(group).getByRole("radio", { name: "気になる" }),
+    ).toHaveFocus();
+    expect(
+      within(group).getByRole("radio", { name: "気になる" }),
+    ).toBeChecked();
+
+    await userEvent.keyboard("{End}");
+    await userEvent.keyboard("{ArrowRight}");
+    // Wraps around to 未設定.
+    expect(within(group).getByRole("radio", { name: "未設定" })).toHaveFocus();
+    await userEvent.keyboard("{ArrowLeft}");
+    expect(
+      within(group).getByRole("radio", { name: "絶対行きたい" }),
+    ).toBeChecked();
+
+    await userEvent.click(screen.getByRole("button", { name: "保存" }));
+    await waitFor(() => expect(requests).toHaveLength(1));
+    expect(requests[0].wishLevel).toBe("high");
   });
 });
 

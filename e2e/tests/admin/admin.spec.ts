@@ -119,7 +119,7 @@ test("admin adds a shop by typing its details into the add form", async ({ page,
   await page.getByRole("button", { name: "店舗追加" }).click();
   await page.getByRole("button", { name: /Googleで検索して追加/ }).click();
   const dialog = page.getByRole("dialog").filter({ hasText: "新しい店舗を追加" });
-  await dialog.getByRole("button", { name: "うどん", exact: true }).click();
+  await dialog.getByRole("radio", { name: "うどん", exact: true }).click();
   await dialog.locator('label:has-text("店名") + input').fill(name);
   await dialog.locator('label:has-text("緯度") + input').fill("35.6812");
   await dialog.locator('label:has-text("経度") + input').fill("139.7671");

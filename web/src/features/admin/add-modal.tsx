@@ -1,5 +1,6 @@
 import { FormField } from "@/components/form-field.tsx";
 import { ModalDialog } from "@/components/modal-dialog.tsx";
+import { SegmentedPicker } from "@/components/segmented-picker.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { toaster } from "@/components/ui/toaster.tsx";
 import { useRevealFirstError } from "@/components/use-reveal-first-error.ts";
@@ -388,33 +389,12 @@ export function AddModal({
                 label={<FieldLabel>カテゴリ</FieldLabel>}
                 error={errorOf("category")}
               >
-                <Box display="flex" gap="6px" flexWrap="wrap">
-                  {CATEGORY_OPTIONS.map((cat) => (
-                    <Button
-                      key={cat.id}
-                      variant="plain"
-                      px="10px"
-                      py="5px"
-                      h="auto"
-                      minH="auto"
-                      fontSize="12px"
-                      fontWeight={draft.category === cat.id ? 600 : 400}
-                      bg={draft.category === cat.id ? "nm.ink" : "nm.bg"}
-                      color={
-                        draft.category === cat.id ? "nm.paper" : "nm.inkMuted"
-                      }
-                      border="1px solid"
-                      borderColor={
-                        draft.category === cat.id ? "nm.ink" : "nm.line"
-                      }
-                      rounded="nmMd"
-                      _hover={{ borderColor: "nm.ink" }}
-                      onClick={() => setCategory(cat.id)}
-                    >
-                      {cat.label}
-                    </Button>
-                  ))}
-                </Box>
+                <SegmentedPicker
+                  label="カテゴリ"
+                  options={CATEGORY_OPTIONS}
+                  value={draft.category}
+                  onChange={setCategory}
+                />
               </FormField>
 
               {tags && (
