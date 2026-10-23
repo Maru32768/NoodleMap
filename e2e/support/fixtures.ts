@@ -13,6 +13,7 @@ export type Tag = components["schemas"]["Tag"];
 type TagInput = components["schemas"]["TagInput"];
 type AddShopRequest = components["schemas"]["AddShopRequest"];
 type UpdateShopRequest = components["schemas"]["UpdateShopRequest"];
+type VisitLogInput = components["schemas"]["VisitLogInput"];
 
 /** A short token unique to this run, used to namespace seeded shops and tags. */
 export function uid(): string {
@@ -52,10 +53,10 @@ export class Api {
     return tags.find((t) => t.slug === input.slug)!;
   }
 
-  /** Adds a shop near the default map center with its tags; eaten/rate go through an update. */
+  /** Adds a shop near the default map center with its tags; an eaten shop gets one 訪問ログ with the rate. */
   async createShop(
     spec: Pick<AddShopRequest, "name"> &
-      Partial<Pick<UpdateShopRequest, "category" | "eaten" | "rate" | "tagIds" | "address">>,
+      Partial<Pick<AddShopRequest, "category" | "tagIds" | "address">> & { eaten?: boolean; rate?: number },
   ): Promise<Shop> {
     const add: AddShopRequest = {
       name: spec.name,
@@ -68,8 +69,9 @@ export class Api {
       tagIds: spec.tagIds ?? [],
     };
     const shop = await expectOkJson<Shop>(await this.request.post("/api/v1/auth/shops", { data: add }));
-    if (spec.eaten !== undefined || spec.rate !== undefined) {
-      await this.updateShop(shop, { eaten: spec.eaten ?? false, rate: spec.rate ?? 0 });
+    if (spec.eaten) {
+      const visit: VisitLogInput = { isLimitedMenu: false, rate: spec.rate };
+      await expectOkJson(await this.request.post(`/api/v1/auth/shops/${shop.id}/visits`, { data: visit }));
     }
     return this.getShop(shop.id);
   }
@@ -85,8 +87,6 @@ export class Api {
       closedAt: shop.closedAt,
       googlePlaceId: shop.googlePlaceId,
       category: shop.category,
-      eaten: shop.eaten,
-      rate: shop.rate,
       tagIds: shop.tags.map((t) => t.id),
       ...patch,
     };

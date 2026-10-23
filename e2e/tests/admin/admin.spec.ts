@@ -85,7 +85,8 @@ test("admin adds a shop link that guests see in the shop detail", async ({ page,
 
 test("admin deletes a shop from the edit modal", async ({ page, api }) => {
   const id = uid();
-  const shop = await api.createShop({ name: `${id} 削除する店`, eaten: true, rate: 50 });
+  // A shop with visit logs cannot be deleted, so this one has none.
+  const shop = await api.createShop({ name: `${id} 削除する店` });
 
   await openAdmin(page);
   const dialog = await openEditModal(page, shop.name, id);
