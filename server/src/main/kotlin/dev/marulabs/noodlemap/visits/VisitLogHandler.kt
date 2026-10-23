@@ -76,6 +76,9 @@ internal fun normalizeVisit(input: VisitLogInput, today: LocalDate): VisitFields
         val name = item.name.trim()
         when {
             name.isEmpty() -> errors += FieldError("menuItems", FieldErrorType.REQUIRED, "menuItems[$i].name")
+            // A NUL would also cut the name short for SQLite's length() in the CHECK.
+            name.any { it.isISOControl() } ->
+                errors += FieldError("menuItems", FieldErrorType.INVALID_FORMAT, "menuItems[$i].name")
             name.codePointCount(0, name.length) > MENU_NAME_MAX_LENGTH ->
                 errors += FieldError("menuItems", FieldErrorType.TOO_LONG, "menuItems[$i].name")
         }
@@ -124,15 +127,12 @@ class VisitLogHandler(
         val shopId = uuidOrNull(id) ?: throw DomainException.NotFound()
         val v = normalizeVisit(visitLogInput, LocalDate.now(JST))
         val visitId = UUID.randomUUID()
-        try {
+        // The menu items point at the log inserted just before, so a violation means the shop does not exist.
+        notFoundOnForeignKeyViolation {
             db.transaction {
                 db.visitLogsQueries.insertVisitLog(visitId, shopId, v.visitedOn, v.rate, v.eventName, v.publicNote, v.privateNote)
                 insertMenuItems(visitId, v.menuItems)
             }
-        } catch (e: SQLiteException) {
-            // shop_id is the only foreign key, so a violation means the shop does not exist.
-            if (e.resultCode == SQLiteErrorCode.SQLITE_CONSTRAINT_FOREIGNKEY) throw DomainException.NotFound()
-            throw e
         }
         call.respondTyped(v.toApi(visitId, images = emptyList()))
     }
@@ -141,15 +141,17 @@ class VisitLogHandler(
         sessions.requireAdmin(call)
         val id = uuidOrNull(visitId) ?: throw DomainException.NotFound()
         val v = normalizeVisit(visitLogInput, LocalDate.now(JST))
-        // Every field is replaced, the menu items included.
-        db.transaction {
-            val updated = db.visitLogsQueries.updateVisitLog(
-                visitedOn = v.visitedOn, rate = v.rate, eventName = v.eventName, publicNote = v.publicNote,
-                privateNote = v.privateNote, id = id,
-            ).value
-            if (updated == 0L) throw DomainException.NotFound()
-            db.visitMenuItemsQueries.deleteVisitMenuItemsByVisitLogId(id)
-            insertMenuItems(id, v.menuItems)
+        // Every field is replaced, the menu items included; they point at this log, checked to exist just before.
+        notFoundOnForeignKeyViolation {
+            db.transaction {
+                val updated = db.visitLogsQueries.updateVisitLog(
+                    visitedOn = v.visitedOn, rate = v.rate, eventName = v.eventName, publicNote = v.publicNote,
+                    privateNote = v.privateNote, id = id,
+                ).value
+                if (updated == 0L) throw DomainException.NotFound()
+                db.visitMenuItemsQueries.deleteVisitMenuItemsByVisitLogId(id)
+                insertMenuItems(id, v.menuItems)
+            }
         }
         call.respondTyped(v.toApi(id, visitImagesByVisitLogIds(db, images, listOf(id))[id].orEmpty()))
     }
@@ -169,6 +171,16 @@ class VisitLogHandler(
     }
 
     private fun uuidOrNull(raw: String): UUID? = runCatching { UUID.fromString(raw) }.getOrNull()
+
+    /** Runs [block], turning a foreign key violation (a row it points at is gone) into Not Found. */
+    private fun notFoundOnForeignKeyViolation(block: () -> Unit) {
+        try {
+            block()
+        } catch (e: SQLiteException) {
+            if (e.resultCode == SQLiteErrorCode.SQLITE_CONSTRAINT_FOREIGNKEY) throw DomainException.NotFound()
+            throw e
+        }
+    }
 
     private fun insertMenuItems(visitId: UUID, items: List<MenuItem>) {
         items.forEachIndexed { i, item ->

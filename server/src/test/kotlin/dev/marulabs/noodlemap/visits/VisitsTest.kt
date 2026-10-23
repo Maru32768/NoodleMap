@@ -84,6 +84,14 @@ class VisitsTest {
     }
 
     @Test
+    fun `menu names with control characters are rejected before they reach the database`() {
+        for (name in listOf("麺\u0000", "\u0000麺", "つけ\n麺", "\u007f")) {
+            errorsOf(VisitLogInput(menuItems = listOf(MenuItemInput("ok"), MenuItemInput(name)))) shouldBe
+                listOf(FieldError("menuItems", FieldErrorType.INVALID_FORMAT, "menuItems[1].name"))
+        }
+    }
+
+    @Test
     fun `the total price sums the priced items and is absent when none has a price`() {
         totalPrice(emptyList()) shouldBe null
         totalPrice(listOf(MenuItem("ラーメン", false))) shouldBe null

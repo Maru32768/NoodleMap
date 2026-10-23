@@ -245,6 +245,9 @@ class VisitLogApiTest {
         }
         fieldError(VisitLogInput(menuItems = List(11) { MenuItemInput("麺$it") })) shouldBe
             listOf(FieldError("menuItems", FieldErrorType.OUT_OF_RANGE, "at most 10 menu items"))
+        // A leading NUL would otherwise fail the table's CHECK (SQLite's length() stops at it) as a server error.
+        fieldError(VisitLogInput(menuItems = listOf(MenuItemInput("\u0000麺")))) shouldBe
+            listOf(FieldError("menuItems", FieldErrorType.INVALID_FORMAT, "menuItems[0].name"))
         fieldError(visit(rate = -0.5)) shouldBe listOf(FieldError("rate", FieldErrorType.OUT_OF_RANGE))
 
         client.addVisit(id, visit("2024-02-29", rate = 0.0), admin).visitedOn shouldBe "2024-02-29"
