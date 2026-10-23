@@ -255,7 +255,7 @@ export function DetailPanel({ shop, onAdminEdit, onClose }: DetailPanelProps) {
                 color="nm.inkMuted"
                 textTransform="uppercase"
               >
-                評価 - Rating
+                お気に入り度 - Favorite
               </Box>
               <Box fontSize="0.75rem" color="nm.inkMuted">
                 {shop.visitCount}回訪問

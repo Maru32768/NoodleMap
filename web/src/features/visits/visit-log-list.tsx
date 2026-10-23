@@ -85,7 +85,7 @@ function VisitLogEntry({
           </Box>
         ) : (
           <Box as="span" fontSize="0.6875rem" color="nm.inkFaint">
-            未評価
+            お気に入り度 未設定
           </Box>
         )}
         {actions && (

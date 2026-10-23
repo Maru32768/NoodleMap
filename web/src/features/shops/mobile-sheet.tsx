@@ -321,7 +321,7 @@ export function MobileSheet({
                           color="nm.inkMuted"
                           textTransform="uppercase"
                         >
-                          評価
+                          お気に入り度
                         </Box>
                         <Box fontSize="0.6875rem" color="nm.inkMuted">
                           {shop.visitCount}回訪問

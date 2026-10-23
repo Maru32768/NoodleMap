@@ -467,7 +467,7 @@ describe("ShopEditModal 気になる度", () => {
 
     await waitFor(() => expect(requests).toHaveLength(1));
     expect(requests[0]).not.toHaveProperty("wishLevel");
-    // 食べた and 評価 come from visit logs; the deprecated fields are not sent.
+    // 食べた and お気に入り度 come from visit logs; the deprecated fields are not sent.
     expect(requests[0]).not.toHaveProperty("eaten");
     expect(requests[0]).not.toHaveProperty("rate");
   });

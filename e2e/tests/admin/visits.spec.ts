@@ -39,7 +39,7 @@ test("admin records a visit that guests see without its private note", async ({ 
   await dialog.getByRole("button", { name: "訪問を記録" }).click();
   const form = dialog.getByRole("group", { name: "訪問を記録" });
   await form.getByRole("textbox", { name: "食べたメニュー" }).fill("特製中華そば");
-  await form.getByRole("spinbutton", { name: "評価" }).fill("85");
+  await form.getByRole("spinbutton", { name: "お気に入り度" }).fill("85");
   await form.getByRole("textbox", { name: "メモ（公開）" }).fill(publicNote);
   await form.getByRole("textbox", { name: "メモ（自分用）" }).fill(privateNote);
   await form.getByRole("button", { name: "訪問を保存" }).click();
@@ -60,7 +60,7 @@ test("admin records a visit that guests see without its private note", async ({ 
 
   await asGuest(browser, baseURL, async (guestPage) => {
     await guestPage.goto(`/search?shop=${shop.id}`);
-    await expect(guestPage.getByText("評価 - Rating")).toBeVisible();
+    await expect(guestPage.getByText("お気に入り度 - Favorite")).toBeVisible();
     await expect(guestPage.getByText("1回訪問")).toBeVisible();
     const visits = guestPage.getByRole("list", { name: "訪問ログ" }).filter({ visible: true });
     await expect(visits).toContainText(publicNote);
@@ -88,7 +88,7 @@ test("deleting a shop's only visit returns it to 気になる", async ({ page, a
   await asGuest(browser, baseURL, async (guestPage) => {
     await guestPage.goto(`/search?shop=${shop.id}`);
     await expect(guestPage.getByRole("button", { name: "閉じる" })).toBeVisible();
-    await expect(guestPage.getByText("評価 - Rating")).toHaveCount(0);
+    await expect(guestPage.getByText("お気に入り度 - Favorite")).toHaveCount(0);
     await expect(guestPage.getByRole("list", { name: "訪問ログ" })).toHaveCount(0);
   });
 });

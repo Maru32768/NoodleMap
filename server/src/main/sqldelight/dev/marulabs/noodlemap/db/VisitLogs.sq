@@ -44,7 +44,7 @@ SELECT *
 FROM visit_logs
 WHERE shop_id = ?;
 
--- Only what the shop list derives 食べた and 評価 from, for every shop in one query.
+-- Only what the shop list derives 食べた and お気に入り度 from, for every shop in one query.
 findAllVisitSummaries:
 SELECT id, shop_id, visited_on, rate, created_at
 FROM visit_logs;

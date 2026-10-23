@@ -3,7 +3,7 @@ import { FavoriteRating } from "@/features/shops/rating-hearts.tsx";
 import { useVisits } from "@/features/visits/api/use-visits.ts";
 import { Box } from "@chakra-ui/react";
 
-/** An eaten shop's 評価 (from its latest rated visit), or 未評価 when no visit has one. */
+/** An eaten shop's お気に入り度 (from its latest rated visit), or 未設定 when no visit has one. */
 export function ShopRating({
   shop,
   compact,
@@ -21,7 +21,7 @@ export function ShopRating({
   if (!rated) {
     return (
       <Box fontSize="0.8125rem" color="nm.inkMuted">
-        未評価
+        未設定
       </Box>
     );
   }
