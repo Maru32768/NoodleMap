@@ -240,7 +240,7 @@ class VisitLogApiTest {
 
         // The latest allowed date (tomorrow) is checked against a fixed day in VisitsTest.
         fieldError(visit("9999-12-31")) shouldBe listOf(FieldError("visitedOn", FieldErrorType.OUT_OF_RANGE))
-        for (bad in listOf("2024-02-30", "24-01-01", "+2024-01-01", "2024-1-1")) {
+        for (bad in listOf("2024-02-30", "2024-13-01", "2023-02-29", "24-01-01", "+2024-01-01", "2024-1-1", "20241001", "2024-10-01T00:00")) {
             fieldError(visit(bad)) shouldBe listOf(FieldError("visitedOn", FieldErrorType.INVALID_FORMAT))
         }
         fieldError(VisitLogInput(menuItems = List(11) { MenuItemInput("麺$it") })) shouldBe

@@ -4,10 +4,12 @@ import app.cash.sqldelight.driver.jdbc.asJdbcDriver
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.collections.shouldContainAll
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldMatch
 import java.nio.file.Files
 import java.sql.Connection
 import java.sql.DriverManager
+import java.sql.SQLException
 import org.junit.jupiter.api.Test
 
 class MigrationsTest {
@@ -209,6 +211,20 @@ class MigrationsTest {
                 shouldThrow<Exception> { st.executeUpdate("UPDATE shops SET wish_level = 'urgent' WHERE id = 's3'") }
                 shouldThrow<Exception> { st.executeUpdate("INSERT INTO visit_logs (id, shop_id, rate) VALUES ('v1', 's3', 101)") }
                 st.executeUpdate("INSERT INTO visit_logs (id, shop_id) VALUES ('v3', 's3')")
+                // A visit date is NULL or a real 'YYYY-MM-DD' date.
+                st.executeUpdate(
+                    "INSERT INTO visit_logs (id, shop_id, visited_on) VALUES ('v4', 's3', NULL), ('v5', 's3', '2026-10-01'), ('v6', 's3', '2024-02-29')",
+                )
+                val badDates = listOf(
+                    "2026-02-30", "2026-13-01", "2026-00-10", "2026-01-00", "2026-01-32", "2023-02-29",
+                    "2026-1-1", "20261001", "2026-10-01T00:00",
+                )
+                for (bad in badDates) {
+                    shouldThrow<SQLException> { st.executeUpdate("INSERT INTO visit_logs (id, shop_id, visited_on) VALUES ('v7', 's3', '$bad')") }
+                        .message shouldContain "CHECK constraint failed"
+                    shouldThrow<SQLException> { st.executeUpdate("UPDATE visit_logs SET visited_on = '$bad' WHERE id = 'v5'") }
+                        .message shouldContain "CHECK constraint failed"
+                }
                 // 食べたメニュー pin their visit log, need a name of 1..200 characters and a price in 0..10,000,000.
                 st.executeUpdate(
                     "INSERT INTO visit_menu_items (id, visit_log_id, name, is_limited, price, sort_order) " +
