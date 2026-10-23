@@ -1,3 +1,7 @@
+import {
+  CurrentUser,
+  useCurrentUser,
+} from "@/features/auth/use-current-user.ts";
 import { SHOPS_KEY } from "@/features/shops/api/use-shops.ts";
 import type { components } from "@/generated/api.ts";
 import {
@@ -24,13 +28,19 @@ type DeleteVisitErrorBody = ApiErrorBodyFor<
   "delete"
 >;
 
-const visitsKey = (shopId: string) =>
-  ["/api/v1/shops/{id}/visits", shopId] as const;
+// Keyed by user so privateNote fetched as the admin never outlives a logout.
+export const visitsKey = (shopId: string, user: CurrentUser) =>
+  [
+    "/api/v1/shops/{id}/visits",
+    shopId,
+    user.type === "guest" ? "guest" : user.id,
+  ] as const;
 
 /** A shop's 訪問ログ, newest first; privateNote only for the admin. Pass null to skip loading. */
 export function useVisits(shopId: string | null) {
+  const currentUser = useCurrentUser();
   const resp = useSWR(
-    shopId ? visitsKey(shopId) : null,
+    shopId ? visitsKey(shopId, currentUser) : null,
     ([, id]) =>
       withApiError("/api/v1/shops/{id}/visits", async () => {
         const res = await apiClient.GET("/api/v1/shops/{id}/visits", {
@@ -51,16 +61,22 @@ export function useVisits(shopId: string | null) {
     get error() {
       return resp.error as ApiError | undefined;
     },
+    get isValidating() {
+      return resp.isValidating;
+    },
+    retry: () => void resp.mutate(),
   };
 }
 
 /** Admin writes to a shop's 訪問ログ. Each success refetches the visits and the shop list (食べた, 評価, visitCount). */
 export function useVisitMutations(shopId: string) {
   const { mutate } = useSWRConfig();
+  const currentUser = useCurrentUser();
 
   const revalidate = useCallback(
-    () => Promise.all([mutate(visitsKey(shopId)), mutate(SHOPS_KEY)]),
-    [mutate, shopId],
+    () =>
+      Promise.all([mutate(visitsKey(shopId, currentUser)), mutate(SHOPS_KEY)]),
+    [mutate, shopId, currentUser],
   );
 
   const addVisit = useCallback(
@@ -121,11 +137,11 @@ export function useVisitMutations(shopId: string) {
           const res = await apiClient.DELETE("/api/v1/auth/visits/{visitId}", {
             params: { path: { visitId } },
           });
-          // A visit that is already gone counts as deleted.
-          if (
-            (res.error || !res.response.ok) &&
-            res.error?.type !== "not_found"
-          ) {
+          if (res.error || !res.response.ok) {
+            if (res.error?.type === "not_found") {
+              // Deleted elsewhere: refresh so it leaves the list.
+              await revalidate();
+            }
             return apiError(
               "/api/v1/auth/visits/{visitId}",
               res.response,

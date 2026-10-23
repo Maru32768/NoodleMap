@@ -1,6 +1,11 @@
+import { Button } from "@/components/ui/button.tsx";
 import { MiniHearts } from "@/features/shops/rating-hearts.tsx";
 import { formatShopDate } from "@/features/shops/status.ts";
 import type { VisitLog } from "@/features/visits/api/use-visits.ts";
+import {
+  VISITS_LOAD_FAILED_MESSAGE,
+  VISITS_REFRESH_FAILED_MESSAGE,
+} from "@/utils/toast.ts";
 import { Box } from "@chakra-ui/react";
 import { ReactNode } from "react";
 
@@ -170,5 +175,81 @@ export function VisitLogList({
         />
       ))}
     </Box>
+  );
+}
+
+function RetryNotice({
+  message,
+  onRetry,
+}: {
+  message: string;
+  onRetry: () => void;
+}) {
+  return (
+    <Box
+      display="flex"
+      alignItems="center"
+      gap="0.5rem"
+      fontSize="0.75rem"
+      color="nm.shuDeep"
+    >
+      <Box as="span">{message}</Box>
+      <Button
+        variant="plain"
+        px="0.5rem"
+        py="0.125rem"
+        h="auto"
+        minH="auto"
+        minW="auto"
+        fontSize="0.6875rem"
+        color="nm.inkMuted"
+        border="1px solid"
+        borderColor="nm.line"
+        rounded="nmMd"
+        _hover={{ borderColor: "nm.ink", color: "nm.ink" }}
+        onClick={onRetry}
+      >
+        再試行
+      </Button>
+    </Box>
+  );
+}
+
+/**
+ * Loading and failure around a shop's visits. A failed refetch keeps showing
+ * the cached visits with a notice; the full error shows only without data.
+ */
+export function VisitsLoadState({
+  visits,
+  error,
+  onRetry,
+  children,
+}: {
+  visits: readonly VisitLog[] | undefined;
+  error: unknown;
+  onRetry: () => void;
+  children: (visits: readonly VisitLog[]) => ReactNode;
+}) {
+  if (!visits) {
+    return error ? (
+      <RetryNotice message={VISITS_LOAD_FAILED_MESSAGE} onRetry={onRetry} />
+    ) : (
+      <Box fontSize="0.75rem" color="nm.inkMuted">
+        読み込み中…
+      </Box>
+    );
+  }
+  return (
+    <>
+      {!!error && (
+        <Box mb="0.5rem">
+          <RetryNotice
+            message={VISITS_REFRESH_FAILED_MESSAGE}
+            onRetry={onRetry}
+          />
+        </Box>
+      )}
+      {children(visits)}
+    </>
   );
 }

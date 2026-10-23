@@ -159,6 +159,12 @@ export function toastShopFieldErrors(
 
 export const VISIT_SAVE_FAILED_TITLE = "訪問ログを保存できませんでした";
 export const VISIT_DELETE_FAILED_TITLE = "訪問ログを削除できませんでした";
+export const VISIT_ALREADY_DELETED_TITLE =
+  "この訪問ログはすでに削除されています";
+export const VISIT_INPUT_INVALID_DESCRIPTION = "入力内容を確認してください";
+export const VISITS_LOAD_FAILED_MESSAGE = "訪問ログを読み込めませんでした";
+export const VISITS_REFRESH_FAILED_MESSAGE =
+  "訪問ログを更新できませんでした。表示は前回の内容です";
 
 // Mirrors @maxLength on VisitLogInput in typespec/main.tsp.
 const VISIT_TEXT_MAX_LENGTH: Partial<Record<VisitLogField, number>> = {
@@ -166,6 +172,12 @@ const VISIT_TEXT_MAX_LENGTH: Partial<Record<VisitLogField, number>> = {
   eventName: 100,
   publicNote: 2000,
   privateNote: 2000,
+};
+
+const VISIT_FORMAT_MESSAGE: Partial<Record<VisitLogField, string>> = {
+  visitedOn: "日付の形式が正しくありません",
+  price: "整数で入力してください",
+  rate: "数値で入力してください",
 };
 
 const VISIT_RANGE_MESSAGE: Partial<Record<VisitLogField, string>> = {
@@ -183,9 +195,7 @@ export function visitFieldErrorMessage(
     case "required":
       return "入力してください";
     case "invalid_format":
-      return field === "visitedOn"
-        ? "日付の形式が正しくありません"
-        : "形式が正しくありません";
+      return VISIT_FORMAT_MESSAGE[field] ?? "形式が正しくありません";
     case "out_of_range":
       return VISIT_RANGE_MESSAGE[field] ?? "範囲外の値です";
     case "too_long": {

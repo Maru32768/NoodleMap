@@ -209,4 +209,31 @@ describe("DetailPanel visit logs", () => {
     expect(screen.getAllByText("未評価")).toHaveLength(2);
     expect(screen.queryByText("/ 100")).not.toBeInTheDocument();
   });
+
+  it("offers 再試行 when the visits fail to load", async () => {
+    let fail = true;
+    server.use(
+      http.get("/api/v1/shops/:id/visits", () =>
+        fail
+          ? HttpResponse.json({ type: "internal_error" }, { status: 500 })
+          : HttpResponse.json({ visits }),
+      ),
+    );
+    renderPanel(eaten);
+
+    expect(
+      await screen.findByText("訪問ログを読み込めませんでした", undefined, {
+        timeout: 3000,
+      }),
+    ).toBeInTheDocument();
+    fail = false;
+    await userEvent.click(
+      screen.getByRole("button", { ...hidden, name: "再試行" }),
+      { pointerEventsCheck: 0 },
+    );
+
+    expect(
+      await screen.findByRole("list", { ...hidden, name: "訪問ログ" }),
+    ).toHaveTextContent("秋の限定つけ麺");
+  });
 });

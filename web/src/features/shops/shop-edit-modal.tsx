@@ -324,7 +324,7 @@ function isUpdateShopField(key: string): key is UpdateShopField {
 
 function toUpdateCommand(
   draft: ShopEditDraft,
-  storedWishLevel: WishLevel | undefined,
+  initialWishLevel: WishLevel | "",
 ): UpdateShopCommand {
   return {
     name: draft.name,
@@ -340,7 +340,7 @@ function toUpdateCommand(
     category: draft.category,
     // Omitted when unchanged so the stored value is kept; "" clears it.
     wishLevel:
-      draft.wishLevel === (storedWishLevel ?? "") ? undefined : draft.wishLevel,
+      draft.wishLevel === initialWishLevel ? undefined : draft.wishLevel,
     tagIds: draft.tagIds,
     links: draft.links,
   };
@@ -387,6 +387,15 @@ export function ShopEditModal({
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   // Locks closing and saving while the DELETE is in flight.
   const [deleting, setDeleting] = useState(false);
+  // What the 気になる度 select started from: unchanged means omit (keep).
+  const [initialWishLevel] = useState<WishLevel | "">(shop.wishLevel ?? "");
+  // The 訪問ログ tab stays mounted once opened so a visit draft survives tab
+  // switches; closing or saving the shop with one unsaved asks first.
+  const [visitTabOpened, setVisitTabOpened] = useState(initialTab === "visit");
+  const [visitDraftDirty, setVisitDraftDirty] = useState(false);
+  const [discardAction, setDiscardAction] = useState<"close" | "save" | null>(
+    null,
+  );
   const { tags } = useTags();
   const { updateShop, deleteShop } = useShops();
 
@@ -462,7 +471,7 @@ export function ShopEditModal({
     try {
       const result = await updateShop(
         shop.id,
-        toUpdateCommand(sanitizedDraft, shop.wishLevel),
+        toUpdateCommand(sanitizedDraft, initialWishLevel),
       );
       if (!result.ok) {
         if (result.error.type === "not_found") {
@@ -520,6 +529,36 @@ export function ShopEditModal({
     }
   };
 
+  // Asks before an action that would drop an unsaved visit draft.
+  const guardVisitDraft = (action: "close" | "save") => {
+    if (visitDraftDirty) {
+      setDiscardAction(action);
+      return;
+    }
+    if (action === "close") {
+      onClose();
+    } else {
+      void handleSave();
+    }
+  };
+
+  const discardVisitDraft = () => {
+    const action = discardAction;
+    setDiscardAction(null);
+    if (action === "close") {
+      onClose();
+    } else if (action === "save") {
+      void handleSave();
+    }
+  };
+
+  const selectTab = (t: Tab) => {
+    setTab(t);
+    if (t === "visit") {
+      setVisitTabOpened(true);
+    }
+  };
+
   const displayName = shop.name || "(名称未設定)";
   const hasVisits = shop.visitCount > 0;
 
@@ -528,7 +567,9 @@ export function ShopEditModal({
       <ModalDialog
         open={open}
         // Closing while a save or delete is in flight would drop its errors.
-        onOpenChange={(o) => !o && !saving && !deleting && onClose()}
+        onOpenChange={(o) =>
+          !o && !saving && !deleting && guardVisitDraft("close")
+        }
         width="100%"
         maxWidth="1040px"
         height="80vh"
@@ -579,7 +620,7 @@ export function ShopEditModal({
                 alignItems="center"
                 gap="6px"
                 _hover={{ color: "nm.ink" }}
-                onClick={() => setTab(t)}
+                onClick={() => selectTab(t)}
               >
                 {TAB_LABELS[t]}
                 {t === "images" && (
@@ -811,7 +852,14 @@ export function ShopEditModal({
               </Box>
             )}
 
-            {tab === "visit" && <VisitLogEditor shopId={shop.id} />}
+            {visitTabOpened && (
+              <Box display={tab === "visit" ? "block" : "none"}>
+                <VisitLogEditor
+                  shopId={shop.id}
+                  onDirtyChange={setVisitDraftDirty}
+                />
+              </Box>
+            )}
 
             {tab === "images" && (
               <ImageUploader
@@ -873,7 +921,7 @@ export function ShopEditModal({
               borderColor="nm.line"
               _hover={{ borderColor: "nm.ink", color: "nm.ink" }}
               disabled={saving || deleting}
-              onClick={onClose}
+              onClick={() => guardVisitDraft("close")}
             >
               キャンセル
             </Button>
@@ -891,12 +939,62 @@ export function ShopEditModal({
               opacity={saving || deleting ? 0.6 : 1}
               _hover={{ bg: "nm.inkSoft" }}
               disabled={saving || deleting}
-              onClick={handleSave}
+              onClick={() => guardVisitDraft("save")}
             >
               保存{" "}
             </Button>
           </Box>
         </>
+      </ModalDialog>
+      <ModalDialog
+        open={discardAction !== null}
+        onOpenChange={(o) => !o && setDiscardAction(null)}
+        width="100%"
+        maxWidth="420px"
+        title="訪問ログの入力"
+      >
+        <Box fontSize="13px" color="nm.ink">
+          保存していない訪問ログがあります。破棄しますか？
+        </Box>
+        <Box display="flex" justifyContent="flex-end" gap="8px" mt="20px">
+          <Button
+            variant="plain"
+            px="14px"
+            py="9px"
+            h="auto"
+            minH="auto"
+            fontSize="13px"
+            fontWeight={500}
+            rounded="nmMd"
+            bg="nm.paper"
+            color="nm.inkMuted"
+            border="1px solid"
+            borderColor="nm.line"
+            _hover={{ borderColor: "nm.ink", color: "nm.ink" }}
+            onClick={() => {
+              setDiscardAction(null);
+              selectTab("visit");
+            }}
+          >
+            入力に戻る
+          </Button>
+          <Button
+            variant="plain"
+            px="18px"
+            py="9px"
+            h="auto"
+            minH="auto"
+            fontSize="13px"
+            fontWeight={600}
+            rounded="nmMd"
+            bg="nm.shu"
+            color="white"
+            _hover={{ opacity: 0.9 }}
+            onClick={discardVisitDraft}
+          >
+            破棄する
+          </Button>
+        </Box>
       </ModalDialog>
       <ModalDialog
         open={confirmDeleteOpen}

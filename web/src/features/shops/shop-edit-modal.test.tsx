@@ -57,16 +57,22 @@ function renderEditor(
   );
   const onClose = vi.fn();
   const onDeleted = vi.fn();
-  renderWithProviders(
+  const modal = (shop: Shop) => (
     <ShopEditModal
-      shop={target}
+      shop={shop}
       open
       initialTab={initialTab}
       onClose={onClose}
       onDeleted={onDeleted}
-    />,
+    />
   );
-  return { requests, onClose, onDeleted };
+  const { rerender } = renderWithProviders(modal(target));
+  return {
+    requests,
+    onClose,
+    onDeleted,
+    rerender: (shop: Shop) => rerender(modal(shop)),
+  };
 }
 
 function fieldErrorResponse(
@@ -486,6 +492,20 @@ describe("ShopEditModal 気になる度", () => {
 
     await waitFor(() => expect(requests).toHaveLength(1));
     expect(requests[0].wishLevel).toBe("");
+  });
+});
+
+describe("ShopEditModal 気になる度 across a refresh", () => {
+  it("keeps omitting an untouched 気になる度 when the shop prop changes", async () => {
+    const before = makeShop({ eaten: false, wishLevel: "medium" });
+    const { requests, rerender } = renderEditor(before);
+
+    // A refetch brings a newer 気になる度 while the modal is open.
+    rerender({ ...before, wishLevel: "high" });
+    await userEvent.click(screen.getByRole("button", { name: "保存" }));
+
+    await waitFor(() => expect(requests).toHaveLength(1));
+    expect(requests[0]).not.toHaveProperty("wishLevel");
   });
 });
 

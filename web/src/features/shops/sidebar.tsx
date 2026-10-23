@@ -12,9 +12,9 @@ import { HeartIcon, MiniHearts } from "@/features/shops/rating-hearts.tsx";
 import { ShopsLoadState } from "@/features/shops/shops-load-state.tsx";
 import {
   DEFAULT_SYSTEM_TAG_SELECTION,
-  SHOP_EATEN_STATUS_LABEL,
   shopDisplaySystemTags,
   ShopEatenStatus,
+  shopStatusLabel,
   SYSTEM_TAGS,
   SystemTagDef,
 } from "@/features/shops/status.ts";
@@ -42,7 +42,7 @@ function StatusPill({ shop }: { shop: Shop }) {
   const status = shop.eatenStatus;
   const props = {
     ...STATUS_PILL[status],
-    label: SHOP_EATEN_STATUS_LABEL[status],
+    label: shopStatusLabel(shop),
   };
 
   return (

@@ -21,11 +21,13 @@ import {
 import {
   toastApiError,
   toastError,
+  VISIT_INPUT_INVALID_DESCRIPTION,
   VISIT_SAVE_FAILED_TITLE,
   visitFieldErrorMessage,
 } from "@/utils/toast.ts";
 import { Box, Input, Switch, Textarea } from "@chakra-ui/react";
-import { useState } from "react";
+import { isEqual } from "es-toolkit";
+import { ChangeEvent, useEffect, useState } from "react";
 
 // Strings as typed, so a cleared number input stays blank instead of becoming 0.
 interface VisitDraft {
@@ -37,7 +39,13 @@ interface VisitDraft {
   eventName: string;
   publicNote: string;
   privateNote: string;
+  // Inputs holding something the browser cannot parse (a partial date, "1e"):
+  // their value reads as "", which must not be saved as 未設定.
+  badInput: Partial<Record<"visitedOn" | "price" | "rate", boolean>>;
 }
+
+// Mirrors @maxValue on VisitLogInput.price in typespec/main.tsp.
+const PRICE_MAX = 10_000_000;
 
 const VISIT_FIELDS: readonly VisitLogField[] = [
   "visitedOn",
@@ -74,6 +82,7 @@ function toDraft(visit: VisitLog | undefined): VisitDraft {
       eventName: "",
       publicNote: "",
       privateNote: "",
+      badInput: {},
     };
   }
   return {
@@ -85,10 +94,43 @@ function toDraft(visit: VisitLog | undefined): VisitDraft {
     eventName: visit.eventName ?? "",
     publicNote: visit.publicNote ?? "",
     privateNote: visit.privateNote ?? "",
+    badInput: {},
   };
 }
 
-// Blank means not set; the server replaces every field, so blanks are omitted.
+/** Errors the server would reject (or could not even parse), caught before saving. */
+function validate(draft: VisitDraft): ShopFieldErrors<VisitLogField> {
+  const errors: ShopFieldErrors<VisitLogField> = {};
+  if (draft.badInput.visitedOn) {
+    errors.visitedOn = "invalid_format";
+  }
+  const price = draft.price.trim();
+  if (draft.badInput.price) {
+    errors.price = "invalid_format";
+  } else if (price !== "") {
+    const n = Number(price);
+    if (!Number.isInteger(n)) {
+      errors.price = "invalid_format";
+    } else if (n < 0 || n > PRICE_MAX) {
+      errors.price = "out_of_range";
+    }
+  }
+  const rate = draft.rate.trim();
+  if (draft.badInput.rate) {
+    errors.rate = "invalid_format";
+  } else if (rate !== "") {
+    const n = Number(rate);
+    if (!Number.isFinite(n)) {
+      errors.rate = "invalid_format";
+    } else if (n < 0 || n > 100) {
+      errors.rate = "out_of_range";
+    }
+  }
+  return errors;
+}
+
+// Only a truly empty field means not set; the server replaces every field, so
+// blanks are omitted. Run after `validate` found nothing.
 function toInput(draft: VisitDraft): VisitLogInput {
   const text = (value: string) => value.trim() || undefined;
   const number = (value: string) =>
@@ -143,23 +185,50 @@ export function VisitLogForm({
   visit,
   onSave,
   onCancel,
+  onDirtyChange,
 }: {
   visit?: VisitLog;
+  // Resolves to the API result, or null when the caller handled it.
   onSave: (
     input: VisitLogInput,
-  ) => Promise<ApiMutationResult<VisitLog, SaveVisitErrorBody>>;
+  ) => Promise<ApiMutationResult<VisitLog, SaveVisitErrorBody> | null>;
   onCancel: () => void;
+  // Whether the draft differs from what the form started with.
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
-  const [draft, setDraft] = useState<VisitDraft>(() => toDraft(visit));
+  const [initialDraft] = useState<VisitDraft>(() => toDraft(visit));
+  const [draft, setDraft] = useState<VisitDraft>(initialDraft);
+  const dirty = !isEqual(draft, initialDraft);
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+  }, [dirty, onDirtyChange]);
+  // A closed form has nothing left to lose.
+  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
   const [fieldErrors, setFieldErrors] = useState<
     ShopFieldErrors<VisitLogField>
   >({});
   const { ref, reveal } = useRevealFirstError<HTMLDivElement>();
 
-  const set = <K extends keyof VisitDraft>(k: K, v: VisitDraft[K]) => {
+  const set = <K extends Exclude<keyof VisitDraft, "badInput">>(
+    k: K,
+    v: VisitDraft[K],
+  ) => {
     setDraft((d) => ({ ...d, [k]: v }));
     setFieldErrors((errors) => clearShopFieldErrors(errors, [k]));
   };
+
+  // For date and number inputs: also records whether the browser could parse it.
+  const setParsed =
+    (k: "visitedOn" | "price" | "rate") =>
+    (e: ChangeEvent<HTMLInputElement>) => {
+      const bad = e.target.validity.badInput;
+      setDraft((d) => ({
+        ...d,
+        [k]: e.target.value,
+        badInput: { ...d.badInput, [k]: bad },
+      }));
+      setFieldErrors((errors) => clearShopFieldErrors(errors, [k]));
+    };
 
   const errorOf = (field: VisitLogField) => {
     const type = fieldErrors[field];
@@ -167,9 +236,14 @@ export function VisitLogForm({
   };
 
   const handleSave = async () => {
-    setFieldErrors({});
+    const invalid = validate(draft);
+    setFieldErrors(invalid);
+    if (Object.keys(invalid).length > 0) {
+      reveal();
+      return;
+    }
     const result = await onSave(toInput(draft));
-    if (result.ok) {
+    if (!result || result.ok) {
       return;
     }
     const errors = invalidRequestFieldErrors(result.error.body);
@@ -185,7 +259,7 @@ export function VisitLogForm({
     if (shown.length < errors.length) {
       toastError({
         title: VISIT_SAVE_FAILED_TITLE,
-        description: "入力内容を確認してください",
+        description: VISIT_INPUT_INVALID_DESCRIPTION,
       });
     }
   };
@@ -214,7 +288,7 @@ export function VisitLogForm({
           fontFamily="mono"
           aria-label="訪問日"
           value={draft.visitedOn}
-          onChange={(e) => set("visitedOn", e.target.value)}
+          onChange={setParsed("visitedOn")}
         />
       </FormField>
       <FormField
@@ -232,7 +306,7 @@ export function VisitLogForm({
             aria-label="評価"
             placeholder="未評価"
             value={draft.rate}
-            onChange={(e) => set("rate", e.target.value)}
+            onChange={setParsed("rate")}
           />
           {rate !== undefined && !Number.isNaN(rate) && (
             <MiniHearts rate={rate} />
@@ -263,7 +337,7 @@ export function VisitLogForm({
           fontFamily="mono"
           aria-label="価格"
           value={draft.price}
-          onChange={(e) => set("price", e.target.value)}
+          onChange={setParsed("price")}
         />
       </FormField>
       <FormField error={errorOf("isLimitedMenu")}>

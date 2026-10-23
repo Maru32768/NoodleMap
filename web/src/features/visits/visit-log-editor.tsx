@@ -11,8 +11,15 @@ import { VisitLogForm } from "@/features/visits/visit-log-form.tsx";
 import {
   formatVisitDate,
   VisitLogList,
+  VisitsLoadState,
 } from "@/features/visits/visit-log-list.tsx";
-import { toastApiError, VISIT_DELETE_FAILED_TITLE } from "@/utils/toast.ts";
+import { ApiError } from "@/utils/request.ts";
+import {
+  toastApiError,
+  toastError,
+  VISIT_ALREADY_DELETED_TITLE,
+  VISIT_DELETE_FAILED_TITLE,
+} from "@/utils/toast.ts";
 import { Box } from "@chakra-ui/react";
 import { useState } from "react";
 
@@ -34,15 +41,34 @@ const smallButtonProps = {
   _hover: { borderColor: "nm.ink", color: "nm.ink" },
 } as const;
 
-/** The edit modal's 訪問ログ tab: the shop's visits with add, edit and delete. */
-export function VisitLogEditor({ shopId }: { shopId: string }) {
-  const { visits, error } = useVisits(shopId);
+// Already deleted elsewhere: the list was refetched, so just say so.
+function isGone(error: ApiError) {
+  return error.type === "not_found";
+}
+
+/**
+ * The edit modal's 訪問ログ tab: the shop's visits with add, edit and delete.
+ * `onDirtyChange` reports whether an open visit form has unsaved changes.
+ */
+export function VisitLogEditor({
+  shopId,
+  onDirtyChange,
+}: {
+  shopId: string;
+  onDirtyChange?: (dirty: boolean) => void;
+}) {
+  const { visits, error, retry } = useVisits(shopId);
   const { addVisit, updateVisit, deleteVisit } = useVisitMutations(shopId);
   const [editing, setEditing] = useState<Editing | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<VisitLog | null>(null);
 
   const handleDelete = async (visit: VisitLog) => {
     const result = await deleteVisit(visit.id);
+    if (!result.ok && isGone(result.error)) {
+      setDeleteTarget(null);
+      toastError({ title: VISIT_ALREADY_DELETED_TITLE });
+      return;
+    }
     if (!result.ok) {
       toastApiError(result.error, { fallbackTitle: VISIT_DELETE_FAILED_TITLE });
       return;
@@ -59,10 +85,16 @@ export function VisitLogEditor({ shopId }: { shopId: string }) {
         key={visit?.id ?? "new"}
         visit={visit}
         onCancel={() => setEditing(null)}
+        onDirtyChange={onDirtyChange}
         onSave={async (input) => {
           const result = visit
             ? await updateVisit(visit.id, input)
             : await addVisit(input);
+          if (!result.ok && isGone(result.error)) {
+            setEditing(null);
+            toastError({ title: VISIT_ALREADY_DELETED_TITLE });
+            return null;
+          }
           if (result.ok) {
             setEditing(null);
             toaster.success({ description: "訪問ログを保存しました" });
@@ -94,41 +126,37 @@ export function VisitLogEditor({ shopId }: { shopId: string }) {
         </Button>
       </Box>
 
-      {error ? (
-        <Box fontSize="13px" color="nm.shuDeep">
-          訪問ログを読み込めませんでした
-        </Box>
-      ) : !visits ? (
-        <Box fontSize="13px" color="nm.inkMuted">
-          読み込み中…
-        </Box>
-      ) : visits.length === 0 ? (
-        <Box fontSize="13px" color="nm.inkMuted">
-          まだ訪問ログがありません
-        </Box>
-      ) : (
-        <VisitLogList
-          visits={visits}
-          actions={(visit) => (
-            <>
-              <Button
-                {...smallButtonProps}
-                aria-label="訪問ログを編集"
-                onClick={() => setEditing({ mode: "edit", visit })}
-              >
-                編集
-              </Button>
-              <Button
-                {...smallButtonProps}
-                aria-label="訪問ログを削除"
-                onClick={() => setDeleteTarget(visit)}
-              >
-                削除
-              </Button>
-            </>
-          )}
-        />
-      )}
+      <VisitsLoadState visits={visits} error={error} onRetry={retry}>
+        {(visits) =>
+          visits.length === 0 ? (
+            <Box fontSize="13px" color="nm.inkMuted">
+              まだ訪問ログがありません
+            </Box>
+          ) : (
+            <VisitLogList
+              visits={visits}
+              actions={(visit) => (
+                <>
+                  <Button
+                    {...smallButtonProps}
+                    aria-label="訪問ログを編集"
+                    onClick={() => setEditing({ mode: "edit", visit })}
+                  >
+                    編集
+                  </Button>
+                  <Button
+                    {...smallButtonProps}
+                    aria-label="訪問ログを削除"
+                    onClick={() => setDeleteTarget(visit)}
+                  >
+                    削除
+                  </Button>
+                </>
+              )}
+            />
+          )
+        }
+      </VisitsLoadState>
 
       <ModalDialog
         open={!!deleteTarget}

@@ -35,14 +35,18 @@ function renderVisits({
   visits = [visit],
   saveResponse = (body: VisitLogInput) =>
     HttpResponse.json({ id: "new", ...body }),
+  deleteResponse = () => new HttpResponse(null, { status: 204 }),
 }: {
   visits?: VisitLog[];
   saveResponse?: (body: VisitLogInput) => Response;
+  deleteResponse?: () => Response;
 } = {}) {
   const posted: VisitLogInput[] = [];
   const put: VisitLogInput[] = [];
   const deleted: string[] = [];
   const fetched = { visits: 0, shops: 0 };
+  // Swappable so a test can fail a later refetch.
+  let visitsResponse = () => HttpResponse.json({ visits });
   server.use(
     http.get("/api/v1/shops", () => {
       fetched.shops++;
@@ -51,7 +55,7 @@ function renderVisits({
     http.get("/api/v1/tags", () => HttpResponse.json({ tags: [] })),
     http.get(`/api/v1/shops/${shop.id}/visits`, () => {
       fetched.visits++;
-      return HttpResponse.json({ visits });
+      return visitsResponse();
     }),
     http.post(`/api/v1/auth/shops/${shop.id}/visits`, async ({ request }) => {
       const body = (await request.json()) as VisitLogInput;
@@ -65,19 +69,30 @@ function renderVisits({
     }),
     http.delete("/api/v1/auth/visits/:visitId", ({ params }) => {
       deleted.push(params.visitId as string);
-      return new HttpResponse(null, { status: 204 });
+      return deleteResponse();
     }),
   );
+  const onClose = vi.fn();
   renderWithProviders(
     <ShopEditModal
       shop={shop}
       open
       initialTab="visit"
-      onClose={vi.fn()}
+      onClose={onClose}
       onDeleted={vi.fn()}
     />,
   );
-  return { posted, put, deleted, fetched };
+  return {
+    posted,
+    put,
+    deleted,
+    fetched,
+    onClose,
+    failVisitsRefetch: () => {
+      visitsResponse = () =>
+        HttpResponse.json({ type: "internal_error" }, { status: 500 });
+    },
+  };
 }
 
 const form = () => screen.getByRole("group", { name: /訪問/ });
@@ -173,7 +188,7 @@ describe("VisitLogEditor", () => {
     );
     await userEvent.type(
       within(form()).getByRole("spinbutton", { name: "評価" }),
-      "120",
+      "85",
     );
     await save();
 
@@ -256,5 +271,174 @@ describe("VisitLogEditor", () => {
       await screen.findByText("訪問ログを削除しました"),
     ).toBeInTheDocument();
     expect(deleted).toEqual([visit.id]);
+  });
+
+  it("blocks a non-integer or out-of-range price before saving", async () => {
+    const { posted } = renderVisits({ visits: [] });
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "訪問を記録" }),
+    );
+    const price = within(form()).getByRole("spinbutton", { name: "価格" });
+    await userEvent.type(price, "1.5");
+    await save();
+    expect(
+      await within(form()).findByRole("spinbutton", {
+        name: "価格",
+        description: "整数で入力してください",
+      }),
+    ).toHaveAttribute("aria-invalid", "true");
+
+    await userEvent.clear(price);
+    await userEvent.type(price, "20000000");
+    await save();
+    expect(
+      await within(form()).findByText("0〜10,000,000の範囲で入力してください"),
+    ).toBeInTheDocument();
+    expect(posted).toHaveLength(0);
+  });
+
+  it("closes the form and says so when the edited visit was deleted elsewhere", async () => {
+    renderVisits({
+      saveResponse: () =>
+        HttpResponse.json({ type: "not_found" }, { status: 404 }),
+    });
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "訪問ログを編集" }),
+    );
+    await save();
+
+    expect(
+      await screen.findByText("この訪問ログはすでに削除されています"),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: /訪問/ })).toBeNull();
+  });
+
+  it("says so when the visit to delete was already deleted", async () => {
+    renderVisits({
+      deleteResponse: () =>
+        HttpResponse.json({ type: "not_found" }, { status: 404 }),
+    });
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "訪問ログを削除" }),
+    );
+    const message = await screen.findByText(/の訪問ログを削除しますか/);
+    await userEvent.click(
+      within(message.closest<HTMLElement>("[role=dialog]")!).getByRole(
+        "button",
+        { name: "削除" },
+      ),
+    );
+
+    expect(
+      await screen.findByText("この訪問ログはすでに削除されています"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("訪問ログを削除しました")).toBeNull();
+  });
+
+  it("keeps showing the cached visits when a refetch fails", async () => {
+    const { failVisitsRefetch } = renderVisits();
+    await screen.findByRole("list", { name: "訪問ログ" });
+    failVisitsRefetch();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "訪問ログを編集" }),
+    );
+    await save();
+
+    expect(
+      await screen.findByText(
+        "訪問ログを更新できませんでした。表示は前回の内容です",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "訪問ログ" })).toHaveTextContent(
+      "中華そば",
+    );
+    expect(screen.getByRole("button", { name: "再試行" })).toBeInTheDocument();
+  });
+
+  it("keeps a visit draft across tab switches", async () => {
+    renderVisits();
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "訪問を記録" }),
+    );
+    await userEvent.type(
+      within(form()).getByRole("textbox", { name: "食べたメニュー" }),
+      "つけ麺",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "店舗情報" }));
+    await userEvent.click(screen.getByRole("button", { name: "訪問ログ" }));
+
+    expect(
+      within(form()).getByRole("textbox", { name: "食べたメニュー" }),
+    ).toHaveValue("つけ麺");
+  });
+
+  it("asks before closing with an unsaved visit draft", async () => {
+    const { onClose } = renderVisits();
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "訪問を記録" }),
+    );
+    await userEvent.type(
+      within(form()).getByRole("textbox", { name: "食べたメニュー" }),
+      "つけ麺",
+    );
+    // The modal footer's キャンセル, not the visit form's.
+    const footerCancel = screen
+      .getAllByRole("button", { name: "キャンセル" })
+      .find((button) => !form().contains(button))!;
+    await userEvent.click(footerCancel);
+
+    expect(
+      await screen.findByText(
+        "保存していない訪問ログがあります。破棄しますか？",
+      ),
+    ).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole("button", { name: "入力に戻る" }));
+    expect(
+      within(form()).getByRole("textbox", { name: "食べたメニュー" }),
+    ).toHaveValue("つけ麺");
+
+    await userEvent.click(footerCancel);
+    await userEvent.click(
+      await screen.findByRole("button", { name: "破棄する" }),
+    );
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("asks before saving the shop with an unsaved visit draft", async () => {
+    const shopSaves: unknown[] = [];
+    renderVisits();
+    server.use(
+      http.put(`/api/v1/auth/shops/${shop.id}`, async ({ request }) => {
+        shopSaves.push(await request.json());
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "訪問を記録" }),
+    );
+    await userEvent.type(
+      within(form()).getByRole("textbox", { name: "食べたメニュー" }),
+      "つけ麺",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "保存" }));
+
+    expect(
+      await screen.findByText(
+        "保存していない訪問ログがあります。破棄しますか？",
+      ),
+    ).toBeInTheDocument();
+    expect(shopSaves).toHaveLength(0);
+
+    await userEvent.click(screen.getByRole("button", { name: "破棄する" }));
+    await waitFor(() => expect(shopSaves).toHaveLength(1));
   });
 });

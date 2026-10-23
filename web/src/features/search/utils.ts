@@ -43,7 +43,10 @@ export function isWishFilter(value: unknown): value is WishFilter {
   return WISH_FILTER_OPTIONS.some((option) => option.value === value);
 }
 
-/** Narrows only shops not eaten yet; an unset 気になる度 ranks below ちょっと気になる. */
+/**
+ * Narrows only shops not eaten yet. An unset 気になる度 ranks as 気になる, the
+ * label such a shop shows.
+ */
 export function matchesWishFilter(
   shop: Pick<Shop, "eatenStatus" | "wishLevel">,
   filter: WishFilter,
@@ -51,8 +54,8 @@ export function matchesWishFilter(
   if (filter === "all" || shop.eatenStatus === "eaten") {
     return true;
   }
-  const rank = shop.wishLevel ? WISH_LEVELS.indexOf(shop.wishLevel) : -1;
-  return rank >= WISH_LEVELS.indexOf(filter);
+  const level = shop.wishLevel ?? "medium";
+  return WISH_LEVELS.indexOf(level) >= WISH_LEVELS.indexOf(filter);
 }
 
 export function favToHearts(rate: number | undefined): number {

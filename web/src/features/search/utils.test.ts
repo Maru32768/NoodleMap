@@ -72,7 +72,7 @@ describe("filterShops", () => {
     expect(filterNames(shops, { eaten: false, wish: false })).toEqual([]);
   });
 
-  it("narrows only shops not eaten yet by 気になる度, unset counting lowest", () => {
+  it("narrows only shops not eaten yet by 気になる度, unset counting as 気になる", () => {
     const shops = [
       makeShop({ name: "unset", eaten: false }),
       makeShop({ name: "low", eaten: false, wishLevel: "low" }),
@@ -84,14 +84,9 @@ describe("filterShops", () => {
     ];
 
     expect(filterNames(shops, { wishMin: "all" })).toEqual(names(shops));
-    expect(filterNames(shops, { wishMin: "low" })).toEqual([
-      "low",
-      "medium",
-      "high",
-      "eaten",
-      "eaten-unset",
-    ]);
+    expect(filterNames(shops, { wishMin: "low" })).toEqual(names(shops));
     expect(filterNames(shops, { wishMin: "medium" })).toEqual([
+      "unset",
       "medium",
       "high",
       "eaten",

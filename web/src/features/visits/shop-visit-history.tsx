@@ -1,10 +1,13 @@
 import { useVisits } from "@/features/visits/api/use-visits.ts";
-import { VisitLogList } from "@/features/visits/visit-log-list.tsx";
+import {
+  VisitLogList,
+  VisitsLoadState,
+} from "@/features/visits/visit-log-list.tsx";
 import { Box } from "@chakra-ui/react";
 
 /** A shop's 訪問ログ for everyone, loaded when shown; メモ（自分用） only when the API returns it (admin). */
 export function ShopVisitHistory({ shopId }: { shopId: string }) {
-  const { visits, error } = useVisits(shopId);
+  const { visits, error, retry } = useVisits(shopId);
 
   return (
     <Box>
@@ -18,17 +21,9 @@ export function ShopVisitHistory({ shopId }: { shopId: string }) {
       >
         訪問ログ - Visits
       </Box>
-      {error ? (
-        <Box fontSize="0.75rem" color="nm.shuDeep">
-          訪問ログを読み込めませんでした
-        </Box>
-      ) : !visits ? (
-        <Box fontSize="0.75rem" color="nm.inkMuted">
-          読み込み中…
-        </Box>
-      ) : (
-        <VisitLogList visits={visits} />
-      )}
+      <VisitsLoadState visits={visits} error={error} onRetry={retry}>
+        {(visits) => <VisitLogList visits={visits} />}
+      </VisitsLoadState>
     </Box>
   );
 }
