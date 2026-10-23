@@ -6,8 +6,10 @@ services:
       dockerfile: Dockerfile
     volumes:
       - ./db-data:/work/db-data
+      - ./db/default.db:/work/default.db:ro
     environment:
       - DB_PATH=/work/db-data/noodle_map.db
+      - DB_SEED_PATH=/work/default.db
       - SERVER_PORT=8888
       - GOOGLE_OAUTH_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID}
       - ADMIN_EMAIL=${ADMIN_EMAIL}

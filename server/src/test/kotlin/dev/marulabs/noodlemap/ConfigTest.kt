@@ -13,6 +13,13 @@ class ConfigTest {
     private fun load(vararg env: Pair<String, String>) = (required + env).let { Config.fromEnv { key -> it[key] } }
 
     @Test
+    fun `database seed is opt in and blank disables it`() {
+        load().dbSeedPath shouldBe null
+        load("DB_SEED_PATH" to " ").dbSeedPath shouldBe null
+        load("DB_SEED_PATH" to " /data/default.db ").dbSeedPath shouldBe "/data/default.db"
+    }
+
+    @Test
     fun `minimal env yields documented defaults`() {
         load() shouldBe Config(
             dbPath = "/data/app.db",

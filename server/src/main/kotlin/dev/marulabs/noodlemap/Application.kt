@@ -60,7 +60,7 @@ fun main() {
 }
 
 fun Application.module(config: Config) {
-    val dataSource = buildDataSource(config.dbPath)
+    val dataSource = buildDataSource(config.dbPath, config.dbSeedPath)
     val db = buildDatabase(dataSource)
 
     val sessions = SessionService(db, config)

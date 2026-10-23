@@ -5,6 +5,9 @@ import app.cash.sqldelight.driver.jdbc.asJdbcDriver
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import java.sql.Connection
+import java.nio.file.Files
+import java.nio.file.LinkOption.NOFOLLOW_LINKS
+import java.nio.file.Path
 import java.util.UUID
 import javax.sql.DataSource
 import org.slf4j.LoggerFactory
@@ -27,7 +30,8 @@ object UuidAdapter : ColumnAdapter<UUID, String> {
  * Not Hikari `connectionInitSql`: sqlite-jdbc runs only the first statement of a
  * multi-statement string, which left foreign_keys OFF.
  */
-fun buildDataSource(dbPath: String): HikariDataSource {
+fun buildDataSource(dbPath: String, seedPath: String? = null): HikariDataSource {
+    prepareDatabaseFile(Path.of(dbPath), seedPath?.let(Path::of))
     val cfg = HikariConfig().apply {
         jdbcUrl = "jdbc:sqlite:$dbPath"
         driverClassName = "org.sqlite.JDBC"
@@ -41,6 +45,12 @@ fun buildDataSource(dbPath: String): HikariDataSource {
         }.toProperties()
     }
     return HikariDataSource(cfg)
+}
+
+internal fun prepareDatabaseFile(target: Path, seed: Path?) {
+    if (Files.exists(target, NOFOLLOW_LINKS)) return
+    target.toAbsolutePath().parent?.let { Files.createDirectories(it) }
+    if (seed != null) Files.copy(seed, target)
 }
 
 fun buildDatabase(dataSource: DataSource): NoodleMapDb {

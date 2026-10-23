@@ -24,7 +24,6 @@ depends = ["dev:server", "dev:web"]
 [tasks."dev:server"]
 description = "Start the API server on SERVER_PORT against db-data/noodle_map.db"
 dir = "{{config_root}}/server"
-# The same database docker compose mounts; the server does not create a missing parent directory.
 env = { DB_PATH = "{{config_root}}/db-data/noodle_map.db" }
 run = "./gradlew run"
 run_windows = '.\gradlew.bat run'

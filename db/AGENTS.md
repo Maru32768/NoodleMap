@@ -2,7 +2,7 @@
 
 ## Structure
 
-`db/` contains the seed CSV data in `data/` and `init.sh`, which loads it into a local database. The schema and queries live in `server/` (see Schema and Queries below).
+`db/` contains the source seed CSVs in `data/`, the committed `default.db` template, and `generate_default.py`. The schema and queries live in `server/` (see Schema and Queries below).
 
 Keep seed data changes focused and reviewable.
 
@@ -18,7 +18,9 @@ Normalize UUID values to lowercase when importing seed CSV data or writing data 
 
 Schema migrations and queries live in `server/` (see `server/CLAUDE.md`): goose-format migrations in `src/main/resources/db/migrations/`, and SQLDelight `.sq` files in `src/main/sqldelight/`, whose `CREATE TABLE`s show the current table structure. `MigrationsTest` keeps the two aligned.
 
-`db/init.sh` seeds a local database from the CSVs in `db/data/`. Start `server` once first so its migrations create the schema.
+Local Gradle `run` and Docker Compose copy `db/default.db` only when the destination database does not exist. Existing files are never replaced. Other launch methods seed only when `DB_SEED_PATH` is configured.
+
+Run `python3 db/generate_default.py` from the repository root with JDK 21 to regenerate `db/default.db` after CSV or migration changes. The generator creates a fresh database using the server's migration runner, imports CSVs, validates integrity and foreign keys, and replaces only the template. Never generate it by copying a live database. Commit CSV changes with the regenerated template; do not commit WAL sidecars or authentication data.
 
 ## Testing
 

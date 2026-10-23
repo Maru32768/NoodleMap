@@ -22,6 +22,7 @@ data class Config(
     val ogR2: R2Config?,
     /** R2 bucket holding 訪問画像; null stores them on local disk next to the database instead. */
     val visitImagesR2: R2Config?,
+    val dbSeedPath: String? = null,
 ) {
     data class BackupConfig(
         val snapshotPath: String,
@@ -103,6 +104,7 @@ data class Config(
                 publicBaseUrl = publicBaseUrl,
                 ogR2 = ogR2,
                 visitImagesR2 = visitImagesR2,
+                dbSeedPath = env("DB_SEED_PATH")?.trim()?.takeIf { it.isNotEmpty() },
             )
         }
 

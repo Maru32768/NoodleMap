@@ -70,6 +70,32 @@ docker compose up --build
 
 The Compose setup starts the API server on `http://localhost:8888` and the frontend on `http://localhost:8080`.
 
+### Local database
+
+`./gradlew run`, `mise run dev`, and Docker Compose copy the committed `db/default.db`
+to `db-data/noodle_map.db` when the destination does not exist. Existing databases,
+including empty files, are never replaced. The server applies pending migrations
+after opening the copy. Set `DB_PATH` to choose another destination.
+
+The CSVs in `db/data/` remain the seed data source. After changing them or the
+schema migrations, rebuild the template from the repository root with JDK 21 and
+Python 3 available:
+
+```sh
+python3 db/generate_default.py
+```
+
+Commit the updated CSVs and `db/default.db` together. Generation uses the server's
+migration runner, checks SQLite integrity and foreign keys, and publishes a
+standalone database without users, sessions, or WAL sidecars. Seed timestamps
+use `2000-01-01` because the CSVs do not contain creation or closure dates.
+Regeneration updates only the template. It does not change an existing local database.
+
+`DB_SEED_PATH` enables the same first-start copy for other server launch methods.
+Gradle `run` supplies the template path by default; set `DB_SEED_PATH` to an empty
+string to start a new empty local database instead. Packaged servers and E2E tests
+do not seed unless explicitly configured.
+
 ### Required environment variables for local development
 
 The backend now authenticates exclusively via Google Sign-In, so the following variables must be set in `.env` / `web/.env` before `./gradlew run` or `docker compose up` will work:

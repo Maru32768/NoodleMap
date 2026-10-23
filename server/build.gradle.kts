@@ -17,6 +17,20 @@ application {
     mainClass.set("dev.marulabs.noodlemap.ApplicationKt")
 }
 
+tasks.named<JavaExec>("run") {
+    environment("DB_PATH", System.getenv("DB_PATH") ?: file("../db-data/noodle_map.db").absolutePath)
+    environment("DB_SEED_PATH", System.getenv("DB_SEED_PATH") ?: file("../db/default.db").absolutePath)
+}
+
+tasks.register<JavaExec>("createSeedSchema") {
+    group = "application"
+    description = "Create an empty seed database using the server migrations."
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("dev.marulabs.noodlemap.db.CreateSeedSchemaKt")
+    val seedDbPath = providers.gradleProperty("seedDbPath")
+    doFirst { args = listOf(seedDbPath.get()) }
+}
+
 kotlin {
     jvmToolchain(21)
     // Fabrikt emits committed sources under this nested path; register it as a source root.
