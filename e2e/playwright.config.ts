@@ -75,6 +75,11 @@ export default defineConfig({
         // An http site without VISIT_IMAGES_R2_*: visit images are stored on local disk and
         // served under /api, which the web server proxies, so their URLs are on BASE_URL.
         PUBLIC_BASE_URL: BASE_URL,
+        VISIT_IMAGES_R2_BUCKET: "",
+        VISIT_IMAGES_R2_ENDPOINT: "",
+        VISIT_IMAGES_R2_ACCESS_KEY_ID: "",
+        VISIT_IMAGES_R2_SECRET_ACCESS_KEY: "",
+        VISIT_IMAGES_R2_PUBLIC_BASE_URL: "",
       },
     },
     {
