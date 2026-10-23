@@ -43,7 +43,10 @@ class UnacceptableImage(val type: FieldErrorType) : Exception()
  */
 fun processVisitImage(bytes: ByteArray): ProcessedImage {
     val upright = try {
-        val decoded = decodeSubsampled(bytes)
+        // Rounded down, for quality: the decoded long edge is at least 2048 px (for larger sources) and
+        // below 4096 px, so at most 4096 x 4096 x 4 B = 64 MB, one at a time behind the BitmapWorkGate;
+        // scaleToFit then brings it to exactly 2048 px.
+        val decoded = decodeSubsampled(bytes) { width, height -> max(1, max(width, height) / VISIT_IMAGE_MAX_EDGE) }
         orient(scaleToFit(decoded, VISIT_IMAGE_MAX_EDGE), exifOrientation(bytes))
     } catch (e: RuntimeException) {
         // Hostile or odd files make ImageIO and Java2D throw all sorts (CMMException, index and size errors).
@@ -52,7 +55,11 @@ fun processVisitImage(bytes: ByteArray): ProcessedImage {
     return ProcessedImage(encodeJpeg(upright), upright.width, upright.height)
 }
 
-private fun decodeSubsampled(bytes: ByteArray): BufferedImage {
+/**
+ * Decodes a JPEG or PNG, refusing absurd dimensions before any bitmap exists, with the source subsampling step
+ * [stepFor] picks from the header's width and height ([stepFor] may throw to refuse the image).
+ */
+internal fun decodeSubsampled(bytes: ByteArray, stepFor: (width: Int, height: Int) -> Int): BufferedImage {
     val input = ImageIO.createImageInputStream(ByteArrayInputStream(bytes)) ?: throw UnacceptableImage(FieldErrorType.INVALID_FORMAT)
     input.use {
         // Readers are picked by content, not by the declared type or file name.
@@ -69,10 +76,7 @@ private fun decodeSubsampled(bytes: ByteArray): BufferedImage {
             val pixels = width.toLong() * height
             if (pixels > MAX_SOURCE_PIXELS) throw UnacceptableImage(FieldErrorType.OUT_OF_RANGE)
             if (jpeg && pixels > MAX_PROGRESSIVE_JPEG_PIXELS && isProgressive(reader)) throw UnacceptableImage(FieldErrorType.OUT_OF_RANGE)
-            // Rounded down, for quality: the decoded long edge is at least 2048 px (for larger sources) and
-            // below 4096 px, so at most 4096 x 4096 x 4 B = 64 MB, one at a time behind the BitmapWorkGate;
-            // scaleToFit then brings it to exactly 2048 px.
-            val step = max(1, max(width, height) / VISIT_IMAGE_MAX_EDGE)
+            val step = stepFor(width, height)
             val param = reader.defaultReadParam.apply { if (step > 1) setSourceSubsampling(step, step, 0, 0) }
             return reader.read(0, param)
         } catch (e: IOException) {

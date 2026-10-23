@@ -76,7 +76,7 @@ fun Application.module(config: Config) {
     val placesHandler = PlacesHandler(sessions, config.googlePlacesApiKey)
     val ogStore = config.ogR2?.let(::R2OgImageStore)
     ogStore?.let { store -> monitor.subscribe(ApplicationStopped) { store.close() } }
-    val ogHandler = OgHandler(shopHandler, config.publicBaseUrl, ogStore, bitmapWork)
+    val ogHandler = OgHandler(shopHandler, config.publicBaseUrl, ogStore, visitImageStore, bitmapWork)
 
     startBackgroundJobs(config, dataSource, db, sessions)
     installApp(authHandler, shopHandler, visitLogHandler, visitImageHandler, placesHandler, ogHandler)

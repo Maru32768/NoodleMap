@@ -4,8 +4,9 @@ import dev.marulabs.noodlemap.common.BitmapWorkGate
 import dev.marulabs.noodlemap.common.JST
 import dev.marulabs.noodlemap.common.retrySoon
 import dev.marulabs.noodlemap.errors.DomainException
-import dev.marulabs.noodlemap.generated.models.Shop
 import dev.marulabs.noodlemap.shops.ShopHandler
+import dev.marulabs.noodlemap.shops.ShopRecord
+import dev.marulabs.noodlemap.visits.VisitImageStore
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -25,7 +26,12 @@ import java.time.LocalDate
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.JsonPrimitive
 import org.slf4j.LoggerFactory
 
@@ -45,8 +51,23 @@ fun Route.ogRoutes(og: OgHandler) {
 /** The headers of a GET response without its body, for HEAD (crawlers probe with it). */
 private class HeadOnly(override val contentType: ContentType, override val contentLength: Long? = null) : OutgoingContent.NoContent()
 
+/**
+ * A rendered image. [fallback]: the card has a 代表写真 that would not decode, so the text card was drawn
+ * instead; it is served uncached and never stored under the photo card's hash.
+ */
+private class Rendered(val png: ByteArray, val fallback: Boolean)
+
 /** A rendered image and whether it is now in the store. */
-private class Produced(val png: ByteArray, val stored: Boolean)
+private class Produced(val rendered: Rendered, val stored: Boolean)
+
+/**
+ * A card whose 代表写真 failed recently, until [until] (epoch millis): [fallback] is the text card drawn for a
+ * cover that would not decode; null means the cover could not be read, which answers 503.
+ */
+private class CoverFailure(val fallback: ByteArray?, val until: Long)
+
+private val COVER_READ_TIMEOUT = 5.seconds
+private const val MAX_COVER_FAILURES = 64
 
 /** Share pages (`/r/{id}`) carrying OGP tags, and the OGP images they point at. Public, no auth. */
 class OgHandler(
@@ -54,18 +75,26 @@ class OgHandler(
     private val publicBaseUrl: String,
     /** Null renders the image on every request (local dev, tests). */
     private val store: R2OgImageStore?,
+    /** Where the 代表写真 drawn behind the card is read from, by storage key (never over HTTP). */
+    private val visitImages: VisitImageStore,
     /** Shared with visit image processing; a full gate answers 503, bounding unauthenticated render work. */
     private val bitmapWork: BitmapWorkGate,
+    /** How long a cover that failed to read or decode is not tried again. */
+    private val coverFailureTtl: Duration = 5.minutes,
 ) {
     private val inFlight = ConcurrentHashMap<String, CompletableDeferred<Produced?>>()
+
+    // By image key; small and cleared when full, like R2OgImageStore's known keys.
+    private val coverFailures = ConcurrentHashMap<String, CoverFailure>()
 
     /**
      * Same response for crawlers and browsers: OGP meta plus a script redirect to the shop on the
      * search page (headers only for HEAD). An unknown shop redirects to the search page directly.
      */
     suspend fun sharePage(call: ApplicationCall, head: Boolean) {
-        val shop = findShop(call) ?: return call.respondRedirect(SEARCH_PATH)
-        val card = OgCard.of(shop, LocalDate.now(JST))
+        val record = findShop(call) ?: return call.respondRedirect(SEARCH_PATH)
+        val shop = record.shop
+        val card = cardOf(record)
         val html = sharePageHtml(
             card = card,
             shareUrl = "$publicBaseUrl/r/${shop.id}",
@@ -79,8 +108,9 @@ class OgHandler(
 
     /** HEAD never renders: it redirects to a stored image or answers with the headers a render would get. */
     suspend fun image(call: ApplicationCall, head: Boolean) {
-        val shop = findShop(call) ?: throw DomainException.NotFound()
-        val card = OgCard.of(shop, LocalDate.now(JST))
+        val record = findShop(call) ?: throw DomainException.NotFound()
+        val shop = record.shop
+        val card = cardOf(record)
         val hash = card.hash()
         // An old hash (the shop changed since the page was shared) gets the current image.
         if (call.parameters["hash"] != hash) return call.respondRedirect(imagePath(shop.id, hash))
@@ -98,21 +128,21 @@ class OgHandler(
         }
         if (store != null && produced.stored) return call.respondRedirect(store.publicUrl(key))
 
-        call.response.header(HttpHeaders.CacheControl, IMMUTABLE)
-        call.respondBytes(produced.png, ContentType.Image.PNG)
+        // A fallback keeps the default no-store, so the photo card can replace it once the cover is fixed.
+        if (!produced.rendered.fallback) call.response.header(HttpHeaders.CacheControl, IMMUTABLE)
+        call.respondBytes(produced.rendered.png, ContentType.Image.PNG)
     }
 
     /**
      * Renders (and stores) the image for [key] once; concurrent requests for the same key wait for that
-     * work instead of queueing renders of their own. Null when too many renders are pending.
+     * work instead of queueing renders of their own. Null (503) when too many renders are pending or the
+     * cover cannot be read.
      */
     private suspend fun produce(key: String, card: OgCard): Produced? {
         val mine = CompletableDeferred<Produced?>()
         inFlight.putIfAbsent(key, mine)?.let { return it.await() }
         try {
-            val produced = renderOrNull(card)?.let { png ->
-                Produced(png, stored = store != null && storageOrNull("upload") { store.put(key, png) } != null)
-            }
+            val produced = produceOnce(key, card)
             mine.complete(produced)
             return produced
         } catch (e: Throwable) {
@@ -123,9 +153,59 @@ class OgHandler(
         }
     }
 
-    /** The PNG, or null when the bitmap work gate is full. */
-    private suspend fun renderOrNull(card: OgCard): ByteArray? =
-        bitmapWork.withSlotOrNull { bitmapWork.exclusive { renderOgImage(card) } }
+    private suspend fun produceOnce(key: String, card: OgCard): Produced? {
+        recentCoverFailure(key)?.let { failure ->
+            return failure.fallback?.let { Produced(Rendered(it, fallback = true), stored = false) }
+        }
+        // Read before taking a render slot: slow storage must not hold the bitmap gate.
+        val jpeg = card.coverPhotoKey?.let { readCover(it) ?: return null.also { rememberCoverFailure(key, null) } }
+        val rendered = renderOrNull(card, jpeg) ?: return null
+        if (rendered.fallback) rememberCoverFailure(key, rendered.png)
+        val stored = store != null && !rendered.fallback && storageOrNull("upload") { store.put(key, rendered.png) } != null
+        return Produced(rendered, stored)
+    }
+
+    /** The stored cover's bytes, or null when storage fails or is slower than [COVER_READ_TIMEOUT]. */
+    private suspend fun readCover(coverKey: String): ByteArray? = try {
+        withTimeout(COVER_READ_TIMEOUT) { visitImages.read(coverKey) }
+    } catch (e: TimeoutCancellationException) {
+        log.warn("og: cover read timed out for {}; answering 503", coverKey)
+        null
+    } catch (e: Exception) {
+        if (e is CancellationException) throw e
+        log.warn("og: cover read failed for {}; answering 503", coverKey, e)
+        null
+    }
+
+    /**
+     * The image, or null when the bitmap work gate is full. The cover is decoded inside the exclusive section,
+     * so no bitmap outlives a render; one that will not decode gets the text card.
+     */
+    private suspend fun renderOrNull(card: OgCard, jpeg: ByteArray?): Rendered? = bitmapWork.withSlotOrNull {
+        bitmapWork.exclusive {
+            val cover = jpeg?.let { bytes ->
+                try {
+                    decodeCover(bytes)
+                } catch (e: Exception) {
+                    log.warn("og: cover decode failed for {}; drawing the text card", card.coverPhotoKey, e)
+                    null
+                }
+            }
+            Rendered(renderOgImage(card, cover), fallback = jpeg != null && cover == null)
+        }
+    }
+
+    private fun recentCoverFailure(key: String): CoverFailure? {
+        val failure = coverFailures[key] ?: return null
+        if (failure.until > System.currentTimeMillis()) return failure
+        coverFailures.remove(key, failure)
+        return null
+    }
+
+    private fun rememberCoverFailure(key: String, fallback: ByteArray?) {
+        if (coverFailures.size >= MAX_COVER_FAILURES) coverFailures.clear()
+        coverFailures[key] = CoverFailure(fallback, System.currentTimeMillis() + coverFailureTtl.inWholeMilliseconds)
+    }
 
     /** Runs one storage call; a failure is logged and gives null, and the image is then served directly. */
     private suspend fun <T> storageOrNull(action: String, block: suspend () -> T): T? = try {
@@ -136,8 +216,10 @@ class OgHandler(
         null
     }
 
-    private fun findShop(call: ApplicationCall): Shop? =
+    private fun findShop(call: ApplicationCall): ShopRecord? =
         call.parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }?.let(shops::findShop)
+
+    private fun cardOf(record: ShopRecord) = OgCard.of(record.shop, record.coverPhotoKey, LocalDate.now(JST))
 
     private fun imagePath(id: String, hash: String) = "$OG_IMAGE_PATH$id/$hash.png"
 }

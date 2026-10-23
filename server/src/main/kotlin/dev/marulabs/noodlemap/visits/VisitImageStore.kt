@@ -1,13 +1,16 @@
 package dev.marulabs.noodlemap.visits
 
 import aws.sdk.kotlin.services.s3.deleteObject
+import aws.sdk.kotlin.services.s3.model.GetObjectRequest
 import aws.sdk.kotlin.services.s3.putObject
 import aws.smithy.kotlin.runtime.content.ByteStream
+import aws.smithy.kotlin.runtime.content.toByteArray
 import dev.marulabs.noodlemap.Config
 import dev.marulabs.noodlemap.common.r2Client
 import dev.marulabs.noodlemap.errors.DomainException
 import java.io.Closeable
 import java.nio.file.Files
+import java.nio.file.NoSuchFileException
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.util.UUID
@@ -52,6 +55,9 @@ interface VisitImageStore : Closeable {
 
     suspend fun put(key: String, jpeg: ByteArray)
 
+    /** The stored JPEG, read from storage itself (never through [publicUrl]); throws when it cannot be read. */
+    suspend fun read(key: String): ByteArray
+
     /** Removes the object; a missing one is not an error. */
     suspend fun delete(key: String)
 
@@ -75,6 +81,14 @@ class R2VisitImageStore(private val cfg: Config.R2Config) : VisitImageStore {
         }
     }
 
+    override suspend fun read(key: String): ByteArray =
+        s3.getObject(GetObjectRequest { bucket = cfg.bucket; this.key = key }) {
+            // Checked before buffering: nothing this server stores is larger than an upload may be.
+            val length = it.contentLength ?: throw IllegalStateException("visit image object $key has no length")
+            if (length > VISIT_IMAGE_MAX_BYTES) throw IllegalStateException("visit image object $key is $length bytes")
+            it.body?.toByteArray() ?: throw IllegalStateException("empty visit image object $key")
+        }
+
     // S3 DeleteObject succeeds for a missing key too.
     override suspend fun delete(key: String) {
         s3.deleteObject { bucket = cfg.bucket; this.key = key }
@@ -93,6 +107,8 @@ class UnconfiguredVisitImageStore(private val publicBaseUrl: String) : VisitImag
     override val acceptsUploads get() = false
 
     override suspend fun put(key: String, jpeg: ByteArray) = throw DomainException.VisitImagesStorageUnconfigured()
+
+    override suspend fun read(key: String) = throw IllegalStateException("visit image storage is not configured")
 
     override suspend fun delete(key: String) = throw IllegalStateException("visit image storage is not configured")
 
@@ -117,6 +133,10 @@ class LocalVisitImageStore(private val dir: Path, private val publicBaseUrl: Str
             Files.deleteIfExists(tmp)
         }
         Unit
+    }
+
+    override suspend fun read(key: String): ByteArray = withContext(Dispatchers.IO) {
+        Files.readAllBytes(file(key) ?: throw NoSuchFileException(key))
     }
 
     override suspend fun delete(key: String) = withContext(Dispatchers.IO) {
