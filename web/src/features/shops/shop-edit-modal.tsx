@@ -620,8 +620,7 @@ export function ShopEditModal({
         onOpenChange={(o) => !o && !locked && guardVisitDraft("close")}
         width="100%"
         maxWidth="1040px"
-        // dvh: iOS toolbars must not push the footer off screen.
-        height="min(90vh, calc(100dvh - 2rem))"
+        height="90vh"
         title={displayName}
         subtitle={`EDIT · ${shop.id}`}
         icon={
@@ -641,6 +640,13 @@ export function ShopEditModal({
         }}
         contentProps={{
           animation: "adm-modal-in 0.16s cubic-bezier(0.2, 0.8, 0.2, 1)",
+          // dvh: iOS toolbars must not push the footer off screen. 90vh stays
+          // for browsers without it.
+          css: {
+            "@supports (height: 100dvh)": {
+              height: "min(90vh, calc(100dvh - 2rem))",
+            },
+          },
         }}
       >
         <>
