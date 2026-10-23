@@ -4,7 +4,6 @@ import { useCurrentUser } from "@/features/auth/use-current-user.ts";
 import { CategorySlug } from "@/features/categories/categories.ts";
 import { CategoryIcon } from "@/features/map/category-icon.tsx";
 import { Shop } from "@/features/shops/api/use-shops.ts";
-import { FavoriteRating } from "@/features/shops/rating-hearts.tsx";
 import {
   buildGoogleMapsUrl,
   ShopActions,
@@ -13,11 +12,13 @@ import {
 import { ShopLinkList } from "@/features/shops/shop-link-list.tsx";
 import {
   formatShopDate,
-  SHOP_EATEN_STATUS_LABEL,
   shopDisplaySystemTags,
   ShopEatenStatus,
+  shopStatusLabel,
 } from "@/features/shops/status.ts";
 import { SystemTagChips, TagChips } from "@/features/shops/tag-chips.tsx";
+import { ShopRating } from "@/features/visits/shop-rating.tsx";
+import { ShopVisitHistory } from "@/features/visits/shop-visit-history.tsx";
 import { Box } from "@chakra-ui/react";
 import { useEffect, useEffectEvent } from "react";
 
@@ -65,7 +66,7 @@ export function DetailPanel({ shop, onAdminEdit, onClose }: DetailPanelProps) {
   const status = shop.eatenStatus;
   const statusTag = {
     ...STATUS_TAG[status],
-    label: SHOP_EATEN_STATUS_LABEL[status],
+    label: shopStatusLabel(shop),
   };
   const displaySystemTags = shopDisplaySystemTags(shop);
   const hasTagsBelow = displaySystemTags.length > 0 || showTags;
@@ -218,16 +219,25 @@ export function DetailPanel({ shop, onAdminEdit, onClose }: DetailPanelProps) {
             mb="1.125rem"
           >
             <Box
-              fontFamily="mono"
-              fontSize="0.625rem"
-              letterSpacing="0.18em"
-              color="nm.inkMuted"
-              textTransform="uppercase"
+              display="flex"
+              alignItems="baseline"
+              justifyContent="space-between"
               mb="0.5rem"
             >
-              評価 - Rating
+              <Box
+                fontFamily="mono"
+                fontSize="0.625rem"
+                letterSpacing="0.18em"
+                color="nm.inkMuted"
+                textTransform="uppercase"
+              >
+                評価 - Rating
+              </Box>
+              <Box fontSize="0.75rem" color="nm.inkMuted">
+                {shop.visitCount}回訪問
+              </Box>
             </Box>
-            <FavoriteRating rate={shop.rate} />
+            <ShopRating shop={shop} />
           </Box>
         )}
 
@@ -276,6 +286,12 @@ export function DetailPanel({ shop, onAdminEdit, onClose }: DetailPanelProps) {
         </Box>
 
         <ShopLinkList links={shop.links} />
+
+        {shop.eaten && (
+          <Box mt="1.375rem">
+            <ShopVisitHistory shopId={shop.id} />
+          </Box>
+        )}
       </Box>
 
       {/* Actions */}

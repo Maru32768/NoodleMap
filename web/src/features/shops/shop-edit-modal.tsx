@@ -16,7 +16,6 @@ import {
   useShops,
   useTags,
 } from "@/features/shops/api/use-shops.ts";
-import { MiniHearts } from "@/features/shops/rating-hearts.tsx";
 import {
   clearShopFieldErrors,
   SHOP_NAME_KANA_MAX_LENGTH,
@@ -34,14 +33,16 @@ import {
   ShopLinkType,
   withLinkUrl,
 } from "@/features/shops/shop-links.ts";
+import type { WishLevel } from "@/features/shops/status.ts";
 import { TagSelector } from "@/features/shops/tag-chips.tsx";
+import { WishLevelSelect } from "@/features/shops/wish-level-select.tsx";
+import { VisitLogEditor } from "@/features/visits/visit-log-editor.tsx";
 import { invalidRequestFieldErrors } from "@/utils/request.ts";
 import {
   SHOP_ALREADY_DELETED_TITLE,
   SHOP_UPDATE_FAILED_TITLE,
   shopFieldErrorMessage,
   shopLinkProblemMessage,
-  shopOtherTabErrorsMessage,
   toastApiError,
   toastError,
   toastShopFieldErrors,
@@ -61,8 +62,8 @@ interface ShopEditDraft {
   category: CategorySlug;
   openedAt?: string;
   closedAt?: string;
-  eaten: boolean;
-  rate: number;
+  // "" is 未設定.
+  wishLevel: WishLevel | "";
   images: AdminImage[];
   tagIds: string[];
   // Omitted when the cached shop has no `links` (older server), so saving keeps them.
@@ -129,83 +130,6 @@ function FormInput({
       // Field.Root marks the input invalid; the borderColor above would hide it.
       _invalid={{ borderColor: "border.error" }}
     />
-  );
-}
-
-function Toggle({
-  label,
-  on,
-  color = "ink",
-  onClick,
-}: {
-  label: string;
-  on: boolean;
-  color?: "ink" | "shu";
-  onClick: () => void;
-}) {
-  const activeBg = color === "shu" ? "nm.shu" : "nm.ink";
-  return (
-    <Box
-      as="button"
-      role="switch"
-      aria-checked={on}
-      aria-label={label}
-      w="40px"
-      h="22px"
-      rounded="full"
-      bg={on ? activeBg : "nm.lineFaint"}
-      border="2px solid"
-      borderColor={on ? activeBg : "nm.line"}
-      position="relative"
-      transition="all 0.2s"
-      onClick={onClick}
-      cursor="pointer"
-      flexShrink={0}
-    >
-      <Box
-        position="absolute"
-        top="1px"
-        left={on ? "19px" : "1px"}
-        w="16px"
-        h="16px"
-        rounded="full"
-        bg="white"
-        transition="left 0.2s"
-        boxShadow="0 1px 3px rgba(0,0,0,0.2)"
-      />
-    </Box>
-  );
-}
-
-function FavPicker({
-  rate,
-  onChange,
-}: {
-  rate: number;
-  onChange: (rate: number) => void;
-}) {
-  return (
-    <Box display="flex" alignItems="center" gap="8px">
-      <MiniHearts rate={rate} />
-      <Input
-        type="number"
-        min={0}
-        max={100}
-        step={1}
-        value={rate}
-        onChange={(e) => {
-          // An empty or partial entry keeps the previous rate instead of becoming 0.
-          const v = e.target.valueAsNumber;
-          if (!Number.isNaN(v)) {
-            onChange(Math.min(100, Math.max(0, v)));
-          }
-        }}
-        width="72px"
-        fontFamily="mono"
-        fontSize="13px"
-        textAlign="right"
-      />
-    </Box>
   );
 }
 
@@ -372,35 +296,36 @@ type Tab = "info" | "visit" | "images";
 
 const TAB_LABELS: Record<Tab, string> = {
   info: "店舗情報",
-  visit: "食べた記録",
+  visit: "訪問ログ",
   images: "画像",
 };
 
-// The tab that shows each field's input.
-const FIELD_TAB: Record<UpdateShopField, Tab> = {
-  name: "info",
-  nameKana: "info",
-  lat: "info",
-  lng: "info",
-  postalCode: "info",
-  address: "info",
-  openedAt: "info",
-  closedAt: "info",
-  googlePlaceId: "info",
-  category: "info",
-  tagIds: "info",
-  links: "info",
-  eaten: "visit",
-  rate: "visit",
-  wishLevel: "visit",
-};
+// Fields with an input, all on 店舗情報; an error on any other field (including
+// a field added on the server after this client was built) is toasted.
+const FIELDS_WITH_INPUT: readonly UpdateShopField[] = [
+  "name",
+  "nameKana",
+  "lat",
+  "lng",
+  "postalCode",
+  "address",
+  "openedAt",
+  "closedAt",
+  "googlePlaceId",
+  "category",
+  "tagIds",
+  "links",
+  "wishLevel",
+];
 
-// Also false for a field added on the server after this client was built.
 function isUpdateShopField(key: string): key is UpdateShopField {
-  return Object.hasOwn(FIELD_TAB, key);
+  return (FIELDS_WITH_INPUT as readonly string[]).includes(key);
 }
 
-function toUpdateCommand(draft: ShopEditDraft): UpdateShopCommand {
+function toUpdateCommand(
+  draft: ShopEditDraft,
+  storedWishLevel: WishLevel | undefined,
+): UpdateShopCommand {
   return {
     name: draft.name,
     nameKana: draft.nameKana ?? "",
@@ -413,8 +338,9 @@ function toUpdateCommand(draft: ShopEditDraft): UpdateShopCommand {
     // Blank clears the stored Place ID.
     googlePlaceId: draft.googlePlaceId.trim(),
     category: draft.category,
-    eaten: draft.eaten,
-    rate: draft.rate,
+    // Omitted when unchanged so the stored value is kept; "" clears it.
+    wishLevel:
+      draft.wishLevel === (storedWishLevel ?? "") ? undefined : draft.wishLevel,
     tagIds: draft.tagIds,
     links: draft.links,
   };
@@ -448,8 +374,7 @@ export function ShopEditModal({
     category: shop.category,
     openedAt: shop.openedAt,
     closedAt: shop.closedAt,
-    eaten: shop.eaten,
-    rate: shop.rate ?? 0,
+    wishLevel: shop.wishLevel ?? "",
     images: [],
     tagIds: shop.tags.map((tag) => tag.id),
     // `links` is missing while an older server is still deployed.
@@ -499,11 +424,9 @@ export function ShopEditModal({
     );
   };
 
-  // Whether the field's input is on screen (on its tab) to show an error.
+  // Whether the field's input is on screen to show an error.
   const hasInput = (field: UpdateShopField) =>
-    isUpdateShopField(field) &&
-    (field !== "tagIds" || !!tags) &&
-    (field !== "rate" || draft.eaten);
+    isUpdateShopField(field) && (field !== "tagIds" || !!tags);
 
   const handleSave = async () => {
     const problem = findShopLinkProblem(draft.links);
@@ -537,7 +460,10 @@ export function ShopEditModal({
     setFieldErrors({});
     setSaving(true);
     try {
-      const result = await updateShop(shop.id, toUpdateCommand(sanitizedDraft));
+      const result = await updateShop(
+        shop.id,
+        toUpdateCommand(sanitizedDraft, shop.wishLevel),
+      );
       if (!result.ok) {
         if (result.error.type === "not_found") {
           toastApiError(result.error, {
@@ -552,18 +478,8 @@ export function ShopEditModal({
           const shown = errors.filter((e) => hasInput(e.field));
           if (shown.length > 0) {
             setFieldErrors(toShopFieldErrors(shown));
-            const tabs = new Set(shown.map((e) => FIELD_TAB[e.field]));
-            // Prefer 店舗情報; a toast points at errors left on the other tab.
-            const nextTab = tabs.has("info") ? "info" : "visit";
-            setTab(nextTab);
+            setTab("info");
             revealFirstError();
-            if (tabs.size > 1) {
-              toastError(
-                shopOtherTabErrorsMessage(
-                  TAB_LABELS[nextTab === "info" ? "visit" : "info"],
-                ),
-              );
-            }
           }
           toastShopFieldErrors(
             SHOP_UPDATE_FAILED_TITLE,
@@ -605,6 +521,7 @@ export function ShopEditModal({
   };
 
   const displayName = shop.name || "(名称未設定)";
+  const hasVisits = shop.visitCount > 0;
 
   return (
     <>
@@ -755,6 +672,16 @@ export function ShopEditModal({
                 )}
                 <FormField
                   gridColumn="span 2"
+                  label={<FieldLabel>気になる度</FieldLabel>}
+                  error={errorOf("wishLevel")}
+                >
+                  <WishLevelSelect
+                    value={draft.wishLevel}
+                    onChange={(v) => set("wishLevel", v)}
+                  />
+                </FormField>
+                <FormField
+                  gridColumn="span 2"
                   label={
                     <FieldLabel>
                       店名{" "}
@@ -884,68 +811,7 @@ export function ShopEditModal({
               </Box>
             )}
 
-            {tab === "visit" && (
-              <Box>
-                <Box
-                  display="flex"
-                  alignItems="center"
-                  justifyContent="space-between"
-                  py="12px"
-                >
-                  <Box>
-                    <Box fontSize="13px" fontWeight={500} color="nm.ink">
-                      食べた
-                    </Box>
-                  </Box>
-                  <Toggle
-                    label="食べた"
-                    on={draft.eaten}
-                    color="shu"
-                    onClick={() => set("eaten", !draft.eaten)}
-                  />
-                </Box>
-                <FieldError error={errorOf("eaten")} />
-
-                {draft.eaten && (
-                  <Box
-                    bg="nm.bg"
-                    borderRadius="nmMd"
-                    p="16px"
-                    mt="12px"
-                    display="flex"
-                    flexDirection="column"
-                    gap="14px"
-                  >
-                    <FormField error={errorOf("rate")}>
-                      <Box
-                        display="flex"
-                        alignItems="center"
-                        justifyContent="space-between"
-                      >
-                        <Box>
-                          <Box
-                            fontSize="12px"
-                            fontFamily="mono"
-                            letterSpacing="0.1em"
-                            color="nm.inkMuted"
-                            textTransform="uppercase"
-                          >
-                            評価
-                          </Box>
-                          <Box fontSize="11px" color="nm.inkMuted" mt="2px">
-                            80以上でお気に入り
-                          </Box>
-                        </Box>
-                        <FavPicker
-                          rate={draft.rate}
-                          onChange={(v) => set("rate", v)}
-                        />
-                      </Box>
-                    </FormField>
-                  </Box>
-                )}
-              </Box>
-            )}
+            {tab === "visit" && <VisitLogEditor shopId={shop.id} />}
 
             {tab === "images" && (
               <ImageUploader
@@ -980,11 +846,17 @@ export function ShopEditModal({
               border="1px solid"
               borderColor="nm.shu"
               _hover={{ bg: "nm.shu", color: "white" }}
-              disabled={saving || deleting}
+              // The server refuses (409) to delete a shop with visit logs.
+              disabled={saving || deleting || hasVisits}
               onClick={() => setConfirmDeleteOpen(true)}
             >
               削除
             </Button>
+            {hasVisits && (
+              <Box fontSize="11px" color="nm.inkMuted">
+                訪問ログがある店舗は削除できません
+              </Box>
+            )}
             <Box flex="1" />
             <Button
               variant="plain"

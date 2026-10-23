@@ -1,4 +1,4 @@
-import { SearchFilters } from "@/features/search/utils.ts";
+import { isWishFilter, SearchFilters } from "@/features/search/utils.ts";
 import { DEFAULT_SYSTEM_TAG_SELECTION } from "@/features/shops/status.ts";
 
 const SEARCH_STATE_STORAGE_KEY = "noodle-map:search-state:v1";
@@ -29,6 +29,7 @@ export const DEFAULT_FILTERS: SearchFilters = {
   ramen: true,
   udon: true,
   favMin: 0,
+  wishMin: "all",
   // Status is filtered via system tags in tagIds; default to all but 閉店.
   tagIds: [...DEFAULT_SYSTEM_TAG_SELECTION],
 };
@@ -56,7 +57,10 @@ function isMapView(value: unknown): value is MapView {
   );
 }
 
-function isSearchFilters(value: unknown): value is SearchFilters {
+// `wishMin` is checked by the caller: state saved before it existed lacks it.
+function isSearchFilters(
+  value: unknown,
+): value is Omit<SearchFilters, "wishMin"> & { wishMin?: unknown } {
   if (!value || typeof value !== "object") {
     return false;
   }
@@ -90,7 +94,12 @@ function normalizeSavedSearchState(value: unknown): SavedSearchState | null {
   return {
     version: SAVED_SEARCH_STATE_VERSION,
     query: candidate.query,
-    filters: candidate.filters,
+    filters: {
+      ...candidate.filters,
+      wishMin: isWishFilter(candidate.filters.wishMin)
+        ? candidate.filters.wishMin
+        : DEFAULT_FILTERS.wishMin,
+    },
     mapView: candidate.mapView,
   };
 }

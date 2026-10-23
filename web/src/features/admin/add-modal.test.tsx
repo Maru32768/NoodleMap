@@ -118,6 +118,29 @@ describe("AddModal", () => {
     expect(bodies[1].googlePlaceId).toBe("ChIJ-typed");
   });
 
+  it("omits an unset 気になる度 and sends a chosen one", async () => {
+    const bodies: AddShopRequest[] = [];
+    renderAddModal(() => HttpResponse.json(makeShop()));
+    server.use(
+      http.post("/api/v1/auth/shops", async ({ request }) => {
+        bodies.push((await request.json()) as AddShopRequest);
+        return HttpResponse.json(makeShop());
+      }),
+    );
+
+    await fillNameAndSave();
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0]).not.toHaveProperty("wishLevel");
+
+    await userEvent.selectOptions(
+      screen.getByRole("combobox", { name: "気になる度" }),
+      "ちょっと気になる",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "追加" }));
+    await waitFor(() => expect(bodies).toHaveLength(2));
+    expect(bodies[1].wishLevel).toBe("low");
+  });
+
   it("shows a duplicate Google Place ID under its input until it is edited", async () => {
     const { onClose } = renderAddModal(
       fieldErrorResponse([{ field: "googlePlaceId", type: "duplicate" }]),

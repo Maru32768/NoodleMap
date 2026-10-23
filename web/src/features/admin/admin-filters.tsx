@@ -1,13 +1,20 @@
 import { Button } from "@/components/ui/button.tsx";
 import type { VisitFilter } from "@/features/admin/visit-filter.ts";
-import { CategoryType } from "@/features/search/utils.ts";
-import { Box } from "@chakra-ui/react";
+import {
+  CategoryType,
+  isWishFilter,
+  WISH_FILTER_OPTIONS,
+  WishFilter,
+} from "@/features/search/utils.ts";
+import { Box, NativeSelect } from "@chakra-ui/react";
 
 interface AdminFiltersProps {
   categoryFilter: CategoryType;
   setCategoryFilter: (v: CategoryType) => void;
   visitFilter: VisitFilter;
   setVisitFilter: (v: VisitFilter) => void;
+  wishFilter: WishFilter;
+  setWishFilter: (v: WishFilter) => void;
   // undefined until the shop list has loaded.
   filteredCount: number | undefined;
   totalCount: number | undefined;
@@ -52,11 +59,14 @@ export function AdminFilters({
   setCategoryFilter,
   visitFilter,
   setVisitFilter,
+  wishFilter,
+  setWishFilter,
   filteredCount,
   totalCount,
   onClearAll,
 }: AdminFiltersProps) {
-  const hasFilters = categoryFilter !== "all" || visitFilter !== "all";
+  const hasFilters =
+    categoryFilter !== "all" || visitFilter !== "all" || wishFilter !== "all";
 
   return (
     <>
@@ -165,6 +175,38 @@ export function AdminFilters({
             閉店
           </SegBtn>
         </Box>
+
+        <Box
+          as="span"
+          display={{ base: "none", md: "inline" }}
+          fontFamily="mono"
+          fontSize="9.5px"
+          letterSpacing="0.18em"
+          color="nm.inkMuted"
+          textTransform="uppercase"
+          ml="6px"
+          mr="2px"
+        >
+          気になる度
+        </Box>
+        <NativeSelect.Root size="xs" width="auto" flexShrink={0}>
+          <NativeSelect.Field
+            aria-label="気になる度"
+            value={wishFilter}
+            onChange={(e) => {
+              if (isWishFilter(e.target.value)) {
+                setWishFilter(e.target.value);
+              }
+            }}
+          >
+            {WISH_FILTER_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </NativeSelect.Field>
+          <NativeSelect.Indicator />
+        </NativeSelect.Root>
 
         <Box flex="1" />
         {hasFilters && (

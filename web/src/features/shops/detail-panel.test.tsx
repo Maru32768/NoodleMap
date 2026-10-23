@@ -5,11 +5,22 @@ import {
 } from "@/features/auth/use-current-user.ts";
 import { Shop } from "@/features/shops/api/use-shops.ts";
 import { DetailPanel } from "@/features/shops/detail-panel.tsx";
+import type { components } from "@/generated/api.ts";
 import { makeShop, makeTag } from "@/test/fixtures.ts";
 import { renderWithProviders } from "@/test/render.tsx";
-import { screen } from "@testing-library/react";
+import { server } from "@/test/server.ts";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { http, HttpResponse } from "msw";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+type VisitLog = components["schemas"]["VisitLog"];
+
+function serveVisits(visits: VisitLog[]) {
+  server.use(
+    http.get("/api/v1/shops/:id/visits", () => HttpResponse.json({ visits })),
+  );
+}
 
 const admin: CurrentUser = {
   id: "00000000-0000-4000-8000-0000000000e5",
@@ -33,6 +44,8 @@ function renderPanel(shop: Shop, user: CurrentUser = GUEST_USER) {
 }
 
 describe("DetailPanel", () => {
+  beforeEach(() => serveVisits([]));
+
   const shop = makeShop({
     name: "中華そば 青葉",
     address: "東京都中野区中野5-58-1",
@@ -126,5 +139,74 @@ describe("DetailPanel", () => {
     renderPanel(makeShop({ eaten: false, rate: 0 }));
 
     expect(screen.queryByText("評価 - Rating")).not.toBeInTheDocument();
+  });
+
+  it("shows a not-eaten shop's 気になる度", () => {
+    renderPanel(makeShop({ eaten: false, wishLevel: "high" }));
+    expect(screen.getByText("絶対行きたい")).toBeInTheDocument();
+  });
+
+  it("shows plain 気になる for a not-eaten shop without 気になる度", () => {
+    renderPanel(makeShop({ eaten: false }));
+    expect(screen.getByText("気になる")).toBeInTheDocument();
+  });
+});
+
+describe("DetailPanel visit logs", () => {
+  const eaten = makeShop({ name: "麺屋 訪問", rate: 85, visitCount: 2 });
+  const visits: VisitLog[] = [
+    {
+      id: "00000000-0000-4000-8000-0000000000a1",
+      visitedOn: "2026-10-01",
+      menuName: "秋の限定つけ麺",
+      isLimitedMenu: true,
+      price: 1200,
+      rate: 85,
+      eventName: "大つけ麺博",
+      publicNote: "スープが濃厚",
+    },
+    { id: "00000000-0000-4000-8000-0000000000a2", isLimitedMenu: false },
+  ];
+
+  it("lists the visits with the visit count for a guest", async () => {
+    serveVisits(visits);
+    renderPanel(eaten);
+
+    expect(screen.getByText("2回訪問")).toBeInTheDocument();
+    const list = await screen.findByRole("list", {
+      ...hidden,
+      name: "訪問ログ",
+    });
+    const [first, second] = within(list).getAllByRole("listitem", hidden);
+    expect(first).toHaveTextContent("2026/10/1");
+    expect(first).toHaveTextContent("秋の限定つけ麺");
+    expect(within(first).getByText("限定")).toBeInTheDocument();
+    expect(first).toHaveTextContent("¥1,200");
+    expect(first).toHaveTextContent("大つけ麺博");
+    expect(first).toHaveTextContent("スープが濃厚");
+    expect(first).not.toHaveTextContent("メモ（自分用）");
+    expect(second).toHaveTextContent("日付不明");
+    expect(second).toHaveTextContent("未評価");
+  });
+
+  it("shows メモ（自分用） when the API returns it (admin)", async () => {
+    serveVisits([{ ...visits[0], privateNote: "次は味玉" }]);
+    renderPanel(eaten, admin);
+
+    const list = await screen.findByRole("list", {
+      ...hidden,
+      name: "訪問ログ",
+    });
+    expect(within(list).getByText("メモ（自分用）")).toBeInTheDocument();
+    expect(within(list).getByText("次は味玉")).toBeInTheDocument();
+  });
+
+  it("shows 未評価 instead of a 0 rating when no visit is rated", async () => {
+    serveVisits([visits[1]]);
+    renderPanel(makeShop({ eaten: true, rate: 0, visitCount: 1 }));
+
+    await screen.findByRole("list", { ...hidden, name: "訪問ログ" });
+    expect(screen.getAllByText("未評価")).toHaveLength(2);
+    expect(screen.queryByText("/ 100")).not.toBeInTheDocument();
   });
 });

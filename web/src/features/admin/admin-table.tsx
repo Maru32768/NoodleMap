@@ -8,7 +8,10 @@ import { CategoryIcon } from "@/features/map/category-icon.tsx";
 import { favToHearts } from "@/features/search/utils.ts";
 import { Shop } from "@/features/shops/api/use-shops.ts";
 import { buildGoogleMapsUrl } from "@/features/shops/shop-actions.tsx";
-import { shopDisplaySystemTags } from "@/features/shops/status.ts";
+import {
+  shopDisplaySystemTags,
+  WISH_LEVEL_LABEL,
+} from "@/features/shops/status.ts";
 import { SystemTagChips, TagChips } from "@/features/shops/tag-chips.tsx";
 import { Box, Link } from "@chakra-ui/react";
 import React, { useEffect } from "react";
@@ -246,10 +249,24 @@ export function AdminTable({
       render: (address) => <Box>{address}</Box>,
     }),
     createSortableColumn({
-      property: "eaten",
+      property: "visitCount",
       header: "食べた",
-      width: "70px",
-      render: (eaten) => <CheckDot on={eaten} variant="eaten" />,
+      width: "96px",
+      render: (visitCount, shop) =>
+        shop.eaten ? (
+          <Box display="flex" alignItems="center" gap="4px">
+            <CheckDot on variant="eaten" />
+            <Box as="span" fontSize="11px" color="nm.inkMuted">
+              {visitCount}回
+            </Box>
+          </Box>
+        ) : shop.wishLevel ? (
+          <Box as="span" fontSize="11px" color="nm.inkMuted">
+            {WISH_LEVEL_LABEL[shop.wishLevel]}
+          </Box>
+        ) : (
+          <CheckDot on={false} variant="eaten" />
+        ),
     }),
     createSortableColumn({
       property: "favoriteSort",

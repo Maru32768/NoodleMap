@@ -1,9 +1,9 @@
 import { favToHearts } from "@/features/search/utils.ts";
 import { Shop } from "@/features/shops/api/use-shops.ts";
 import {
-  SHOP_EATEN_STATUS_LABEL,
   shopDisplaySystemTags,
   ShopEatenStatus,
+  shopStatusLabel,
 } from "@/features/shops/status.ts";
 import { SystemTagChips, TagChips } from "@/features/shops/tag-chips.tsx";
 import { Box } from "@chakra-ui/react";
@@ -130,10 +130,13 @@ function MobileShopListItem({
             flexShrink={0}
           />
           {shop.eaten ? (
-            <MiniHearts rate={shop.rate} />
+            <>
+              <MiniHearts rate={shop.rate} />
+              <Box as="span">{shop.visitCount}回訪問</Box>
+            </>
           ) : (
             <Box as="span" color="nm.inkFaint">
-              気になる
+              {shopStatusLabel(shop)}
             </Box>
           )}
         </Box>
@@ -160,7 +163,7 @@ function MobileShopListItem({
             fontFamily="mono"
             letterSpacing="0.08em"
           >
-            {SHOP_EATEN_STATUS_LABEL[status]}
+            {shopStatusLabel(shop)}
           </Box>
         </Box>
         {displaySystemTags.length > 0 && (

@@ -63,9 +63,12 @@ type UpdateShopErrorBody = ApiErrorBodyFor<"/api/v1/auth/shops/{id}", "put">;
 type DeleteShopErrorBody = ApiErrorBodyFor<"/api/v1/auth/shops/{id}", "delete">;
 export type SaveTagsErrorBody = ApiErrorBodyFor<"/api/v1/auth/tags", "put">;
 
+// Exported so other mutations (e.g. visit logs) can revalidate the shop list.
+export const SHOPS_KEY = ["/api/v1/shops"];
+
 export function useShops(config?: SWRConfiguration<Shop[]>) {
   const resp = useSWR(
-    ["/api/v1/shops"],
+    SHOPS_KEY,
     () => {
       return withApiError("/api/v1/shops", async () => {
         const res = await apiClient.GET("/api/v1/shops");
