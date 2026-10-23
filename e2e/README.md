@@ -53,7 +53,11 @@ shops, tags and sessions.
   tile CDN; the map renders the offline background-only style.
 
 Each test also blocks every request to a host other than the web preview's
-`localhost:<web port>`.
+`localhost:<web port>`, and fails if the page throws an uncaught error.
+
+Set `E2E_WEB_DEV=1` to serve `web` with the Vite dev server instead. The dev build
+renders under React StrictMode, so it catches bugs the production build hides,
+such as effects that break when run twice on mount. Expect slower first loads.
 
 ## How login works without Google
 

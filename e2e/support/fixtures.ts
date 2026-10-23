@@ -105,6 +105,14 @@ export const test = base.extend<{ api: Api }>({
     await use(context);
   },
 
+  // An uncaught error can unmount the whole React app and leave a blank page.
+  page: async ({ page }, use) => {
+    const errors: Error[] = [];
+    page.on("pageerror", (error) => errors.push(error));
+    await use(page);
+    expect(errors, "uncaught page errors").toEqual([]);
+  },
+
   api: async ({ playwright, baseURL }, use) => {
     const request = await playwright.request.newContext({ baseURL, storageState: ADMIN_STATE });
     await use(new Api(request));

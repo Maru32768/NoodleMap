@@ -18,7 +18,7 @@ afterEach(() => toaster.remove());
 // No visit logs: a shop with any cannot be deleted.
 const shop = makeShop({ name: "中華そば 青葉", eaten: false });
 
-function renderModal(deleteResponse: () => Response) {
+async function renderModal(deleteResponse: () => Response) {
   server.use(
     http.get("/api/v1/shops", () => HttpResponse.json({ shops: [shop] })),
     http.get("/api/v1/tags", () => HttpResponse.json({ tags: [] })),
@@ -29,11 +29,12 @@ function renderModal(deleteResponse: () => Response) {
   renderWithProviders(
     <ShopEditModal shop={shop} open onClose={onClose} onDeleted={onDeleted} />,
   );
+  await screen.findByRole("dialog");
   return { onClose, onDeleted };
 }
 
 // Renders the modal for `target` and records each PUT body it saves.
-function renderEditor(
+async function renderEditor(
   target: Shop,
   {
     saveResponse = () => new HttpResponse(null, { status: 204 }),
@@ -69,6 +70,7 @@ function renderEditor(
     />
   );
   const { rerender } = renderWithProviders(modal(target));
+  await screen.findByRole("dialog");
   return {
     requests,
     onClose,
@@ -100,7 +102,7 @@ async function confirmDelete() {
 
 describe("ShopEditModal delete", () => {
   it("deletes the shop after confirmation and closes", async () => {
-    const { onClose, onDeleted } = renderModal(
+    const { onClose, onDeleted } = await renderModal(
       () => new HttpResponse(null, { status: 204 }),
     );
 
@@ -112,7 +114,7 @@ describe("ShopEditModal delete", () => {
   });
 
   it("treats an already deleted shop as deleted", async () => {
-    const { onClose, onDeleted } = renderModal(() =>
+    const { onClose, onDeleted } = await renderModal(() =>
       HttpResponse.json({ type: "not_found" }, { status: 404 }),
     );
 
@@ -124,7 +126,7 @@ describe("ShopEditModal delete", () => {
   });
 
   it("toasts the API error and stays open when deletion fails", async () => {
-    const { onClose, onDeleted } = renderModal(() =>
+    const { onClose, onDeleted } = await renderModal(() =>
       HttpResponse.json({ type: "permission_denied" }, { status: 403 }),
     );
 
@@ -140,7 +142,9 @@ describe("ShopEditModal delete", () => {
 
 describe("ShopEditModal save", () => {
   it("saves and closes", async () => {
-    const { requests, onClose } = renderEditor(makeShop({ name: "麺屋" }));
+    const { requests, onClose } = await renderEditor(
+      makeShop({ name: "麺屋" }),
+    );
 
     await userEvent.click(screen.getByRole("button", { name: "保存" }));
 
@@ -150,7 +154,7 @@ describe("ShopEditModal save", () => {
   });
 
   it("shows a field error under its input on the tab that has it", async () => {
-    const { onClose } = renderEditor(makeShop(), {
+    const { onClose } = await renderEditor(makeShop(), {
       initialTab: "visit",
       saveResponse: fieldErrorResponse([
         { field: "nameKana", type: "too_long" },
@@ -185,7 +189,7 @@ describe("ShopEditModal save", () => {
   });
 
   it("switches to 店舗情報 for a 気になる度 error", async () => {
-    renderEditor(makeShop({ eaten: false }), {
+    await renderEditor(makeShop({ eaten: false }), {
       initialTab: "visit",
       saveResponse: fieldErrorResponse([
         { field: "wishLevel", type: "invalid_format" },
@@ -204,7 +208,7 @@ describe("ShopEditModal save", () => {
   });
 
   it("toasts an error that belongs to no field", async () => {
-    const { onClose } = renderEditor(makeShop(), {
+    const { onClose } = await renderEditor(makeShop(), {
       saveResponse: () =>
         HttpResponse.json({ type: "internal_error" }, { status: 500 }),
     });
@@ -219,7 +223,7 @@ describe("ShopEditModal save", () => {
 
   it("treats a shop deleted elsewhere as deleted and closes", async () => {
     const target = makeShop();
-    const { onClose, onDeleted } = renderEditor(target, {
+    const { onClose, onDeleted } = await renderEditor(target, {
       saveResponse: () =>
         HttpResponse.json({ type: "not_found" }, { status: 404 }),
     });
@@ -234,7 +238,7 @@ describe("ShopEditModal save", () => {
   });
 
   it("toasts a field error that has no input on screen", async () => {
-    renderEditor(makeShop({ eaten: false }), {
+    await renderEditor(makeShop({ eaten: false }), {
       saveResponse: fieldErrorResponse([
         // Deprecated: the server derives the rate from visit logs, so no input.
         { field: "rate", type: "out_of_range" },
@@ -259,7 +263,7 @@ describe("ShopEditModal save", () => {
   it("cannot be cancelled while saving", async () => {
     let respond!: () => void;
     const responded = new Promise<void>((resolve) => (respond = resolve));
-    const { onClose } = renderEditor(makeShop(), {
+    const { onClose } = await renderEditor(makeShop(), {
       saveResponse: async () => {
         await responded;
         return HttpResponse.json({ type: "internal_error" }, { status: 500 });
@@ -281,7 +285,7 @@ describe("ShopEditModal save", () => {
 
 describe("ShopEditModal links", () => {
   it("adds a link with the type inferred from the URL and saves it", async () => {
-    const { requests } = renderEditor(
+    const { requests } = await renderEditor(
       makeShop({
         links: [{ type: "official", url: "https://aoba.example/" }],
       }),
@@ -321,7 +325,7 @@ describe("ShopEditModal links", () => {
   });
 
   it("keeps focus on a link moved with the arrows", async () => {
-    renderEditor(
+    await renderEditor(
       makeShop({
         links: [
           { type: "official", url: "https://a.example/" },
@@ -349,7 +353,7 @@ describe("ShopEditModal links", () => {
   });
 
   it("blocks saving a link that has a label but no URL", async () => {
-    const { requests } = renderEditor(makeShop());
+    const { requests } = await renderEditor(makeShop());
 
     await userEvent.click(
       screen.getByRole("button", { name: "＋ リンクを追加" }),
@@ -367,7 +371,7 @@ describe("ShopEditModal links", () => {
   });
 
   it("blocks saving an invalid URL and says which link", async () => {
-    const { requests } = renderEditor(
+    const { requests } = await renderEditor(
       makeShop({
         links: [{ type: "official", url: "https://aoba.example/" }],
       }),
@@ -392,7 +396,7 @@ describe("ShopEditModal links", () => {
   });
 
   it("shows a server links error under the links", async () => {
-    renderEditor(makeShop(), {
+    await renderEditor(makeShop(), {
       saveResponse: fieldErrorResponse([
         { field: "links", type: "invalid_format" },
       ]),
@@ -412,7 +416,9 @@ describe("ShopEditModal links", () => {
   });
 
   it("trims the Google Place ID it sends", async () => {
-    const { requests } = renderEditor(makeShop({ googlePlaceId: "place-1" }));
+    const { requests } = await renderEditor(
+      makeShop({ googlePlaceId: "place-1" }),
+    );
     const input = screen.getByDisplayValue("place-1");
 
     await userEvent.clear(input);
@@ -423,7 +429,7 @@ describe("ShopEditModal links", () => {
   });
 
   it("saves a shop that has no Google Place ID", async () => {
-    const { requests, onClose } = renderEditor(
+    const { requests, onClose } = await renderEditor(
       makeShop({ name: "手入力の店", googlePlaceId: undefined }),
     );
 
@@ -438,7 +444,9 @@ describe("ShopEditModal links", () => {
   });
 
   it("sends a blank Google Place ID to clear an existing one", async () => {
-    const { requests } = renderEditor(makeShop({ googlePlaceId: "place-1" }));
+    const { requests } = await renderEditor(
+      makeShop({ googlePlaceId: "place-1" }),
+    );
 
     await userEvent.clear(screen.getByDisplayValue("place-1"));
     await userEvent.click(screen.getByRole("button", { name: "保存" }));
@@ -448,7 +456,7 @@ describe("ShopEditModal links", () => {
   });
 
   it("omits links for a shop cached without them so saving keeps them", async () => {
-    const { requests } = renderEditor(makeShop({ links: undefined }));
+    const { requests } = await renderEditor(makeShop({ links: undefined }));
 
     await userEvent.click(screen.getByRole("button", { name: "保存" }));
 
@@ -464,7 +472,7 @@ describe("ShopEditModal 気になる度", () => {
     within(wishLevel()).getByRole("radio", { name });
 
   it("omits 気になる度 when unchanged so the stored value is kept", async () => {
-    const { requests } = renderEditor(
+    const { requests } = await renderEditor(
       makeShop({ eaten: false, wishLevel: "medium" }),
     );
 
@@ -482,7 +490,7 @@ describe("ShopEditModal 気になる度", () => {
   });
 
   it("sends the chosen 気になる度", async () => {
-    const { requests } = renderEditor(makeShop({ eaten: false }));
+    const { requests } = await renderEditor(makeShop({ eaten: false }));
 
     await userEvent.click(wishOption("絶対行きたい"));
     await userEvent.click(screen.getByRole("button", { name: "保存" }));
@@ -492,7 +500,7 @@ describe("ShopEditModal 気になる度", () => {
   });
 
   it("sends an empty string to clear 気になる度", async () => {
-    const { requests } = renderEditor(
+    const { requests } = await renderEditor(
       makeShop({ eaten: false, wishLevel: "high" }),
     );
 
@@ -506,7 +514,7 @@ describe("ShopEditModal 気になる度", () => {
 
 describe("ShopEditModal 気になる度 keyboard", () => {
   it("moves the choice with arrow keys from the one Tab stop", async () => {
-    const { requests } = renderEditor(
+    const { requests } = await renderEditor(
       makeShop({ eaten: false, wishLevel: "low" }),
     );
     const group = screen.getByRole("radiogroup", { name: "気になる度" });
@@ -553,7 +561,7 @@ describe("ShopEditModal カテゴリ and tags", () => {
   const iekei = makeTag({ label: "家系", slug: "iekei", category: "ramen" });
 
   it("keeps a tag that the category hid on the way back", async () => {
-    const { requests } = renderEditor(
+    const { requests } = await renderEditor(
       makeShop({ category: "ramen", tags: [iekei] }),
       { tags: [iekei] },
     );
@@ -572,7 +580,7 @@ describe("ShopEditModal カテゴリ and tags", () => {
   });
 
   it("drops a tag that does not fit the category when saving", async () => {
-    const { requests } = renderEditor(
+    const { requests } = await renderEditor(
       makeShop({ category: "ramen", tags: [iekei] }),
       { tags: [iekei] },
     );
@@ -590,7 +598,7 @@ describe("ShopEditModal カテゴリ and tags", () => {
 describe("ShopEditModal 気になる度 across a refresh", () => {
   it("keeps omitting an untouched 気になる度 when the shop prop changes", async () => {
     const before = makeShop({ eaten: false, wishLevel: "medium" });
-    const { requests, rerender } = renderEditor(before);
+    const { requests, rerender } = await renderEditor(before);
 
     // A refetch brings a newer 気になる度 while the modal is open.
     rerender({ ...before, wishLevel: "high" });
@@ -602,8 +610,8 @@ describe("ShopEditModal 気になる度 across a refresh", () => {
 });
 
 describe("ShopEditModal shop with visit logs", () => {
-  it("disables 削除 and says why", () => {
-    renderEditor(makeShop({ eaten: true, visitCount: 2 }));
+  it("disables 削除 and says why", async () => {
+    await renderEditor(makeShop({ eaten: true, visitCount: 2 }));
 
     expect(screen.getByRole("button", { name: "削除" })).toBeDisabled();
     expect(

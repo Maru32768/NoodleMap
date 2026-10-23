@@ -110,6 +110,31 @@ test("admin deletes a shop from the edit modal", async ({ page, api }) => {
   expect((await api.listShops()).map((s) => s.id)).not.toContain(shop.id);
 });
 
+test("admin deletes a shop from the search page and keeps using the page", async ({ page, api }) => {
+  const id = uid();
+  const shop = await api.createShop({ name: `${id} 検索から削除する店` });
+  const other = await api.createShop({ name: `${id} 残る店` });
+
+  await page.goto(`/search?shop=${shop.id}`);
+  await page.getByRole("button", { name: "編集" }).filter({ visible: true }).click();
+  const dialog = page.getByRole("dialog").filter({ hasText: shop.name });
+  await dialog.getByRole("button", { name: "削除", exact: true }).click();
+  await page
+    .getByRole("dialog")
+    .filter({ hasText: `「${shop.name}」を削除しますか？` })
+    .getByRole("button", { name: "削除", exact: true })
+    .click();
+
+  await expect(page.getByText("店舗を削除しました")).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  // A dialog that leaves the page hidden or its focus trap behind would block this.
+  const sidebar = page.getByRole("complementary");
+  await sidebar.getByPlaceholder("店名・読み・エリア・タグで検索...").fill(id);
+  await sidebar.getByText(other.name, { exact: true }).click();
+  await page.getByRole("button", { name: "編集" }).filter({ visible: true }).click();
+  await expect(page.getByRole("dialog").filter({ hasText: other.name })).toBeVisible();
+});
+
 test("admin adds a tag in tag management", async ({ page, api }) => {
   const id = uid();
   await openAdmin(page);
