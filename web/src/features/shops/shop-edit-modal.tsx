@@ -594,7 +594,7 @@ export function ShopEditModal({
         onOpenChange={(o) => !o && !locked && guardVisitDraft("close")}
         width="100%"
         maxWidth="1040px"
-        height="80vh"
+        height="90vh"
         title={displayName}
         subtitle={`EDIT · ${shop.id}`}
         icon={
