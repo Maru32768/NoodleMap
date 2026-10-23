@@ -144,7 +144,19 @@ function renderImages({
 
 const imageList = () => screen.findByRole("list", { name: "訪問画像" });
 const fileInput = () => screen.getByLabelText("追加する画像ファイル");
-const dropArea = () => screen.getByRole("group", { name: /^画像の追加/ });
+const dropArea = () => screen.getByRole("group", { name: /^画像（/ });
+
+/** Reports a mouse (fine pointer), which the drop and paste hint is for. */
+function reportFinePointer() {
+  const original = window.matchMedia;
+  window.matchMedia = (query: string) => ({
+    ...original(query),
+    matches: query === "(pointer: fine)",
+  });
+  onTestFinished(() => {
+    window.matchMedia = original;
+  });
+}
 
 async function upload(...files: File[]) {
   await screen.findByRole("list", { name: "訪問ログ" });
@@ -552,13 +564,14 @@ describe("VisitImageManager", () => {
   });
 
   it("hints at drop and paste only while images can be added", async () => {
+    reportFinePointer();
     const nine = Array.from({ length: 9 }, (_, i) => image(i + 1));
     renderImages({ images: nine });
     await imageList();
 
-    expect(
-      screen.getByText("この欄にドラッグ＆ドロップ・貼り付けでも追加できます"),
-    ).toBeInTheDocument();
+    expect(dropArea()).toHaveAccessibleDescription(
+      "この欄にドラッグ＆ドロップ・貼り付けでも追加できます",
+    );
     await upload(jpeg("a.jpg"));
     await waitFor(() =>
       expect(screen.getByText("画像は10枚までです")).toBeInTheDocument(),
@@ -568,6 +581,20 @@ describe("VisitImageManager", () => {
         "この欄にドラッグ＆ドロップ・貼り付けでも追加できます",
       ),
     ).toBeNull();
+    expect(dropArea()).not.toHaveAttribute("aria-describedby");
+  });
+
+  it("does not hint at drop and paste on a touch screen", async () => {
+    renderImages();
+    await screen.findByRole("list", { name: "訪問ログ" });
+
+    expect(screen.getByText("あと10枚・1枚目が代表")).toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        "この欄にドラッグ＆ドロップ・貼り付けでも追加できます",
+      ),
+    ).toBeNull();
+    expect(dropArea()).not.toHaveAttribute("aria-describedby");
   });
 
   it("queues dropped image files in order and ignores other files", async () => {
@@ -609,6 +636,9 @@ describe("VisitImageManager", () => {
       expect.stringContaining("b.png"),
     ]);
     expect(pending).not.toHaveTextContent("memo.txt");
+    expect(
+      await screen.findByText("画像ファイルのみ追加できます"),
+    ).toBeInTheDocument();
     expect(traffic.uploads).toBe(2);
   });
 
@@ -672,10 +702,12 @@ describe("VisitImageManager", () => {
       name: "画像 1",
     });
     expect(thumb).toHaveAttribute("draggable", "false");
+    const types = ["Files"];
     const dataTransfer = {
-      types: ["Files"],
+      types,
       files: [jpeg("1.jpg")],
       dropEffect: "copy",
+      setData: (type: string) => void types.push(type),
     };
 
     fireEvent.dragStart(thumb, { dataTransfer });
@@ -687,6 +719,35 @@ describe("VisitImageManager", () => {
 
     expect(screen.queryByRole("list", { name: "追加中の画像" })).toBeNull();
     expect(traffic.uploads).toBe(0);
+  });
+
+  it("does not offer a drop for files the browser says are not images", async () => {
+    renderImages();
+    await screen.findByRole("list", { name: "訪問ログ" });
+    const dataTransfer = {
+      types: ["Files"],
+      items: [{ kind: "file", type: "application/pdf" }],
+      files: [],
+      dropEffect: "copy",
+    };
+
+    fireEvent.dragEnter(dropArea(), { dataTransfer });
+    fireEvent.dragOver(dropArea(), { dataTransfer });
+
+    expect(dropArea()).not.toHaveAttribute("data-dragging");
+    expect(dataTransfer.dropEffect).toBe("none");
+  });
+
+  it("drops the highlight when the drag ends anywhere", async () => {
+    renderImages();
+    await screen.findByRole("list", { name: "訪問ログ" });
+    const dataTransfer = { types: ["Files"], files: [jpeg("a.jpg")] };
+
+    fireEvent.dragEnter(dropArea(), { dataTransfer });
+    expect(dropArea()).toHaveAttribute("data-dragging");
+    // Cancelled with Esc: no dragleave reaches the area.
+    fireEvent.dragEnd(window);
+    expect(dropArea()).not.toHaveAttribute("data-dragging");
   });
 
   it("refuses a file dropped elsewhere in the modal instead of opening it", async () => {
@@ -709,7 +770,7 @@ describe("VisitImageManager", () => {
     await screen.findByRole("list", { name: "訪問ログ" });
     const area = dropArea();
     // Each visit's area is named by its date.
-    expect(area).toHaveAccessibleName("画像の追加（2026/9/30）");
+    expect(area).toHaveAccessibleName("画像（2026/9/30）");
     // The area itself takes focus, so a paste reaches it.
     area.focus();
     expect(area).toHaveFocus();
@@ -757,6 +818,7 @@ describe("VisitImageManager", () => {
     const ten = Array.from({ length: 10 }, (_, i) => image(i + 1));
     const traffic = renderImages({ images: ten });
     await imageList();
+    dropArea().focus();
 
     fireEvent.paste(dropArea(), {
       clipboardData: {
@@ -769,6 +831,40 @@ describe("VisitImageManager", () => {
     expect(within(pending).getByRole("alert")).toHaveTextContent(
       "1つの訪問ログに追加できる画像は10枚までです",
     );
+    expect(traffic.uploads).toBe(0);
+  });
+
+  it("ignores a paste while focus is outside the image area", async () => {
+    const traffic = renderImages();
+    await screen.findByRole("list", { name: "訪問ログ" });
+    screen.getByRole("button", { name: "訪問を記録" }).focus();
+
+    const pasted = fireEvent.paste(document.activeElement!, {
+      clipboardData: {
+        files: [new File(["png"], "image.png", { type: "image/png" })],
+      },
+    });
+
+    expect(pasted).toBe(true);
+    expect(screen.queryByRole("list", { name: "追加中の画像" })).toBeNull();
+    expect(traffic.uploads).toBe(0);
+  });
+
+  it("says a pasted file that is not an image cannot be added", async () => {
+    const traffic = renderImages();
+    await screen.findByRole("list", { name: "訪問ログ" });
+    dropArea().focus();
+
+    fireEvent.paste(dropArea(), {
+      clipboardData: {
+        files: [new File(["pdf"], "menu.pdf", { type: "application/pdf" })],
+      },
+    });
+
+    expect(
+      await screen.findByText("画像ファイルのみ追加できます"),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "追加中の画像" })).toBeNull();
     expect(traffic.uploads).toBe(0);
   });
 

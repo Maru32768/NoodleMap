@@ -277,6 +277,7 @@ export const VISIT_IMAGE_UNDECODABLE_MESSAGE = "この画像形式は読み込�
 // The upload was aborted (timeout) or cut off: it may still have been saved.
 export const VISIT_IMAGE_UPLOAD_UNCONFIRMED_MESSAGE =
   "アップロードの完了を確認できませんでした。一覧を確認してください";
+export const VISIT_IMAGE_NOT_IMAGE_MESSAGE = "画像ファイルのみ追加できます";
 export const VISIT_IMAGE_LIMIT_MESSAGE = `1つの訪問ログに追加できる画像は${VISIT_IMAGES_MAX}枚までです`;
 export const VISIT_IMAGE_CAPTION_FAILED_TITLE =
   "キャプションを保存できませんでした";

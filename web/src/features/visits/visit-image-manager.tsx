@@ -25,16 +25,17 @@ import {
   VISIT_IMAGE_CAPTION_FAILED_TITLE,
   VISIT_IMAGE_CAPTION_MAX_LENGTH,
   VISIT_IMAGE_DELETE_FAILED_TITLE,
+  VISIT_IMAGE_NOT_IMAGE_MESSAGE,
   VISIT_IMAGE_REORDER_FAILED_TITLE,
   VISIT_IMAGES_MAX,
   visitImageCaptionErrorMessage,
 } from "@/utils/toast.ts";
-import { Box, Input } from "@chakra-ui/react";
+import { Box, Input, useMediaQuery } from "@chakra-ui/react";
 import {
-  ClipboardEvent,
   DragEvent,
   useCallback,
   useEffect,
+  useEffectEvent,
   useId,
   useRef,
   useState,
@@ -81,29 +82,36 @@ function isImageFile(file: File) {
   );
 }
 
-// React events bubble out of portals: the delete dialog is not the area.
-const fromArea = (event: DragEvent | ClipboardEvent) =>
-  event.currentTarget.contains(event.target as Node);
+// Marks a drag that started in the page (a thumbnail): it is never an upload.
+const INTERNAL_DRAG_TYPE = "application/x-noodlemap-internal";
 
-// A drag started in the page (a thumbnail) is never an upload.
-let pageDragging = false;
-if (typeof window !== "undefined") {
-  window.addEventListener("dragstart", () => {
-    pageDragging = true;
-  });
-  window.addEventListener("dragend", () => {
-    pageDragging = false;
-  });
+/**
+ * Whether a drag over the area may carry images: files from outside the page
+ * (React events bubble out of portals: the delete dialog is not the area),
+ * and, when the browser tells the types, not only non-images. HEIC may come
+ * without a type.
+ */
+function mayDropImages(event: DragEvent) {
+  const { types, items } = event.dataTransfer;
+  if (
+    !event.currentTarget.contains(event.target as Node) ||
+    !types.includes("Files") ||
+    types.includes(INTERNAL_DRAG_TYPE)
+  ) {
+    return false;
+  }
+  const fileTypes = Array.from(items ?? [])
+    .filter((item) => item.kind === "file")
+    .map((item) => item.type);
+  return (
+    fileTypes.length === 0 ||
+    fileTypes.some((type) => type === "" || type.startsWith("image/"))
+  );
 }
 
-const hasFiles = (event: DragEvent) =>
-  !pageDragging &&
-  fromArea(event) &&
-  event.dataTransfer.types.includes("Files");
-
-const isTextInput = (target: EventTarget) =>
-  target instanceof HTMLElement &&
-  (target.isContentEditable || target.matches("input, textarea"));
+const isTextInput = (element: Element | null) =>
+  element instanceof HTMLElement &&
+  (element.isContentEditable || element.matches("input, textarea"));
 
 /**
  * The 訪問画像 of one saved 訪問ログ for the admin: add (one upload at a time,
@@ -137,11 +145,14 @@ export function VisitImageManager({
   const [reordering, setReordering] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const areaRef = useRef<HTMLDivElement>(null);
   // dragenter/dragleave fire for every child crossed; Safari gives no
   // relatedTarget, so the highlight counts the levels entered.
   const dragDepth = useRef(0);
   const [dragging, setDragging] = useState(false);
   const hintId = useId();
+  // Touch screens can neither drag a file in nor paste one here.
+  const [finePointer] = useMediaQuery(["(pointer: fine)"]);
 
   const inFlight = pending.filter((p) => p.status !== "failed").length;
   const remaining = VISIT_IMAGES_MAX - images.length - inFlight;
@@ -160,8 +171,35 @@ export function VisitImageManager({
 
   const canAdd = remaining > 0;
 
+  /** Uploads the image files; others are refused with a message. */
+  const addDroppedFiles = (files: File[]) => {
+    const imageFiles = files.filter(isImageFile);
+    if (imageFiles.length < files.length) {
+      toastError({ title: VISIT_IMAGE_NOT_IMAGE_MESSAGE });
+    }
+    if (imageFiles.length > 0) {
+      // Past the limit the queue marks them failed with the limit message.
+      addFiles(imageFiles);
+    }
+  };
+
+  const endDrag = useCallback(() => {
+    dragDepth.current = 0;
+    setDragging(false);
+  }, []);
+
+  // A drag cancelled or dropped elsewhere may never leave the area.
+  useEffect(() => {
+    window.addEventListener("dragend", endDrag);
+    window.addEventListener("drop", endDrag);
+    return () => {
+      window.removeEventListener("dragend", endDrag);
+      window.removeEventListener("drop", endDrag);
+    };
+  }, [endDrag]);
+
   const handleDragEnter = (event: DragEvent) => {
-    if (!hasFiles(event)) {
+    if (!mayDropImages(event)) {
       return;
     }
     event.preventDefault();
@@ -170,7 +208,7 @@ export function VisitImageManager({
   };
 
   const handleDragOver = (event: DragEvent) => {
-    if (!hasFiles(event)) {
+    if (!mayDropImages(event)) {
       return;
     }
     // Without this the browser opens a file dropped here.
@@ -179,7 +217,7 @@ export function VisitImageManager({
   };
 
   const handleDragLeave = (event: DragEvent) => {
-    if (!hasFiles(event)) {
+    if (!mayDropImages(event)) {
       return;
     }
     dragDepth.current = Math.max(0, dragDepth.current - 1);
@@ -189,30 +227,36 @@ export function VisitImageManager({
   };
 
   const handleDrop = (event: DragEvent) => {
-    if (!hasFiles(event)) {
+    if (!mayDropImages(event)) {
       return;
     }
     event.preventDefault();
-    dragDepth.current = 0;
-    setDragging(false);
-    const files = Array.from(event.dataTransfer.files).filter(isImageFile);
-    if (files.length > 0) {
-      // Past the limit the queue marks them failed with the limit message.
-      addFiles(files);
-    }
+    endDrag();
+    addDroppedFiles(Array.from(event.dataTransfer.files));
   };
 
-  const handlePaste = (event: ClipboardEvent) => {
-    // A caption keeps its own paste.
-    if (!fromArea(event) || isTextInput(event.target)) {
+  // On the document: Safari may not send a paste to a focused element that
+  // is not editable. Only a paste while focus is in this area counts, and a
+  // caption keeps its own paste.
+  const handlePaste = useEffectEvent((event: ClipboardEvent) => {
+    const focused = document.activeElement;
+    if (
+      !focused ||
+      !areaRef.current?.contains(focused) ||
+      isTextInput(focused)
+    ) {
       return;
     }
-    const files = Array.from(event.clipboardData.files).filter(isImageFile);
+    const files = Array.from(event.clipboardData?.files ?? []);
     if (files.length > 0) {
       event.preventDefault();
-      addFiles(files);
+      addDroppedFiles(files);
     }
-  };
+  });
+  useEffect(() => {
+    document.addEventListener("paste", handlePaste);
+    return () => document.removeEventListener("paste", handlePaste);
+  }, []);
 
   const move = async (index: number, delta: number) => {
     const ids = images.map((image) => image.id);
@@ -253,10 +297,11 @@ export function VisitImageManager({
 
   return (
     <Box
+      ref={areaRef}
       role="group"
-      aria-label={`画像の追加（${formatShopDate(visit.visitedOn) ?? "日付不明"}）`}
-      aria-describedby={canAdd ? hintId : undefined}
-      // Focusable so a paste reaches it.
+      aria-label={`画像（${formatShopDate(visit.visitedOn) ?? "日付不明"}）`}
+      aria-describedby={canAdd && finePointer ? hintId : undefined}
+      // Focusable so a paste can be meant for it.
       tabIndex={0}
       mt="0.625rem"
       pt="0.625rem"
@@ -268,11 +313,13 @@ export function VisitImageManager({
       bg={dragging ? "nm.bg" : undefined}
       data-dragging={dragging || undefined}
       _focusVisible={{ outline: "2px solid", outlineColor: "nm.ink" }}
+      onDragStartCapture={(event) =>
+        event.dataTransfer.setData(INTERNAL_DRAG_TYPE, "1")
+      }
       onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      onPaste={handlePaste}
     >
       {images.length > 0 && (
         <Box
@@ -457,16 +504,8 @@ export function VisitImageManager({
             ? `あと${remaining}枚・1枚目が代表`
             : `画像は${VISIT_IMAGES_MAX}枚までです`}
         </Box>
-        {canAdd && (
-          <Box
-            as="span"
-            id={hintId}
-            fontSize="11px"
-            color="nm.inkFaint"
-            // Touch screens can neither drag a file in nor paste one here.
-            display="none"
-            css={{ "@media (pointer: fine)": { display: "inline" } }}
-          >
+        {canAdd && finePointer && (
+          <Box as="span" id={hintId} fontSize="11px" color="nm.inkFaint">
             この欄にドラッグ＆ドロップ・貼り付けでも追加できます
           </Box>
         )}
