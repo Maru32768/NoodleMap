@@ -7,6 +7,7 @@ import {
   useVisits,
   VisitLog,
 } from "@/features/visits/api/use-visits.ts";
+import { useShopUploading } from "@/features/visits/api/visit-uploads.ts";
 import { VisitImageManager } from "@/features/visits/visit-image-manager.tsx";
 import { VisitLogForm } from "@/features/visits/visit-log-form.tsx";
 import {
@@ -22,7 +23,7 @@ import {
   VISIT_DELETE_FAILED_TITLE,
 } from "@/utils/toast.ts";
 import { Box } from "@chakra-ui/react";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 type Editing = { mode: "add" } | { mode: "edit"; visit: VisitLog };
 
@@ -70,15 +71,11 @@ export function VisitLogEditor({
   const [editing, setEditing] = useState<Editing | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<VisitLog | null>(null);
   const [busy, setBusy] = useState(false);
-  // Visits with image uploads pending.
-  const [uploadingVisits, setUploadingVisits] = useState(0);
-  const handleUploadBusyChange = useCallback(
-    (uploading: boolean) => setUploadingVisits((n) => n + (uploading ? 1 : -1)),
-    [],
-  );
+  // From the upload store, so it holds while a visit form replaces the list.
+  const uploading = useShopUploading(shopId);
   useEffect(() => {
-    onBusyChange?.(busy || uploadingVisits > 0);
-  }, [busy, uploadingVisits, onBusyChange]);
+    onBusyChange?.(busy || uploading);
+  }, [busy, uploading, onBusyChange]);
 
   const whileBusy = async <T,>(task: () => Promise<T>): Promise<T> => {
     setBusy(true);
@@ -167,11 +164,7 @@ export function VisitLogEditor({
           <VisitLogList
             visits={visits}
             images={(visit) => (
-              <VisitImageManager
-                shopId={shopId}
-                visit={visit}
-                onBusyChange={handleUploadBusyChange}
-              />
+              <VisitImageManager shopId={shopId} visit={visit} />
             )}
             actions={(visit) => (
               <>

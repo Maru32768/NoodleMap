@@ -4,15 +4,17 @@ import { ModalDialog } from "@/components/modal-dialog.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { toaster } from "@/components/ui/toaster.tsx";
 import {
-  enqueueUpload,
   useVisitImageMutations,
   VisitImage,
 } from "@/features/visits/api/use-visit-images.ts";
 import type { VisitLog } from "@/features/visits/api/use-visits.ts";
 import {
-  needsConversion,
-  prepareImageForUpload,
-} from "@/features/visits/prepare-image.ts";
+  cancelUpload,
+  dismissUpload,
+  PendingUpload,
+  queueVisitUploads,
+  useVisitUploads,
+} from "@/features/visits/api/visit-uploads.ts";
 import { VisitImageThumb } from "@/features/visits/visit-image-gallery.tsx";
 import { invalidRequestFieldErrors } from "@/utils/request.ts";
 import {
@@ -22,34 +24,21 @@ import {
   VISIT_IMAGE_CAPTION_FAILED_TITLE,
   VISIT_IMAGE_CAPTION_MAX_LENGTH,
   VISIT_IMAGE_DELETE_FAILED_TITLE,
-  VISIT_IMAGE_LIMIT_MESSAGE,
   VISIT_IMAGE_REORDER_FAILED_TITLE,
-  VISIT_IMAGE_UNDECODABLE_MESSAGE,
   VISIT_IMAGES_MAX,
   visitImageCaptionErrorMessage,
-  visitImageUploadErrorMessage,
 } from "@/utils/toast.ts";
 import { Box, Input } from "@chakra-ui/react";
 import { useEffect, useRef, useState } from "react";
 
-// A selected file until it is uploaded (then it shows as an image) or failed.
-interface PendingFile {
-  key: number;
-  name: string;
-  status: "waiting" | "converting" | "uploading" | "failed";
-  message?: string;
-}
-
 const PENDING_LABEL: Record<
-  Exclude<PendingFile["status"], "failed">,
+  Exclude<PendingUpload["status"], "failed">,
   string
 > = {
   waiting: "待機中",
   converting: "変換中…",
   uploading: "アップロード中…",
 };
-
-let nextPendingKey = 0;
 
 const smallButtonProps = {
   variant: "plain",
@@ -71,86 +60,46 @@ const smallButtonProps = {
 /**
  * The 訪問画像 of one saved 訪問ログ for the admin: add (one upload at a time),
  * reorder, caption and delete. The first image represents the visit.
- * `onBusyChange` reports whether uploads are pending.
+ * Uploads live in a store outside the component, so they and their failures
+ * outlast it (the editor marks itself busy from that store).
  */
 export function VisitImageManager({
   shopId,
   visit,
-  onBusyChange,
 }: {
   shopId: string;
   visit: VisitLog;
-  onBusyChange?: (busy: boolean) => void;
 }) {
-  const { uploadImage, updateCaption, reorderImages, deleteImage } =
-    useVisitImageMutations(shopId);
-  const images = visit.images;
-  const [pending, setPending] = useState<PendingFile[]>([]);
+  const {
+    uploadImage,
+    updateCaption,
+    reorderImages,
+    deleteImage,
+    revalidateShops,
+  } = useVisitImageMutations(shopId);
+  // Absent while an older server is still deployed.
+  const images = visit.images ?? [];
+  const pending = useVisitUploads(visit.id);
   const [editingCaptionId, setEditingCaptionId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<VisitImage | null>(null);
-  // One reorder at a time: each sends the whole order it was computed from.
+  // A reorder sends the whole order, so it waits for every other change.
   const [reordering, setReordering] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const inFlight = pending.filter((p) => p.status !== "failed").length;
   const remaining = VISIT_IMAGES_MAX - images.length - inFlight;
-  const busy = inFlight > 0;
-  useEffect(() => {
-    if (!busy) {
-      return;
-    }
-    onBusyChange?.(true);
-    return () => onBusyChange?.(false);
-  }, [busy, onBusyChange]);
+  const reorderLocked = reordering || deleting || inFlight > 0;
 
-  const updatePending = (key: number, patch: Partial<PendingFile>) =>
-    setPending((ps) => ps.map((p) => (p.key === key ? { ...p, ...patch } : p)));
-  const removePending = (key: number) =>
-    setPending((ps) => ps.filter((p) => p.key !== key));
-
-  const upload = async (file: File, key: number) => {
-    if (needsConversion(file)) {
-      updatePending(key, { status: "converting" });
-    }
-    // A canvas failure (out of memory, ...) must not leave the file pending.
-    const prepared = await prepareImageForUpload(file).catch(() => null);
-    if (!prepared?.ok) {
-      updatePending(key, {
-        status: "failed",
-        message: VISIT_IMAGE_UNDECODABLE_MESSAGE,
-      });
-      return;
-    }
-    updatePending(key, { status: "uploading" });
-    const result = await uploadImage(visit.id, prepared.data);
-    if (result.ok) {
-      removePending(key);
-    } else {
-      updatePending(key, {
-        status: "failed",
-        message: visitImageUploadErrorMessage(result.error),
-      });
-    }
-  };
-
-  const addFiles = (files: File[]) => {
-    const entries = files.map((file, i) => ({
-      file,
-      entry: {
-        key: nextPendingKey++,
-        name: file.name,
-        ...(i < remaining
-          ? { status: "waiting" as const }
-          : { status: "failed" as const, message: VISIT_IMAGE_LIMIT_MESSAGE }),
-      } satisfies PendingFile,
-    }));
-    setPending((ps) => [...ps, ...entries.map((e) => e.entry)]);
-    for (const { file, entry } of entries) {
-      if (entry.status === "waiting") {
-        void enqueueUpload(() => upload(file, entry.key));
-      }
-    }
-  };
+  const addFiles = (files: File[]) =>
+    queueVisitUploads({
+      shopId,
+      visitId: visit.id,
+      files,
+      slots: remaining,
+      upload: uploadImage,
+      onDrained: () => void revalidateShops(),
+    });
 
   const move = async (index: number, delta: number) => {
     const ids = images.map((image) => image.id);
@@ -170,7 +119,10 @@ export function VisitImageManager({
   };
 
   const handleDelete = async (image: VisitImage) => {
-    const result = await deleteImage(image.id);
+    setDeleting(true);
+    const result = await deleteImage(image.id).finally(() =>
+      setDeleting(false),
+    );
     if (!result.ok && result.error.type === "not_found") {
       setDeleteTarget(null);
       toastError({ title: VISIT_IMAGE_ALREADY_DELETED_TITLE });
@@ -261,7 +213,7 @@ export function VisitImageManager({
                 <LoadableButton
                   {...smallButtonProps}
                   aria-label={`画像 ${index + 1} を前に移動`}
-                  disabled={index === 0 || reordering}
+                  disabled={index === 0 || reorderLocked}
                   onClick={() => move(index, -1)}
                 >
                   ←
@@ -269,7 +221,7 @@ export function VisitImageManager({
                 <LoadableButton
                   {...smallButtonProps}
                   aria-label={`画像 ${index + 1} を後ろに移動`}
-                  disabled={index === images.length - 1 || reordering}
+                  disabled={index === images.length - 1 || reorderLocked}
                   onClick={() => move(index, 1)}
                 >
                   →
@@ -332,15 +284,26 @@ export function VisitImageManager({
                   <Button
                     {...smallButtonProps}
                     aria-label={`${p.name} の表示を消す`}
-                    onClick={() => removePending(p.key)}
+                    onClick={() => dismissUpload(p.key)}
                   >
                     ×
                   </Button>
                 </>
               ) : (
-                <Box as="span" role="status" color="nm.inkMuted">
-                  {PENDING_LABEL[p.status]}
-                </Box>
+                <>
+                  <Box as="span" role="status" color="nm.inkMuted">
+                    {PENDING_LABEL[p.status]}
+                  </Box>
+                  {p.status === "waiting" && (
+                    <Button
+                      {...smallButtonProps}
+                      aria-label={`${p.name} のアップロードをキャンセル`}
+                      onClick={() => cancelUpload(p.key)}
+                    >
+                      キャンセル
+                    </Button>
+                  )}
+                </>
               )}
             </Box>
           ))}
@@ -444,6 +407,23 @@ function CaptionEditor({
 }) {
   const [draft, setDraft] = useState(image.caption ?? "");
   const [error, setError] = useState<string>();
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Esc cancels the edit instead of closing the dialog around it. The dialog
+  // listens on the document in the capture phase, so this listens earlier, on
+  // the window.
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && event.target === inputRef.current) {
+        event.stopPropagation();
+        event.preventDefault();
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown, { capture: true });
+    return () =>
+      window.removeEventListener("keydown", handleKeyDown, { capture: true });
+  }, [onClose]);
 
   const save = async () => {
     const result = await onSave(image.id, draft);
@@ -472,6 +452,7 @@ function CaptionEditor({
     <Box display="flex" flexDirection="column" gap="0.25rem">
       <FormField error={error}>
         <Input
+          ref={inputRef}
           aria-label="キャプション"
           size="xs"
           fontSize="12px"

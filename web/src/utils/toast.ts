@@ -228,6 +228,8 @@ export const VISIT_IMAGE_CAPTION_MAX_LENGTH = 100;
 export const VISIT_IMAGES_MAX = 10;
 
 export const VISIT_IMAGE_UNDECODABLE_MESSAGE = "この画像形式は読み込めません";
+export const VISIT_IMAGE_UPLOAD_TIMEOUT_MESSAGE =
+  "アップロードに時間がかかりすぎたため中止しました。もう一度お試しください";
 export const VISIT_IMAGE_LIMIT_MESSAGE = `1つの訪問ログに追加できる画像は${VISIT_IMAGES_MAX}枚までです`;
 export const VISIT_IMAGE_CAPTION_FAILED_TITLE =
   "キャプションを保存できませんでした";

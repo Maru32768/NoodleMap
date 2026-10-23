@@ -1,8 +1,10 @@
 import { retryAfterMs } from "@/features/visits/api/use-visit-images.ts";
 import {
+  exceedsPixelLimit,
   fitWithin,
   needsConversion,
   prepareImageForUpload,
+  readImageSize,
   UPLOAD_MAX_BYTES,
 } from "@/features/visits/prepare-image.ts";
 import { describe, expect, it } from "vitest";
@@ -31,6 +33,77 @@ describe("needsConversion", () => {
   });
 });
 
+// A PNG signature and IHDR chunk for `width` x `height`.
+function pngHeader(width: number, height: number) {
+  const bytes = new Uint8Array(33);
+  bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  const view = new DataView(bytes.buffer);
+  view.setUint32(8, 13);
+  bytes.set([0x49, 0x48, 0x44, 0x52], 12);
+  view.setUint32(16, width);
+  view.setUint32(20, height);
+  return bytes;
+}
+
+// SOI, an APP0 segment, then a baseline frame header (SOF0) for `width` x `height`.
+function jpegHeader(width: number, height: number) {
+  return new Uint8Array([
+    0xff,
+    0xd8,
+    0xff,
+    0xe0,
+    0x00,
+    0x06,
+    0x4a,
+    0x46,
+    0x49,
+    0x46,
+    0xff,
+    0xff, // a fill byte before the next marker
+    0xc0,
+    0x00,
+    0x11,
+    0x08,
+    height >> 8,
+    height & 0xff,
+    width >> 8,
+    width & 0xff,
+    0x03,
+  ]);
+}
+
+describe("readImageSize", () => {
+  it("reads a PNG's IHDR", () => {
+    expect(readImageSize(pngHeader(4032, 3024))).toEqual({
+      width: 4032,
+      height: 3024,
+    });
+  });
+
+  it("reads a JPEG's frame header past other segments", () => {
+    expect(readImageSize(jpegHeader(6000, 4000))).toEqual({
+      width: 6000,
+      height: 4000,
+    });
+  });
+
+  it("gives up on anything else", () => {
+    expect(readImageSize(new Uint8Array([0x47, 0x49, 0x46, 0x38]))).toBeNull();
+    expect(readImageSize(new Uint8Array([0xff, 0xd8, 0xff]))).toBeNull();
+  });
+});
+
+describe("exceedsPixelLimit", () => {
+  it("allows a typical phone photo", () => {
+    expect(exceedsPixelLimit({ width: 4032, height: 3024 })).toBe(false);
+  });
+
+  it("flags more than 30 MP or a long edge over 8000", () => {
+    expect(exceedsPixelLimit({ width: 7000, height: 5000 })).toBe(true);
+    expect(exceedsPixelLimit({ width: 9000, height: 1000 })).toBe(true);
+  });
+});
+
 describe("fitWithin", () => {
   it("scales the long edge down to 4096", () => {
     expect(fitWithin(8000, 6000)).toEqual({ width: 4096, height: 3072 });
@@ -52,6 +125,21 @@ describe("prepareImageForUpload", () => {
       ok: true,
       data: { blob: file, fileName: "ramen.jpg" },
     });
+  });
+
+  it("re-encodes a JPEG with too many pixels", async () => {
+    const file = new File([jpegHeader(9000, 6000)], "huge.jpg", {
+      type: "image/jpeg",
+    });
+    let converting = false;
+
+    // jsdom cannot decode it, which shows conversion was attempted.
+    const result = await prepareImageForUpload(file, () => {
+      converting = true;
+    });
+
+    expect(converting).toBe(true);
+    expect(result).toEqual({ ok: false, error: "undecodable" });
   });
 
   it("fails on a format the browser cannot decode", async () => {

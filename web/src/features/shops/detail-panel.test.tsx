@@ -9,7 +9,7 @@ import type { components } from "@/generated/api.ts";
 import { makeShop, makeTag } from "@/test/fixtures.ts";
 import { renderWithProviders } from "@/test/render.tsx";
 import { server } from "@/test/server.ts";
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -270,6 +270,24 @@ describe("DetailPanel images", () => {
     expect(
       screen.getByRole("img", { ...hidden, name: "麺屋 写真の代表写真" }),
     ).toHaveAttribute("src", image.url);
+  });
+
+  it("loads the 代表写真 eagerly and falls back to the category art when it breaks", () => {
+    serveVisits([]);
+    renderPanel(
+      makeShop({ name: "麺屋 壊れ", coverPhotoUrl: image.url, eaten: false }),
+    );
+    const cover = screen.getByRole("img", {
+      ...hidden,
+      name: "麺屋 壊れの代表写真",
+    });
+    expect(cover).toHaveAttribute("loading", "eager");
+
+    fireEvent.error(cover);
+
+    expect(
+      screen.queryByRole("img", { ...hidden, name: "麺屋 壊れの代表写真" }),
+    ).toBeNull();
   });
 
   it("shows no photo for a shop without one", () => {

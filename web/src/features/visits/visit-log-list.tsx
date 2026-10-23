@@ -159,7 +159,8 @@ function VisitLogEntry({
 export function VisitLogList({
   visits,
   actions,
-  images = (visit) => <VisitImageGallery images={visit.images} />,
+  // `images` is absent while an older server is still deployed.
+  images = (visit) => <VisitImageGallery images={visit.images ?? []} />,
 }: {
   visits: readonly VisitLog[];
   actions?: (visit: VisitLog) => ReactNode;

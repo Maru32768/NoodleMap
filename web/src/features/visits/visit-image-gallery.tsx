@@ -1,6 +1,5 @@
 import { Button } from "@/components/ui/button.tsx";
 import {
-  DialogBackdrop,
   DialogCloseTrigger,
   DialogContent,
   DialogRoot,
@@ -156,9 +155,7 @@ export function VisitImageLightbox({
       open={open}
       onOpenChange={(e) => !e.open && onIndexChange(null)}
     >
-      <DialogBackdrop bg="rgba(26, 22, 20, 0.8)" />
       <DialogContent
-        backdrop={false}
         width="auto"
         maxW="calc(100vw - 2rem)"
         bg="nm.paper"

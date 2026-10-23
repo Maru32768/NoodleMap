@@ -1,6 +1,7 @@
 import { CategorySlug } from "@/features/categories/categories.ts";
 import { CategoryIcon } from "@/features/map/category-icon.tsx";
 import { Box, Image } from "@chakra-ui/react";
+import { useState } from "react";
 
 const THUMB_BG: Record<CategorySlug | "closed", string> = {
   ramen: "linear-gradient(135deg, #e8d5b7, #c9a06a)",
@@ -25,13 +26,14 @@ export function ShopThumb({
   const dim = size === "lg" ? "64px" : "56px";
   const iconSize = size === "lg" ? 36 : 28;
   const bg = closed ? THUMB_BG.closed : THUMB_BG[catType];
+  const [failedUrl, setFailedUrl] = useState<string>();
 
-  if (photo) {
+  // A broken photo falls back to the icon.
+  if (photo && photo.url !== failedUrl) {
     return (
       <Image
         src={photo.url}
         alt={photo.alt}
-        loading="lazy"
         decoding="async"
         w={dim}
         h={dim}
@@ -39,6 +41,10 @@ export function ShopThumb({
         flexShrink={0}
         objectFit="cover"
         background={bg}
+        // Greyed out like the closed icon.
+        filter={closed ? "grayscale(1)" : undefined}
+        opacity={closed ? 0.75 : 1}
+        onError={() => setFailedUrl(photo.url)}
       />
     );
   }

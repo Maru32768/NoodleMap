@@ -28,9 +28,13 @@ function image(n: number, caption?: string): VisitImage {
   };
 }
 
+// Uploads (and their failures) are kept per visit outside React, so each
+// test gets its own visit.
+let nextVisit = 1;
+
 function makeVisit(images: VisitImage[]): VisitLog {
   return {
-    id: "00000000-0000-4000-8000-0000000000b1",
+    id: `00000000-0000-4000-8000-0000000002${(nextVisit++).toString().padStart(2, "0")}`,
     visitedOn: "2026-09-30",
     menuName: "中華そば",
     isLimitedMenu: false,
@@ -75,7 +79,6 @@ function renderImages({
       return HttpResponse.json({ visits: [visit] });
     }),
     http.post(`/api/v1/auth/visits/${visit.id}/images`, async ({ request }) => {
-      // The multipart body cannot be read back in jsdom; check its type only.
       // The multipart body cannot be read back (nor left unread for long) in
       // jsdom; check its type only.
       expect(request.headers.get("content-type")).toMatch(
@@ -125,16 +128,17 @@ function renderImages({
       return new HttpResponse(null, { status: 204 });
     }),
   );
+  const onClose = vi.fn();
   renderWithProviders(
     <ShopEditModal
       shop={shop}
       open
       initialTab="visit"
-      onClose={vi.fn()}
+      onClose={onClose}
       onDeleted={vi.fn()}
     />,
   );
-  return traffic;
+  return Object.assign(traffic, { onClose });
 }
 
 const imageList = () => screen.findByRole("list", { name: "訪問画像" });
@@ -161,8 +165,11 @@ describe("VisitImageManager", () => {
     ).toBeDisabled();
   });
 
-  it("uploads selected files one at a time and refetches the visits and shops", async () => {
+  it("uploads selected files one at a time, then refetches the shops once", async () => {
     const traffic = renderImages();
+    await screen.findByRole("list", { name: "訪問ログ" });
+    await waitFor(() => expect(traffic.fetched.shops).toBeGreaterThan(0));
+    const shopsBefore = traffic.fetched.shops;
 
     await upload(jpeg("a.jpg"), jpeg("b.jpg"), jpeg("c.jpg"));
 
@@ -185,7 +192,12 @@ describe("VisitImageManager", () => {
       expect(traffic.log.slice(prev + 1, next)).toContain("visits");
     }
     expect(traffic.fetched.visits).toBeGreaterThan(3);
-    expect(traffic.fetched.shops).toBeGreaterThan(3);
+    // The 代表写真 in the shop list is refetched after the last upload only.
+    await waitFor(() =>
+      expect(traffic.fetched.shops).toBeGreaterThan(shopsBefore),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(traffic.fetched.shops).toBe(shopsBefore + 1);
     expect(screen.queryByRole("list", { name: "追加中の画像" })).toBeNull();
   });
 
@@ -391,6 +403,91 @@ describe("VisitImageManager", () => {
         1,
       ),
     );
+  });
+
+  it("keeps uploads and their failures across opening a visit form, locking the modal meanwhile", async () => {
+    const traffic = renderImages({
+      images: [image(1), image(2)],
+      uploadResponse: (attempt) =>
+        attempt === 1
+          ? HttpResponse.json(
+              { type: "visit_image_processing_busy" },
+              { status: 503, headers: { "Retry-After": "1" } },
+            )
+          : HttpResponse.json(
+              {
+                type: "invalid_request",
+                fieldErrors: [{ field: "file", type: "too_long" }],
+              },
+              { status: 400 },
+            ),
+    });
+    const footerCancel = () =>
+      screen
+        .getAllByRole("button", { name: "キャンセル" })
+        .find(
+          (button) => !button.closest("[role=group]") && !button.closest("li"),
+        )!;
+
+    await upload(jpeg("a.jpg"), jpeg("b.jpg"));
+    // a.jpg waits out the busy server; b.jpg is queued behind it.
+    const pending = await screen.findByRole("list", { name: "追加中の画像" });
+    await within(pending).findByText("アップロード中…");
+    expect(
+      within(await imageList()).getByRole("button", {
+        name: "画像 2 を前に移動",
+      }),
+    ).toBeDisabled();
+    await userEvent.click(
+      within(pending).getByRole("button", {
+        name: "b.jpg のアップロードをキャンセル",
+      }),
+    );
+    expect(pending).not.toHaveTextContent("b.jpg");
+
+    await userEvent.click(screen.getByRole("button", { name: "訪問を記録" }));
+    expect(footerCancel()).toBeDisabled();
+
+    // The retry fails while the form is open; closing it shows the failure.
+    await waitFor(() => expect(traffic.uploads).toBe(2), { timeout: 3000 });
+    await waitFor(() => expect(footerCancel()).toBeEnabled());
+    await userEvent.click(
+      within(screen.getByRole("group", { name: "訪問を記録" })).getByRole(
+        "button",
+        { name: "キャンセル" },
+      ),
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "15MB以下の画像を選んでください",
+    );
+    expect(traffic.uploads).toBe(2);
+    expect(
+      within(await imageList()).getByRole("button", {
+        name: "画像 2 を前に移動",
+      }),
+    ).toBeEnabled();
+  });
+
+  it("cancels a caption edit on Esc without closing the modal", async () => {
+    const traffic = renderImages({ images: [image(1, "味玉")] });
+    const list = await imageList();
+
+    await userEvent.click(
+      within(list).getByRole("button", {
+        name: "画像 1 のキャプションを編集",
+      }),
+    );
+    const input = within(list).getByRole("textbox", { name: "キャプション" });
+    await userEvent.type(input, "追加");
+    await userEvent.keyboard("{Escape}");
+
+    expect(
+      within(list).queryByRole("textbox", { name: "キャプション" }),
+    ).toBeNull();
+    expect(within(list).getByText("味玉")).toBeInTheDocument();
+    expect(traffic.captions).toEqual([]);
+    expect(traffic.onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole("list", { name: "訪問ログ" })).toBeInTheDocument();
   });
 
   it("asks to save a new visit before adding images", async () => {

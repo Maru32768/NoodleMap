@@ -20,7 +20,7 @@ import { SystemTagChips, TagChips } from "@/features/shops/tag-chips.tsx";
 import { ShopRating } from "@/features/visits/shop-rating.tsx";
 import { ShopVisitHistory } from "@/features/visits/shop-visit-history.tsx";
 import { Box, Image } from "@chakra-ui/react";
-import { useEffect, useEffectEvent } from "react";
+import { useEffect, useEffectEvent, useState } from "react";
 
 // The hero badge shows visit status only; lifecycle/new are shown as system tag
 // chips in the body.
@@ -62,6 +62,11 @@ export function DetailPanel({ shop, onAdminEdit, onClose }: DetailPanelProps) {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
+
+  const [failedCoverUrl, setFailedCoverUrl] = useState<string>();
+  const coverUrl =
+    shop.coverPhotoUrl !== failedCoverUrl ? shop.coverPhotoUrl : undefined;
+  const closed = shop.lifecycleStatus === "closed";
 
   const status = shop.eatenStatus;
   const statusTag = {
@@ -147,17 +152,23 @@ export function DetailPanel({ shop, onAdminEdit, onClose }: DetailPanelProps) {
             />
           </Box>
         </Box>
-        {shop.coverPhotoUrl && (
+        {coverUrl && (
           <Image
-            src={shop.coverPhotoUrl}
+            src={coverUrl}
             alt={`${shop.name}の代表写真`}
-            loading="lazy"
+            // Visible as soon as the panel opens.
+            loading="eager"
             decoding="async"
             position="absolute"
             inset="0"
             w="100%"
             h="100%"
             objectFit="cover"
+            // The category art greys out a closed shop; so does its photo.
+            filter={closed ? "grayscale(1)" : undefined}
+            opacity={closed ? 0.75 : 1}
+            // A broken photo leaves the category art.
+            onError={() => setFailedCoverUrl(coverUrl)}
           />
         )}
         <Box
