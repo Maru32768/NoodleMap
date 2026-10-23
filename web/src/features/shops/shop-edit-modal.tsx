@@ -622,7 +622,8 @@ export function ShopEditModal({
         onOpenChange={(o) => !o && !locked && guardVisitDraft("close")}
         width="100%"
         maxWidth="1040px"
-        height="90vh"
+        // dvh: iOS toolbars must not push the footer off screen.
+        height="min(90vh, calc(100dvh - 2rem))"
         title={displayName}
         subtitle={`EDIT · ${shop.id}`}
         icon={
