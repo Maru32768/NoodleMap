@@ -35,6 +35,7 @@ import {
 import type { WishLevel } from "@/features/shops/status.ts";
 import { TagSelector } from "@/features/shops/tag-chips.tsx";
 import { WishLevelSelect } from "@/features/shops/wish-level-select.tsx";
+import { useShopUploading } from "@/features/visits/api/visit-uploads.ts";
 import { VisitLogEditor } from "@/features/visits/visit-log-editor.tsx";
 import { invalidRequestFieldErrors } from "@/utils/request.ts";
 import {
@@ -570,7 +571,9 @@ export function ShopEditModal({
     onClose();
   };
 
-  const locked = saving || deleting || visitBusy;
+  // Image uploads run outside the 訪問ログ tab, which may not be mounted.
+  const uploading = useShopUploading(shop.id);
+  const locked = saving || deleting || visitBusy || uploading;
 
   const selectTab = (t: Tab) => {
     setTab(t);

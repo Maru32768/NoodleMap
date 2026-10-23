@@ -87,6 +87,26 @@ describe("readImageSize", () => {
     });
   });
 
+  it("skips standalone markers and stops at the end of the image", () => {
+    const withStandalone = new Uint8Array([
+      0xff,
+      0xd8,
+      0xff,
+      0xd8,
+      0xff,
+      0x01,
+      0xff,
+      0xd3,
+      ...jpegHeader(640, 480).slice(2),
+    ]);
+    expect(readImageSize(withStandalone)).toEqual({ width: 640, height: 480 });
+    expect(
+      readImageSize(
+        new Uint8Array([0xff, 0xd8, 0xff, 0xd9, ...jpegHeader(640, 480)]),
+      ),
+    ).toBeNull();
+  });
+
   it("gives up on anything else", () => {
     expect(readImageSize(new Uint8Array([0x47, 0x49, 0x46, 0x38]))).toBeNull();
     expect(readImageSize(new Uint8Array([0xff, 0xd8, 0xff]))).toBeNull();
@@ -127,19 +147,22 @@ describe("prepareImageForUpload", () => {
     });
   });
 
-  it("re-encodes a JPEG with too many pixels", async () => {
+  it("tries to shrink a JPEG with too many pixels, sending the original when it cannot", async () => {
     const file = new File([jpegHeader(9000, 6000)], "huge.jpg", {
       type: "image/jpeg",
     });
     let converting = false;
 
-    // jsdom cannot decode it, which shows conversion was attempted.
+    // jsdom cannot decode it; the server judges the original instead.
     const result = await prepareImageForUpload(file, () => {
       converting = true;
     });
 
     expect(converting).toBe(true);
-    expect(result).toEqual({ ok: false, error: "undecodable" });
+    expect(result).toEqual({
+      ok: true,
+      data: { blob: file, fileName: "huge.jpg" },
+    });
   });
 
   it("fails on a format the browser cannot decode", async () => {

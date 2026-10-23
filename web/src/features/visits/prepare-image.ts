@@ -61,7 +61,12 @@ export function readImageSize(
       i++;
       continue;
     }
-    if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) {
+    if (marker === 0xd9) {
+      // EOI: the image ended without a frame header.
+      return null;
+    }
+    // Standalone markers without a length: TEM, RST0-RST7 and a repeated SOI.
+    if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd8)) {
       i += 2;
       continue;
     }
@@ -118,13 +123,15 @@ export interface PreparedImage {
  * the size and pixel limits; otherwise decoded by the browser (upright, as
  * displayed), scaled to fit {@link CONVERTED_MAX_EDGE}, flattened onto white
  * and re-encoded as JPEG. `onConvert` is called when re-encoding starts.
- * Fails when the browser cannot decode it.
+ * When that fails, a JPEG or PNG within 15 MB is still sent as is (the server
+ * judges its pixels); anything else fails as undecodable.
  */
 export async function prepareImageForUpload(
   file: File,
   onConvert?: () => void,
 ): Promise<Result<PreparedImage, "undecodable">> {
-  if (!needsConversion(file)) {
+  const uploadable = !needsConversion(file);
+  if (uploadable) {
     const size = await readFileImageSize(file);
     // An unreadable header is left to the server to judge.
     if (!size || !exceedsPixelLimit(size)) {
@@ -132,15 +139,27 @@ export async function prepareImageForUpload(
     }
   }
   onConvert?.();
+  // A canvas failure (out of memory, ...) counts as undecodable.
+  const blob = await convertToJpeg(file).catch(() => null);
+  if (blob) {
+    return ok({ blob, fileName: jpegFileName(file.name) });
+  }
+  return uploadable
+    ? ok({ blob: file, fileName: file.name })
+    : err("undecodable");
+}
+
+/** The file decoded, scaled and re-encoded as JPEG; null when the browser cannot decode it. */
+async function convertToJpeg(file: File): Promise<Blob | null> {
   const source = await decode(file);
   if (!source) {
-    return err("undecodable");
+    return null;
   }
   const canvas = document.createElement("canvas");
   try {
     const context = canvas.getContext("2d");
     if (!context || source.width === 0 || source.height === 0) {
-      return err("undecodable");
+      return null;
     }
     const size = fitWithin(source.width, source.height);
     canvas.width = size.width;
@@ -149,13 +168,9 @@ export async function prepareImageForUpload(
     context.fillStyle = "#ffffff";
     context.fillRect(0, 0, size.width, size.height);
     context.drawImage(source.image, 0, 0, size.width, size.height);
-    const blob = await new Promise<Blob | null>((resolve) =>
+    return await new Promise<Blob | null>((resolve) =>
       canvas.toBlob(resolve, "image/jpeg", CONVERTED_JPEG_QUALITY),
     );
-    if (!blob) {
-      return err("undecodable");
-    }
-    return ok({ blob, fileName: jpegFileName(file.name) });
   } finally {
     source.release();
     // Frees the bitmap memory now rather than when the canvas is collected.

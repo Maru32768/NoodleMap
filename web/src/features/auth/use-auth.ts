@@ -1,3 +1,4 @@
+import { resetVisitUploads } from "@/features/visits/api/visit-uploads.ts";
 import type { components } from "@/generated/api.ts";
 import {
   ApiError,
@@ -70,6 +71,8 @@ export function useAuth() {
   );
 
   const logout = useCallback(() => {
+    // Nothing queued may upload under a session signed in afterwards.
+    resetVisitUploads();
     return withApiResult<void, LogoutErrorBody>(
       "/api/v1/auth/logout",
       async () => {

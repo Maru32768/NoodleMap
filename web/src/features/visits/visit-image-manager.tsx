@@ -29,13 +29,14 @@ import {
   visitImageCaptionErrorMessage,
 } from "@/utils/toast.ts";
 import { Box, Input } from "@chakra-ui/react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 const PENDING_LABEL: Record<
   Exclude<PendingUpload["status"], "failed">,
   string
 > = {
   waiting: "待機中",
+  preparing: "準備中…",
   converting: "変換中…",
   uploading: "アップロード中…",
 };
@@ -75,12 +76,14 @@ export function VisitImageManager({
     updateCaption,
     reorderImages,
     deleteImage,
+    revalidateVisits,
     revalidateShops,
   } = useVisitImageMutations(shopId);
   // Absent while an older server is still deployed.
   const images = visit.images ?? [];
   const pending = useVisitUploads(visit.id);
   const [editingCaptionId, setEditingCaptionId] = useState<string | null>(null);
+  const closeCaption = useCallback(() => setEditingCaptionId(null), []);
   const [deleteTarget, setDeleteTarget] = useState<VisitImage | null>(null);
   // A reorder sends the whole order, so it waits for every other change.
   const [reordering, setReordering] = useState(false);
@@ -98,6 +101,7 @@ export function VisitImageManager({
       files,
       slots: remaining,
       upload: uploadImage,
+      revalidateVisits: () => void revalidateVisits(),
       onDrained: () => void revalidateShops(),
     });
 
@@ -198,7 +202,7 @@ export function VisitImageManager({
                 <CaptionEditor
                   image={image}
                   onSave={updateCaption}
-                  onClose={() => setEditingCaptionId(null)}
+                  onClose={closeCaption}
                 />
               ) : (
                 <Box
@@ -238,6 +242,8 @@ export function VisitImageManager({
                 <Button
                   {...smallButtonProps}
                   aria-label={`画像 ${index + 1} を削除`}
+                  // A reorder in flight sends this image's id.
+                  disabled={reordering}
                   onClick={() => setDeleteTarget(image)}
                 >
                   削除
@@ -408,15 +414,25 @@ function CaptionEditor({
   const [draft, setDraft] = useState(image.caption ?? "");
   const [error, setError] = useState<string>();
   const inputRef = useRef<HTMLInputElement>(null);
+  const savingRef = useRef(false);
 
-  // Esc cancels the edit instead of closing the dialog around it. The dialog
-  // listens on the document in the capture phase, so this listens earlier, on
-  // the window.
+  // Esc cancels the edit instead of closing the dialog around it, and does
+  // nothing while the caption is being saved. The dialog listens on the
+  // document in the capture phase, so this listens earlier, on the window.
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && event.target === inputRef.current) {
-        event.stopPropagation();
-        event.preventDefault();
+      if (
+        event.key !== "Escape" ||
+        event.target !== inputRef.current ||
+        // Esc that ends an IME composition.
+        event.isComposing ||
+        event.keyCode === 229
+      ) {
+        return;
+      }
+      event.stopPropagation();
+      event.preventDefault();
+      if (!savingRef.current) {
         onClose();
       }
     };
@@ -426,7 +442,10 @@ function CaptionEditor({
   }, [onClose]);
 
   const save = async () => {
-    const result = await onSave(image.id, draft);
+    savingRef.current = true;
+    const result = await onSave(image.id, draft).finally(() => {
+      savingRef.current = false;
+    });
     if (result.ok) {
       onClose();
       return;

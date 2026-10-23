@@ -57,20 +57,41 @@ function sleep(ms: number, signal: AbortSignal | undefined) {
   });
 }
 
-function postImage(
+/** One upload request, aborted by `signal` or after `timeoutMs`. */
+async function postImage(
   visitId: string,
   image: PreparedImage,
-  signal: AbortSignal | undefined,
+  { signal, timeoutMs }: UploadOptions,
 ) {
-  const form = new FormData();
-  form.append("file", image.blob, image.fileName);
-  return apiClient.POST("/api/v1/auth/visits/{visitId}/images", {
-    params: { path: { visitId } },
-    signal,
-    // openapi-fetch sends a FormData as is (the browser sets the boundary);
-    // the generated type models the file part as a string.
-    body: form as unknown as UploadVisitImageRequest,
-  });
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  signal?.addEventListener("abort", abort);
+  const timer =
+    timeoutMs === undefined ? undefined : setTimeout(abort, timeoutMs);
+  try {
+    if (signal?.aborted) {
+      abort();
+    }
+    const form = new FormData();
+    form.append("file", image.blob, image.fileName);
+    return await apiClient.POST("/api/v1/auth/visits/{visitId}/images", {
+      params: { path: { visitId } },
+      signal: controller.signal,
+      // openapi-fetch sends a FormData as is (the browser sets the boundary);
+      // the generated type models the file part as a string.
+      body: form as unknown as UploadVisitImageRequest,
+    });
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener("abort", abort);
+  }
+}
+
+interface UploadOptions {
+  // Aborts the whole upload, the busy-server wait included.
+  signal?: AbortSignal;
+  // Limits each request; the busy-server wait between them does not count.
+  timeoutMs?: number;
 }
 
 /**
@@ -83,17 +104,18 @@ export function useVisitImageMutations(shopId: string) {
 
   /**
    * Adds one image at the end of the visit's images; a busy server is retried
-   * once after Retry-After. `signal` aborts the whole upload.
+   * once after Retry-After. An aborted or timed-out request fails as a
+   * network error (status 0): the server may still have saved the image.
    */
   const uploadImage = useCallback(
-    (visitId: string, image: PreparedImage, signal?: AbortSignal) =>
+    (visitId: string, image: PreparedImage, options: UploadOptions = {}) =>
       withApiResult<VisitImage, UploadVisitImageErrorBody>(
         "/api/v1/auth/visits/{visitId}/images",
         async () => {
-          let res = await postImage(visitId, image, signal);
+          let res = await postImage(visitId, image, options);
           if (res.error?.type === "visit_image_processing_busy") {
-            await sleep(retryAfterMs(res.response.headers), signal);
-            res = await postImage(visitId, image, signal);
+            await sleep(retryAfterMs(res.response.headers), options.signal);
+            res = await postImage(visitId, image, options);
           }
           if (res.error || !res.response.ok) {
             if (
@@ -208,6 +230,7 @@ export function useVisitImageMutations(shopId: string) {
     updateCaption,
     reorderImages,
     deleteImage,
+    revalidateVisits: revalidate.visits,
     revalidateShops: revalidate.shops,
   };
 }

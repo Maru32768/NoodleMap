@@ -7,7 +7,10 @@ import {
   useVisits,
   VisitLog,
 } from "@/features/visits/api/use-visits.ts";
-import { useShopUploading } from "@/features/visits/api/visit-uploads.ts";
+import {
+  purgeFailedUploads,
+  useUploadingVisitIds,
+} from "@/features/visits/api/visit-uploads.ts";
 import { VisitImageManager } from "@/features/visits/visit-image-manager.tsx";
 import { VisitLogForm } from "@/features/visits/visit-log-form.tsx";
 import {
@@ -52,8 +55,9 @@ function isGone(error: ApiError) {
 /**
  * The edit modal's 訪問ログ tab: the shop's visits with add, edit and delete.
  * `onDirtyChange` reports whether an open visit form has unsaved changes,
- * `onBusyChange` whether a visit save or delete or an image upload is in flight, and
- * `onShopGone` that adding failed because the shop was deleted elsewhere.
+ * `onBusyChange` whether a visit save or delete is in flight (image uploads
+ * are read from their store by the modal), and `onShopGone` that adding
+ * failed because the shop was deleted elsewhere.
  */
 export function VisitLogEditor({
   shopId,
@@ -71,11 +75,20 @@ export function VisitLogEditor({
   const [editing, setEditing] = useState<Editing | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<VisitLog | null>(null);
   const [busy, setBusy] = useState(false);
-  // From the upload store, so it holds while a visit form replaces the list.
-  const uploading = useShopUploading(shopId);
   useEffect(() => {
-    onBusyChange?.(busy || uploading);
-  }, [busy, uploading, onBusyChange]);
+    onBusyChange?.(busy);
+  }, [busy, onBusyChange]);
+  // A visit with uploads queued or running cannot be deleted under them.
+  const uploadingVisitIds = useUploadingVisitIds(shopId);
+  // Failed files of visits deleted (here or elsewhere) have nothing to retry.
+  useEffect(() => {
+    if (visits) {
+      purgeFailedUploads(
+        shopId,
+        visits.map((visit) => visit.id),
+      );
+    }
+  }, [shopId, visits]);
 
   const whileBusy = async <T,>(task: () => Promise<T>): Promise<T> => {
     setBusy(true);
@@ -178,6 +191,7 @@ export function VisitLogEditor({
                 <Button
                   {...smallButtonProps}
                   aria-label="訪問ログを削除"
+                  disabled={uploadingVisitIds.has(visit.id)}
                   onClick={() => setDeleteTarget(visit)}
                 >
                   削除

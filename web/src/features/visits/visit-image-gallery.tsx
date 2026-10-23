@@ -1,12 +1,13 @@
 import { Button } from "@/components/ui/button.tsx";
 import {
+  DialogBackdrop,
   DialogCloseTrigger,
   DialogContent,
   DialogRoot,
   DialogTitle,
 } from "@/components/ui/dialog.tsx";
 import type { VisitImage } from "@/features/visits/api/use-visit-images.ts";
-import { Box, chakra, Image } from "@chakra-ui/react";
+import { Box, chakra, Image, Portal } from "@chakra-ui/react";
 import { useEffect, useEffectEvent, useState } from "react";
 
 const THUMB_PX = 72;
@@ -155,7 +156,12 @@ export function VisitImageLightbox({
       open={open}
       onOpenChange={(e) => !e.open && onIndexChange(null)}
     >
+      {/* Portalled like the content, so it covers the viewport even inside the mobile sheet. */}
+      <Portal>
+        <DialogBackdrop bg="rgba(26, 22, 20, 0.8)" />
+      </Portal>
       <DialogContent
+        backdrop={false}
         width="auto"
         maxW="calc(100vw - 2rem)"
         bg="nm.paper"

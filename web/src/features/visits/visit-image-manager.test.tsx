@@ -1,12 +1,13 @@
 import { toaster } from "@/components/ui/toaster.tsx";
 import { ShopEditModal } from "@/features/shops/shop-edit-modal.tsx";
+import { resetVisitUploads } from "@/features/visits/api/visit-uploads.ts";
 import type { components } from "@/generated/api.ts";
 import { makeShop } from "@/test/fixtures.ts";
 import { renderWithProviders } from "@/test/render.tsx";
 import { server } from "@/test/server.ts";
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { http, HttpResponse } from "msw";
+import { delay, http, HttpResponse } from "msw";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 type VisitLog = components["schemas"]["VisitLog"];
@@ -14,6 +15,7 @@ type VisitImage = components["schemas"]["VisitImage"];
 
 afterEach(() => {
   toaster.remove();
+  resetVisitUploads();
 });
 
 const shop = makeShop({ name: "中華そば 青葉", eaten: true, visitCount: 1 });
@@ -444,6 +446,10 @@ describe("VisitImageManager", () => {
       }),
     );
     expect(pending).not.toHaveTextContent("b.jpg");
+    // The visit cannot be deleted under its uploads.
+    expect(
+      screen.getByRole("button", { name: "訪問ログを削除" }),
+    ).toBeDisabled();
 
     await userEvent.click(screen.getByRole("button", { name: "訪問を記録" }));
     expect(footerCancel()).toBeDisabled();
@@ -466,6 +472,41 @@ describe("VisitImageManager", () => {
         name: "画像 2 を前に移動",
       }),
     ).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "訪問ログを削除" }),
+    ).toBeEnabled();
+  });
+
+  it("locks deleting images while a reorder is in flight", async () => {
+    const traffic = renderImages({ images: [image(1), image(2)] });
+    let release = () => {};
+    server.use(
+      http.put("/api/v1/auth/visits/:visitId/images/order", async () => {
+        await new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        await delay(0);
+        return HttpResponse.json({ images: [image(2), image(1)] });
+      }),
+    );
+    const list = await imageList();
+
+    await userEvent.click(
+      within(list).getByRole("button", { name: "画像 2 を前に移動" }),
+    );
+
+    await waitFor(() =>
+      expect(
+        within(list).getByRole("button", { name: "画像 1 を削除" }),
+      ).toBeDisabled(),
+    );
+    release();
+    await waitFor(() =>
+      expect(
+        within(list).getByRole("button", { name: "画像 1 を削除" }),
+      ).toBeEnabled(),
+    );
+    expect(traffic.deleted).toEqual([]);
   });
 
   it("cancels a caption edit on Esc without closing the modal", async () => {
@@ -479,6 +520,9 @@ describe("VisitImageManager", () => {
     );
     const input = within(list).getByRole("textbox", { name: "キャプション" });
     await userEvent.type(input, "追加");
+    // An Esc that ends an IME composition leaves the edit open.
+    fireEvent.keyDown(input, { key: "Escape", isComposing: true });
+    expect(input).toBeInTheDocument();
     await userEvent.keyboard("{Escape}");
 
     expect(
