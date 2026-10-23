@@ -84,8 +84,8 @@ internal fun lifecycleChips(openedAt: String?, closedAt: String?, today: LocalDa
     )
 }
 
-// Place-name characters (no digits, spaces, separators or postal marks), optionally minus some suffixes.
-private fun name(except: String = "") = """[^\s\d０-９、,，〒\-－‐−$except]"""
+// One place-name character (no digits, spaces, separators or postal marks), optionally minus some suffixes.
+private fun nameChar(except: String = "") = """[^\s\d０-９、,，〒\-－‐−$except]"""
 
 // Tried in order after the prefecture:
 //  1. 郡 + 町村 (余市郡余市町, 中新川郡上市町, 芳賀郡市貝町); the town may hold 市 only first or last before
@@ -96,11 +96,11 @@ private fun name(except: String = "") = """[^\s\d０-９、,，〒\-－‐−$ex
 //  4. a town or village written without its 郡.
 // shortcut: a town/village name containing 町 or 村 before its end (大町町) is cut short when the address omits its 郡.
 private val AREA = Regex(
-    "(東京都|北海道|(?:京都|大阪)府|${name()}{2,3}県)(" +
-        "${name("郡区")}+?郡(?:市${name("市郡")}*?|${name("市郡")}+?)市?[町村]" +
-        "|(?:四日市|廿日市|野々市|${name("区")}+?)市(?:${name("市")}{1,4}区)?" +
-        "|${name()}+?区" +
-        "|${name()}+?[町村])",
+    "(東京都|北海道|(?:京都|大阪)府|${nameChar()}{2,3}県)(" +
+        "${nameChar("郡区")}+?郡(?:市${nameChar("市郡")}*?|${nameChar("市郡")}+?)市?[町村]" +
+        "|(?:四日市|廿日市|野々市|${nameChar("区")}+?)市(?:${nameChar("市")}{1,4}区)?" +
+        "|${nameChar()}+?区" +
+        "|${nameChar()}+?[町村])",
 )
 
 /** 都道府県 + 市区町村 (with the ward of a designated city) from a Japanese address, or "". */

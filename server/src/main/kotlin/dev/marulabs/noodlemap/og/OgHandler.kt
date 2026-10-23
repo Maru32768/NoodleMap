@@ -67,7 +67,10 @@ class OgHandler(
     private val pendingRenders = AtomicInteger()
     private val inFlight = ConcurrentHashMap<String, CompletableDeferred<Produced?>>()
 
-    /** Same response for crawlers and browsers: OGP meta plus a script redirect to the search page. */
+    /**
+     * Same response for crawlers and browsers: OGP meta plus a script redirect to the shop on the
+     * search page (headers only for HEAD). An unknown shop redirects to the search page directly.
+     */
     suspend fun sharePage(call: ApplicationCall, head: Boolean) {
         val shop = findShop(call) ?: return call.respondRedirect(SEARCH_PATH)
         val card = OgCard.of(shop, LocalDate.now(JST))
@@ -91,7 +94,7 @@ class OgHandler(
         if (call.parameters["hash"] != hash) return call.respondRedirect(imagePath(shop.id, hash))
 
         val key = "og/shops/${shop.id}/$hash.png"
-        if (store != null && storage("lookup") { store.exists(key) } == true) return call.respondRedirect(store.publicUrl(key))
+        if (store != null && storageOrNull("lookup") { store.exists(key) } == true) return call.respondRedirect(store.publicUrl(key))
         if (head) {
             call.response.header(HttpHeaders.CacheControl, IMMUTABLE)
             return call.respond(HeadOnly(ContentType.Image.PNG))
@@ -116,7 +119,7 @@ class OgHandler(
         inFlight.putIfAbsent(key, mine)?.let { return it.await() }
         try {
             val produced = renderOrNull(card)?.let { png ->
-                Produced(png, stored = store != null && storage("upload") { store.put(key, png) } != null)
+                Produced(png, stored = store != null && storageOrNull("upload") { store.put(key, png) } != null)
             }
             mine.complete(produced)
             return produced
@@ -139,7 +142,7 @@ class OgHandler(
     }
 
     /** Runs one storage call; a failure is logged and gives null, and the image is then served directly. */
-    private suspend fun <T> storage(action: String, block: suspend () -> T): T? = try {
+    private suspend fun <T> storageOrNull(action: String, block: suspend () -> T): T? = try {
         block()
     } catch (e: Exception) {
         if (e is CancellationException) throw e

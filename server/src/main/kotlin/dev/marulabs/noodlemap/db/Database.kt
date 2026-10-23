@@ -19,7 +19,7 @@ object UuidAdapter : ColumnAdapter<UUID, String> {
 }
 
 /**
- * Builds the SQLite-backed [NoodleMapDb].
+ * Builds the pooled SQLite [HikariDataSource] that [buildDatabase] migrates and wraps.
  *
  * SQLite access mirrors the Go service: WAL + busy_timeout + foreign_keys=ON. WAL is
  * persistent on the file; busy_timeout and foreign_keys are PER-CONNECTION, so sqlite-jdbc

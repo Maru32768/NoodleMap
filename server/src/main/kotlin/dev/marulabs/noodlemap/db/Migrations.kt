@@ -108,8 +108,8 @@ fun migrate(conn: Connection, migrations: List<Migration>) {
 }
 
 /**
- * A NO TRANSACTION migration opens its own transaction and toggles foreign_keys around it.
- * On failure, roll back whatever it left open and restore enforcement, so the connection
+ * The SQL of a NO TRANSACTION migration runs its own BEGIN/COMMIT and toggles foreign_keys
+ * around it; this function adds no transaction. On failure, roll back whatever it left open and restore enforcement, so the connection
  * does not go back to the pool mid-transaction or with foreign keys OFF.
  */
 private fun applyWithoutTransaction(conn: Connection, m: Migration) {
