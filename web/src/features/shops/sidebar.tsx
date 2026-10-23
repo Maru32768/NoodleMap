@@ -1,9 +1,9 @@
+import { SegmentedPicker } from "@/components/segmented-picker.tsx";
 import { ShopThumb } from "@/components/shop-thumb.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { AccountLink } from "@/features/auth/account-link.tsx";
 import {
   favToHearts,
-  isWishFilter,
   SearchFilters,
   WISH_FILTER_OPTIONS,
 } from "@/features/search/utils.ts";
@@ -23,7 +23,7 @@ import {
   SystemTagChips,
   TagChips,
 } from "@/features/shops/tag-chips.tsx";
-import { Box, Input, NativeSelect } from "@chakra-ui/react";
+import { Box, Input } from "@chakra-ui/react";
 import { isEqual } from "es-toolkit";
 import { useState } from "react";
 import { Virtuoso } from "react-virtuoso";
@@ -188,6 +188,7 @@ function Chip({
       transition="all 0.15s"
       userSelect="none"
       _hover={!active ? { borderColor: "nm.lineStrong", color: "nm.ink" } : {}}
+      aria-pressed={active}
       onClick={onClick}
     >
       {children}
@@ -479,34 +480,26 @@ export function ShopFilters({ filters, onFilterChange }: ShopFiltersProps) {
             気になる
           </Chip>
         </Box>
-        <Box display="flex" alignItems="center" gap="0.5rem" mt="0.625rem">
-          <Box
-            as="span"
-            fontSize="0.6875rem"
-            color="nm.inkMuted"
-            flexShrink={0}
-          >
-            気になる度
-          </Box>
-          <NativeSelect.Root size="xs" width="auto">
-            <NativeSelect.Field
-              aria-label="気になる度"
-              value={filters.wishMin}
-              onChange={(e) => {
-                if (isWishFilter(e.target.value)) {
-                  onFilterChange("wishMin", e.target.value);
-                }
-              }}
-            >
-              {WISH_FILTER_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </NativeSelect.Field>
-            <NativeSelect.Indicator />
-          </NativeSelect.Root>
+        <Box
+          aria-hidden
+          fontSize="0.6875rem"
+          color="nm.inkMuted"
+          mt="0.75rem"
+          mb="0.375rem"
+          opacity={filters.wish ? undefined : 0.45}
+        >
+          気になる度
         </Box>
+        {/* Only shops not eaten yet are narrowed, so it does nothing while 気になる is off. */}
+        <SegmentedPicker
+          label="気になる度"
+          variant="chip"
+          accent="nm.kincha"
+          options={WISH_FILTER_OPTIONS}
+          value={filters.wishMin}
+          onChange={(value) => onFilterChange("wishMin", value)}
+          disabled={!filters.wish}
+        />
       </Box>
 
       <Box pt="0.875rem" pb="0.625rem">
