@@ -284,6 +284,47 @@ export function AddModal({
           <line x1="5" y1="12" x2="19" y2="12" />
         </svg>
       }
+      footer={
+        <>
+          <Button
+            variant="plain"
+            px="14px"
+            py="9px"
+            h="auto"
+            minH="auto"
+            fontSize="13px"
+            fontWeight={500}
+            rounded="nmMd"
+            bg="nm.paper"
+            color="nm.inkMuted"
+            border="1px solid"
+            borderColor="nm.line"
+            _hover={{ borderColor: "nm.ink", color: "nm.ink" }}
+            disabled={saving}
+            onClick={onClose}
+          >
+            キャンセル
+          </Button>
+          <Button
+            variant="plain"
+            px="18px"
+            py="9px"
+            h="auto"
+            minH="auto"
+            fontSize="13px"
+            fontWeight={600}
+            rounded="nmMd"
+            bg="nm.shu"
+            color="white"
+            opacity={!canSave || saving ? 0.6 : 1}
+            _hover={{ bg: "nm.shuDeep" }}
+            disabled={!canSave || saving}
+            onClick={handleSave}
+          >
+            追加
+          </Button>
+        </>
+      }
       bodyProps={{ p: 0 }}
       contentProps={{
         animation: "adm-modal-in 0.16s cubic-bezier(0.2, 0.8, 0.2, 1)",
@@ -295,12 +336,10 @@ export function AddModal({
           display={{ base: "flex", md: "grid" }}
           flexDirection="column"
           gridTemplateColumns={{ md: "1fr 1fr" }}
-          maxH="80vh"
         >
           {/* Form pane */}
           <Box
             ref={formRef}
-            overflowY="auto"
             px="22px"
             py="18px"
             borderRight={{ md: "1px solid" }}
@@ -562,7 +601,13 @@ export function AddModal({
           </Box>
 
           {/* Map pane */}
-          <Box display="flex" flexDirection="column" minH="240px">
+          <Box
+            display="flex"
+            flexDirection="column"
+            h={{ base: "300px", md: "auto" }}
+            minH="240px"
+            flexShrink={0}
+          >
             <Box
               px="16px"
               py="10px"
@@ -580,57 +625,6 @@ export function AddModal({
               <PlaceFinder onSelect={handleSelect} near={initialLatLng} />
             </Box>
           </Box>
-        </Box>
-
-        {/* Footer */}
-        <Box
-          display="flex"
-          alignItems="center"
-          gap="8px"
-          px="22px"
-          py="14px"
-          borderTop="1px solid"
-          borderTopColor="nm.lineFaint"
-          bg="nm.bg"
-        >
-          <Box flex="1" />
-          <Button
-            variant="plain"
-            px="14px"
-            py="9px"
-            h="auto"
-            minH="auto"
-            fontSize="13px"
-            fontWeight={500}
-            rounded="nmMd"
-            bg="nm.paper"
-            color="nm.inkMuted"
-            border="1px solid"
-            borderColor="nm.line"
-            _hover={{ borderColor: "nm.ink", color: "nm.ink" }}
-            disabled={saving}
-            onClick={onClose}
-          >
-            キャンセル
-          </Button>
-          <Button
-            variant="plain"
-            px="18px"
-            py="9px"
-            h="auto"
-            minH="auto"
-            fontSize="13px"
-            fontWeight={600}
-            rounded="nmMd"
-            bg="nm.shu"
-            color="white"
-            opacity={!canSave || saving ? 0.6 : 1}
-            _hover={{ bg: "nm.shuDeep" }}
-            disabled={!canSave || saving}
-            onClick={handleSave}
-          >
-            追加
-          </Button>
         </Box>
       </>
     </ModalDialog>

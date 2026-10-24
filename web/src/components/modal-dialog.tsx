@@ -26,6 +26,7 @@ interface Props
   > {
   children: ReactNode;
   buttons?: ModalFooterButton[];
+  footer?: ReactNode;
   bodyProps?: ComponentProps<typeof DialogBody>;
   contentProps?: Omit<ComponentProps<typeof DialogContent>, "children">;
   icon?: ReactNode;
@@ -56,6 +57,7 @@ export const ModalDialogContext = createContext<ModalDialogContextProps | null>(
 export function ModalDialog({
   children,
   buttons,
+  footer,
   open,
   onOpenChange,
   height,
@@ -88,6 +90,7 @@ export function ModalDialog({
   }, []);
 
   const hasHeader = !!title || !!subtitle || !!icon;
+  const hasFooter = footer != null || (buttons?.length ?? 0) > 0;
 
   return (
     <DialogRoot
@@ -210,35 +213,38 @@ export function ModalDialog({
           >
             {children}
           </DialogBody>
-          {buttons && buttons.length > 0 && (
+          {hasFooter && (
             <DialogFooter
               bg="nm.bg"
               borderTop="1px solid"
               borderTopColor="nm.lineFaint"
               px="1.25rem"
               py="0.875rem"
+              flexShrink={0}
             >
-              <HStack>
-                {buttons.map((x, i) => {
-                  return (
-                    <Button
-                      key={i}
-                      disabled={x.isDisabled}
-                      onClick={(e) => {
-                        const res = x.onClick(e);
-                        if (res) {
-                          setIsLoading(true);
-                          res.finally(() => {
-                            setIsLoading(false);
-                          });
-                        }
-                      }}
-                    >
-                      {x.label}
-                    </Button>
-                  );
-                })}
-              </HStack>
+              {footer ?? (
+                <HStack>
+                  {buttons?.map((x, i) => {
+                    return (
+                      <Button
+                        key={i}
+                        disabled={x.isDisabled}
+                        onClick={(e) => {
+                          const res = x.onClick(e);
+                          if (res) {
+                            setIsLoading(true);
+                            res.finally(() => {
+                              setIsLoading(false);
+                            });
+                          }
+                        }}
+                      >
+                        {x.label}
+                      </Button>
+                    );
+                  })}
+                </HStack>
+              )}
             </DialogFooter>
           )}
           {isLoading && <OverlayProgress />}
