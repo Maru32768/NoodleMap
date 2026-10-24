@@ -26,13 +26,17 @@ const DETAILS = "/api/v1/auth/google-places/details";
 const NO_SHOPS: Shop[] = [];
 const noop = () => {};
 
-function fetchSuggestions(q: string, sessionToken: string) {
+function fetchSuggestions(
+  q: string,
+  sessionToken: string,
+  near?: { lat: number; lng: number },
+) {
   return withApiResult<
     PlaceSuggestion[],
     ApiErrorBodyFor<typeof AUTOCOMPLETE, "get">
   >(AUTOCOMPLETE, async () => {
     const res = await apiClient.GET(AUTOCOMPLETE, {
-      params: { query: { q, sessionToken } },
+      params: { query: { q, sessionToken, lat: near?.lat, lng: near?.lng } },
     });
     if (res.error || !res.response.ok) {
       return apiError(AUTOCOMPLETE, res.response, res.error);
@@ -58,9 +62,11 @@ function fetchDetails(placeId: string, sessionToken: string) {
 
 interface Props {
   onSelect: (res: FindResult) => void;
+  /** Where to center the map and bias the search, e.g. where a photo was taken. */
+  near?: { lat: number; lng: number };
 }
 
-export function GooglePlaceFinder({ onSelect }: Props) {
+export function GooglePlaceFinder({ onSelect, near }: Props) {
   // Groups the autocomplete calls and the closing details call into one Google billing session.
   const [initialSessionToken] = useState(randomId);
   const sessionTokenRef = useRef(initialSessionToken);
@@ -92,7 +98,7 @@ export function GooglePlaceFinder({ onSelect }: Props) {
 
   const querySuggestions = useDebouncedCallback(
     async (input: string, query: number) => {
-      const res = await fetchSuggestions(input, sessionTokenRef.current);
+      const res = await fetchSuggestions(input, sessionTokenRef.current, near);
       if (query !== latestQueryRef.current) {
         return;
       }
@@ -167,7 +173,7 @@ export function GooglePlaceFinder({ onSelect }: Props) {
       <Box flex="1" minH="200px">
         <Map
           ref={mapRef}
-          initialCenter={DEFAULT_MAP_VIEW.center}
+          initialCenter={near ? [near.lat, near.lng] : DEFAULT_MAP_VIEW.center}
           initialZoom={16}
           shops={NO_SHOPS}
           selectedId={null}

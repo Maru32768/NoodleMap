@@ -1,4 +1,7 @@
+import type { FindResult } from "@/features/map/google-place-finder.tsx";
 import { PhotoImportModal } from "@/features/photo-import/photo-import-modal.tsx";
+import { Shop, useShops } from "@/features/shops/api/use-shops.ts";
+import type { components } from "@/generated/api.ts";
 import { ExifSpec, withExif } from "@/test/exif-jpeg.ts";
 import { makeShop } from "@/test/fixtures.ts";
 import { renderWithProviders } from "@/test/render.tsx";
@@ -6,7 +9,7 @@ import { server } from "@/test/server.ts";
 import { fakeVisitServer } from "@/test/visit-server.ts";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { delay, http } from "msw";
+import { delay, http, HttpResponse } from "msw";
 import { VirtuosoMockContext } from "react-virtuoso";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -54,6 +57,49 @@ function renderModal() {
     </VirtuosoMockContext.Provider>,
   );
   return { onClose, onShopsChanged };
+}
+
+// Stands in for GooglePlaceFinder, whose WebGL map cannot render in jsdom: offers one place where it was opened.
+function StubPlaceFinder({
+  onSelect,
+  near,
+}: {
+  onSelect: (res: FindResult) => void;
+  near?: { lat: number; lng: number };
+}) {
+  return (
+    <button
+      type="button"
+      disabled={!near}
+      onClick={() =>
+        onSelect({
+          placeId: "new-place",
+          name: "麺処 しんき",
+          address: "東京都世田谷区",
+          postalCode: "",
+          lat: near!.lat,
+          lng: near!.lng,
+          closed: false,
+        })
+      }
+    >
+      {near?.lat.toFixed(4)},{near?.lng.toFixed(4)} の店を選ぶ
+    </button>
+  );
+}
+
+// Like the admin page: shops come from useShops, whose list a saved shop joins.
+function LiveShopsModal() {
+  const { shops } = useShops();
+  return shops ? (
+    <PhotoImportModal
+      shops={shops}
+      open
+      onClose={() => {}}
+      onShopsChanged={() => {}}
+      PlaceFinder={StubPlaceFinder}
+    />
+  ) : null;
 }
 
 async function selectPhotos(user: ReturnType<typeof userEvent.setup>) {
@@ -139,6 +185,73 @@ describe("PhotoImportModal", () => {
 
     await screen.findByText("取り込みが完了しました");
     expect(fake.log).toEqual(["create 2023-04-01", "image 1"]);
+  });
+
+  it("adds the shop of a photo far from every shop, at the photo's position, and imports to it", async () => {
+    const user = userEvent.setup();
+    const fake = fakeVisitServer();
+    const added: components["schemas"]["AddShopRequest"][] = [];
+    const created: Shop[] = [];
+    server.use(
+      http.get("/api/v1/shops", () => HttpResponse.json({ shops: SHOPS })),
+      http.get("/api/v1/tags", () => HttpResponse.json({ tags: [] })),
+      http.post("/api/v1/auth/shops", async ({ request }) => {
+        const body = (await request.json()) as (typeof added)[number];
+        added.push(body);
+        const shop = makeShop({
+          name: body.name,
+          lat: body.lat,
+          lng: body.lng,
+          eaten: false,
+        });
+        created.push(shop);
+        return HttpResponse.json(shop);
+      }),
+    );
+    renderWithProviders(
+      <VirtuosoMockContext.Provider
+        value={{ viewportHeight: 2000, itemHeight: 200 }}
+      >
+        <LiveShopsModal />
+      </VirtuosoMockContext.Provider>,
+    );
+    await selectPhotos(user);
+
+    await user.click(screen.getByRole("radio", { name: "スキップ (1)" }));
+    const far = screen.getByRole("group", { name: /2023-04-03/ });
+    await user.click(
+      within(far).getByRole("button", { name: "この場所の店を追加" }),
+    );
+
+    // The dialogs have no accessible name; the add form is the one under its title.
+    const addDialog = (await screen.findByText("新しい店舗を追加")).closest(
+      "[role=dialog]",
+    ) as HTMLElement;
+    await user.click(
+      within(addDialog).getByRole("button", {
+        name: "35.6000,139.6000 の店を選ぶ",
+      }),
+    );
+    await user.click(within(addDialog).getByRole("button", { name: "追加" }));
+
+    await waitFor(() =>
+      expect(screen.queryByText("新しい店舗を追加")).toBeNull(),
+    );
+    expect(added).toMatchObject([
+      {
+        name: "麺処 しんき",
+        // EXIF stores GPS as rationals, so the photo's position comes back within a hair.
+        lat: expect.closeTo(35.6, 6),
+        lng: expect.closeTo(139.6, 6),
+      },
+    ]);
+    await screen.findByText(/^2 件の訪問を作成/);
+    await user.click(screen.getByRole("button", { name: "取り込む" }));
+
+    await screen.findByText("取り込みが完了しました");
+    expect(fake.visitsOf(created[0].id)).toMatchObject([
+      { visitedOn: "2023-04-03" },
+    ]);
   });
 
   it("refuses to close while the import runs", async () => {

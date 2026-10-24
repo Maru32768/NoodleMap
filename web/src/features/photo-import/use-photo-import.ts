@@ -34,7 +34,6 @@ import { useEffect, useMemo, useReducer, useRef } from "react";
 export type RowTab = "undecided" | "ready" | "imported" | "skip";
 
 /** One review row. Derived each render from analysis + review + current shops; never stored. */
-// shortcut: registered shops only, upgrade by adding an unregistered shop from Google Places biased to group.center (the seam), which then matches like any other.
 export interface GroupRow {
   readonly group: PhotoGroup;
   readonly match: Match;

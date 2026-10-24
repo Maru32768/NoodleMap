@@ -1,5 +1,7 @@
 import { SegmentedPicker } from "@/components/segmented-picker.tsx";
 import { Button } from "@/components/ui/button.tsx";
+import { AddModal } from "@/features/admin/add-modal.tsx";
+import type { PhotoGroup } from "@/features/photo-import/grouping.ts";
 import type { ShopChoice } from "@/features/photo-import/import-plan.ts";
 import type { Photo } from "@/features/photo-import/photos.ts";
 import type {
@@ -11,7 +13,7 @@ import { createQueryMatcher } from "@/features/search/utils.ts";
 import type { Shop } from "@/features/shops/api/use-shops.ts";
 import { VISIT_IMAGES_MAX } from "@/utils/toast.ts";
 import { Box, Image, Input } from "@chakra-ui/react";
-import { useState } from "react";
+import { ComponentProps, useState } from "react";
 import { Virtuoso } from "react-virtuoso";
 
 type Filter = RowTab | "all";
@@ -53,6 +55,7 @@ export function GroupReviewList({
   excluded,
   onChoose,
   onTogglePhoto,
+  PlaceFinder,
 }: {
   rows: readonly GroupRow[];
   shops: readonly Shop[];
@@ -60,7 +63,10 @@ export function GroupReviewList({
   excluded: ReadonlySet<number>;
   onChoose: (groupId: number, choice: ShopChoice) => void;
   onTogglePhoto: (photoIndex: number) => void;
+  PlaceFinder?: ComponentProps<typeof AddModal>["PlaceFinder"];
 }) {
+  // Held here, not in the row: Virtuoso unmounts rows scrolled out of view.
+  const [addingFor, setAddingFor] = useState<PhotoGroup | null>(null);
   const [filter, setFilter] = useState<Filter>(() =>
     rows.some((r) => r.tab === "undecided") ? "undecided" : "all",
   );
@@ -101,10 +107,27 @@ export function GroupReviewList({
                 excluded={excluded}
                 onChoose={onChoose}
                 onTogglePhoto={onTogglePhoto}
+                onAddShop={() => setAddingFor(row.group)}
               />
             )}
           />
         </Box>
+      )}
+      {addingFor && (
+        <AddModal
+          open
+          onClose={() => setAddingFor(null)}
+          // The new shop is also in `shops` now, so other groups taken there re-match to it.
+          onAdded={(shop) =>
+            onChoose(addingFor.id, {
+              kind: "shop",
+              shopId: shop.id,
+              source: "admin",
+            })
+          }
+          initialLatLng={addingFor.center ?? undefined}
+          PlaceFinder={PlaceFinder}
+        />
       )}
     </Box>
   );
@@ -118,6 +141,7 @@ function GroupRowView({
   excluded,
   onChoose,
   onTogglePhoto,
+  onAddShop,
 }: {
   row: GroupRow;
   shopById: ReadonlyMap<string, Shop>;
@@ -126,6 +150,7 @@ function GroupRowView({
   excluded: ReadonlySet<number>;
   onChoose: (groupId: number, choice: ShopChoice) => void;
   onTogglePhoto: (photoIndex: number) => void;
+  onAddShop: () => void;
 }) {
   const [searching, setSearching] = useState(false);
   const { group, choice } = row;
@@ -216,6 +241,9 @@ function GroupRowView({
           onClick={() => setSearching((v) => !v)}
         >
           店舗を検索
+        </Button>
+        <Button {...smallButton} disabled={readOnly} onClick={onAddShop}>
+          {group.center ? "この場所の店を追加" : "店舗を追加"}
         </Button>
         <Button
           {...smallButton}
