@@ -10,6 +10,7 @@ import {
   visitKey,
 } from "@/features/photo-import/import-plan.ts";
 import {
+  Analysis,
   importReducer,
   INITIAL_IMPORT_STATE,
 } from "@/features/photo-import/import-state.ts";
@@ -29,7 +30,7 @@ import {
 import { forEachConcurrently } from "@/utils/concurrency.ts";
 import { isApiError } from "@/utils/request.ts";
 import { toastApiError, toastError } from "@/utils/toast.ts";
-import { useEffect, useMemo, useReducer, useRef } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 
 export type RowTab = "undecided" | "ready" | "imported" | "skip";
 
@@ -51,6 +52,10 @@ export type PlanSummary = Record<EntryAction["kind"], number> &
   Record<"undecided", number>;
 
 const LOAD_CONCURRENCY = 4;
+
+// A file picked, dropped or pasted twice is the same photo. lastModified is
+// left out: a photo exported to two folders carries two different ones.
+const fileKey = (file: File) => `${file.name}|${file.size}`;
 
 /** Every listed shop's visits; a failure rejects, since a plan on partial truth would duplicate. */
 async function loadServerVisits(
@@ -94,6 +99,9 @@ export function usePhotoImport(shops: readonly Shop[]) {
   const [state, dispatch] = useReducer(importReducer, INITIAL_IMPORT_STATE);
   const revalidateAllVisits = useRevalidateAllVisits();
   const controller = useRef<AbortController>(null);
+  const [adding, setAdding] = useState<{ done: number; total: number } | null>(
+    null,
+  );
   useEffect(() => () => controller.current?.abort(), []);
 
   const reviewed =
@@ -203,6 +211,77 @@ export function usePhotoImport(shops: readonly Shop[]) {
     }
   }
 
+  async function appendFiles(files: readonly File[], analysis: Analysis) {
+    const { signal } = (controller.current = new AbortController());
+    setAdding({ done: 0, total: files.length });
+    try {
+      const read = await readPhotos(files, {
+        signal,
+        onProgress: (done) => setAdding({ done, total: files.length }),
+      });
+      // Indexes go on from the files read so far, so exclusions keep pointing at their photos.
+      const offset = analysis.photos.length + analysis.rejected.length;
+      const photos = [
+        ...analysis.photos,
+        ...read.photos.map((p) => ({ ...p, index: p.index + offset })),
+      ];
+      const groups = groupPhotos(photos);
+      // After a run the visits read before it are out of date: read them all again.
+      const stale = state.kind === "finished";
+      const loaded = await loadServerVisits(
+        shopsToLoad(groups, shops).filter(
+          (id) => stale || !analysis.serverVisits.has(id),
+        ),
+        signal,
+      );
+      dispatch({
+        type: "appended",
+        analysis: {
+          photos,
+          rejected: [...analysis.rejected, ...read.rejected],
+          groups,
+          serverVisits: new Map([
+            ...(stale ? [] : analysis.serverVisits),
+            ...loaded,
+          ]),
+        },
+      });
+    } catch (error) {
+      if (!signal.aborted) {
+        toastFailure(error);
+      }
+    } finally {
+      setAdding(null);
+    }
+  }
+
+  /**
+   * Starts a selection, or adds to the one under review or just run. A file
+   * already selected is skipped, so dropping it again never uploads it twice.
+   */
+  function addFiles(files: readonly File[]) {
+    const reviewing = state.kind === "review" || state.kind === "finished";
+    if ((!reviewing && state.kind !== "select") || adding) {
+      return;
+    }
+    const known = new Set(
+      reviewing
+        ? [
+            ...state.analysis.photos.map((p) => p.file),
+            ...state.analysis.rejected.map((r) => r.file),
+          ].map(fileKey)
+        : [],
+    );
+    const fresh = files.filter((file) => {
+      const key = fileKey(file);
+      return !known.has(key) && Boolean(known.add(key));
+    });
+    if (fresh.length === 0) {
+      return;
+    }
+    void (reviewing ? appendFiles(fresh, state.analysis) : selectFiles(fresh));
+  }
+
   async function run() {
     if (state.kind !== "review") {
       return;
@@ -241,7 +320,9 @@ export function usePhotoImport(shops: readonly Shop[]) {
     state,
     rows: derived.rows,
     summary: derived.summary,
-    selectFiles,
+    addFiles,
+    /** Photos being added to the selection under review. */
+    adding,
     choose: (groupId: number, choice: ShopChoice) =>
       dispatch({ type: "choose", groupId, choice }),
     togglePhoto: (photoIndex: number) =>

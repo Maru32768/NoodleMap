@@ -13,7 +13,15 @@ import {
 } from "@/features/photo-import/use-photo-import.ts";
 import type { Shop } from "@/features/shops/api/use-shops.ts";
 import { Box } from "@chakra-ui/react";
-import { ComponentProps, ReactNode, useEffect, useRef } from "react";
+import {
+  ComponentProps,
+  DragEvent,
+  ReactNode,
+  useEffect,
+  useEffectEvent,
+  useRef,
+  useState,
+} from "react";
 import { LuImagePlus } from "react-icons/lu";
 
 const REJECTION_LABELS: Record<PhotoRejection["reason"], string> = {
@@ -50,6 +58,9 @@ const primaryButton = {
   _hover: { bg: "nm.shuDeep" },
 } as const;
 
+const hasFiles = (event: DragEvent) =>
+  event.dataTransfer.types.includes("Files");
+
 /**
  * Turns iPhone photos into 訪問ログ: pick JPEGs, review how they were grouped
  * and matched to shops, then create the visits and upload the photos. Closing
@@ -84,6 +95,67 @@ export function PhotoImportModal({
     return () => window.removeEventListener("beforeunload", warn);
   }, [running]);
 
+  // Photos come from the picker, a drop anywhere in the dialog or a paste,
+  // until the import runs; more can be added after a review or a run.
+  const accepting =
+    (state.kind === "select" ||
+      state.kind === "review" ||
+      state.kind === "finished") &&
+    !imp.adding;
+  const [dragging, setDragging] = useState(false);
+  const dragDepth = useRef(0);
+  const endDrag = () => {
+    dragDepth.current = 0;
+    setDragging(false);
+  };
+
+  // A file dropped outside the drop area would make the browser open it and
+  // leave the page, mid-import too.
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    const refuseFileDrop = (event: globalThis.DragEvent) => {
+      if (
+        !event.defaultPrevented &&
+        event.dataTransfer?.types.includes("Files")
+      ) {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "none";
+      }
+    };
+    window.addEventListener("dragover", refuseFileDrop);
+    window.addEventListener("drop", refuseFileDrop);
+    return () => {
+      window.removeEventListener("dragover", refuseFileDrop);
+      window.removeEventListener("drop", refuseFileDrop);
+    };
+  }, [open]);
+
+  // On the document: Safari may not send a paste to a focused element that is
+  // not editable. A paste into the shop search stays text.
+  const handlePaste = useEffectEvent((event: ClipboardEvent) => {
+    const focused = document.activeElement;
+    const files = [...(event.clipboardData?.files ?? [])];
+    if (
+      !accepting ||
+      files.length === 0 ||
+      (focused instanceof HTMLElement &&
+        (focused.isContentEditable || focused.matches("input, textarea")))
+    ) {
+      return;
+    }
+    event.preventDefault();
+    imp.addFiles(files);
+  });
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    document.addEventListener("paste", handlePaste);
+    return () => document.removeEventListener("paste", handlePaste);
+  }, [open]);
+
   const close = () => {
     if (running) {
       return;
@@ -109,41 +181,85 @@ export function PhotoImportModal({
       showCloseButton={!running}
       bodyProps={{ display: "flex", flexDirection: "column", gap: "12px" }}
     >
-      {state.kind === "select" && <PhotoPicker onSelect={imp.selectFiles} />}
-      {state.kind === "reading" && (
-        <Box color="nm.inkMuted" fontSize="13px" py="24px" textAlign="center">
-          {state.done < state.total
-            ? `${state.done} / ${state.total} 枚を読み込み中`
-            : "訪問ログを確認中"}
-        </Box>
-      )}
-      {(state.kind === "review" ||
-        state.kind === "running" ||
-        state.kind === "finished") && (
-        <>
-          <ImportHeader
-            state={state}
-            summary={imp.summary!}
-            shops={shops}
-            onRun={() => {
-              ran.current = true;
-              void imp.run();
-            }}
-            onStop={imp.stop}
-            onRefresh={imp.refresh}
-            onReset={imp.reset}
-          />
-          <GroupReviewList
-            rows={imp.rows}
-            shops={shops}
-            readOnly={state.kind !== "review"}
-            excluded={state.review.excluded}
-            onChoose={imp.choose}
-            onTogglePhoto={imp.togglePhoto}
-            PlaceFinder={PlaceFinder}
-          />
-        </>
-      )}
+      <Box
+        flex="1"
+        minH="0"
+        display="flex"
+        flexDirection="column"
+        gap="12px"
+        rounded="nmLg"
+        outline={dragging ? "2px dashed" : undefined}
+        outlineColor="nm.shu"
+        outlineOffset="2px"
+        data-dragging={dragging || undefined}
+        onDragEnter={(event) => {
+          if (accepting && hasFiles(event)) {
+            event.preventDefault();
+            dragDepth.current++;
+            setDragging(true);
+          }
+        }}
+        onDragOver={(event) => {
+          if (accepting && hasFiles(event)) {
+            // Without this the browser opens the dropped file.
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "copy";
+          }
+        }}
+        onDragLeave={(event) => {
+          if (accepting && hasFiles(event)) {
+            dragDepth.current = Math.max(0, dragDepth.current - 1);
+            if (dragDepth.current === 0) {
+              setDragging(false);
+            }
+          }
+        }}
+        onDrop={(event) => {
+          if (accepting && hasFiles(event)) {
+            event.preventDefault();
+            endDrag();
+            imp.addFiles([...event.dataTransfer.files]);
+          }
+        }}
+      >
+        {state.kind === "select" && <PhotoPicker onSelect={imp.addFiles} />}
+        {state.kind === "reading" && (
+          <Box color="nm.inkMuted" fontSize="13px" py="24px" textAlign="center">
+            {state.done < state.total
+              ? `${state.done} / ${state.total} 枚を読み込み中`
+              : "訪問ログを確認中"}
+          </Box>
+        )}
+        {(state.kind === "review" ||
+          state.kind === "running" ||
+          state.kind === "finished") && (
+          <>
+            <ImportHeader
+              state={state}
+              summary={imp.summary!}
+              shops={shops}
+              onRun={() => {
+                ran.current = true;
+                void imp.run();
+              }}
+              onStop={imp.stop}
+              onRefresh={imp.refresh}
+              onReset={imp.reset}
+              adding={imp.adding}
+              onAdd={imp.addFiles}
+            />
+            <GroupReviewList
+              rows={imp.rows}
+              shops={shops}
+              readOnly={state.kind !== "review"}
+              excluded={state.review.excluded}
+              onChoose={imp.choose}
+              onTogglePhoto={imp.togglePhoto}
+              PlaceFinder={PlaceFinder}
+            />
+          </>
+        )}
+      </Box>
     </ModalDialog>
   );
 }
@@ -164,23 +280,48 @@ function PhotoPicker({ onSelect }: { onSelect: (files: File[]) => void }) {
         iPhoneで撮った写真（JPEG・互換性優先）をまとめて選んでください。
         <br />
         撮影日時と位置から訪問をまとめ、登録済みの店舗に割り当てます。
+        <br />
+        ここへのドラッグ＆ドロップや、貼り付け（Ctrl+V）でも追加できます。
       </Box>
-      <Box as="label" {...primaryButton} cursor="pointer">
+      <FilesButton {...primaryButton} onFiles={onSelect}>
         写真を選ぶ
-        <input
-          type="file"
-          multiple
-          accept="image/jpeg,.jpg,.jpeg"
-          hidden
-          onChange={(e) => {
-            const files = [...(e.target.files ?? [])];
-            e.target.value = "";
-            if (files.length > 0) {
-              onSelect(files);
-            }
-          }}
-        />
-      </Box>
+      </FilesButton>
+    </Box>
+  );
+}
+
+/** A button that opens the file picker for JPEGs. */
+function FilesButton({
+  onFiles,
+  disabled,
+  children,
+  ...style
+}: ComponentProps<typeof Box> & {
+  onFiles: (files: File[]) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <Box
+      as="label"
+      {...style}
+      cursor={disabled ? "default" : "pointer"}
+      opacity={disabled ? 0.5 : 1}
+    >
+      {children}
+      <input
+        type="file"
+        multiple
+        accept="image/jpeg,.jpg,.jpeg"
+        hidden
+        disabled={disabled}
+        onChange={(e) => {
+          const files = [...(e.target.files ?? [])];
+          e.target.value = "";
+          if (files.length > 0) {
+            onFiles(files);
+          }
+        }}
+      />
     </Box>
   );
 }
@@ -193,6 +334,8 @@ function ImportHeader({
   onStop,
   onRefresh,
   onReset,
+  adding,
+  onAdd,
 }: {
   state: Extract<ImportState, { kind: "review" | "running" | "finished" }>;
   summary: PlanSummary;
@@ -201,6 +344,8 @@ function ImportHeader({
   onStop: () => void;
   onRefresh: () => Promise<void>;
   onReset: () => void;
+  adding: { done: number; total: number } | null;
+  onAdd: (files: File[]) => void;
 }) {
   const shopName = (key: VisitKey) => {
     const [shopId, day] = key.split("|");
@@ -214,6 +359,20 @@ function ImportHeader({
     ([reason, n]) => `${REJECTION_LABELS[reason]} ${n}枚`,
   );
   const work = summary.create + summary.claim + summary.resume;
+  const addHint = adding ? (
+    <Line muted>
+      {adding.done} / {adding.total} 枚を追加で読み込み中
+    </Line>
+  ) : (
+    <Line muted>
+      写真はドラッグ＆ドロップや貼り付け（Ctrl+V）でも追加できます。選んだ店舗などはそのまま残ります。
+    </Line>
+  );
+  const addButton = (
+    <FilesButton {...outlineButton} disabled={!!adding} onFiles={onAdd}>
+      写真を追加
+    </FilesButton>
+  );
 
   let body: ReactNode;
   if (state.kind === "review") {
@@ -228,11 +387,17 @@ function ImportHeader({
         {rejected.length > 0 && (
           <Line muted>取り込めない写真: {rejected.join("、")}</Line>
         )}
+        {addHint}
         <Actions>
           <Button {...outlineButton} onClick={onReset}>
             写真を選び直す
           </Button>
-          <Button {...primaryButton} disabled={work === 0} onClick={onRun}>
+          {addButton}
+          <Button
+            {...primaryButton}
+            disabled={work === 0 || !!adding}
+            onClick={onRun}
+          >
             取り込む
           </Button>
         </Actions>
@@ -269,10 +434,12 @@ function ImportHeader({
         </Line>
         <ProgressLine progress={outcome.progress} />
         <Failures progress={outcome.progress} shopName={shopName} />
+        {addHint}
         <Actions>
           <Button {...outlineButton} onClick={onReset}>
             写真を選び直す
           </Button>
+          {addButton}
           <Button {...outlineButton} onClick={() => void onRefresh()}>
             確認に戻る
           </Button>

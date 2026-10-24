@@ -7,7 +7,7 @@ import { makeShop } from "@/test/fixtures.ts";
 import { renderWithProviders } from "@/test/render.tsx";
 import { server } from "@/test/server.ts";
 import { fakeVisitServer } from "@/test/visit-server.ts";
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { delay, http, HttpResponse } from "msw";
 import { VirtuosoMockContext } from "react-virtuoso";
@@ -160,6 +160,48 @@ describe("PhotoImportModal", () => {
     await user.keyboard("{Escape}");
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(onShopsChanged).toHaveBeenCalledTimes(1);
+  });
+
+  it("starts from photos pasted into the dialog", async () => {
+    fakeVisitServer();
+    renderModal();
+    await screen.findByLabelText("写真を選ぶ");
+
+    fireEvent.paste(document, { clipboardData: { files: PHOTOS } });
+
+    await screen.findByText(/^1 件の訪問を作成/);
+  });
+
+  it("adds dropped photos of another shop, keeping what the admin chose and ignoring a photo dropped twice", async () => {
+    const user = userEvent.setup();
+    const fake = fakeVisitServer();
+    renderModal();
+    await selectPhotos(user);
+    await user.click(screen.getByRole("radio", { name: /中華そば 甲/ }));
+    const summary = await screen.findByText(/^2 件の訪問を作成/);
+
+    fireEvent.drop(summary, {
+      dataTransfer: {
+        types: ["Files"],
+        files: [
+          PHOTOS[0],
+          photo("alone-later.jpg", "2023:04:05 12:00:00", 35.7, 139.7),
+        ],
+      },
+    });
+
+    await screen.findByText(/^3 件の訪問を作成/);
+    await user.click(screen.getByRole("button", { name: "取り込む" }));
+    await screen.findByText("取り込みが完了しました");
+    expect(fake.log).toEqual([
+      "create 2023-04-02",
+      "image 1",
+      "create 2023-04-01",
+      "image 1",
+      "image 2",
+      "create 2023-04-05",
+      "image 1",
+    ]);
   });
 
   it("shows a photo far from every shop as skipped and leaves a photo out when excluded", async () => {

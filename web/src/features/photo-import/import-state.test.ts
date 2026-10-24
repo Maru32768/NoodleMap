@@ -91,6 +91,31 @@ describe("importReducer", () => {
     );
   });
 
+  it("adds photos in review and after a run, keeping the admin's decisions", () => {
+    const chosen = run(review, {
+      type: "choose",
+      groupId: 1,
+      choice: { kind: "skip" },
+    });
+    const more: Analysis = { ...analysis, photos: [] };
+    const finished = run(
+      chosen,
+      { type: "start", plan },
+      {
+        type: "finished",
+        outcome: { kind: "finished", progress: runProgressOf(plan) },
+      },
+    );
+
+    for (const state of [chosen, finished]) {
+      const appended = run(state, { type: "appended", analysis: more });
+      expect(appended).toMatchObject({ kind: "review", analysis: more });
+      expect(appended.kind === "review" && appended.review).toEqual(
+        chosen.kind === "review" && chosen.review,
+      );
+    }
+  });
+
   it("ignores what the current state does not accept", () => {
     const running = run(review, { type: "start", plan });
 
@@ -100,6 +125,7 @@ describe("importReducer", () => {
       { type: "start", plan },
       { type: "reset" },
       { type: "refreshed", serverVisits: new Map() },
+      { type: "appended", analysis },
     ] satisfies ImportAction[]) {
       expect(importReducer(running, action)).toBe(running);
     }

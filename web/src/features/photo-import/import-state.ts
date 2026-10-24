@@ -99,6 +99,8 @@ export type ImportAction =
   | { readonly type: "finished"; readonly outcome: RunOutcome }
   /** Back to review after a run, against the server's visits as they are now. */
   | { readonly type: "refreshed"; readonly serverVisits: ServerVisits }
+  /** More photos joined the selection; the admin's decisions stay. */
+  | { readonly type: "appended"; readonly analysis: Analysis }
   | { readonly type: "reset" };
 
 export const INITIAL_IMPORT_STATE: ImportState = { kind: "select" };
@@ -170,6 +172,10 @@ export function importReducer(
             analysis: { ...state.analysis, serverVisits: action.serverVisits },
             review: state.review,
           }
+        : state;
+    case "appended":
+      return state.kind === "review" || state.kind === "finished"
+        ? { kind: "review", analysis: action.analysis, review: state.review }
         : state;
     case "reset":
       return state.kind === "running" ? state : INITIAL_IMPORT_STATE;
