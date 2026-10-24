@@ -120,27 +120,35 @@ export interface PreparedImage {
 
 /**
  * The file as the server accepts it: unchanged when it is a JPEG or PNG within
- * the size and pixel limits; otherwise decoded by the browser (upright, as
- * displayed), scaled to fit {@link CONVERTED_MAX_EDGE}, flattened onto white
- * and re-encoded as JPEG. `onConvert` is called when re-encoding starts.
+ * the size and pixel limits (and within `maxEdge` when given); otherwise
+ * decoded by the browser (upright, as displayed), scaled to fit `maxEdge`
+ * ({@link CONVERTED_MAX_EDGE} by default), flattened onto white and
+ * re-encoded as JPEG. `onConvert` is called when re-encoding starts.
  * When that fails, a JPEG or PNG within 15 MB is still sent as is (the server
  * judges its pixels); anything else fails as undecodable.
  */
 export async function prepareImageForUpload(
   file: File,
   onConvert?: () => void,
+  options: { maxEdge?: number } = {},
 ): Promise<Result<PreparedImage, "undecodable">> {
   const uploadable = !needsConversion(file);
   if (uploadable) {
     const size = await readFileImageSize(file);
     // An unreadable header is left to the server to judge.
-    if (!size || !exceedsPixelLimit(size)) {
+    if (
+      !size ||
+      !(
+        exceedsPixelLimit(size) ||
+        Math.max(size.width, size.height) > (options.maxEdge ?? Infinity)
+      )
+    ) {
       return ok({ blob: file, fileName: file.name });
     }
   }
   onConvert?.();
   // A canvas failure (out of memory, ...) counts as undecodable.
-  const blob = await convertToJpeg(file).catch(() => null);
+  const blob = await convertToJpeg(file, options.maxEdge).catch(() => null);
   if (blob) {
     return ok({ blob, fileName: jpegFileName(file.name) });
   }
@@ -150,7 +158,10 @@ export async function prepareImageForUpload(
 }
 
 /** The file decoded, scaled and re-encoded as JPEG; null when the browser cannot decode it. */
-async function convertToJpeg(file: File): Promise<Blob | null> {
+async function convertToJpeg(
+  file: File,
+  maxEdge?: number,
+): Promise<Blob | null> {
   const source = await decode(file);
   if (!source) {
     return null;
@@ -161,7 +172,7 @@ async function convertToJpeg(file: File): Promise<Blob | null> {
     if (!context || source.width === 0 || source.height === 0) {
       return null;
     }
-    const size = fitWithin(source.width, source.height);
+    const size = fitWithin(source.width, source.height, maxEdge);
     canvas.width = size.width;
     canvas.height = size.height;
     // JPEG has no transparency; the server also flattens onto white.

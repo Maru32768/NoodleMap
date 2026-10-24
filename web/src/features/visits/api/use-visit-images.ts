@@ -43,7 +43,7 @@ export function retryAfterMs(headers: Headers): number {
 }
 
 /** Waits `ms`; rejects as soon as `signal` aborts. */
-function sleep(ms: number, signal: AbortSignal | undefined) {
+export function sleep(ms: number, signal: AbortSignal | undefined) {
   return new Promise<void>((resolve, reject) => {
     if (signal?.aborted) {
       reject(signal.reason);
@@ -87,11 +87,41 @@ async function postImage(
   }
 }
 
-interface UploadOptions {
+export interface UploadOptions {
   // Aborts the whole upload, the busy-server wait included.
   signal?: AbortSignal;
   // Limits each request; the busy-server wait between them does not count.
   timeoutMs?: number;
+}
+
+/**
+ * Adds one image at the end of the visit's images; a busy server is retried
+ * once after Retry-After. An aborted or timed-out request fails as a network
+ * error (status 0): the server may still have saved the image.
+ */
+export function uploadVisitImage(
+  visitId: string,
+  image: PreparedImage,
+  options: UploadOptions = {},
+) {
+  return withApiResult<VisitImage, UploadVisitImageErrorBody>(
+    "/api/v1/auth/visits/{visitId}/images",
+    async () => {
+      let res = await postImage(visitId, image, options);
+      if (res.error?.type === "visit_image_processing_busy") {
+        await sleep(retryAfterMs(res.response.headers), options.signal);
+        res = await postImage(visitId, image, options);
+      }
+      if (res.error || !res.response.ok) {
+        return apiError(
+          "/api/v1/auth/visits/{visitId}/images",
+          res.response,
+          res.error,
+        );
+      }
+      return apiOk(res.data);
+    },
+  );
 }
 
 /**
@@ -102,39 +132,23 @@ interface UploadOptions {
 export function useVisitImageMutations(shopId: string) {
   const revalidate = useRevalidateShopVisits(shopId);
 
-  /**
-   * Adds one image at the end of the visit's images; a busy server is retried
-   * once after Retry-After. An aborted or timed-out request fails as a
-   * network error (status 0): the server may still have saved the image.
-   */
   const uploadImage = useCallback(
-    (visitId: string, image: PreparedImage, options: UploadOptions = {}) =>
-      withApiResult<VisitImage, UploadVisitImageErrorBody>(
-        "/api/v1/auth/visits/{visitId}/images",
-        async () => {
-          let res = await postImage(visitId, image, options);
-          if (res.error?.type === "visit_image_processing_busy") {
-            await sleep(retryAfterMs(res.response.headers), options.signal);
-            res = await postImage(visitId, image, options);
-          }
-          if (res.error || !res.response.ok) {
-            if (
-              res.error?.type === "not_found" ||
-              res.error?.type === "visit_image_limit_reached"
-            ) {
-              // The visit is gone or has images added elsewhere.
-              await revalidate.visits();
-            }
-            return apiError(
-              "/api/v1/auth/visits/{visitId}/images",
-              res.response,
-              res.error,
-            );
-          }
-          await revalidate.visits();
-          return apiOk(res.data);
-        },
-      ),
+    async (
+      visitId: string,
+      image: PreparedImage,
+      options: UploadOptions = {},
+    ) => {
+      const result = await uploadVisitImage(visitId, image, options);
+      if (
+        result.ok ||
+        // The visit is gone or has images added elsewhere.
+        result.error.type === "not_found" ||
+        result.error.type === "visit_image_limit_reached"
+      ) {
+        await revalidate.visits();
+      }
+      return result;
+    },
     [revalidate],
   );
 
