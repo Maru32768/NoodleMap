@@ -86,7 +86,7 @@ export const SHOP_EATEN_STATUS_LABEL: Record<ShopEatenStatus, string> = {
 
 export type WishLevel = components["schemas"]["WishLevel"];
 
-// Lowest first, so an index compares 気になる度.
+// Lowest first: the order pickers and filters list them in.
 export const WISH_LEVELS: readonly WishLevel[] = ["low", "medium", "high"];
 
 export const WISH_LEVEL_LABEL: Record<WishLevel, string> = {

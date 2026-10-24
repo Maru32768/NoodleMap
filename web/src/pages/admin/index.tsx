@@ -13,12 +13,12 @@ import { AccountLink } from "@/features/auth/account-link.tsx";
 import {
   CategoryType,
   createQueryMatcher,
-  matchesWishFilter,
-  WishFilter,
+  matchesWishLevels,
 } from "@/features/search/utils.ts";
 import { useShops } from "@/features/shops/api/use-shops.ts";
 import { ShopEditModal } from "@/features/shops/shop-edit-modal.tsx";
 import { ShopsLoadState } from "@/features/shops/shops-load-state.tsx";
+import type { WishLevel } from "@/features/shops/status.ts";
 import { Box, Input, Span } from "@chakra-ui/react";
 import { useCallback, useDeferredValue, useState } from "react";
 import { CiLocationOn, CiSearch } from "react-icons/ci";
@@ -135,7 +135,7 @@ export default function AdminPage() {
   const deferredKeyword = useDeferredValue(keyword);
   const [categoryFilter, setCategoryFilter] = useState<CategoryType>("all");
   const [visitFilter, setVisitFilter] = useState<VisitFilter>("all");
-  const [wishFilter, setWishFilter] = useState<WishFilter>("all");
+  const [wishLevels, setWishLevels] = useState<WishLevel[]>([]);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mobileView, setMobileView] = useState<MobileAdminView>("list");
@@ -164,7 +164,7 @@ export default function AdminPage() {
       }
       return (
         matchesVisitFilter(shop, visitFilter) &&
-        matchesWishFilter(shop, wishFilter)
+        matchesWishLevels(shop, wishLevels)
       );
     }) ?? [];
 
@@ -518,14 +518,14 @@ export default function AdminPage() {
             setCategoryFilter={setCategoryFilter}
             visitFilter={visitFilter}
             setVisitFilter={setVisitFilter}
-            wishFilter={wishFilter}
-            setWishFilter={setWishFilter}
+            wishLevels={wishLevels}
+            setWishLevels={setWishLevels}
             filteredCount={shops && filtered.length}
             totalCount={total}
             onClearAll={() => {
               setCategoryFilter("all");
               setVisitFilter("all");
-              setWishFilter("all");
+              setWishLevels([]);
             }}
           />
           <ShopsLoadState>

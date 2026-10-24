@@ -5,6 +5,7 @@ import {
   normalizeForSearch,
   SearchFilters,
   sortShops,
+  toggleWishLevel,
 } from "@/features/search/utils.ts";
 import { SYSTEM_TAGS } from "@/features/shops/status.ts";
 import { makeShop, makeTag } from "@/test/fixtures.ts";
@@ -19,7 +20,7 @@ const showEverything: SearchFilters = {
   ramen: true,
   udon: true,
   favMin: 0,
-  wishMin: "all",
+  wishLevels: [],
   tagIds: ALL_SYSTEM_TAGS,
 };
 
@@ -72,7 +73,7 @@ describe("filterShops", () => {
     expect(filterNames(shops, { eaten: false, wish: false })).toEqual([]);
   });
 
-  it("narrows only shops not eaten yet by 気になる度, unset counting as 気になる", () => {
+  describe("気になる度", () => {
     const shops = [
       makeShop({ name: "unset", eaten: false }),
       makeShop({ name: "low", eaten: false, wishLevel: "low" }),
@@ -83,19 +84,52 @@ describe("filterShops", () => {
       makeShop({ name: "eaten-unset", eaten: true }),
     ];
 
-    expect(filterNames(shops, { wishMin: "all" })).toEqual(names(shops));
-    expect(filterNames(shops, { wishMin: "medium" })).toEqual([
-      "unset",
-      "medium",
-      "high",
-      "eaten",
-      "eaten-unset",
-    ]);
-    expect(filterNames(shops, { wishMin: "high" })).toEqual([
-      "high",
-      "eaten",
-      "eaten-unset",
-    ]);
+    it("does not narrow while no level is selected", () => {
+      expect(filterNames(shops, { wishLevels: [] })).toEqual(names(shops));
+    });
+
+    it("keeps only the selected level among shops not eaten yet", () => {
+      expect(filterNames(shops, { wishLevels: ["low"] })).toEqual([
+        "low",
+        "eaten",
+        "eaten-unset",
+      ]);
+      expect(filterNames(shops, { wishLevels: ["high"] })).toEqual([
+        "high",
+        "eaten",
+        "eaten-unset",
+      ]);
+    });
+
+    it("ORs several selected levels", () => {
+      expect(filterNames(shops, { wishLevels: ["low", "high"] })).toEqual([
+        "low",
+        "high",
+        "eaten",
+        "eaten-unset",
+      ]);
+    });
+
+    it("counts an unset level as 気になる", () => {
+      expect(filterNames(shops, { wishLevels: ["medium"] })).toEqual([
+        "unset",
+        "medium",
+        "eaten",
+        "eaten-unset",
+      ]);
+    });
+
+    it("never narrows eaten shops, whatever their kept level", () => {
+      expect(filterNames(shops, { wish: false, wishLevels: ["high"] })).toEqual(
+        ["eaten", "eaten-unset"],
+      );
+    });
+  });
+
+  it("toggles a 気になる度 level, keeping the levels in order", () => {
+    expect(toggleWishLevel([], "high")).toEqual(["high"]);
+    expect(toggleWishLevel(["high"], "low")).toEqual(["low", "high"]);
+    expect(toggleWishLevel(["low", "high"], "low")).toEqual(["high"]);
   });
 
   it("ORs the category toggles", () => {

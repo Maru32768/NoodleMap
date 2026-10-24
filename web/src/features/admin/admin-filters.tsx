@@ -1,14 +1,16 @@
 import {
   SegmentedOption,
   SegmentedPicker,
+  SegmentedToggles,
 } from "@/components/segmented-picker.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import type { VisitFilter } from "@/features/admin/visit-filter.ts";
+import { CategoryType, toggleWishLevel } from "@/features/search/utils.ts";
 import {
-  CategoryType,
-  WISH_FILTER_OPTIONS,
-  WishFilter,
-} from "@/features/search/utils.ts";
+  WISH_LEVEL_LABEL,
+  WISH_LEVELS,
+  WishLevel,
+} from "@/features/shops/status.ts";
 import { Box } from "@chakra-ui/react";
 
 interface AdminFiltersProps {
@@ -16,8 +18,8 @@ interface AdminFiltersProps {
   setCategoryFilter: (v: CategoryType) => void;
   visitFilter: VisitFilter;
   setVisitFilter: (v: VisitFilter) => void;
-  wishFilter: WishFilter;
-  setWishFilter: (v: WishFilter) => void;
+  wishLevels: WishLevel[];
+  setWishLevels: (v: WishLevel[]) => void;
   // undefined until the shop list has loaded.
   filteredCount: number | undefined;
   totalCount: number | undefined;
@@ -36,6 +38,9 @@ const VISIT_OPTIONS: readonly SegmentedOption<VisitFilter>[] = [
   { id: "wish", label: "気になる" },
   { id: "closed", label: "閉店" },
 ];
+
+const WISH_LEVEL_OPTIONS: readonly SegmentedOption<WishLevel>[] =
+  WISH_LEVELS.map((level) => ({ id: level, label: WISH_LEVEL_LABEL[level] }));
 
 // Visual only: each group carries its own accessible name, also on mobile
 // where these labels are hidden.
@@ -72,14 +77,14 @@ export function AdminFilters({
   setCategoryFilter,
   visitFilter,
   setVisitFilter,
-  wishFilter,
-  setWishFilter,
+  wishLevels,
+  setWishLevels,
   filteredCount,
   totalCount,
   onClearAll,
 }: AdminFiltersProps) {
   const hasFilters =
-    categoryFilter !== "all" || visitFilter !== "all" || wishFilter !== "all";
+    categoryFilter !== "all" || visitFilter !== "all" || wishLevels.length > 0;
 
   return (
     <>
@@ -123,12 +128,13 @@ export function AdminFilters({
           気になる度
         </GroupLabel>
         {/* Eaten shops are never narrowed by 気になる度, so 食べた leaves it nothing to do. */}
-        <SegmentedPicker
+        <SegmentedToggles
           label="気になる度"
-          variant="segment"
-          options={WISH_FILTER_OPTIONS}
-          value={wishFilter}
-          onChange={setWishFilter}
+          options={WISH_LEVEL_OPTIONS}
+          value={wishLevels}
+          onToggle={(level) =>
+            setWishLevels(toggleWishLevel(wishLevels, level))
+          }
           disabled={visitFilter === "eaten"}
         />
 

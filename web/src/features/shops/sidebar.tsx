@@ -1,11 +1,10 @@
-import { SegmentedPicker } from "@/components/segmented-picker.tsx";
 import { ShopThumb } from "@/components/shop-thumb.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { AccountLink } from "@/features/auth/account-link.tsx";
 import {
   favToHearts,
   SearchFilters,
-  WISH_FILTER_OPTIONS,
+  toggleWishLevel,
 } from "@/features/search/utils.ts";
 import { Shop, Tag, useTags } from "@/features/shops/api/use-shops.ts";
 import { HeartIcon, MiniHearts } from "@/features/shops/rating-hearts.tsx";
@@ -17,6 +16,8 @@ import {
   shopStatusLabel,
   SYSTEM_TAGS,
   SystemTagDef,
+  WISH_LEVEL_LABEL,
+  WISH_LEVELS,
 } from "@/features/shops/status.ts";
 import {
   getTagTextColor,
@@ -150,12 +151,15 @@ function ShopCard({
 function Chip({
   active,
   color = "ink",
+  disabled = false,
   onClick,
   children,
 }: {
   active: boolean;
   color?: "shu" | "matcha" | "kincha" | "ink";
   dot?: boolean;
+  // The enclosing group dims itself, so the chip keeps full opacity.
+  disabled?: boolean;
   onClick: () => void;
   children: React.ReactNode;
 }) {
@@ -187,7 +191,13 @@ function Chip({
       color={active ? "nm.paper" : "nm.inkMuted"}
       transition="all 0.15s"
       userSelect="none"
-      _hover={!active ? { borderColor: "nm.lineStrong", color: "nm.ink" } : {}}
+      _hover={
+        !active && !disabled
+          ? { borderColor: "nm.lineStrong", color: "nm.ink" }
+          : {}
+      }
+      _disabled={{ cursor: "not-allowed", opacity: 1 }}
+      disabled={disabled}
       aria-pressed={active}
       onClick={onClick}
     >
@@ -491,15 +501,33 @@ export function ShopFilters({ filters, onFilterChange }: ShopFiltersProps) {
           気になる度
         </Box>
         {/* Only shops not eaten yet are narrowed, so it does nothing while 気になる is off. */}
-        <SegmentedPicker
-          label="気になる度"
-          variant="chip"
-          accent="nm.kincha"
-          options={WISH_FILTER_OPTIONS}
-          value={filters.wishMin}
-          onChange={(value) => onFilterChange("wishMin", value)}
-          disabled={!filters.wish}
-        />
+        <Box
+          role="group"
+          aria-label="気になる度"
+          aria-disabled={!filters.wish || undefined}
+          display="flex"
+          flexWrap="wrap"
+          gap="0.375rem"
+          opacity={filters.wish ? undefined : 0.45}
+          transition="opacity 0.15s"
+        >
+          {WISH_LEVELS.map((level) => (
+            <Chip
+              key={level}
+              color="kincha"
+              active={filters.wishLevels.includes(level)}
+              disabled={!filters.wish}
+              onClick={() =>
+                onFilterChange(
+                  "wishLevels",
+                  toggleWishLevel(filters.wishLevels, level),
+                )
+              }
+            >
+              {WISH_LEVEL_LABEL[level]}
+            </Chip>
+          ))}
+        </Box>
       </Box>
 
       <Box pt="0.875rem" pb="0.625rem">

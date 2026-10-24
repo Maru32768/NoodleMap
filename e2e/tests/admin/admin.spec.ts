@@ -16,7 +16,7 @@ async function openEditModal(page: Page, name: string, filter: string) {
   return page.getByRole("dialog").filter({ hasText: name });
 }
 
-test("admin narrows by 気になる度 and × クリア resets it to すべて", async ({ page, api }) => {
+test("admin narrows by 気になる度 and × クリア clears every level", async ({ page, api }) => {
   const id = uid();
   const shop = await api.createShop({ name: `${id} 気になる店` });
   await openAdmin(page);
@@ -24,14 +24,23 @@ test("admin narrows by 気になる度 and × クリア resets it to すべて",
   const row = page.getByRole("row").filter({ hasText: shop.name });
   await expect(row).toHaveCount(1);
 
-  const wishLevel = page.getByRole("radiogroup", { name: "気になる度" });
-  const wishOption = (name: string) => wishLevel.getByRole("radio", { name, exact: true });
-  // An unset 気になる度 ranks as 気になる, below 絶対行きたい.
-  await wishOption("絶対行きたいのみ").click();
+  // Scoped to the group: the 状態 filter also has a 気になる option.
+  const wishLevel = page.getByRole("group", { name: "気になる度" });
+  const level = (name: string) => wishLevel.getByRole("button", { name, exact: true });
+  await level("絶対行きたい").click();
+  await expect(row).toHaveCount(0);
+  // An unset 気になる度 counts as 気になる.
+  await level("気になる").click();
+  await expect(row).toHaveCount(1);
+  await level("絶対行きたい").click();
+  await level("気になる").click();
+  await level("ちょっと気になる").click();
   await expect(row).toHaveCount(0);
 
   await page.getByRole("button", { name: "× クリア" }).click();
-  await expect(wishOption("すべて")).toBeChecked();
+  for (const name of ["ちょっと気になる", "気になる", "絶対行きたい"]) {
+    await expect(level(name)).toHaveAttribute("aria-pressed", "false");
+  }
   await expect(row).toHaveCount(1);
 });
 

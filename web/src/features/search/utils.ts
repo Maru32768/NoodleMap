@@ -1,4 +1,3 @@
-import type { SegmentedOption } from "@/components/segmented-picker.tsx";
 import { Shop } from "@/features/shops/api/use-shops.ts";
 import {
   isSystemTagSlug,
@@ -23,38 +22,32 @@ export type FilterToggles = {
 // filterShops because their empty-selection meaning differs (see below).
 export type SearchFilters = FilterToggles & {
   favMin: number;
-  // 気になる度 floor for shops not eaten yet; eaten shops are not narrowed.
-  wishMin: WishFilter;
+  // 気になる度 levels kept among shops not eaten yet (OR within); empty keeps
+  // every level. Eaten shops are not narrowed.
+  wishLevels: WishLevel[];
   tagIds: string[];
 };
 
-// No "low" floor: an unset 気になる度 ranks as 気になる, so ちょっと気になる以上
-// would hide nothing.
-export type WishFilter = "all" | Exclude<WishLevel, "low">;
-
-export const WISH_FILTER_OPTIONS: readonly SegmentedOption<WishFilter>[] = [
-  { id: "all", label: "すべて" },
-  { id: "medium", label: "気になる以上" },
-  { id: "high", label: "絶対行きたいのみ" },
-];
-
-export function isWishFilter(value: unknown): value is WishFilter {
-  return WISH_FILTER_OPTIONS.some((option) => option.id === value);
-}
-
 /**
- * Narrows only shops not eaten yet. An unset 気になる度 ranks as 気になる, the
- * label such a shop shows.
+ * Narrows only shops not eaten yet, and only once a level is selected. An unset
+ * 気になる度 counts as 気になる, the label such a shop shows.
  */
-export function matchesWishFilter(
+export function matchesWishLevels(
   shop: Pick<Shop, "eatenStatus" | "wishLevel">,
-  filter: WishFilter,
+  levels: readonly WishLevel[],
 ): boolean {
-  if (filter === "all" || shop.eatenStatus === "eaten") {
+  if (levels.length === 0 || shop.eatenStatus === "eaten") {
     return true;
   }
-  const level = shop.wishLevel ?? "medium";
-  return WISH_LEVELS.indexOf(level) >= WISH_LEVELS.indexOf(filter);
+  return levels.includes(shop.wishLevel ?? "medium");
+}
+
+/** Flips one level, keeping the result in {@link WISH_LEVELS} order. */
+export function toggleWishLevel(
+  levels: readonly WishLevel[],
+  level: WishLevel,
+): WishLevel[] {
+  return WISH_LEVELS.filter((l) => (l === level) !== levels.includes(l));
 }
 
 export function favToHearts(rate: number | undefined): number {
@@ -87,7 +80,7 @@ export function filterShops(
     const visitMatch =
       (r.eatenStatus === "eaten" && filters.eaten) ||
       (r.eatenStatus === "uneaten" && filters.wish);
-    if (!visitMatch || !matchesWishFilter(r, filters.wishMin)) {
+    if (!visitMatch || !matchesWishLevels(r, filters.wishLevels)) {
       return false;
     }
 

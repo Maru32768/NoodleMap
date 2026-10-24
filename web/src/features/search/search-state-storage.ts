@@ -1,5 +1,9 @@
-import { isWishFilter, SearchFilters } from "@/features/search/utils.ts";
-import { DEFAULT_SYSTEM_TAG_SELECTION } from "@/features/shops/status.ts";
+import { SearchFilters } from "@/features/search/utils.ts";
+import {
+  DEFAULT_SYSTEM_TAG_SELECTION,
+  WISH_LEVELS,
+  WishLevel,
+} from "@/features/shops/status.ts";
 
 const SEARCH_STATE_STORAGE_KEY = "noodle-map:search-state:v1";
 const SAVED_SEARCH_STATE_VERSION = 5;
@@ -29,7 +33,7 @@ export const DEFAULT_FILTERS: SearchFilters = {
   ramen: true,
   udon: true,
   favMin: 0,
-  wishMin: "all",
+  wishLevels: [],
   // Status is filtered via system tags in tagIds; default to all but 閉店.
   tagIds: [...DEFAULT_SYSTEM_TAG_SELECTION],
 };
@@ -57,10 +61,10 @@ function isMapView(value: unknown): value is MapView {
   );
 }
 
-// `wishMin` is checked by the caller: state saved before it existed lacks it.
+// 気になる度 is checked by readWishLevels: older states lack `wishLevels`.
 function isSearchFilters(
   value: unknown,
-): value is Omit<SearchFilters, "wishMin"> & { wishMin?: unknown } {
+): value is Omit<SearchFilters, "wishLevels"> & LegacyWishFields {
   if (!value || typeof value !== "object") {
     return false;
   }
@@ -74,6 +78,31 @@ function isSearchFilters(
     Array.isArray(candidate.tagIds) &&
     candidate.tagIds.every((id) => typeof id === "string")
   );
+}
+
+type LegacyWishFields = {
+  wishLevels?: unknown;
+  // Before the toggles, 気になる度 was one floor: "all", "medium" (気になる以上)
+  // or "high" (絶対行きたいのみ).
+  wishMin?: unknown;
+};
+
+// Drops unknown levels instead of the whole state.
+function readWishLevels({
+  wishLevels,
+  wishMin,
+}: LegacyWishFields): WishLevel[] {
+  if (Array.isArray(wishLevels)) {
+    return WISH_LEVELS.filter((level) => wishLevels.includes(level));
+  }
+  switch (wishMin) {
+    case "medium":
+      return ["medium", "high"];
+    case "high":
+      return ["high"];
+    default:
+      return [];
+  }
 }
 
 function normalizeSavedSearchState(value: unknown): SavedSearchState | null {
@@ -95,10 +124,13 @@ function normalizeSavedSearchState(value: unknown): SavedSearchState | null {
     version: SAVED_SEARCH_STATE_VERSION,
     query: candidate.query,
     filters: {
-      ...candidate.filters,
-      wishMin: isWishFilter(candidate.filters.wishMin)
-        ? candidate.filters.wishMin
-        : DEFAULT_FILTERS.wishMin,
+      eaten: candidate.filters.eaten,
+      wish: candidate.filters.wish,
+      ramen: candidate.filters.ramen,
+      udon: candidate.filters.udon,
+      favMin: candidate.filters.favMin,
+      wishLevels: readWishLevels(candidate.filters),
+      tagIds: candidate.filters.tagIds,
     },
     mapView: candidate.mapView,
   };

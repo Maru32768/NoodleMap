@@ -32,17 +32,24 @@ test("guest searches, filters and opens a shop on the search page", async ({ pag
   await expect(card(eatenRamen.name)).toBeHidden();
   await chip("食べた").click();
 
-  // Unset 気になる度 ranks as 気になる: 気になる以上 keeps every shop, while
-  // 絶対行きたいのみ keeps only the eaten one (eaten shops are never narrowed).
-  const wishLevel = sidebar.getByRole("radiogroup", { name: "気になる度" });
-  const wishOption = (name: string) => wishLevel.getByRole("radio", { name, exact: true });
-  await wishOption("気になる以上").click();
-  await expect(wishOption("気になる以上")).toBeChecked();
+  // Unset 気になる度 counts as 気になる: that toggle keeps every shop, while
+  // 絶対行きたい alone keeps only the eaten one (eaten shops are never narrowed).
+  // Scoped to the group: the 気になる visit chip shares the level's name.
+  const wishLevel = sidebar.getByRole("group", { name: "気になる度" });
+  const level = (name: string) => wishLevel.getByRole("button", { name, exact: true });
+  await level("気になる").click();
+  await expect(level("気になる")).toHaveAttribute("aria-pressed", "true");
   await expect(countLabel(3)).toBeVisible();
-  await wishOption("絶対行きたいのみ").click();
+  await level("気になる").click();
+  await level("絶対行きたい").click();
   await expect(countLabel(1)).toBeVisible();
   await expect(card(eatenRamen.name)).toBeVisible();
-  await wishOption("すべて").click();
+  // Selected levels OR together.
+  await level("気になる").click();
+  await expect(countLabel(3)).toBeVisible();
+  await level("気になる").click();
+  await level("絶対行きたい").click();
+  await expect(level("絶対行きたい")).toHaveAttribute("aria-pressed", "false");
   await expect(countLabel(3)).toBeVisible();
 
   await chip("うどん").click();
