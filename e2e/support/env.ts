@@ -1,15 +1,23 @@
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-function port(name: string, fallback: number): number {
+/** Reads an integer environment variable in [min, max], or `fallback` when unset. */
+function intEnv(name: string, fallback: number, min: number, max: number): number {
   const raw = process.env[name]?.trim();
   if (!raw) return fallback;
   const value = Number(raw);
-  if (!/^\d+$/.test(raw) || value < 1 || value > 65535) {
-    throw new Error(`${name} must be an integer port from 1 to 65535, got "${raw}"`);
+  if (!/^\d+$/.test(raw) || value < min || value > max) {
+    throw new Error(`${name} must be an integer from ${min} to ${max}, got "${raw}"`);
   }
   return value;
 }
+
+function port(name: string, fallback: number): number {
+  return intEnv(name, fallback, 1, 65535);
+}
+
+// A safety net so a hung run fails instead of running forever; 0 disables it.
+export const GLOBAL_TIMEOUT_MINUTES = intEnv("E2E_GLOBAL_TIMEOUT_MINUTES", 15, 0, 1440);
 
 // Not the dev server's 8888, so e2e runs while `mise run dev` is up. Override to run
 // several at once; the web preview proxies /api to BACKEND_PORT.

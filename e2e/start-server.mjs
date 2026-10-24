@@ -20,13 +20,23 @@ for (const suffix of ["", "-wal", "-shm", ".bak"]) {
 // Local-disk visit images live next to the database.
 rmSync(resolve(dirname(dbPath), "visit-images"), { recursive: true, force: true });
 
-const gradlew = resolve(serverDir, process.platform === "win32" ? "gradlew.bat" : "gradlew");
+const isWindows = process.platform === "win32";
+const gradlew = resolve(serverDir, isWindows ? "gradlew.bat" : "gradlew");
+// Gradle's daemon (and the Kotlin compile daemon it starts) outlive the build and keep
+// the handles they inherit. On Windows a child inherits every inheritable handle of its
+// parent, including the stdout that `npm test` writes to, so a daemon would keep
+// `npm test | tail` from seeing end-of-file after Playwright exits. Build without
+// long-lived processes there; see e2e/README.md for the cost. Elsewhere a daemon only
+// inherits this script's stdio, which is Playwright's pipe, not the caller's.
+const daemonArgs = isWindows
+  ? ' --no-daemon "-Dorg.gradle.jvmargs=-Xmx1g -XX:MaxMetaspaceSize=512m"' +
+    " -Pkotlin.compiler.execution.strategy=in-process"
+  : "";
 // A .bat needs a shell on Windows; one command string avoids Node's DEP0190 warning.
-const build = spawnSync(`"${gradlew}" buildFatJar --quiet "-PnoodleMapBuildDir=${buildDir}"`, {
-  cwd: serverDir,
-  stdio: "inherit",
-  shell: true,
-});
+const build = spawnSync(
+  `"${gradlew}" buildFatJar --quiet${daemonArgs} "-PnoodleMapBuildDir=${buildDir}"`,
+  { cwd: serverDir, stdio: "inherit", shell: true },
+);
 if (build.status !== 0) {
   process.exit(build.status ?? 1);
 }

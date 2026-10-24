@@ -7,6 +7,7 @@ import {
   BASE_URL,
   DATA_DIR,
   DB_PATH,
+  GLOBAL_TIMEOUT_MINUTES,
   REPO_ROOT,
   SERVER_BUILD_DIR,
   WEB_BUILD_DIR,
@@ -23,6 +24,8 @@ export default defineConfig({
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: 0,
+  // A full run, including both builds, takes a few minutes.
+  globalTimeout: GLOBAL_TIMEOUT_MINUTES * 60_000,
   reporter: [["list"], ["html", { open: "never" }]],
   // Each run wipes its outputDir, so runs on other ports keep their own.
   outputDir: `${DATA_DIR}/test-results`,
