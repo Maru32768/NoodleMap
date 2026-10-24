@@ -1,0 +1,121 @@
+import type { ImportPlan } from "@/features/photo-import/import-plan.ts";
+import {
+  Analysis,
+  ImportAction,
+  importReducer,
+  ImportState,
+  INITIAL_IMPORT_STATE,
+  runProgressOf,
+} from "@/features/photo-import/import-state.ts";
+import { describe, expect, it } from "vitest";
+
+const analysis: Analysis = {
+  photos: [],
+  rejected: [],
+  groups: [],
+  serverVisits: new Map(),
+};
+const plan: ImportPlan = { entries: [] };
+
+const run = (state: ImportState, ...actions: ImportAction[]) =>
+  actions.reduce(importReducer, state);
+
+const review = run(
+  INITIAL_IMPORT_STATE,
+  { type: "read", total: 3 },
+  { type: "analyzed", analysis },
+);
+
+describe("importReducer", () => {
+  it("reads, reviews, runs and finishes", () => {
+    expect(
+      run(
+        INITIAL_IMPORT_STATE,
+        { type: "read", total: 3 },
+        { type: "readProgress", done: 2 },
+      ),
+    ).toEqual({ kind: "reading", done: 2, total: 3 });
+
+    const running = run(review, { type: "start", plan });
+    expect(running).toMatchObject({
+      kind: "running",
+      progress: runProgressOf(plan),
+    });
+
+    const outcome = {
+      kind: "finished",
+      progress: runProgressOf(plan),
+    } as const;
+    expect(run(running, { type: "finished", outcome })).toMatchObject({
+      kind: "finished",
+      outcome,
+    });
+  });
+
+  it("records the admin's choices and toggles a photo's exclusion", () => {
+    const state = run(
+      review,
+      { type: "choose", groupId: 4, choice: { kind: "skip" } },
+      { type: "togglePhoto", photoIndex: 7 },
+      { type: "togglePhoto", photoIndex: 8 },
+      { type: "togglePhoto", photoIndex: 7 },
+    );
+
+    expect(state.kind === "review" && state.review).toEqual({
+      choices: new Map([[4, { kind: "skip" }]]),
+      excluded: new Set([8]),
+    });
+  });
+
+  it("goes back to review with fresh server visits after a run, keeping the choices", () => {
+    const chosen = run(review, {
+      type: "choose",
+      groupId: 4,
+      choice: { kind: "skip" },
+    });
+    const serverVisits = new Map([["shop", []]]);
+
+    const state = run(
+      chosen,
+      { type: "start", plan },
+      {
+        type: "finished",
+        outcome: { kind: "stopped", progress: runProgressOf(plan) },
+      },
+      { type: "refreshed", serverVisits },
+    );
+
+    expect(state).toMatchObject({ kind: "review", analysis: { serverVisits } });
+    expect(state.kind === "review" && state.review).toEqual(
+      chosen.kind === "review" && chosen.review,
+    );
+  });
+
+  it("ignores what the current state does not accept", () => {
+    const running = run(review, { type: "start", plan });
+
+    for (const action of [
+      { type: "choose", groupId: 1, choice: { kind: "skip" } },
+      { type: "togglePhoto", photoIndex: 1 },
+      { type: "start", plan },
+      { type: "reset" },
+      { type: "refreshed", serverVisits: new Map() },
+    ] satisfies ImportAction[]) {
+      expect(importReducer(running, action)).toBe(running);
+    }
+    expect(importReducer(INITIAL_IMPORT_STATE, { type: "start", plan })).toBe(
+      INITIAL_IMPORT_STATE,
+    );
+  });
+
+  it("drops back to selecting when reading fails or on reset", () => {
+    expect(
+      run(
+        INITIAL_IMPORT_STATE,
+        { type: "read", total: 1 },
+        { type: "readFailed" },
+      ),
+    ).toBe(INITIAL_IMPORT_STATE);
+    expect(run(review, { type: "reset" })).toBe(INITIAL_IMPORT_STATE);
+  });
+});

@@ -118,3 +118,6 @@ stub the backend `/api/v1/auth/google-places/*` endpoints with `page.route`.
 - Tests run on one worker against one database. `PUT /api/v1/auth/tags`
   replaces the whole tag list, so parallel workers would race.
 - Prefer `getByRole` / `getByText` with the Japanese UI copy.
+- The photo import's `fixtures/photo-*.jpg` are `visit-image.jpg` with EXIF
+  written by `node scripts/write-photo-fixtures.ts` from the specs in
+  `support/photo-fixtures.ts`; rerun it after changing them.

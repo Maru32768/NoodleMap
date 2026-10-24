@@ -10,6 +10,7 @@ import {
   VisitFilter,
 } from "@/features/admin/visit-filter.ts";
 import { AccountLink } from "@/features/auth/account-link.tsx";
+import { PhotoImportModal } from "@/features/photo-import/photo-import-modal.tsx";
 import {
   CategoryType,
   createQueryMatcher,
@@ -22,7 +23,7 @@ import type { WishLevel } from "@/features/shops/status.ts";
 import { Box, Input, Span } from "@chakra-ui/react";
 import { useCallback, useDeferredValue, useState } from "react";
 import { CiLocationOn, CiSearch } from "react-icons/ci";
-import { LuPlus, LuTags } from "react-icons/lu";
+import { LuImagePlus, LuPlus, LuTags } from "react-icons/lu";
 
 type MobileAdminView = "list" | "map";
 
@@ -144,6 +145,7 @@ export default function AdminPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [showTagManagement, setShowTagManagement] = useState(false);
+  const [showPhotoImport, setShowPhotoImport] = useState(false);
 
   const [addingMode, setAddingMode] = useState(false);
   const [draftLatLng, setDraftLatLng] = useState<{
@@ -298,6 +300,30 @@ export default function AdminPage() {
         </Box>
 
         <Box ml="auto" display="flex" alignItems="center" gap="8px">
+          {/* Selecting thousands of photos from a folder is a desktop job. */}
+          <Button
+            variant="plain"
+            display={{ base: "none", md: "flex" }}
+            alignItems="center"
+            gap="6px"
+            px="12px"
+            py="8px"
+            h="auto"
+            minH="auto"
+            rounded="nmMd"
+            bg="nm.bg"
+            color="nm.ink"
+            border="1px solid"
+            borderColor="nm.line"
+            fontSize="13px"
+            fontWeight={600}
+            _hover={{ borderColor: "nm.ink" }}
+            disabled={!shops}
+            onClick={() => setShowPhotoImport(true)}
+          >
+            <LuImagePlus />
+            写真から取り込み
+          </Button>
           <Button
             variant="plain"
             display="flex"
@@ -687,6 +713,17 @@ export default function AdminPage() {
             setDraftLatLng(null);
           }}
           initialLatLng={draftLatLng ?? undefined}
+        />
+      )}
+
+      {showPhotoImport && shops && (
+        <PhotoImportModal
+          shops={shops}
+          open={true}
+          onClose={() => setShowPhotoImport(false)}
+          onShopsChanged={() => {
+            void mutateShops();
+          }}
         />
       )}
 

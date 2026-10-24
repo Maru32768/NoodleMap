@@ -319,9 +319,11 @@ export function visitImageUploadErrorMessage(
     return fileMessage;
   }
   const typeMessage = err.type && VISIT_IMAGE_UPLOAD_MESSAGE[err.type];
-  if (typeMessage) {
-    return typeMessage;
-  }
+  return typeMessage || apiErrorText(err);
+}
+
+/** The toast's title and description of `err` as one line, for a list of failures. */
+export function apiErrorText(err: ApiError): string {
   const message = getApiErrorMessage(err);
   return message.description
     ? `${message.title}。${message.description}`

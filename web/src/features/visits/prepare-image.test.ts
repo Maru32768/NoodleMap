@@ -7,7 +7,7 @@ import {
   readImageSize,
   UPLOAD_MAX_BYTES,
 } from "@/features/visits/prepare-image.ts";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 describe("needsConversion", () => {
   it("uploads a JPEG or PNG within 15 MB as is", () => {
@@ -162,6 +162,63 @@ describe("prepareImageForUpload", () => {
     expect(result).toEqual({
       ok: true,
       data: { blob: file, fileName: "huge.jpg" },
+    });
+  });
+
+  describe("with maxEdge", () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      vi.restoreAllMocks();
+    });
+
+    // A browser that decodes the photo at `width` x `height`; returns the drawn sizes.
+    function decodableAs(width: number, height: number) {
+      vi.stubGlobal("createImageBitmap", async () => ({
+        width,
+        height,
+        close: () => {},
+      }));
+      const drawn: [number, number][] = [];
+      vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
+        fillRect: () => {},
+        drawImage: (_: unknown, _x: number, _y: number, w: number, h: number) =>
+          drawn.push([w, h]),
+      } as unknown as CanvasRenderingContext2D);
+      vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation(
+        (callback) => callback(new Blob(["jpeg"], { type: "image/jpeg" })),
+      );
+      return drawn;
+    }
+
+    it("shrinks a phone photo longer than maxEdge to fit it", async () => {
+      const drawn = decodableAs(4032, 3024);
+      const file = new File([jpegHeader(4032, 3024)], "IMG_0001.JPG", {
+        type: "image/jpeg",
+      });
+
+      const result = await prepareImageForUpload(file, undefined, {
+        maxEdge: 2048,
+      });
+
+      expect(drawn).toEqual([[2048, 1536]]);
+      expect(result.ok && result.data.fileName).toBe("IMG_0001.jpg");
+    });
+
+    it("sends a photo within maxEdge unchanged, as without it", async () => {
+      const drawn = decodableAs(1600, 1200);
+      const file = new File([jpegHeader(1600, 1200)], "IMG_0002.JPG", {
+        type: "image/jpeg",
+      });
+
+      const result = await prepareImageForUpload(file, undefined, {
+        maxEdge: 2048,
+      });
+
+      expect(drawn).toEqual([]);
+      expect(result).toEqual({
+        ok: true,
+        data: { blob: file, fileName: "IMG_0002.JPG" },
+      });
     });
   });
 

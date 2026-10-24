@@ -56,6 +56,78 @@ export const visitsKey = (
 const isVisitsKeyOf = (shopId: string) => (key: unknown) =>
   Array.isArray(key) && key[0] === VISITS_PATH && key[1] === shopId;
 
+/** A shop's 訪問ログ, newest first; privateNote only for the admin. Throws `ApiError`. */
+export function fetchVisits(shopId: string): Promise<VisitLog[]> {
+  return withApiError("/api/v1/shops/{id}/visits", async () => {
+    const res = await apiClient.GET("/api/v1/shops/{id}/visits", {
+      params: { path: { id: shopId } },
+    });
+    if (res.error || !res.response.ok) {
+      throwApiError("/api/v1/shops/{id}/visits", res.response, res.error);
+    }
+    return res.data.visits;
+  });
+}
+
+export function postVisit(shopId: string, input: VisitLogInput) {
+  return withApiResult<VisitLog, SaveVisitErrorBody>(
+    "/api/v1/auth/shops/{id}/visits",
+    async () => {
+      const res = await apiClient.POST("/api/v1/auth/shops/{id}/visits", {
+        params: { path: { id: shopId } },
+        body: input,
+      });
+      if (res.error || !res.response.ok) {
+        return apiError(
+          "/api/v1/auth/shops/{id}/visits",
+          res.response,
+          res.error,
+        );
+      }
+      return apiOk(res.data);
+    },
+  );
+}
+
+/** Replaces every field of the visit: an omitted field is cleared. */
+export function putVisit(visitId: string, input: VisitLogInput) {
+  return withApiResult<VisitLog, SaveVisitErrorBody>(
+    "/api/v1/auth/visits/{visitId}",
+    async () => {
+      const res = await apiClient.PUT("/api/v1/auth/visits/{visitId}", {
+        params: { path: { visitId } },
+        body: input,
+      });
+      if (res.error || !res.response.ok) {
+        return apiError(
+          "/api/v1/auth/visits/{visitId}",
+          res.response,
+          res.error,
+        );
+      }
+      return apiOk(res.data);
+    },
+  );
+}
+
+/** The input that keeps every field of `visit` through {@link putVisit}. */
+export function visitInputOf(visit: VisitLog): VisitLogInput {
+  // Every key required, so a field added to VisitLogInput fails to compile here.
+  const input: { [K in keyof Required<VisitLogInput>]: VisitLogInput[K] } = {
+    visitedOn: visit.visitedOn,
+    menuItems: visit.menuItems.map(({ name, isLimited, price }) => ({
+      name,
+      isLimited,
+      price,
+    })),
+    rate: visit.rate,
+    eventName: visit.eventName,
+    publicNote: visit.publicNote,
+    privateNote: visit.privateNote,
+  };
+  return input;
+}
+
 /** A shop's 訪問ログ, newest first; privateNote only for the admin. Pass null to skip loading. */
 export function useVisits(shopId: string | null) {
   const currentUser = useCurrentUser();
@@ -63,16 +135,7 @@ export function useVisits(shopId: string | null) {
   // The app renders pages only after /auth/me has settled, so the user is known.
   const resp = useSWR(
     shopId ? visitsKey(shopId, currentUser, hookId) : null,
-    ([, id]) =>
-      withApiError("/api/v1/shops/{id}/visits", async () => {
-        const res = await apiClient.GET("/api/v1/shops/{id}/visits", {
-          params: { path: { id } },
-        });
-        if (res.error || !res.response.ok) {
-          throwApiError("/api/v1/shops/{id}/visits", res.response, res.error);
-        }
-        return res.data.visits;
-      }),
+    ([, id]) => fetchVisits(id),
     { revalidateOnFocus: false, revalidateOnReconnect: false },
   );
   const { mutate } = resp;
@@ -111,57 +174,39 @@ export function useRevalidateShopVisits(shopId: string) {
   return useMemo(() => ({ visits, shops, all }), [visits, shops, all]);
 }
 
+/** Refetches every cached visits entry of every shop, e.g. once after a bulk import. */
+export function useRevalidateAllVisits() {
+  const { mutate } = useSWRConfig();
+  return useCallback(
+    () => mutate((key) => Array.isArray(key) && key[0] === VISITS_PATH),
+    [mutate],
+  );
+}
+
 /** Admin writes to a shop's 訪問ログ. Each success refetches the visits and the shop list (食べた, お気に入り度, visitCount). */
 export function useVisitMutations(shopId: string) {
   const revalidate = useRevalidateShopVisits(shopId).all;
 
   const addVisit = useCallback(
-    (input: VisitLogInput) =>
-      withApiResult<VisitLog, SaveVisitErrorBody>(
-        "/api/v1/auth/shops/{id}/visits",
-        async () => {
-          const res = await apiClient.POST("/api/v1/auth/shops/{id}/visits", {
-            params: { path: { id: shopId } },
-            body: input,
-          });
-          if (res.error || !res.response.ok) {
-            return apiError(
-              "/api/v1/auth/shops/{id}/visits",
-              res.response,
-              res.error,
-            );
-          }
-          await revalidate();
-          return apiOk(res.data);
-        },
-      ),
+    async (input: VisitLogInput) => {
+      const result = await postVisit(shopId, input);
+      if (result.ok) {
+        await revalidate();
+      }
+      return result;
+    },
     [shopId, revalidate],
   );
 
   const updateVisit = useCallback(
-    (visitId: string, input: VisitLogInput) =>
-      withApiResult<VisitLog, SaveVisitErrorBody>(
-        "/api/v1/auth/visits/{visitId}",
-        async () => {
-          const res = await apiClient.PUT("/api/v1/auth/visits/{visitId}", {
-            params: { path: { visitId } },
-            body: input,
-          });
-          if (res.error || !res.response.ok) {
-            if (res.error?.type === "not_found") {
-              // Deleted elsewhere: refresh so it leaves the list.
-              await revalidate();
-            }
-            return apiError(
-              "/api/v1/auth/visits/{visitId}",
-              res.response,
-              res.error,
-            );
-          }
-          await revalidate();
-          return apiOk(res.data);
-        },
-      ),
+    async (visitId: string, input: VisitLogInput) => {
+      const result = await putVisit(visitId, input);
+      // not_found: deleted elsewhere, so refresh to drop it from the list.
+      if (result.ok || result.error.type === "not_found") {
+        await revalidate();
+      }
+      return result;
+    },
     [revalidate],
   );
 

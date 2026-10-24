@@ -22,6 +22,7 @@ import {
   toMenuItemInputs,
   validateMenuItems,
 } from "@/features/visits/menu-items-editor.tsx";
+import { japanDate } from "@/features/visits/visit-date.ts";
 import { visitInputProps as inputProps } from "@/features/visits/visit-input-props.ts";
 import {
   ApiMutationResult,
@@ -70,18 +71,11 @@ function isVisitField(field: string): field is VisitLogField {
   return (VISIT_FIELDS as readonly string[]).includes(field);
 }
 
-/** Today in Japan (YYYY-MM-DD), the default 訪問日 of a new visit. */
-export function todayInJapan(now: Date = new Date()): string {
-  // en-CA formats a date as YYYY-MM-DD.
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tokyo" }).format(
-    now,
-  );
-}
-
 function toDraft(visit: VisitLog | undefined): VisitDraft {
   if (!visit) {
     return {
-      visitedOn: todayInJapan(),
+      // Today in Japan, the default 訪問日 of a new visit.
+      visitedOn: japanDate(new Date()),
       menuItems: [newMenuItemRow()],
       rate: "",
       eventName: "",

@@ -80,6 +80,7 @@ export class ApiError<
   public readonly url: RequestInfo | URL;
   public readonly status: number;
   public readonly statusText: string;
+  public readonly headers: Headers;
   public readonly body: TBody;
   public readonly type: ApiErrorType<TBody>;
 
@@ -89,6 +90,7 @@ export class ApiError<
     this.url = response.url;
     this.status = response.status;
     this.statusText = response.statusText;
+    this.headers = response.headers;
     this.body = response.body;
     this.type = getErrorType(response.body) as ApiErrorType<TBody>;
   }
