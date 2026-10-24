@@ -7,7 +7,13 @@ import { makeShop } from "@/test/fixtures.ts";
 import { renderWithProviders } from "@/test/render.tsx";
 import { server } from "@/test/server.ts";
 import { fakeVisitServer } from "@/test/visit-server.ts";
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { delay, http, HttpResponse } from "msw";
 import { VirtuosoMockContext } from "react-virtuoso";
@@ -114,6 +120,9 @@ describe("PhotoImportModal", () => {
     URL.revokeObjectURL = () => {};
   });
   afterEach(() => {
+    // Unmount first: a thumbnail still loading would otherwise reach Node's
+    // own createObjectURL, which rejects jsdom's File.
+    cleanup();
     Reflect.deleteProperty(URL, "createObjectURL");
     Reflect.deleteProperty(URL, "revokeObjectURL");
   });
@@ -177,7 +186,8 @@ describe("PhotoImportModal", () => {
     const fake = fakeVisitServer();
     renderModal();
     await selectPhotos(user);
-    await user.click(screen.getByRole("radio", { name: /中華そば 甲/ }));
+    // The shop candidates render after the summary.
+    await user.click(await screen.findByRole("radio", { name: /中華そば 甲/ }));
     const summary = await screen.findByText(/^2 件の訪問を作成/);
 
     fireEvent.drop(summary, {

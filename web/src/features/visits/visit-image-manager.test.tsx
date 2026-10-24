@@ -143,7 +143,11 @@ async function renderImages({
   return Object.assign(traffic, { onClose });
 }
 
-const imageList = () => screen.findByRole("list", { name: "訪問画像" });
+const IMAGE_LIST = { name: "訪問画像" } as const;
+const imageList = () => screen.findByRole("list", IMAGE_LIST);
+// For waitFor, which retries a synchronous query; a findBy inside it would
+// spend the whole wait on one attempt.
+const currentImageList = () => screen.getByRole("list", IMAGE_LIST);
 const fileInput = () => screen.getByLabelText("追加する画像ファイル");
 const dropArea = () => screen.getByRole("group", { name: /^画像（/ });
 
@@ -188,8 +192,8 @@ describe("VisitImageManager", () => {
 
     await upload(jpeg("a.jpg"), jpeg("b.jpg"), jpeg("c.jpg"));
 
-    await waitFor(async () =>
-      expect(within(await imageList()).getAllByRole("listitem")).toHaveLength(
+    await waitFor(() =>
+      expect(within(currentImageList()).getAllByRole("listitem")).toHaveLength(
         3,
       ),
     );
@@ -229,8 +233,8 @@ describe("VisitImageManager", () => {
 
     await upload(jpeg("a.jpg"));
 
-    await waitFor(async () =>
-      expect(within(await imageList()).getAllByRole("listitem")).toHaveLength(
+    await waitFor(() =>
+      expect(within(currentImageList()).getAllByRole("listitem")).toHaveLength(
         1,
       ),
     );
@@ -338,8 +342,8 @@ describe("VisitImageManager", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "1つの訪問ログに追加できる画像は10枚までです",
     );
-    await waitFor(async () =>
-      expect(within(await imageList()).getAllByRole("listitem")).toHaveLength(
+    await waitFor(() =>
+      expect(within(currentImageList()).getAllByRole("listitem")).toHaveLength(
         10,
       ),
     );
@@ -364,9 +368,9 @@ describe("VisitImageManager", () => {
         [image(1).id, image(3).id, image(2).id],
       ]),
     );
-    await waitFor(async () =>
+    await waitFor(() =>
       expect(
-        within(await imageList())
+        within(currentImageList())
           .getAllByRole("img")
           .map((img) => img.getAttribute("src")),
       ).toEqual([image(1).url, image(3).url, image(2).url]),
@@ -415,8 +419,8 @@ describe("VisitImageManager", () => {
 
     expect(await screen.findByText("画像を削除しました")).toBeInTheDocument();
     expect(traffic.deleted).toEqual([image(1).id]);
-    await waitFor(async () =>
-      expect(within(await imageList()).getAllByRole("listitem")).toHaveLength(
+    await waitFor(() =>
+      expect(within(currentImageList()).getAllByRole("listitem")).toHaveLength(
         1,
       ),
     );
@@ -659,8 +663,8 @@ describe("VisitImageManager", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "1つの訪問ログに追加できる画像は10枚までです",
     );
-    await waitFor(async () =>
-      expect(within(await imageList()).getAllByRole("listitem")).toHaveLength(
+    await waitFor(() =>
+      expect(within(currentImageList()).getAllByRole("listitem")).toHaveLength(
         10,
       ),
     );
@@ -787,8 +791,8 @@ describe("VisitImageManager", () => {
     });
 
     expect(pasted).toBe(false);
-    await waitFor(async () =>
-      expect(within(await imageList()).getAllByRole("listitem")).toHaveLength(
+    await waitFor(() =>
+      expect(within(currentImageList()).getAllByRole("listitem")).toHaveLength(
         1,
       ),
     );

@@ -40,8 +40,29 @@ function EditWithConfirm() {
   );
 }
 
-const nextFrame = () =>
-  new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+// zag starts tracking an open dialog (its Escape and outside-click listeners,
+// then its focus trap) in one animation frame after the open effects run, and
+// React flushes those effects on its own schedule here (outside act()), so a
+// fixed number of frames can fall short on a loaded machine. Wait for the
+// trap to move focus into the dialog instead: by then the listeners are set.
+
+/** The dialog holding the button named `name`. */
+async function dialogWith(name: string) {
+  const button = await screen.findByRole("button", { name });
+  const dialog = button.closest<HTMLElement>("[role=dialog]");
+  if (!dialog) {
+    throw new Error(`no dialog holds the ${name} button`);
+  }
+  return dialog;
+}
+
+/** The focused element, when it is one jest-dom can look for. */
+const focused = () =>
+  document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
+/** Waits until zag tracks `dialog` (see above). */
+const tracked = (dialog: HTMLElement) =>
+  waitFor(() => expect(dialog).toContainElement(focused()));
 
 // Clicks go straight to the DOM, outside act(), so React flushes the StrictMode
 // double effects like a browser does: synchronously after the click's commit.
@@ -63,8 +84,7 @@ describe("ModalDialog under StrictMode", () => {
       </StrictMode>,
     );
     screen.getByRole("button", { name: "編集" }).click();
-    await screen.findByRole("button", { name: "削除" });
-    await nextFrame();
+    await tracked(await dialogWith("削除"));
 
     document.dispatchEvent(
       new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
@@ -86,11 +106,10 @@ describe("ModalDialog under StrictMode", () => {
       </StrictMode>,
     );
     screen.getByRole("button", { name: "編集" }).click();
-    (await screen.findByRole("button", { name: "削除" })).click();
-    await screen.findByRole("button", { name: "削除する" });
-    // Lets the confirm dialog's focus trap activate over the edit dialog's.
-    await nextFrame();
-    await nextFrame();
+    await tracked(await dialogWith("削除"));
+    screen.getByRole("button", { name: "削除" }).click();
+    // The confirm dialog's focus trap activates over the edit dialog's.
+    await tracked(await dialogWith("削除する"));
 
     screen.getByRole("button", { name: "削除する" }).click();
 

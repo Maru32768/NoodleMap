@@ -245,9 +245,7 @@ describe("DetailPanel visit logs", () => {
     renderPanel(eaten);
 
     expect(
-      await screen.findByText("訪問ログを読み込めませんでした", undefined, {
-        timeout: 3000,
-      }),
+      await screen.findByText("訪問ログを読み込めませんでした"),
     ).toBeInTheDocument();
     fail = false;
     await userEvent.click(

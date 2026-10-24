@@ -26,11 +26,13 @@ export function useThumbnail(file: File): Thumbnail | undefined {
         ? await exifr.orientation(file).catch(() => undefined)
         : undefined;
       const rotation = orientation ? rotations[orientation] : undefined;
-      created = embedded ?? URL.createObjectURL(file);
       if (unmounted) {
-        URL.revokeObjectURL(created);
+        if (embedded) {
+          URL.revokeObjectURL(embedded);
+        }
         return;
       }
+      created = embedded ?? URL.createObjectURL(file);
       setThumbnail({
         url: created,
         transform:
