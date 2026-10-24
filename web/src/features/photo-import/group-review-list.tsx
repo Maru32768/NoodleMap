@@ -8,7 +8,7 @@ import type {
   GroupRow,
   RowTab,
 } from "@/features/photo-import/use-photo-import.ts";
-import { useThumbnailUrl } from "@/features/photo-import/use-thumbnail-url.ts";
+import { useThumbnail } from "@/features/photo-import/use-thumbnail-url.ts";
 import { createQueryMatcher } from "@/features/search/utils.ts";
 import type { Shop } from "@/features/shops/api/use-shops.ts";
 import { VISIT_IMAGES_MAX } from "@/utils/toast.ts";
@@ -277,7 +277,7 @@ function Thumbnail({
   disabled: boolean;
   onToggle: () => void;
 }) {
-  const url = useThumbnailUrl(photo.file);
+  const thumbnail = useThumbnail(photo.file);
   return (
     <Button
       variant="plain"
@@ -295,13 +295,14 @@ function Thumbnail({
       _disabled={{ cursor: "default", opacity: 1 }}
       onClick={onToggle}
     >
-      {url && (
+      {thumbnail && (
         <Image
-          src={url}
+          src={thumbnail.url}
           alt=""
           w="100%"
           h="100%"
           objectFit="cover"
+          transform={thumbnail.transform}
           opacity={excluded ? 0.3 : 1}
         />
       )}

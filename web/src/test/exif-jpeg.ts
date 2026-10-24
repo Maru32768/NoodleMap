@@ -5,9 +5,14 @@ export interface ExifSpec {
   /** "+09:00" */
   offsetTimeOriginal?: string;
   gps?: { lat: number; lng: number };
+  /** 1..8; 6 is an iPhone held upright. */
+  orientation?: number;
+  /** An embedded IFD1 thumbnail, a JPEG stored as the sensor saw it. */
+  thumbnail?: Uint8Array;
 }
 
 const ASCII = 2;
+const SHORT = 3;
 const LONG = 4;
 const RATIONAL = 5;
 
@@ -21,6 +26,12 @@ interface Entry {
 const ascii = (tag: number, text: string): Entry => {
   const data = new TextEncoder().encode(`${text}\0`);
   return { tag, type: ASCII, count: data.length, data };
+};
+
+const short = (tag: number, value: number): Entry => {
+  const data = new Uint8Array(2);
+  new DataView(data.buffer).setUint16(0, value, true);
+  return { tag, type: SHORT, count: 1, data };
 };
 
 const long = (tag: number, value: number): Entry => {
@@ -48,7 +59,11 @@ const ifdSize = (entries: readonly Entry[]) =>
   entries.reduce((n, e) => n + (e.data.length > 4 ? e.data.length : 0), 0);
 
 // One little-endian IFD at `offset` (from the TIFF header), its out-of-line values right after it.
-function writeIfd(entries: readonly Entry[], offset: number): Uint8Array {
+function writeIfd(
+  entries: readonly Entry[],
+  offset: number,
+  nextIfdAt = 0,
+): Uint8Array {
   const bytes = new Uint8Array(ifdSize(entries));
   const view = new DataView(bytes.buffer);
   view.setUint16(0, entries.length, true);
@@ -68,6 +83,7 @@ function writeIfd(entries: readonly Entry[], offset: number): Uint8Array {
         dataAt += e.data.length;
       }
     });
+  view.setUint32(2 + entries.length * 12, nextIfdAt, true);
   return bytes;
 }
 
@@ -93,17 +109,29 @@ export function withExif(
     : [];
 
   const ifd0Entries = (exifAt: number, gpsAt: number) => [
+    ...(spec.orientation !== undefined
+      ? [short(0x0112, spec.orientation)]
+      : []),
     ...(exif.length ? [long(0x8769, exifAt)] : []),
     ...(gps.length ? [long(0x8825, gpsAt)] : []),
   ];
+  const ifd1Entries = (thumbnailAt: number) =>
+    spec.thumbnail
+      ? [long(0x0201, thumbnailAt), long(0x0202, spec.thumbnail.length)]
+      : [];
   const ifd0At = 8;
   const exifAt = ifd0At + ifdSize(ifd0Entries(0, 0));
   const gpsAt = exifAt + (exif.length ? ifdSize(exif) : 0);
+  const ifd1At = gpsAt + (gps.length ? ifdSize(gps) : 0);
+  const thumbnailAt = ifd1At + ifdSize(ifd1Entries(0));
   const parts = [
     new Uint8Array([0x49, 0x49, 0x2a, 0x00, ifd0At, 0, 0, 0]),
-    writeIfd(ifd0Entries(exifAt, gpsAt), ifd0At),
+    writeIfd(ifd0Entries(exifAt, gpsAt), ifd0At, spec.thumbnail ? ifd1At : 0),
     ...(exif.length ? [writeIfd(exif, exifAt)] : []),
     ...(gps.length ? [writeIfd(gps, gpsAt)] : []),
+    ...(spec.thumbnail
+      ? [writeIfd(ifd1Entries(thumbnailAt), ifd1At), spec.thumbnail]
+      : []),
   ];
   const tiffLength = parts.reduce((n, p) => n + p.length, 0);
   const segmentLength = 2 + 6 + tiffLength;
