@@ -15,6 +15,15 @@ import {
 
 const webDir = `${REPO_ROOT}/web`;
 
+function globalTimeoutMinutes(): number {
+  const raw = process.env.E2E_GLOBAL_TIMEOUT_MINUTES?.trim();
+  if (!raw) return 15;
+  if (!/^\d+$/.test(raw)) {
+    throw new Error(`E2E_GLOBAL_TIMEOUT_MINUTES must be a non-negative integer, got "${raw}"`);
+  }
+  return Number(raw);
+}
+
 export default defineConfig({
   testDir: "./tests",
   // All tests share one backend database; seeded names are unique per test, and
@@ -23,6 +32,9 @@ export default defineConfig({
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: 0,
+  // A safety net so a hung run fails instead of running forever. A full run,
+  // including both builds, takes a few minutes; E2E_GLOBAL_TIMEOUT_MINUTES=0 disables it.
+  globalTimeout: globalTimeoutMinutes() * 60_000,
   reporter: [["list"], ["html", { open: "never" }]],
   // Each run wipes its outputDir, so runs on other ports keep their own.
   outputDir: `${DATA_DIR}/test-results`,

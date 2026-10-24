@@ -36,6 +36,15 @@ wipe each other; two runs on the same ports would.
 The suite never reuses a server that is already running, because tests write
 shops, tags and sessions.
 
+A run fails after 15 minutes (`globalTimeout`) instead of hanging; set
+`E2E_GLOBAL_TIMEOUT_MINUTES` to change that, or to `0` to disable it.
+
+To keep only the end of the output, prefer redirecting it to a file
+(`npm test > e2e.log 2>&1`) over piping it into `tail` or `Select-Object -Last`.
+Piping works, but a pipe only closes once every process holding it exits, so any
+process that outlives the run with an inherited handle (such as a Gradle daemon)
+makes the pipe wait for it. `start-server.mjs` avoids that; see below.
+
 ## What `npm test` starts
 
 `playwright.config.ts` launches two web servers:
@@ -44,7 +53,11 @@ shops, tags and sessions.
   runs `gradlew buildFatJar` (a no-op when the jar is current) into
   `.data/<ports>/server-build` rather than `server/build`, so a `./gradlew run`
   dev server in the same checkout keeps its classes, and runs the jar on the
-  backend port with an E2E `ADMIN_EMAIL` and a local-only backup path.
+  backend port with an E2E `ADMIN_EMAIL` and a local-only backup path. Gradle's
+  output is piped, not inherited. On Windows the build also runs with
+  `--no-daemon` and in-process Kotlin compilation (about 20 s slower than a warm
+  daemon), because there a daemon would inherit the caller's stdout handle and
+  keep `npm test | tail` open after Playwright exits.
 - `web`: `vite build` into `.data/<ports>/web-build`, then `vite preview` on the
   web port. Preview reuses the dev proxy, and `API_PROXY_TARGET` points it at the E2E
   backend, so `/api` never reaches the dev server. A production build
