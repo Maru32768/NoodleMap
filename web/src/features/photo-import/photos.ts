@@ -1,4 +1,5 @@
 import { IsoDate, japanDate } from "@/features/visits/visit-date.ts";
+import { forEachConcurrently } from "@/utils/concurrency.ts";
 
 export interface LatLng {
   readonly lat: number;
@@ -51,7 +52,6 @@ export async function readPhotos(
   // The server refuses a visit dated later than tomorrow in Japan.
   const latestDay = japanDate(new Date(Date.now() + DAY_MS));
   const results: (Photo | PhotoRejection)[] = [];
-  let next = 0;
   let done = 0;
 
   async function readOne(file: File, index: number) {
@@ -69,17 +69,15 @@ export async function readPhotos(
     return photoFromExif(index, file, raw ?? {}, latestDay);
   }
 
-  async function worker() {
-    while (next < files.length) {
-      options.signal.throwIfAborted();
-      const index = next++;
-      results[index] = await readOne(files[index], index);
+  await forEachConcurrently(
+    files,
+    READ_CONCURRENCY,
+    options.signal,
+    async (file, index) => {
+      results[index] = await readOne(file, index);
       options.onProgress(++done);
-    }
-  }
-
-  await Promise.all(Array.from({ length: READ_CONCURRENCY }, worker));
-  options.signal.throwIfAborted();
+    },
+  );
   const photos: Photo[] = [];
   const rejected: PhotoRejection[] = [];
   for (const result of results) {
