@@ -295,10 +295,10 @@ describe("ShopEditModal links", () => {
       screen.getByRole("button", { name: "＋ リンクを追加" }),
     );
     const row = screen.getByRole("group", { name: "リンク 2" });
-    await userEvent.type(
-      within(row).getByRole("textbox", { name: "URL" }),
-      "https://www.instagram.com/aoba",
-    );
+    // Pasted like a copied URL: typing it would re-render the modal per key,
+    // which dominates this test's time on a loaded machine.
+    await userEvent.click(within(row).getByRole("textbox", { name: "URL" }));
+    await userEvent.paste("https://www.instagram.com/aoba");
     expect(within(row).getByRole("combobox", { name: "種類" })).toHaveValue(
       "instagram",
     );
@@ -380,13 +380,13 @@ describe("ShopEditModal links", () => {
     await userEvent.click(
       screen.getByRole("button", { name: "＋ リンクを追加" }),
     );
-    await userEvent.type(
+    await userEvent.click(
       within(screen.getByRole("group", { name: "リンク 2" })).getByRole(
         "textbox",
         { name: "URL" },
       ),
-      "javascript:alert(1)",
     );
+    await userEvent.paste("javascript:alert(1)");
     await userEvent.click(screen.getByRole("button", { name: "保存" }));
 
     expect(

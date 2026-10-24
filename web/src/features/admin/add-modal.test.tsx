@@ -108,12 +108,16 @@ describe("AddModal", () => {
       }),
     );
 
-    await userEvent.type(inputLabelled("Google Place ID"), "   ");
+    // Pasted, as Place IDs are: typing would re-render the modal per key,
+    // which dominates this test's time on a loaded machine.
+    await userEvent.click(inputLabelled("Google Place ID"));
+    await userEvent.paste("   ");
     await fillNameAndSave();
     await waitFor(() => expect(bodies).toHaveLength(1));
     expect(bodies[0].googlePlaceId).toBe("");
 
-    await userEvent.type(inputLabelled("Google Place ID"), " ChIJ-typed ");
+    await userEvent.click(inputLabelled("Google Place ID"));
+    await userEvent.paste(" ChIJ-typed ");
     await userEvent.click(screen.getByRole("button", { name: "追加" }));
     await waitFor(() => expect(bodies).toHaveLength(2));
     expect(bodies[1].googlePlaceId).toBe("ChIJ-typed");

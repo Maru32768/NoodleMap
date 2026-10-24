@@ -711,6 +711,13 @@ describe("VisitLogEditor", () => {
 
   it("drops the discarded draft", async () => {
     renderVisits();
+    // Discarding goes on to save the shop; let that finish inside the test.
+    server.use(
+      http.put(
+        `/api/v1/auth/shops/${shop.id}`,
+        () => new HttpResponse(null, { status: 204 }),
+      ),
+    );
 
     await userEvent.click(
       await screen.findByRole("button", { name: "訪問を記録" }),
@@ -729,6 +736,7 @@ describe("VisitLogEditor", () => {
     expect(
       await screen.findByRole("button", { name: "訪問を記録" }),
     ).toBeInTheDocument();
+    expect(await screen.findByText("保存しました")).toBeInTheDocument();
   });
 
   it("asks before deleting the shop with an unsaved visit draft", async () => {
