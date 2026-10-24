@@ -143,10 +143,11 @@ async function renderImages({
   return Object.assign(traffic, { onClose });
 }
 
-const imageList = () => screen.findByRole("list", { name: "訪問画像" });
+const IMAGE_LIST = { name: "訪問画像" } as const;
+const imageList = () => screen.findByRole("list", IMAGE_LIST);
 // For waitFor, which retries a synchronous query; a findBy inside it would
 // spend the whole wait on one attempt.
-const currentImageList = () => screen.getByRole("list", { name: "訪問画像" });
+const currentImageList = () => screen.getByRole("list", IMAGE_LIST);
 const fileInput = () => screen.getByLabelText("追加する画像ファイル");
 const dropArea = () => screen.getByRole("group", { name: /^画像（/ });
 

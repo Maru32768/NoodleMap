@@ -296,7 +296,8 @@ describe("ShopEditModal links", () => {
     );
     const row = screen.getByRole("group", { name: "リンク 2" });
     // Pasted like a copied URL: typing it would re-render the modal per key,
-    // which dominates this test's time on a loaded machine.
+    // which dominates this test's time on a loaded machine. The next test
+    // types one.
     await userEvent.click(within(row).getByRole("textbox", { name: "URL" }));
     await userEvent.paste("https://www.instagram.com/aoba");
     expect(within(row).getByRole("combobox", { name: "種類" })).toHaveValue(
@@ -322,6 +323,22 @@ describe("ShopEditModal links", () => {
       },
       { type: "official", url: "https://aoba.example/" },
     ]);
+  });
+
+  it("re-infers the link type on every key while a URL is typed", async () => {
+    await renderEditor(makeShop());
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "＋ リンクを追加" }),
+    );
+    const row = screen.getByRole("group", { name: "リンク 1" });
+    const url = within(row).getByRole("textbox", { name: "URL" });
+    const type = within(row).getByRole("combobox", { name: "種類" });
+    // "http://x.co" is still another site; the last key makes it x.com.
+    await userEvent.type(url, "http://x.co");
+    expect(type).toHaveValue("other");
+    await userEvent.type(url, "m");
+    expect(type).toHaveValue("twitter");
   });
 
   it("keeps focus on a link moved with the arrows", async () => {

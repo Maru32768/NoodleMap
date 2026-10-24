@@ -40,18 +40,29 @@ function EditWithConfirm() {
   );
 }
 
-// zag starts tracking a dialog (its Escape listener, the focus trap, inert
-// page) a frame after the open effects run, and React flushes those effects
-// on its own schedule here (outside act()), so a fixed number of frames can
-// fall short on a loaded machine. Wait for what that tracking does instead.
+// zag starts tracking an open dialog (its Escape and outside-click listeners,
+// then its focus trap) in one animation frame after the open effects run, and
+// React flushes those effects on its own schedule here (outside act()), so a
+// fixed number of frames can fall short on a loaded machine. Wait for the
+// trap to move focus into the dialog instead: by then the listeners are set.
 
-/** The topmost dialog listens for Escape once it has made the page inert. */
-const dismissable = () =>
-  waitFor(() => expect(document.body).toHaveAttribute("data-inert"));
+/** The dialog holding the button named `name`. */
+async function dialogWith(name: string) {
+  const button = await screen.findByRole("button", { name });
+  const dialog = button.closest<HTMLElement>("[role=dialog]");
+  if (!dialog) {
+    throw new Error(`no dialog holds the ${name} button`);
+  }
+  return dialog;
+}
 
-/** A dialog's focus trap is active once focus has moved into it. */
-const focusTrapped = (dialog: HTMLElement) =>
-  waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true));
+/** The focused element, when it is one jest-dom can look for. */
+const focused = () =>
+  document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
+/** Waits until zag tracks `dialog` (see above). */
+const tracked = (dialog: HTMLElement) =>
+  waitFor(() => expect(dialog).toContainElement(focused()));
 
 // Clicks go straight to the DOM, outside act(), so React flushes the StrictMode
 // double effects like a browser does: synchronously after the click's commit.
@@ -73,8 +84,7 @@ describe("ModalDialog under StrictMode", () => {
       </StrictMode>,
     );
     screen.getByRole("button", { name: "編集" }).click();
-    await screen.findByRole("button", { name: "削除" });
-    await dismissable();
+    await tracked(await dialogWith("削除"));
 
     document.dispatchEvent(
       new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
@@ -96,14 +106,12 @@ describe("ModalDialog under StrictMode", () => {
       </StrictMode>,
     );
     screen.getByRole("button", { name: "編集" }).click();
-    const remove = await screen.findByRole("button", { name: "削除" });
-    await focusTrapped(remove.closest<HTMLElement>("[role=dialog]")!);
-    remove.click();
-    const confirm = await screen.findByRole("button", { name: "削除する" });
+    await tracked(await dialogWith("削除"));
+    screen.getByRole("button", { name: "削除" }).click();
     // The confirm dialog's focus trap activates over the edit dialog's.
-    await focusTrapped(confirm.closest<HTMLElement>("[role=dialog]")!);
+    await tracked(await dialogWith("削除する"));
 
-    confirm.click();
+    screen.getByRole("button", { name: "削除する" }).click();
 
     expect(await screen.findByText("削除しました")).toBeInTheDocument();
   });

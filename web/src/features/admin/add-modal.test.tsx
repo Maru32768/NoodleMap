@@ -98,7 +98,7 @@ describe("AddModal", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it("sends a blank Google Place ID as empty and trims a typed one", async () => {
+  it("sends a blank Google Place ID as empty and trims an entered one", async () => {
     const bodies: AddShopRequest[] = [];
     await renderAddModal(() => HttpResponse.json(makeShop()));
     server.use(
