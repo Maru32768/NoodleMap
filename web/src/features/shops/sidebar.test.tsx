@@ -18,15 +18,9 @@ function renderFilters(filters: Partial<SearchFilters>) {
     />,
   );
   const group = screen.getByRole("group", { name: "気になる度" });
-  const level = (name: string) => within(group).getByRole("button", { name });
-  // The visit chip shares its name with the 気になる level toggle.
-  const visitChip = (name: string) => {
-    const chips = screen
-      .getAllByRole("button", { name })
-      .filter((chip) => !group.contains(chip));
-    expect(chips).toHaveLength(1);
-    return chips[0];
-  };
+  const level = (label: string) =>
+    within(group).getByRole("button", { name: `気になる度: ${label}` });
+  const visitChip = (name: string) => screen.getByRole("button", { name });
   return { onFilterChange, group, level, visitChip };
 }
 
@@ -67,9 +61,31 @@ describe("ShopFilters 気になる度", () => {
     expect(level("気になる")).toBeDisabled();
   });
 
-  it("keeps aria-pressed on the visit chips", () => {
+  it("clears the levels when the 気になる visit filter is turned off", async () => {
+    const { onFilterChange, visitChip } = renderFilters({
+      wishLevels: ["high"],
+    });
+    await userEvent.click(visitChip("気になる"));
+    expect(onFilterChange).toHaveBeenCalledWith("wish", false);
+    expect(onFilterChange).toHaveBeenCalledWith("wishLevels", []);
+  });
+
+  it("leaves the levels alone when the 気になる visit filter is turned on", async () => {
+    const { onFilterChange, visitChip } = renderFilters({ wish: false });
+    await userEvent.click(visitChip("気になる"));
+    expect(onFilterChange).toHaveBeenCalledWith("wish", true);
+    expect(onFilterChange).not.toHaveBeenCalledWith(
+      "wishLevels",
+      expect.anything(),
+    );
+  });
+
+  it("names the level toggles apart from the visit chips", () => {
     const { visitChip } = renderFilters({ eaten: true, wish: false });
     expect(visitChip("食べた")).toHaveAttribute("aria-pressed", "true");
     expect(visitChip("気になる")).toHaveAttribute("aria-pressed", "false");
+    expect(
+      screen.getByRole("button", { name: "気になる度: 気になる" }),
+    ).toHaveTextContent("気になる");
   });
 });

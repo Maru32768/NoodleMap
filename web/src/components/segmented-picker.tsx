@@ -154,17 +154,20 @@ export function SegmentedPicker<T extends string>({
 
 /**
  * The `segment` track holding independent toggle buttons (`aria-pressed`), any
- * number of which may be on; each is its own tab stop.
+ * number of which may be on; each is its own tab stop. Each toggle is named
+ * 「{label}: {option}」 so it stays distinct from same-named options elsewhere.
  */
 export function SegmentedToggles<T extends string>({
   label,
   options,
+  labels,
   value,
   onToggle,
   disabled = false,
 }: {
   label: string;
-  options: readonly SegmentedOption<T>[];
+  options: readonly T[];
+  labels: Readonly<Record<T, string>>;
   value: readonly T[];
   onToggle: (id: T) => void;
   disabled?: boolean;
@@ -178,11 +181,12 @@ export function SegmentedToggles<T extends string>({
       transition="opacity 0.15s"
       {...GROUP_STYLES.segment}
     >
-      {options.map((option) => {
-        const pressed = value.includes(option.id);
+      {options.map((id) => {
+        const pressed = value.includes(id);
         return (
           <Button
-            key={option.id}
+            key={id}
+            aria-label={`${label}: ${labels[id]}`}
             aria-pressed={pressed}
             disabled={disabled}
             variant="plain"
@@ -190,9 +194,9 @@ export function SegmentedToggles<T extends string>({
             minH="auto"
             {...optionStyles("segment", pressed)}
             _disabled={{ cursor: "not-allowed", opacity: 1 }}
-            onClick={() => onToggle(option.id)}
+            onClick={() => onToggle(id)}
           >
-            {option.label}
+            {labels[id]}
           </Button>
         );
       })}

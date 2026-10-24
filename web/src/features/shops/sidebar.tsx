@@ -152,12 +152,15 @@ function Chip({
   active,
   color = "ink",
   disabled = false,
+  ariaLabel,
   onClick,
   children,
 }: {
   active: boolean;
   color?: "shu" | "matcha" | "kincha" | "ink";
   dot?: boolean;
+  // Accessible name when the visible text alone would be ambiguous.
+  ariaLabel?: string;
   // The enclosing group dims itself, so the chip keeps full opacity.
   disabled?: boolean;
   onClick: () => void;
@@ -198,6 +201,7 @@ function Chip({
       }
       _disabled={{ cursor: "not-allowed", opacity: 1 }}
       disabled={disabled}
+      aria-label={ariaLabel}
       aria-pressed={active}
       onClick={onClick}
     >
@@ -485,7 +489,14 @@ export function ShopFilters({ filters, onFilterChange }: ShopFiltersProps) {
             color="kincha"
             dot
             active={filters.wish}
-            onClick={() => onFilterChange("wish", !filters.wish)}
+            onClick={() => {
+              onFilterChange("wish", !filters.wish);
+              // Off disables 気になる度; clearing it keeps turning 気になる back
+              // on from silently restoring the old narrowing.
+              if (filters.wish) {
+                onFilterChange("wishLevels", []);
+              }
+            }}
           >
             気になる
           </Chip>
@@ -517,6 +528,7 @@ export function ShopFilters({ filters, onFilterChange }: ShopFiltersProps) {
               color="kincha"
               active={filters.wishLevels.includes(level)}
               disabled={!filters.wish}
+              ariaLabel={`気になる度: ${WISH_LEVEL_LABEL[level]}`}
               onClick={() =>
                 onFilterChange(
                   "wishLevels",

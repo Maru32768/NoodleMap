@@ -68,11 +68,20 @@ describe("search state storage", () => {
     },
   );
 
-  it("drops unknown and repeated 気になる度 levels, keeping their order", () => {
+  it("drops unknown and repeated 気になる度 levels and sorts them low→high", () => {
     expect(
       readWithFilters({ wishLevels: ["high", "extreme", 1, "low", "high"] })
         ?.filters.wishLevels,
     ).toEqual(["low", "high"]);
+  });
+
+  it.each([
+    ["levels", { wishLevels: ["high"] }],
+    ["a legacy floor", { wishMin: "high" }],
+  ])("drops 気になる度 %s saved while 気になる is off", (_, wishFields) => {
+    expect(
+      readWithFilters({ wish: false, ...wishFields })?.filters.wishLevels,
+    ).toEqual([]);
   });
 
   it("returns null when nothing is saved", () => {

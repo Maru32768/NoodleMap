@@ -129,7 +129,10 @@ function normalizeSavedSearchState(value: unknown): SavedSearchState | null {
       ramen: candidate.filters.ramen,
       udon: candidate.filters.udon,
       favMin: candidate.filters.favMin,
-      wishLevels: readWishLevels(candidate.filters),
+      // 気になる off disables 気になる度, so no narrowing hides behind it.
+      wishLevels: candidate.filters.wish
+        ? readWishLevels(candidate.filters)
+        : [],
       tagIds: candidate.filters.tagIds,
     },
     mapView: candidate.mapView,

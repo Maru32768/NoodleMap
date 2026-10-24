@@ -12,6 +12,7 @@ import {
   WishLevel,
 } from "@/features/shops/status.ts";
 import { Box } from "@chakra-ui/react";
+import { useCallback } from "react";
 
 interface AdminFiltersProps {
   categoryFilter: CategoryType;
@@ -39,27 +40,28 @@ const VISIT_OPTIONS: readonly SegmentedOption<VisitFilter>[] = [
   { id: "closed", label: "閉店" },
 ];
 
-const WISH_LEVEL_OPTIONS: readonly SegmentedOption<WishLevel>[] =
-  WISH_LEVELS.map((level) => ({ id: level, label: WISH_LEVEL_LABEL[level] }));
-
-// Visual only: each group carries its own accessible name, also on mobile
-// where these labels are hidden.
+// Visual only: each group carries its own accessible name. On mobile only the
+// labels telling apart the two tracks with a 気になる segment stay.
 function GroupLabel({
   children,
   ml,
   dimmed = false,
+  showOnMobile = false,
 }: {
   children: React.ReactNode;
   ml?: string;
   dimmed?: boolean;
+  showOnMobile?: boolean;
 }) {
   return (
     <Box
       as="span"
       aria-hidden
-      display={{ base: "none", md: "inline" }}
+      display={{ base: showOnMobile ? "inline" : "none", md: "inline" }}
+      flexShrink={0}
+      whiteSpace="nowrap"
       fontFamily="mono"
-      fontSize="9.5px"
+      fontSize={{ base: "9px", md: "9.5px" }}
       letterSpacing="0.18em"
       color="nm.inkMuted"
       textTransform="uppercase"
@@ -85,6 +87,22 @@ export function AdminFilters({
 }: AdminFiltersProps) {
   const hasFilters =
     categoryFilter !== "all" || visitFilter !== "all" || wishLevels.length > 0;
+
+  const toggleLevel = useCallback(
+    (level: WishLevel) => setWishLevels(toggleWishLevel(wishLevels, level)),
+    [wishLevels, setWishLevels],
+  );
+  // 食べた disables 気になる度; clearing it keeps a later 全て from silently
+  // restoring the old narrowing.
+  const changeVisitFilter = useCallback(
+    (value: VisitFilter) => {
+      setVisitFilter(value);
+      if (value === "eaten") {
+        setWishLevels([]);
+      }
+    },
+    [setVisitFilter, setWishLevels],
+  );
 
   return (
     <>
@@ -115,26 +133,25 @@ export function AdminFilters({
           mx="2px"
         />
 
-        <GroupLabel>状態</GroupLabel>
+        <GroupLabel showOnMobile>状態</GroupLabel>
         <SegmentedPicker
           label="状態"
           variant="segment"
           options={VISIT_OPTIONS}
           value={visitFilter}
-          onChange={setVisitFilter}
+          onChange={changeVisitFilter}
         />
 
-        <GroupLabel ml="6px" dimmed={visitFilter === "eaten"}>
+        <GroupLabel ml="6px" dimmed={visitFilter === "eaten"} showOnMobile>
           気になる度
         </GroupLabel>
         {/* Eaten shops are never narrowed by 気になる度, so 食べた leaves it nothing to do. */}
         <SegmentedToggles
           label="気になる度"
-          options={WISH_LEVEL_OPTIONS}
+          options={WISH_LEVELS}
+          labels={WISH_LEVEL_LABEL}
           value={wishLevels}
-          onToggle={(level) =>
-            setWishLevels(toggleWishLevel(wishLevels, level))
-          }
+          onToggle={toggleLevel}
           disabled={visitFilter === "eaten"}
         />
 

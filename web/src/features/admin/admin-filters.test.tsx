@@ -35,8 +35,8 @@ function renderFilters({
       name,
     });
   const wishGroup = screen.getByRole("group", { name: "気になる度" });
-  const level = (name: string) =>
-    within(wishGroup).getByRole("button", { name });
+  const level = (label: string) =>
+    within(wishGroup).getByRole("button", { name: `気になる度: ${label}` });
   return {
     option,
     wishGroup,
@@ -94,6 +94,27 @@ describe("AdminFilters", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "× クリア" }));
     expect(onClearAll).toHaveBeenCalled();
+  });
+
+  it("clears the 気になる度 levels when 状態 becomes 食べた", async () => {
+    const { option, setVisitFilter, setWishLevels } = renderFilters({
+      wishLevels: ["high"],
+    });
+    await userEvent.click(option("状態", "気になる"));
+    expect(setVisitFilter).toHaveBeenLastCalledWith("wish");
+    expect(setWishLevels).not.toHaveBeenCalled();
+
+    await userEvent.click(option("状態", "食べた"));
+    expect(setVisitFilter).toHaveBeenLastCalledWith("eaten");
+    expect(setWishLevels).toHaveBeenLastCalledWith([]);
+  });
+
+  it("names the 気になる度 toggles apart from the 状態 option", () => {
+    const { option } = renderFilters();
+    expect(option("状態", "気になる")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "気になる度: 気になる" }),
+    ).toHaveTextContent("気になる");
   });
 
   it("disables 気になる度 while 状態 is 食べた", () => {

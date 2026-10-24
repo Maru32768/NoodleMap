@@ -24,9 +24,8 @@ test("admin narrows by 気になる度 and × クリア clears every level", asy
   const row = page.getByRole("row").filter({ hasText: shop.name });
   await expect(row).toHaveCount(1);
 
-  // Scoped to the group: the 状態 filter also has a 気になる option.
-  const wishLevel = page.getByRole("group", { name: "気になる度" });
-  const level = (name: string) => wishLevel.getByRole("button", { name, exact: true });
+  const level = (label: string) => page.getByRole("button", { name: `気になる度: ${label}`, exact: true });
+  const levels = ["ちょっと気になる", "気になる", "絶対行きたい"];
   await level("絶対行きたい").click();
   await expect(row).toHaveCount(0);
   // An unset 気になる度 counts as 気になる.
@@ -38,8 +37,19 @@ test("admin narrows by 気になる度 and × クリア clears every level", asy
   await expect(row).toHaveCount(0);
 
   await page.getByRole("button", { name: "× クリア" }).click();
-  for (const name of ["ちょっと気になる", "気になる", "絶対行きたい"]) {
-    await expect(level(name)).toHaveAttribute("aria-pressed", "false");
+  for (const label of levels) {
+    await expect(level(label)).toHaveAttribute("aria-pressed", "false");
+  }
+  await expect(row).toHaveCount(1);
+
+  // 食べた clears the levels, so returning to 全て does not restore them.
+  const visit = page.getByRole("radiogroup", { name: "状態" });
+  await level("ちょっと気になる").click();
+  await expect(row).toHaveCount(0);
+  await visit.getByRole("radio", { name: "食べた", exact: true }).click();
+  await visit.getByRole("radio", { name: "全て", exact: true }).click();
+  for (const label of levels) {
+    await expect(level(label)).toHaveAttribute("aria-pressed", "false");
   }
   await expect(row).toHaveCount(1);
 });
