@@ -253,6 +253,31 @@ describe("runImport", () => {
     });
   });
 
+  it("names the photo that failed, so the admin can exclude it", async () => {
+    fakeVisitServer();
+    server.use(
+      http.post(
+        IMAGES,
+        () => HttpResponse.json({ type: "internal_error" }, { status: 500 }),
+        { once: true },
+      ),
+    );
+    const failing = {
+      ...entry(SHOP_A, "2023-04-01", 0),
+      photos: [
+        photo(new File(["jpeg"], "IMG_0001.JPG", { type: "image/jpeg" })),
+      ],
+    };
+
+    const outcome = await run(plan(failing));
+
+    expect(outcome.progress.failures).toEqual([
+      expect.objectContaining({
+        message: expect.stringMatching(/^IMG_0001\.JPG: /),
+      }),
+    ]);
+  });
+
   it("ends stopped once aborted, leaving the rest unsent", async () => {
     const fake = fakeVisitServer();
     const controller = new AbortController();

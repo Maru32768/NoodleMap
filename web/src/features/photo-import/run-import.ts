@@ -230,8 +230,11 @@ async function uploadFrom(
     if (signal.aborted) {
       return { kind: "stopped" };
     }
+    // Named so the admin can exclude it: the count cursor cannot skip a photo, so every re-run stops here.
+    const failedPhoto = (message: string) =>
+      failed(`${photos[i].file.name}: ${message}`);
     if (!prepared.ok) {
-      return failed(VISIT_IMAGE_UNDECODABLE_MESSAGE);
+      return failedPhoto(VISIT_IMAGE_UNDECODABLE_MESSAGE);
     }
     for (let busy = 0; ; busy++) {
       const result = await uploadVisitImage(visitId, prepared.data, {
@@ -256,7 +259,7 @@ async function uploadFrom(
       if (result.error.status === 0 || result.error.status === 401) {
         return stopOf(result.error, signal);
       }
-      return failed(visitImageUploadErrorMessage(result.error));
+      return failedPhoto(visitImageUploadErrorMessage(result.error));
     }
   }
   return "uploaded";
