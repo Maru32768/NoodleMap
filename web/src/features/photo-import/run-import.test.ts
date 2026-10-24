@@ -24,6 +24,7 @@ const photo = (
   index: nextIndex++,
   file,
   capturedAt: new Date(),
+  dateSource: "exif",
   location: null,
 });
 

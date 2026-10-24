@@ -6,13 +6,14 @@ export interface LatLng {
   readonly lng: number;
 }
 
-/** A selected JPEG with a known capture instant. Photos without one never reach grouping. */
+/** A selected JPEG with a capture date from EXIF or the temporary filename suffix. */
 export interface Photo {
   /** Position in the selection: a session-local id, never persisted. */
   readonly index: number;
   readonly file: File;
-  /** Absolute instant from DateTimeOriginal + OffsetTimeOriginal (+09:00 when no offset). */
+  /** EXIF instant, or midnight JST for a filename date whose actual time is unknown. */
   readonly capturedAt: Date;
+  readonly dateSource: "exif" | "filename";
   readonly location: LatLng | null;
 }
 
@@ -96,17 +97,31 @@ function photoFromExif(
   raw: RawExif,
   latestDay: IsoDate,
 ): Photo | PhotoRejection {
-  const capturedAt = parseExifInstant(
+  const exifInstant = parseExifInstant(
     stringOrUndefined(raw.DateTimeOriginal),
     stringOrUndefined(raw.OffsetTimeOriginal),
   );
+  const capturedAt = exifInstant ?? parseFilenameDate(file.name);
   if (!capturedAt) {
     return { file, reason: "no_capture_time" };
   }
   if (japanDate(capturedAt) > latestDay) {
     return { file, reason: "future" };
   }
-  return { index, file, capturedAt, location: locationOf(raw) };
+  return {
+    index,
+    file,
+    capturedAt,
+    dateSource: exifInstant ? "exif" : "filename",
+    location: exifInstant ? locationOf(raw) : null,
+  };
+}
+
+function parseFilenameDate(name: string): Date | null {
+  const match = /^.+_(\d{4})-(\d{2})-(\d{2})\.jpe?g$/i.exec(name);
+  return match
+    ? parseExifInstant(`${match[1]}:${match[2]}:${match[3]} 00:00:00`, "+09:00")
+    : null;
 }
 
 const stringOrUndefined = (value: unknown) =>

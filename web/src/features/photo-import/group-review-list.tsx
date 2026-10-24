@@ -156,6 +156,7 @@ function GroupRowView({
   const { group, choice } = row;
   const first = group.photos[0].capturedAt;
   const last = group.photos[group.photos.length - 1].capturedAt;
+  const filenameDate = group.photos[0].dateSource === "filename";
   const chosen = choice.kind === "shop" ? shopById.get(choice.shopId) : null;
   const choose = (next: ShopChoice) => {
     onChoose(group.id, next);
@@ -165,7 +166,11 @@ function GroupRowView({
   return (
     <Box
       role="group"
-      aria-label={`${group.day} ${JST_TIME.format(first)}の写真`}
+      aria-label={
+        filenameDate
+          ? `${group.day} ${group.photos[0].file.name}の写真`
+          : `${group.day} ${JST_TIME.format(first)}の写真`
+      }
       borderBottom="1px solid"
       borderBottomColor="nm.lineFaint"
       py="12px"
@@ -174,9 +179,14 @@ function GroupRowView({
     >
       <Box display="flex" flexWrap="wrap" alignItems="baseline" gap="10px">
         <Box fontFamily="mono" fontSize="12px" color="nm.ink">
-          {group.day} {JST_TIME.format(first)}
-          {last > first && `–${JST_TIME.format(last)}`}
+          {group.day} {!filenameDate && JST_TIME.format(first)}
+          {!filenameDate && last > first && `–${JST_TIME.format(last)}`}
         </Box>
+        {filenameDate && (
+          <Box fontSize="12px" color="nm.inkMuted">
+            ファイル名から補完 · {group.photos[0].file.name}
+          </Box>
+        )}
         <Box fontSize="12px" color="nm.inkMuted">
           {group.photos.length}枚
         </Box>

@@ -20,6 +20,7 @@ function photo(
     index,
     file: new File([], `${index}.jpg`),
     capturedAt: new Date(`${jst}:00+09:00`),
+    dateSource: "exif",
     location,
   };
 }
@@ -27,6 +28,21 @@ function photo(
 const indexes = (photos: readonly Photo[]) => photos.map((p) => p.index);
 
 describe("groupPhotos", () => {
+  it("keeps filename dates independent even from nearby EXIF photos", () => {
+    const first = {
+      ...photo("2019-08-03T00:00", null),
+      dateSource: "filename",
+    } satisfies Photo;
+    const second = {
+      ...photo("2019-08-03T00:00", null),
+      dateSource: "filename",
+    } satisfies Photo;
+    const exif = photo("2019-08-03T00:01");
+    expect(
+      groupPhotos([first, second, exif]).map((g) => indexes(g.photos)),
+    ).toEqual([[first.index], [second.index], [exif.index]]);
+  });
+
   it("splits on a gap over 30 minutes and keeps a 29-minute gap together", () => {
     const a = photo("2023-04-01T12:00");
     const b = photo("2023-04-01T12:29");

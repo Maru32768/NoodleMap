@@ -23,6 +23,7 @@ function group(on: string, photoCount = 1, minute = 0): PhotoGroup {
   const photos: Photo[] = Array.from({ length: photoCount }, (_, i) => ({
     index: nextIndex++,
     file: new File([], "p.jpg"),
+    dateSource: "exif",
     capturedAt: new Date(
       `${on}T12:${String(minute + i).padStart(2, "0")}:00+09:00`,
     ),
@@ -72,6 +73,20 @@ function entry({
 }
 
 describe("defaultChoice", () => {
+  it("requires a manual shop choice for filename dates", () => {
+    const g = group("2019-08-03");
+    const filenameGroup = {
+      ...g,
+      center: null,
+      photos: g.photos.map(
+        (p): Photo => ({ ...p, dateSource: "filename", location: null }),
+      ),
+    };
+    expect(
+      defaultChoice(filenameGroup, { kind: "no_location" }, new Map()),
+    ).toEqual({ kind: "undecided" });
+  });
+
   it("picks the auto match, asks on an ambiguous one and skips far or unlocated photos", () => {
     const g = group("2023-04-01");
     const none = new Map();

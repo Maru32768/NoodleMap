@@ -281,6 +281,8 @@ function PhotoPicker({ onSelect }: { onSelect: (files: File[]) => void }) {
         <br />
         撮影日時と位置から訪問をまとめ、登録済みの店舗に割り当てます。
         <br />
+        一時対応として、撮影日時がない写真はファイル名末尾の日付（例：IMG_5415_2019-08-03.JPG）で補完し、店舗を手動で選べます。
+        <br />
         ここへのドラッグ＆ドロップや、貼り付け（Ctrl+V）でも追加できます。
       </Box>
       <FilesButton {...primaryButton} onFiles={onSelect}>

@@ -56,6 +56,9 @@ export function groupPhotos(photos: readonly Photo[]): PhotoGroup[] {
 }
 
 function joins(run: readonly Photo[], photo: Photo): boolean {
+  if (photo.dateSource === "filename" || run[0].dateSource === "filename") {
+    return false;
+  }
   const gap =
     photo.capturedAt.getTime() - run[run.length - 1].capturedAt.getTime();
   if (!photo.location) {

@@ -59,6 +59,77 @@ describe("parseExifInstant", () => {
 });
 
 describe("readPhotos", () => {
+  it("falls back to a strict real filename date at midnight JST without GPS", async () => {
+    const files = [
+      jpeg("IMG_5415(1)_2019-08-03.JPG", { gps: { lat: 35, lng: 139 } }),
+      jpeg("leap_2020-02-29.jpeg", { dateTimeOriginal: "invalid" }),
+      new File([BARE_JPEG], "bare_2019-05-03.jpg", { type: "image/jpeg" }),
+    ];
+    const { photos, rejected } = await readPhotos(files, {
+      signal: new AbortController().signal,
+      onProgress: () => {},
+    });
+    expect(rejected).toEqual([]);
+    expect(
+      photos.map((p) => [p.dateSource, japanDate(p.capturedAt), p.location]),
+    ).toEqual([
+      ["filename", "2019-08-03", null],
+      ["filename", "2020-02-29", null],
+      ["filename", "2019-05-03", null],
+    ]);
+    expect(photos[0].capturedAt).toEqual(new Date("2019-08-02T15:00:00Z"));
+  });
+
+  it("rejects invalid suffixes, future filename dates and corrupt files", async () => {
+    const invalid = [
+      "a_2019-02-29.jpg",
+      "a_2020-02-30.jpg",
+      "a_2019-13-01.jpg",
+      "a_2019-08-00.jpg",
+      "a_2019-8-03.jpg",
+      "a_2019-08-03_extra.jpg",
+      "2019-08-03_a.jpg",
+      "_2019-08-03.jpg",
+    ];
+    const futureDay = japanDate(new Date(Date.now() + 2 * 86_400_000));
+    const { photos, rejected } = await readPhotos(
+      [
+        ...invalid.map((name) => jpeg(name, {})),
+        jpeg(`future_${futureDay}.jpg`, {}),
+        new File([new Uint8Array([1, 2, 3])], "broken_2019-08-03.jpg", {
+          type: "image/jpeg",
+        }),
+      ],
+      { signal: new AbortController().signal, onProgress: () => {} },
+    );
+    expect(photos).toEqual([]);
+    expect(rejected.map((r) => r.reason)).toEqual([
+      ...invalid.map(() => "no_capture_time"),
+      "future",
+      "unreadable",
+    ]);
+  });
+
+  it("keeps valid EXIF and its GPS authoritative even if its date is future", async () => {
+    const { photos, rejected } = await readPhotos(
+      [
+        jpeg("a_2019-08-03.jpg", {
+          dateTimeOriginal: "2020:04:01 12:00:00",
+          gps: { lat: 35, lng: 139 },
+        }),
+        jpeg("b_2019-08-03.jpg", { dateTimeOriginal: japanWallClock(2) }),
+      ],
+      { signal: new AbortController().signal, onProgress: () => {} },
+    );
+    expect(photos).toHaveLength(1);
+    expect(photos[0]).toMatchObject({
+      dateSource: "exif",
+      location: { lat: 35, lng: 139 },
+    });
+    expect(japanDate(photos[0].capturedAt)).toBe("2020-04-01");
+    expect(rejected.map((r) => r.reason)).toEqual(["future"]);
+  });
+
   it("turns each JPEG into a photo or a rejection with its reason", async () => {
     const located = jpeg("located.jpg", {
       dateTimeOriginal: "2023:04:01 12:34:56",

@@ -171,6 +171,44 @@ describe("PhotoImportModal", () => {
     expect(onShopsChanged).toHaveBeenCalledTimes(1);
   });
 
+  it("asks for each filename photo's shop and imports the filename date once for the same shop", async () => {
+    const user = userEvent.setup();
+    const fake = fakeVisitServer();
+    renderModal();
+    const files = ["first_2019-08-03.JPG", "second_2019-08-03.JPG"].map(
+      (name) => new File([BARE_JPEG], name, { type: "image/jpeg" }),
+    );
+    await user.upload(await screen.findByLabelText("写真を選ぶ"), files);
+    await screen.findByText(/要確認 2 件/);
+    const rows = await screen.findAllByRole("group", { name: /^2019-08-03 / });
+    expect(rows).toHaveLength(2);
+    for (const row of rows) {
+      expect(row).not.toHaveTextContent("00:00");
+      expect(row).toHaveTextContent("ファイル名から補完");
+      expect(row).toHaveTextContent("要確認");
+      expect(within(row).queryByRole("radiogroup")).not.toBeInTheDocument();
+      await user.click(within(row).getByRole("button", { name: "店舗を検索" }));
+      await user.type(
+        within(row).getByRole("textbox", { name: "店舗を検索" }),
+        "ひとり",
+      );
+      await user.click(
+        within(row).getByRole("button", { name: /麺屋 ひとり/ }),
+      );
+    }
+    await screen.findByText(/^1 件の訪問を作成/);
+    await user.click(screen.getByRole("button", { name: "取り込む" }));
+    await screen.findByText("取り込みが完了しました");
+    expect(fake.log).toEqual(["create 2019-08-03", "image 1", "image 2"]);
+    expect(fake.visitsOf(ALONE.id)).toEqual([
+      expect.objectContaining({
+        visitedOn: "2019-08-03",
+        images: expect.any(Array),
+      }),
+    ]);
+    expect(fake.visitsOf(ALONE.id)[0].images).toHaveLength(2);
+  });
+
   it("starts from photos pasted into the dialog", async () => {
     fakeVisitServer();
     renderModal();

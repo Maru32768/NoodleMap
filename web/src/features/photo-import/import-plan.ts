@@ -64,6 +64,7 @@ export type EntryAction =
 
 /**
  * The choice before the admin touches the row.
+ * 0. Filename dates always need the admin to choose a shop.
  * 1. Exactly one candidate shop already has a visit dated `group.day`: that shop, source "existing".
  *    This makes a re-run converge even when the admin's earlier picks were lost with the tab.
  *    Two or more such shops: undecided.
@@ -75,6 +76,9 @@ export function defaultChoice(
   match: Match,
   serverVisits: ServerVisits,
 ): ShopChoice {
+  if (group.photos[0].dateSource === "filename") {
+    return { kind: "undecided" };
+  }
   if (match.kind === "far" || match.kind === "no_location") {
     return { kind: "skip" };
   }
