@@ -16,6 +16,7 @@ type TagInput = components["schemas"]["TagInput"];
 type AddShopRequest = components["schemas"]["AddShopRequest"];
 type UpdateShopRequest = components["schemas"]["UpdateShopRequest"];
 type VisitLogInput = components["schemas"]["VisitLogInput"];
+export type VisitLog = components["schemas"]["VisitLog"];
 
 /** A short token unique to this run, used to namespace seeded shops and tags. */
 export function uid(): string {
@@ -55,15 +56,18 @@ export class Api {
     return tags.find((t) => t.slug === input.slug)!;
   }
 
-  /** Adds a shop near the default map center with its tags; an eaten shop gets one 訪問ログ with the rate. */
+  /** Adds a shop (near the default map center unless placed) with its tags; an eaten shop gets one 訪問ログ with the rate. */
   async createShop(
     spec: Pick<AddShopRequest, "name"> &
-      Partial<Pick<AddShopRequest, "category" | "tagIds" | "address">> & { eaten?: boolean; rate?: number },
+      Partial<Pick<AddShopRequest, "category" | "tagIds" | "address" | "lat" | "lng">> & {
+        eaten?: boolean;
+        rate?: number;
+      },
   ): Promise<Shop> {
     const add: AddShopRequest = {
       name: spec.name,
-      lat: 35.6895,
-      lng: 139.7005,
+      lat: spec.lat ?? 35.6895,
+      lng: spec.lng ?? 139.7005,
       postalCode: "160-0022",
       address: spec.address ?? "東京都新宿区新宿3丁目",
       googlePlaceId: `e2e-place-${uid()}`,
@@ -76,6 +80,11 @@ export class Api {
       await expectOkJson(await this.request.post(`/api/v1/auth/shops/${shop.id}/visits`, { data: visit }));
     }
     return this.getShop(shop.id);
+  }
+
+  async listVisits(shopId: string): Promise<VisitLog[]> {
+    const res = await this.request.get(`/api/v1/shops/${shopId}/visits`);
+    return (await expectOkJson<{ visits: VisitLog[] }>(res)).visits;
   }
 
   async updateShop(shop: Shop, patch: Partial<UpdateShopRequest>): Promise<void> {

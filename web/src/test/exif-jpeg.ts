@@ -71,7 +71,7 @@ function writeIfd(entries: readonly Entry[], offset: number): Uint8Array {
   return bytes;
 }
 
-/** `jpeg` with an APP1 Exif segment holding `spec`, inserted right after its SOI marker. */
+/** `jpeg` with an APP1 Exif segment holding `spec` near its start. */
 export function withExif(
   jpeg: Uint8Array,
   spec: ExifSpec,
@@ -114,13 +114,16 @@ export function withExif(
     segmentLength & 0xff,
     ...new TextEncoder().encode("Exif\0\0"),
   ]);
+  // After a JFIF APP0 segment, which must come right after SOI.
+  const insertAt =
+    jpeg[2] === 0xff && jpeg[3] === 0xe0 ? 4 + ((jpeg[4] << 8) | jpeg[5]) : 2;
   const out = new Uint8Array(jpeg.length + 4 + segmentLength - 2);
   let at = 0;
   for (const part of [
-    jpeg.subarray(0, 2),
+    jpeg.subarray(0, insertAt),
     header,
     ...parts,
-    jpeg.subarray(2),
+    jpeg.subarray(insertAt),
   ]) {
     out.set(part, at);
     at += part.length;
