@@ -28,49 +28,31 @@ services:
         sync: false
       - key: AUTH_COOKIE_SECURE
         value: "true"
-      # Private database backups. Set all four R2 credentials together; no public bucket/domain.
+      # Set the shared credentials before deploying this R2-enabled configuration.
+      # Scope the app token to the three app buckets; keep Terraform state credentials separate.
+      - key: R2_ENDPOINT
+        value: https://27f0188849b71a6222f1aa078299a54a.r2.cloudflarestorage.com
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      # Private database backups. No public bucket/domain.
       - key: BACKUP_R2_BUCKET
-        sync: false
-      - key: BACKUP_R2_ENDPOINT
-        sync: false
-      - key: BACKUP_R2_ACCESS_KEY_ID
-        sync: false
-      - key: BACKUP_R2_SECRET_ACCESS_KEY
-        sync: false
+        value: noodle-map-backups
       - key: BACKUP_R2_PREFIX
         value: db-backup
       - key: PUBLIC_BASE_URL
         value: https://noodle-map.marulabs.dev
-      # OGP image cache (terraform/modules/cloudflare-r2-og-images). All five or none (none renders
-      # per request); the server refuses to boot on a partial set, so the non-secret ones are not
-      # pinned here either: OG_R2_BUCKET=noodle-map-og-images,
-      # OG_R2_ENDPOINT=https://<account_id>.r2.cloudflarestorage.com,
-      # OG_R2_PUBLIC_BASE_URL=https://og.noodle-map.marulabs.dev
+      # OGP image cache (terraform/modules/cloudflare-r2-og-images).
       - key: OG_R2_BUCKET
-        sync: false
-      - key: OG_R2_ENDPOINT
-        sync: false
-      - key: OG_R2_ACCESS_KEY_ID
-        sync: false
-      - key: OG_R2_SECRET_ACCESS_KEY
-        sync: false
+        value: noodle-map-og-images
       - key: OG_R2_PUBLIC_BASE_URL
-        sync: false
-      # 訪問画像 storage (terraform/modules/cloudflare-r2-visit-images). All five or none; with none this
-      # https site boots but refuses image uploads (503). Same reason as above for
-      # sync: false on the non-secret ones: VISIT_IMAGES_R2_BUCKET=noodle-map-visit-images,
-      # VISIT_IMAGES_R2_ENDPOINT=https://<account_id>.r2.cloudflarestorage.com,
-      # VISIT_IMAGES_R2_PUBLIC_BASE_URL=https://images.noodle-map.marulabs.dev
+        value: https://og.noodle-map.marulabs.dev
+      # 訪問画像 storage (terraform/modules/cloudflare-r2-visit-images).
       - key: VISIT_IMAGES_R2_BUCKET
-        sync: false
-      - key: VISIT_IMAGES_R2_ENDPOINT
-        sync: false
-      - key: VISIT_IMAGES_R2_ACCESS_KEY_ID
-        sync: false
-      - key: VISIT_IMAGES_R2_SECRET_ACCESS_KEY
-        sync: false
+        value: noodle-map-visit-images
       - key: VISIT_IMAGES_R2_PUBLIC_BASE_URL
-        sync: false
+        value: https://images.noodle-map.marulabs.dev
 
   - type: web
     runtime: static

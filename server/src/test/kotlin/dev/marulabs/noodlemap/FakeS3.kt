@@ -55,8 +55,9 @@ class FakeS3 {
     }
 
     fun r2Config(bucket: String, publicBaseUrl: String) = Config.R2Config(
-        bucket = bucket, endpoint = "http://127.0.0.1:${server.address.port}",
-        accessKeyId = "kid", secretAccessKey = "secret", publicBaseUrl = publicBaseUrl,
+        bucket = bucket,
+        connection = Config.R2ConnectionConfig("http://127.0.0.1:${server.address.port}", "kid", "secret"),
+        publicBaseUrl = publicBaseUrl,
     )
 
     fun stop() {

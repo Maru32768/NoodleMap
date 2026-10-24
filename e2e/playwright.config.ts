@@ -78,22 +78,21 @@ export default defineConfig({
         ADMIN_EMAIL,
         AUTH_COOKIE_SECURE: "false",
         BACKUP_PATH: `${DB_PATH}.bak`,
-        S3_BUCKET: "",
+        // Never inherit external R2 storage settings from the developer's environment.
+        R2_ENDPOINT: "",
+        R2_ACCESS_KEY_ID: "",
+        R2_SECRET_ACCESS_KEY: "",
+        BACKUP_R2_BUCKET: "",
+        BACKUP_R2_PREFIX: "",
         // No Places key: the add form's Google Place search shows its manual-entry fallback.
         GOOGLE_PLACES_API_KEY: "",
         // An http site without VISIT_IMAGES_R2_*: visit images are stored on local disk and
         // served under /api, which the web server proxies, so their URLs are on BASE_URL.
         PUBLIC_BASE_URL: BASE_URL,
         VISIT_IMAGES_R2_BUCKET: "",
-        VISIT_IMAGES_R2_ENDPOINT: "",
-        VISIT_IMAGES_R2_ACCESS_KEY_ID: "",
-        VISIT_IMAGES_R2_SECRET_ACCESS_KEY: "",
         VISIT_IMAGES_R2_PUBLIC_BASE_URL: "",
         // OGP images are rendered per request instead of cached in R2.
         OG_R2_BUCKET: "",
-        OG_R2_ENDPOINT: "",
-        OG_R2_ACCESS_KEY_ID: "",
-        OG_R2_SECRET_ACCESS_KEY: "",
         OG_R2_PUBLIC_BASE_URL: "",
       },
     },

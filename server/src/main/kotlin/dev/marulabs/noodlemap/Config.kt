@@ -33,24 +33,23 @@ data class Config(
     /** Private backup storage; it has no public URL or public bucket requirement. */
     data class BackupR2Config(
         val bucket: String,
-        val endpoint: String,
-        val accessKeyId: String,
-        val secretAccessKey: String,
-    ) {
-        override fun toString(): String =
-            "BackupR2Config(bucket=$bucket, endpoint=$endpoint, accessKeyId=$accessKeyId, secretAccessKey=***)"
-    }
+        val connection: R2ConnectionConfig,
+    )
 
     /** A Cloudflare R2 bucket reached through its S3 API and served from a public custom domain. */
     data class R2Config(
         val bucket: String,
+        val connection: R2ConnectionConfig,
+        val publicBaseUrl: String,
+    )
+
+    data class R2ConnectionConfig(
         val endpoint: String,
         val accessKeyId: String,
         val secretAccessKey: String,
-        val publicBaseUrl: String,
     ) {
         override fun toString(): String =
-            "R2Config(bucket=$bucket, endpoint=$endpoint, accessKeyId=$accessKeyId, secretAccessKey=***, publicBaseUrl=$publicBaseUrl)"
+            "R2ConnectionConfig(endpoint=$endpoint, accessKeyId=$accessKeyId, secretAccessKey=***)"
     }
 
     // Keep the Places key and R2 secret out of logs and error messages.
@@ -91,9 +90,10 @@ data class Config(
                     log.warn("PUBLIC_BASE_URL is empty; share pages use {} for absolute URLs", it)
                 }
 
-            val ogR2 = r2(env, "OG_R2_")
+            val r2Connection = r2Connection(env)
+            val ogR2 = r2(env, "OG_R2_", r2Connection)
             if (ogR2 == null) log.info("OG_R2_* not set; OGP images are rendered on every request")
-            val visitImagesR2 = r2(env, "VISIT_IMAGES_R2_")
+            val visitImagesR2 = r2(env, "VISIT_IMAGES_R2_", r2Connection)
             if (visitImagesR2 == null) log.info("VISIT_IMAGES_R2_* not set; visit images are stored on local disk")
 
             return Config(
@@ -105,7 +105,9 @@ data class Config(
                 googlePlacesApiKey = googlePlacesApiKey,
                 backup = BackupConfig(
                     snapshotPath = snapshotPath,
-                    r2 = backupR2(env),
+                    r2 = env("BACKUP_R2_BUCKET")?.trim()?.takeIf { it.isNotEmpty() }?.let {
+                        BackupR2Config(it, requireR2Connection(r2Connection, "BACKUP_R2_BUCKET"))
+                    },
                     prefix = env("BACKUP_R2_PREFIX")?.trim()?.takeIf { it.isNotEmpty() },
                 ),
                 publicBaseUrl = publicBaseUrl,
@@ -118,16 +120,19 @@ data class Config(
         private fun required(env: (String) -> String?, key: String): String =
             env(key)?.takeIf { it.isNotBlank() } ?: error("$key is missing")
 
-        private fun backupR2(env: (String) -> String?): BackupR2Config? {
-            val keys = listOf("BUCKET", "ENDPOINT", "ACCESS_KEY_ID", "SECRET_ACCESS_KEY").map { "BACKUP_R2_$it" }
+        private fun r2Connection(env: (String) -> String?): R2ConnectionConfig? {
+            val keys = listOf("R2_ENDPOINT", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY")
             val values = keys.map { env(it)?.trim().orEmpty() }
             return when {
                 values.all { it.isEmpty() } -> null
                 values.any { it.isEmpty() } ->
-                    error("Set all BACKUP_R2_* credentials or none; missing: ${keys.filterIndexed { i, _ -> values[i].isEmpty() }.joinToString()}")
-                else -> BackupR2Config(values[0], r2Endpoint(keys[1], values[1]), values[2], values[3])
+                    error("Set all shared R2 connection variables or none; missing: ${keys.filterIndexed { i, _ -> values[i].isEmpty() }.joinToString()}")
+                else -> R2ConnectionConfig(r2Endpoint(keys[0], values[0]), values[1], values[2])
             }
         }
+
+        private fun requireR2Connection(connection: R2ConnectionConfig?, setting: String): R2ConnectionConfig =
+            connection ?: error("$setting requires R2_ENDPOINT, R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY")
 
         /** Returns [value] if it is an absolute http(s) URL with a host; otherwise refuses to boot. */
         private fun httpUrl(key: String, value: String): String {
@@ -138,16 +143,15 @@ data class Config(
             return value
         }
 
-        /** The five `<prefix>*` variables of one R2 bucket: all of them, or none (null). */
-        private fun r2(env: (String) -> String?, prefix: String): R2Config? {
-            val keys = listOf("BUCKET", "ENDPOINT", "ACCESS_KEY_ID", "SECRET_ACCESS_KEY", "PUBLIC_BASE_URL").map { prefix + it }
+        private fun r2(env: (String) -> String?, prefix: String, connection: R2ConnectionConfig?): R2Config? {
+            val keys = listOf("BUCKET", "PUBLIC_BASE_URL").map { prefix + it }
             val values = keys.map { env(it)?.trim().orEmpty() }
             return when {
                 values.all { it.isEmpty() } -> null
                 values.any { it.isEmpty() } ->
                     error("Set all $prefix* variables or none; missing: ${keys.filterIndexed { i, _ -> values[i].isEmpty() }.joinToString()}")
                 else -> R2Config(
-                    values[0], r2Endpoint(keys[1], values[1]), values[2], values[3], httpUrl(keys[4], values[4].trimEnd('/')),
+                    values[0], requireR2Connection(connection, keys[0]), httpUrl(keys[1], values[1].trimEnd('/')),
                 )
             }
         }

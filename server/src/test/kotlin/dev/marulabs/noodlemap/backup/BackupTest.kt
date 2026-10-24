@@ -120,7 +120,7 @@ class BackupTest {
         try {
             t.seedUser("backup@example.com")
             val cfg = t.config.backup.copy(
-                r2 = Config.BackupR2Config("private-backups", "http://127.0.0.1:${server.address.port}", "test-key", "test-secret"),
+                r2 = Config.BackupR2Config("private-backups", Config.R2ConnectionConfig("http://127.0.0.1:${server.address.port}", "test-key", "test-secret")),
                 prefix = "db-backup",
             )
             BackupService(t.dataSource, cfg).use { backups ->

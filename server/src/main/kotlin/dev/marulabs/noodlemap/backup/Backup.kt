@@ -80,7 +80,7 @@ class BackupService(private val dataSource: DataSource, private val cfg: Config.
             append(datePrefix.format(now)).append('/')
             append("noodle_map-").append(fileStamp.format(now)).append('-').append(UUID.randomUUID()).append(".db.gz")
         }
-        r2Client(r2).use { s3 ->
+        r2Client(r2.connection).use { s3 ->
             s3.putObject {
                 bucket = r2.bucket
                 this.key = key

@@ -69,7 +69,7 @@ interface VisitImageStore : Closeable {
 
 /** Cloudflare R2 bucket served from its public custom domain (production). */
 class R2VisitImageStore(private val cfg: Config.R2Config) : VisitImageStore {
-    private val s3 = r2Client(cfg)
+    private val s3 = r2Client(cfg.connection)
 
     override suspend fun put(key: String, jpeg: ByteArray) {
         s3.putObject {

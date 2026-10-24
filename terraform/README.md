@@ -66,34 +66,45 @@ Protomaps source build date, for example `maps/japan-light-20251201-v1.pmtiles`.
 Use a new object name for updates because the object is served with long-lived
 immutable caching.
 
+## Shared application R2 connection
+
+Create one R2 API token with Object Read & Write scoped to the three application
+buckets: `noodle-map-backups`, `noodle-map-og-images`, and
+`noodle-map-visit-images`. Exclude `noodle-map-terraform-state`; keep its
+`AWS_*` credentials separate. Set the shared connection on the Render backend:
+
+- `R2_ENDPOINT=https://<account_id>.r2.cloudflarestorage.com` (no bucket suffix)
+- `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` from the application token
+
+Set all three connection values or none. Any enabled R2 feature requires the
+shared connection, while each feature below can be enabled independently.
+When replacing the old per-feature connection variables, set these shared values
+and remove the old `BACKUP_R2_*`, `OG_R2_*`, and `VISIT_IMAGES_R2_*` endpoint and
+credential variables. Keep the bucket, prefix, and public URL variables below.
+
 ## OGP images
 
 `module.og_images_r2` creates the `noodle-map-og-images` bucket served at
 `https://og.noodle-map.marulabs.dev`. The backend writes share-card PNGs there
-under `og/shops/<id>/<hash>.png`. Create an R2 API token with Object Read & Write
-on that bucket only, then set on the Render backend:
+under `og/shops/<id>/<hash>.png`. Set on the Render backend:
 
 - `OG_R2_BUCKET=noodle-map-og-images`
-- `OG_R2_ENDPOINT=https://<account_id>.r2.cloudflarestorage.com`
-- `OG_R2_ACCESS_KEY_ID` / `OG_R2_SECRET_ACCESS_KEY` from the token
 - `OG_R2_PUBLIC_BASE_URL=https://og.noodle-map.marulabs.dev`
 
-Set all five or none; with none the backend renders each image on request.
+Set both feature values or neither; with neither the backend renders each image
+on request.
 
 ## Database backups
 
 `module.backups_r2` creates the private `noodle-map-backups` bucket. It has no
-custom domain; keep its public development URL disabled. Create an R2 API token
-with Object Read & Write on this bucket only, then set on the Render backend:
+custom domain; keep its public development URL disabled. Set on the Render backend:
 
 - `BACKUP_R2_BUCKET=noodle-map-backups`
-- `BACKUP_R2_ENDPOINT=https://<account_id>.r2.cloudflarestorage.com`
-- `BACKUP_R2_ACCESS_KEY_ID` / `BACKUP_R2_SECRET_ACCESS_KEY` from the token
 - `BACKUP_R2_PREFIX=db-backup` (optional)
 
-Set all four storage credentials or none; with none only the local SQLite
-snapshot is written. A public base URL is never required. These credentials
-are separate from the Terraform backend's `AWS_*` credentials. Existing S3
+Set the bucket to enable remote backups; without it only the local SQLite
+snapshot is written. The prefix can remain configured without a bucket.
+A public base URL is never required. Existing S3
 objects are not migrated by Terraform or by the application. See
 [`sqlite-remote-access.md`](../docs/sqlite-remote-access.md) for manual backups
 and restore commands.
@@ -102,14 +113,11 @@ and restore commands.
 
 `module.visit_images_r2` creates the `noodle-map-visit-images` bucket served at
 `https://images.noodle-map.marulabs.dev`. The backend stores the photos of visit
-logs there as JPEGs under `visits/<visit_id>/<image_id>.jpg`. Create an R2 API
-token with Object Read & Write on that bucket only, then set on the Render backend:
+logs there as JPEGs under `visits/<visit_id>/<image_id>.jpg`. Set on the Render backend:
 
 - `VISIT_IMAGES_R2_BUCKET=noodle-map-visit-images`
-- `VISIT_IMAGES_R2_ENDPOINT=https://<account_id>.r2.cloudflarestorage.com`
-- `VISIT_IMAGES_R2_ACCESS_KEY_ID` / `VISIT_IMAGES_R2_SECRET_ACCESS_KEY` from the token
 - `VISIT_IMAGES_R2_PUBLIC_BASE_URL=https://images.noodle-map.marulabs.dev`
 
-Set all five or none. With none, an https site boots but refuses image uploads
+Set both feature values or neither. With neither, an https site boots but refuses image uploads
 (503 `visit_images_storage_unconfigured`); only an http `PUBLIC_BASE_URL` (local
 development, e2e) stores the images on the local disk next to the database.

@@ -17,7 +17,7 @@ private const val MAX_KNOWN_KEYS = 1000
  * custom domain. One client for the app's lifetime; [close] it on shutdown.
  */
 class R2OgImageStore(private val cfg: Config.R2Config) : Closeable {
-    private val s3 = r2Client(cfg)
+    private val s3 = r2Client(cfg.connection)
 
     // Keys known to exist, so repeat crawler hits skip the HEAD. Key strings only; cleared when full.
     private val known = ConcurrentHashMap.newKeySet<String>()
