@@ -36,14 +36,27 @@ wipe each other; two runs on the same ports would.
 The suite never reuses a server that is already running, because tests write
 shops, tags and sessions.
 
-A run fails after 15 minutes (`globalTimeout`) instead of hanging; set
-`E2E_GLOBAL_TIMEOUT_MINUTES` to change that, or to `0` to disable it.
+A run fails after 15 minutes (`globalTimeout`, which includes building and
+starting the servers) instead of hanging. Set `E2E_GLOBAL_TIMEOUT_MINUTES` (0 to
+1440) to change it. Long runs such as `--repeat-each`, headed debugging with
+`page.pause()`, or an `E2E_WEB_DEV=1` run can exceed it; set
+`E2E_GLOBAL_TIMEOUT_MINUTES=0` to disable it for those.
 
-To keep only the end of the output, prefer redirecting it to a file
-(`npm test > e2e.log 2>&1`) over piping it into `tail` or `Select-Object -Last`.
-Piping works, but a pipe only closes once every process holding it exits, so any
+To keep only the end of the output, prefer redirecting it to a file over piping
+it into `tail` or `Select-Object -Last`:
+
+```sh
+mise exec -- npm test > e2e.log 2>&1
+```
+
+```powershell
+# cmd's redirection keeps the bytes as UTF-8; Windows PowerShell's `>` re-encodes them.
+cmd /c "mise exec -- npm test > e2e.log 2>&1"
+```
+
+Piping works too, but a pipe only closes once every process holding it exits, so a
 process that outlives the run with an inherited handle (such as a Gradle daemon)
-makes the pipe wait for it. `start-server.mjs` avoids that; see below.
+would keep it open. `start-server.mjs` avoids that; see below.
 
 ## What `npm test` starts
 
@@ -53,11 +66,14 @@ makes the pipe wait for it. `start-server.mjs` avoids that; see below.
   runs `gradlew buildFatJar` (a no-op when the jar is current) into
   `.data/<ports>/server-build` rather than `server/build`, so a `./gradlew run`
   dev server in the same checkout keeps its classes, and runs the jar on the
-  backend port with an E2E `ADMIN_EMAIL` and a local-only backup path. Gradle's
-  output is piped, not inherited. On Windows the build also runs with
-  `--no-daemon` and in-process Kotlin compilation (about 20 s slower than a warm
-  daemon), because there a daemon would inherit the caller's stdout handle and
-  keep `npm test | tail` open after Playwright exits.
+  backend port with an E2E `ADMIN_EMAIL` and a local-only backup path.
+  On Windows every child process inherits the caller's stdout handle, so a Gradle
+  or Kotlin daemon left running would keep `npm test | tail` open after Playwright
+  exits. There the build runs with `--no-daemon`, in-process Kotlin compilation and
+  `-Xmx1g -XX:MaxMetaspaceSize=512m` in a single-use JVM. Measured on one Windows
+  machine: about 15 s when the jar is up to date (about 4 s with a warm daemon),
+  and about 60 s after editing one Kotlin file (still incremental compilation, but
+  in a cold JVM).
 - `web`: `vite build` into `.data/<ports>/web-build`, then `vite preview` on the
   web port. Preview reuses the dev proxy, and `API_PROXY_TARGET` points it at the E2E
   backend, so `/api` never reaches the dev server. A production build
