@@ -4,6 +4,44 @@ info:
   version: 0.0.0
 tags: []
 paths:
+  /api/v1/auth/admin/backups:
+    post:
+      operationId: forceBackup
+      description: Admin-only forced backup, even when the DB has not changed. Requires application/json Content-Type. Returns after snapshot and configured R2 upload complete.
+      parameters: []
+      responses:
+        '204':
+          description: 'There is no content to send for this request, but the headers may be useful. '
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvalidRequestErrorBody'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthenticationRequiredErrorBody'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionDeniedErrorBody'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalErrorBody'
+        '503':
+          description: Service unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BackupBusyErrorBody'
   /api/v1/auth/google:
     post:
       operationId: googleAuth
@@ -21,12 +59,30 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GoogleAuthBadRequestErrorBody'
+        '408':
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestBodyTimeoutErrorBody'
+        '413':
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestBodyTooLargeErrorBody'
         '500':
           description: Server error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/SessionCreationFailedErrorBody'
+        '503':
+          description: Service unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestBodyBusyErrorBody'
       requestBody:
         required: true
         content:
@@ -336,12 +392,30 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PermissionDeniedErrorBody'
+        '408':
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestBodyTimeoutErrorBody'
+        '413':
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestBodyTooLargeErrorBody'
         '500':
           description: Server error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/InternalErrorBody'
+        '503':
+          description: Service unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestBodyBusyErrorBody'
       requestBody:
         required: true
         content:
@@ -384,12 +458,30 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/NotFoundErrorBody'
+        '408':
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestBodyTimeoutErrorBody'
+        '413':
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestBodyTooLargeErrorBody'
         '500':
           description: Server error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/InternalErrorBody'
+        '503':
+          description: Service unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestBodyBusyErrorBody'
       requestBody:
         required: true
         content:
@@ -484,12 +576,30 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/NotFoundErrorBody'
+        '408':
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestBodyTimeoutErrorBody'
+        '413':
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestBodyTooLargeErrorBody'
         '500':
           description: Server error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/InternalErrorBody'
+        '503':
+          description: Service unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestBodyBusyErrorBody'
       requestBody:
         required: true
         content:
@@ -525,12 +635,30 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PermissionDeniedErrorBody'
+        '408':
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestBodyTimeoutErrorBody'
+        '413':
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestBodyTooLargeErrorBody'
         '500':
           description: Server error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/InternalErrorBody'
+        '503':
+          description: Service unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestBodyBusyErrorBody'
       requestBody:
         required: true
         content:
@@ -578,12 +706,30 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/NotFoundErrorBody'
+        '408':
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestBodyTimeoutErrorBody'
+        '413':
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestBodyTooLargeErrorBody'
         '500':
           description: Server error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/InternalErrorBody'
+        '503':
+          description: Service unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestBodyBusyErrorBody'
       requestBody:
         required: true
         content:
@@ -666,12 +812,30 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/NotFoundErrorBody'
+        '408':
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestBodyTimeoutErrorBody'
+        '413':
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestBodyTooLargeErrorBody'
         '500':
           description: Server error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/InternalErrorBody'
+        '503':
+          description: Service unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestBodyBusyErrorBody'
       requestBody:
         required: true
         content:
@@ -829,12 +993,30 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/NotFoundErrorBody'
+        '408':
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestBodyTimeoutErrorBody'
+        '413':
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestBodyTooLargeErrorBody'
         '500':
           description: Server error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/InternalErrorBody'
+        '503':
+          description: Service unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestBodyBusyErrorBody'
       requestBody:
         required: true
         content:
@@ -1037,6 +1219,17 @@ components:
             - authentication_required
         message:
           type: string
+    BackupBusyErrorBody:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum:
+            - backup_busy
+        message:
+          type: string
     CategorySlug:
       type: string
       enum:
@@ -1045,6 +1238,10 @@ components:
     ErrorType:
       type: string
       enum:
+        - request_body_too_large
+        - request_body_busy
+        - request_body_timeout
+        - backup_busy
         - invalid_request
         - authentication_required
         - permission_denied
@@ -1269,6 +1466,39 @@ components:
             $ref: '#/components/schemas/uuid'
           maxItems: 10
       description: Every image id of the visit log exactly once, in the new display order.
+    RequestBodyBusyErrorBody:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum:
+            - request_body_busy
+        message:
+          type: string
+    RequestBodyTimeoutErrorBody:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum:
+            - request_body_timeout
+        message:
+          type: string
+    RequestBodyTooLargeErrorBody:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum:
+            - request_body_too_large
+        message:
+          type: string
     SaveTagsRequest:
       type: object
       required:

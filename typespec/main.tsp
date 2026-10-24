@@ -11,6 +11,10 @@ namespace NoodleMap;
 scalar uuid extends string;
 
 union ErrorType {
+  "request_body_too_large",
+  "request_body_busy",
+  "request_body_timeout",
+  "backup_busy",
   "invalid_request",
   "authentication_required",
   "permission_denied",
@@ -245,6 +249,17 @@ model InternalErrorBody {
   message?: string;
 }
 
+model RequestBodyTooLargeErrorBody { type: "request_body_too_large"; message?: string; }
+model RequestBodyBusyErrorBody { type: "request_body_busy"; message?: string; }
+model RequestBodyTimeoutErrorBody { type: "request_body_timeout"; message?: string; }
+model BackupBusyErrorBody { type: "backup_busy"; message?: string; }
+
+// JSON bodies are limited to 256 KiB, eight concurrent calls, and ten seconds receiving time.
+alias RequestBodyErrorResponse =
+  { @statusCode statusCode: 413; @body body: RequestBodyTooLargeErrorBody; } |
+  { @statusCode statusCode: 408; @body body: RequestBodyTimeoutErrorBody; } |
+  ServiceUnavailableResponse<RequestBodyBusyErrorBody>;
+
 @doc("The server has no Google Places API key configured.")
 model GooglePlacesNotConfiguredErrorBody {
   type: "google_places_not_configured";
@@ -258,6 +273,10 @@ model GooglePlacesFailedErrorBody {
 }
 
 alias ErrorBody =
+  RequestBodyTooLargeErrorBody |
+  RequestBodyBusyErrorBody |
+  RequestBodyTimeoutErrorBody |
+  BackupBusyErrorBody |
   InvalidRequestErrorBody |
   GoogleAuthBadRequestErrorBody |
   AddShopBadRequestErrorBody |
@@ -673,11 +692,11 @@ op listTags(): OkResponse<TagsResponse> | InternalServerErrorResponse<InternalEr
 @route("/auth/tags")
 op saveTags(
   @body body: SaveTagsRequest,
-): OkResponse<TagsResponse> | BadRequestResponse<TagBadRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
+): RequestBodyErrorResponse | OkResponse<TagsResponse> | BadRequestResponse<TagBadRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
 
 @post
 @route("/auth/google")
-op googleAuth(@body body: GoogleAuthRequest): OkResponse<AuthResponse> | BadRequestResponse<GoogleAuthBadRequestErrorBody> | InternalServerErrorResponse<SessionCreationFailedErrorBody>;
+op googleAuth(@body body: GoogleAuthRequest): RequestBodyErrorResponse | OkResponse<AuthResponse> | BadRequestResponse<GoogleAuthBadRequestErrorBody> | InternalServerErrorResponse<SessionCreationFailedErrorBody>;
 
 @get
 @route("/auth/me")
@@ -703,18 +722,23 @@ op revokeSession(
 @route("/auth/sessions/revoke-others")
 op revokeOtherSessions(): OkEmptyResponse | UnauthorizedResponse<AuthenticationRequiredErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
 
+@doc("Admin-only forced backup, even when the DB has not changed. Requires application/json Content-Type. Returns after snapshot and configured R2 upload complete.")
+@post
+@route("/auth/admin/backups")
+op forceBackup(): NoContentResponse | BadRequestResponse<InvalidRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | ServiceUnavailableResponse<BackupBusyErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
+
 @post
 @route("/auth/shops")
 op addShop(
   @body body: AddShopRequest,
-): OkResponse<Shop> | BadRequestResponse<AddShopBadRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
+): RequestBodyErrorResponse | OkResponse<Shop> | BadRequestResponse<AddShopBadRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
 
 @put
 @route("/auth/shops/{id}")
 op updateShop(
   @path id: uuid,
   @body body: UpdateShopRequest,
-): OkEmptyResponse | BadRequestResponse<UpdateShopBadRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | NotFoundResponse<NotFoundErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
+): RequestBodyErrorResponse | OkEmptyResponse | BadRequestResponse<UpdateShopBadRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | NotFoundResponse<NotFoundErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
 
 @doc("Deletes a shop with its tags and links. A shop with visit logs cannot be deleted (409).")
 @delete
@@ -735,7 +759,7 @@ op listVisitLogs(
 op addVisitLog(
   @path id: uuid,
   @body body: VisitLogInput,
-): OkResponse<VisitLog> | BadRequestResponse<VisitLogBadRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | NotFoundResponse<NotFoundErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
+): RequestBodyErrorResponse | OkResponse<VisitLog> | BadRequestResponse<VisitLogBadRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | NotFoundResponse<NotFoundErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
 
 @doc("Replaces every field of a visit log.")
 @put
@@ -743,7 +767,7 @@ op addVisitLog(
 op updateVisitLog(
   @path visitId: uuid,
   @body body: VisitLogInput,
-): OkResponse<VisitLog> | BadRequestResponse<VisitLogBadRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | NotFoundResponse<NotFoundErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
+): RequestBodyErrorResponse | OkResponse<VisitLog> | BadRequestResponse<VisitLogBadRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | NotFoundResponse<NotFoundErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
 
 @doc("Deletes a visit log with its images.")
 @delete
@@ -772,7 +796,7 @@ op uploadVisitImage(
 op reorderVisitImages(
   @path visitId: uuid,
   @body body: ReorderVisitImagesRequest,
-): OkResponse<VisitImagesResponse> | BadRequestResponse<VisitImageBadRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | NotFoundResponse<NotFoundErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
+): RequestBodyErrorResponse | OkResponse<VisitImagesResponse> | BadRequestResponse<VisitImageBadRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | NotFoundResponse<NotFoundErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
 
 @doc("Updates an image's caption.")
 @put
@@ -780,7 +804,7 @@ op reorderVisitImages(
 op updateVisitImage(
   @path imageId: uuid,
   @body body: UpdateVisitImageRequest,
-): OkResponse<VisitImage> | BadRequestResponse<VisitImageBadRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | NotFoundResponse<NotFoundErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
+): RequestBodyErrorResponse | OkResponse<VisitImage> | BadRequestResponse<VisitImageBadRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | NotFoundResponse<NotFoundErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
 
 @delete
 @route("/auth/visit-images/{imageId}")

@@ -18,6 +18,8 @@ class FakeS3 {
     val requests = CopyOnWriteArrayList<String>()
     @Volatile var fail = false
     @Volatile var headDelayMs = 0L
+    @Volatile var getStarted: java.util.concurrent.CountDownLatch? = null
+    @Volatile var releaseGet: java.util.concurrent.CountDownLatch? = null
 
     private val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0).apply {
         executor = Executors.newCachedThreadPool()
@@ -25,6 +27,10 @@ class FakeS3 {
             val path = ex.requestURI.path
             requests += "${ex.requestMethod} $path"
             if (ex.requestMethod == "HEAD") Thread.sleep(headDelayMs)
+            if (ex.requestMethod == "GET") {
+                getStarted?.countDown()
+                check(releaseGet?.await(10, java.util.concurrent.TimeUnit.SECONDS) != false)
+            }
             val body = ex.requestBody.readBytes()
             val stored = objects[path]
             if (!fail && ex.requestMethod == "GET" && stored != null) {

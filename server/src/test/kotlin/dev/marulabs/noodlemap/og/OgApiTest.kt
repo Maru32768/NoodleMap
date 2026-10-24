@@ -56,6 +56,41 @@ private val TEXT_CARD_BG = Color(0xf4ede0)
 
 class OgApiTest {
 
+    @Test
+    fun `a pending cover read refuses distinct covers before storage and frees admission afterwards`() =
+        testApp(visitImageStore = images, maxPendingBitmapWork = 1) { t ->
+            val admin = t.adminToken()
+            val first = addShop("First", admin)
+            val second = client.postJson("/api/v1/auth/shops", encode(addShopRequest(placeId = "second")), admin).body<Shop>()
+            val firstKey = addCover(first.id, admin).url.removePrefix("https://images.example/")
+            val secondKey = addCover(second.id, admin).url.removePrefix("https://images.example/")
+            val firstPath = client.imagePath(first.id)
+            val secondPath = client.imagePath(second.id)
+            val started = java.util.concurrent.CountDownLatch(1)
+            val release = java.util.concurrent.CountDownLatch(1)
+            s3.getStarted = started
+            s3.releaseGet = release
+            coroutineScope {
+                val pending = async { client.get(firstPath) }
+                try {
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        started.await(5, java.util.concurrent.TimeUnit.SECONDS)
+                    } shouldBe true
+                    client.get(secondPath).let {
+                        it.status shouldBe HttpStatusCode.ServiceUnavailable
+                        it.headers[HttpHeaders.RetryAfter] shouldBe "5"
+                    }
+                    s3.requests.count { it == "GET /images/$secondKey" } shouldBe 0
+                } finally {
+                    release.countDown()
+                }
+                pending.await().status shouldBe HttpStatusCode.OK
+            }
+            client.get(secondPath).status shouldBe HttpStatusCode.OK
+            s3.requests.count { it == "GET /images/$firstKey" } shouldBe 1
+            s3.requests.count { it == "GET /images/$secondKey" } shouldBe 1
+        }
+
     private val s3 = FakeS3()
     private val store = R2OgImageStore(s3.r2Config("og", "https://og.example"))
     private val images = R2VisitImageStore(s3.r2Config("images", "https://images.example"))

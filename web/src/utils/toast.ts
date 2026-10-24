@@ -34,6 +34,22 @@ type UserErrorMessage = {
 };
 
 const apiErrorMessages: Readonly<Record<ErrorType, UserErrorMessage>> = {
+  request_body_too_large: {
+    title: "送信するデータが大きすぎます",
+    description: "入力内容を減らしてもう一度お試しください。",
+  },
+  request_body_busy: {
+    title: "サーバーが混み合っています",
+    description: "時間をおいてもう一度お試しください。",
+  },
+  request_body_timeout: {
+    title: "データの送信がタイムアウトしました",
+    description: "接続を確認してもう一度お試しください。",
+  },
+  backup_busy: {
+    title: "バックアップを実行中です",
+    description: "完了するまで待ってからもう一度お試しください。",
+  },
   invalid_request: {
     title: "入力内容を確認してください",
   },

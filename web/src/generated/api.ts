@@ -4,6 +4,23 @@
  */
 
 export interface paths {
+    "/api/v1/auth/admin/backups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Admin-only forced backup, even when the DB has not changed. Requires application/json Content-Type. Returns after snapshot and configured R2 upload complete. */
+        post: operations["forceBackup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/google": {
         parameters: {
             query?: never;
@@ -380,10 +397,15 @@ export interface components {
             type: "authentication_required";
             message?: string;
         };
+        BackupBusyErrorBody: {
+            /** @enum {string} */
+            type: "backup_busy";
+            message?: string;
+        };
         /** @enum {string} */
         CategorySlug: "ramen" | "udon";
         /** @enum {string} */
-        ErrorType: "invalid_request" | "authentication_required" | "permission_denied" | "google_auth_failed" | "session_creation_failed" | "not_found" | "internal_error" | "google_places_not_configured" | "google_places_failed" | "shop_has_visit_logs" | "visit_image_limit_reached" | "visit_image_processing_busy" | "visit_images_storage_unconfigured";
+        ErrorType: "request_body_too_large" | "request_body_busy" | "request_body_timeout" | "backup_busy" | "invalid_request" | "authentication_required" | "permission_denied" | "google_auth_failed" | "session_creation_failed" | "not_found" | "internal_error" | "google_places_not_configured" | "google_places_failed" | "shop_has_visit_logs" | "visit_image_limit_reached" | "visit_image_processing_busy" | "visit_images_storage_unconfigured";
         /** @enum {string} */
         FieldErrorType: "required" | "invalid_format" | "out_of_range" | "too_long" | "duplicate" | "unknown";
         GoogleAuthBadRequestErrorBody: {
@@ -480,6 +502,21 @@ export interface components {
         /** @description Every image id of the visit log exactly once, in the new display order. */
         ReorderVisitImagesRequest: {
             imageIds: components["schemas"]["uuid"][];
+        };
+        RequestBodyBusyErrorBody: {
+            /** @enum {string} */
+            type: "request_body_busy";
+            message?: string;
+        };
+        RequestBodyTimeoutErrorBody: {
+            /** @enum {string} */
+            type: "request_body_timeout";
+            message?: string;
+        };
+        RequestBodyTooLargeErrorBody: {
+            /** @enum {string} */
+            type: "request_body_too_large";
+            message?: string;
         };
         SaveTagsRequest: {
             tags: components["schemas"]["TagInput"][];
@@ -769,6 +806,69 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    forceBackup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description There is no content to send for this request, but the headers may be useful. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvalidRequestErrorBody"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthenticationRequiredErrorBody"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PermissionDeniedErrorBody"];
+                };
+            };
+            /** @description Server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InternalErrorBody"];
+                };
+            };
+            /** @description Service unavailable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupBusyErrorBody"];
+                };
+            };
+        };
+    };
     googleAuth: {
         parameters: {
             query?: never;
@@ -800,6 +900,24 @@ export interface operations {
                     "application/json": components["schemas"]["GoogleAuthBadRequestErrorBody"];
                 };
             };
+            /** @description Client error */
+            408: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestBodyTimeoutErrorBody"];
+                };
+            };
+            /** @description Client error */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestBodyTooLargeErrorBody"];
+                };
+            };
             /** @description Server error */
             500: {
                 headers: {
@@ -807,6 +925,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SessionCreationFailedErrorBody"];
+                };
+            };
+            /** @description Service unavailable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestBodyBusyErrorBody"];
                 };
             };
         };
@@ -1233,6 +1360,24 @@ export interface operations {
                     "application/json": components["schemas"]["PermissionDeniedErrorBody"];
                 };
             };
+            /** @description Client error */
+            408: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestBodyTimeoutErrorBody"];
+                };
+            };
+            /** @description Client error */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestBodyTooLargeErrorBody"];
+                };
+            };
             /** @description Server error */
             500: {
                 headers: {
@@ -1240,6 +1385,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InternalErrorBody"];
+                };
+            };
+            /** @description Service unavailable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestBodyBusyErrorBody"];
                 };
             };
         };
@@ -1302,6 +1456,24 @@ export interface operations {
                     "application/json": components["schemas"]["NotFoundErrorBody"];
                 };
             };
+            /** @description Client error */
+            408: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestBodyTimeoutErrorBody"];
+                };
+            };
+            /** @description Client error */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestBodyTooLargeErrorBody"];
+                };
+            };
             /** @description Server error */
             500: {
                 headers: {
@@ -1309,6 +1481,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InternalErrorBody"];
+                };
+            };
+            /** @description Service unavailable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestBodyBusyErrorBody"];
                 };
             };
         };
@@ -1447,6 +1628,24 @@ export interface operations {
                     "application/json": components["schemas"]["NotFoundErrorBody"];
                 };
             };
+            /** @description Client error */
+            408: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestBodyTimeoutErrorBody"];
+                };
+            };
+            /** @description Client error */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestBodyTooLargeErrorBody"];
+                };
+            };
             /** @description Server error */
             500: {
                 headers: {
@@ -1454,6 +1653,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InternalErrorBody"];
+                };
+            };
+            /** @description Service unavailable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestBodyBusyErrorBody"];
                 };
             };
         };
@@ -1507,6 +1715,24 @@ export interface operations {
                     "application/json": components["schemas"]["PermissionDeniedErrorBody"];
                 };
             };
+            /** @description Client error */
+            408: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestBodyTimeoutErrorBody"];
+                };
+            };
+            /** @description Client error */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestBodyTooLargeErrorBody"];
+                };
+            };
             /** @description Server error */
             500: {
                 headers: {
@@ -1514,6 +1740,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InternalErrorBody"];
+                };
+            };
+            /** @description Service unavailable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestBodyBusyErrorBody"];
                 };
             };
         };
@@ -1578,6 +1813,24 @@ export interface operations {
                     "application/json": components["schemas"]["NotFoundErrorBody"];
                 };
             };
+            /** @description Client error */
+            408: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestBodyTimeoutErrorBody"];
+                };
+            };
+            /** @description Client error */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestBodyTooLargeErrorBody"];
+                };
+            };
             /** @description Server error */
             500: {
                 headers: {
@@ -1585,6 +1838,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InternalErrorBody"];
+                };
+            };
+            /** @description Service unavailable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestBodyBusyErrorBody"];
                 };
             };
         };
@@ -1705,6 +1967,24 @@ export interface operations {
                     "application/json": components["schemas"]["NotFoundErrorBody"];
                 };
             };
+            /** @description Client error */
+            408: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestBodyTimeoutErrorBody"];
+                };
+            };
+            /** @description Client error */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestBodyTooLargeErrorBody"];
+                };
+            };
             /** @description Server error */
             500: {
                 headers: {
@@ -1712,6 +1992,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InternalErrorBody"];
+                };
+            };
+            /** @description Service unavailable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestBodyBusyErrorBody"];
                 };
             };
         };
@@ -1921,6 +2210,24 @@ export interface operations {
                     "application/json": components["schemas"]["NotFoundErrorBody"];
                 };
             };
+            /** @description Client error */
+            408: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestBodyTimeoutErrorBody"];
+                };
+            };
+            /** @description Client error */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestBodyTooLargeErrorBody"];
+                };
+            };
             /** @description Server error */
             500: {
                 headers: {
@@ -1928,6 +2235,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InternalErrorBody"];
+                };
+            };
+            /** @description Service unavailable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestBodyBusyErrorBody"];
                 };
             };
         };

@@ -80,6 +80,24 @@ on that bucket only, then set on the Render backend:
 
 Set all five or none; with none the backend renders each image on request.
 
+## Database backups
+
+`module.backups_r2` creates the private `noodle-map-backups` bucket. It has no
+custom domain; keep its public development URL disabled. Create an R2 API token
+with Object Read & Write on this bucket only, then set on the Render backend:
+
+- `BACKUP_R2_BUCKET=noodle-map-backups`
+- `BACKUP_R2_ENDPOINT=https://<account_id>.r2.cloudflarestorage.com`
+- `BACKUP_R2_ACCESS_KEY_ID` / `BACKUP_R2_SECRET_ACCESS_KEY` from the token
+- `BACKUP_R2_PREFIX=db-backup` (optional)
+
+Set all four storage credentials or none; with none only the local SQLite
+snapshot is written. A public base URL is never required. These credentials
+are separate from the Terraform backend's `AWS_*` credentials. Existing S3
+objects are not migrated by Terraform or by the application. See
+[`sqlite-remote-access.md`](../docs/sqlite-remote-access.md) for manual backups
+and restore commands.
+
 ## Visit images
 
 `module.visit_images_r2` creates the `noodle-map-visit-images` bucket served at

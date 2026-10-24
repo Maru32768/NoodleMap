@@ -19,7 +19,7 @@ class BitmapWorkGate(private val maxPending: Int) {
     private val pending = AtomicInteger()
 
     /** Runs [block] holding a slot, or returns null without running it when every slot is taken. */
-    suspend fun <T : Any> withSlotOrNull(block: suspend () -> T): T? {
+    suspend fun <T> withSlotOrNull(block: suspend () -> T): T? {
         try {
             if (pending.incrementAndGet() > maxPending) return null
             return block()

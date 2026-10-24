@@ -82,7 +82,7 @@ fun testConfig(
     adminEmail = adminEmail,
     cookieSecure = cookieSecure,
     googlePlacesApiKey = "",
-    backup = Config.BackupConfig(snapshotPath = "$dbPath.bak", s3Bucket = null, s3Prefix = null, awsRegion = null),
+    backup = Config.BackupConfig(snapshotPath = "$dbPath.bak"),
     publicBaseUrl = publicBaseUrl,
     ogR2 = null,
     visitImagesR2 = null,
@@ -121,6 +121,8 @@ fun testApp(
     visitImageStore: VisitImageStore? = null,
     // An http URL puts the app in local-development mode (local-disk images, localhost upload origins).
     publicBaseUrl: String = PUBLIC_BASE_URL,
+    maxPendingJsonBodies: Int = 8,
+    jsonReceiveTimeoutMillis: Long = 10_000,
     block: suspend ApplicationTestBuilder.(TestDb) -> Unit,
 ) = withTestDb(adminEmail, cookieSecure, publicBaseUrl) { t ->
     testApplication {
@@ -128,6 +130,8 @@ fun testApp(
             val images = visitImageStore ?: t.localVisitImages
             val bitmapWork = BitmapWorkGate(maxPendingBitmapWork)
             val shopHandler = ShopHandler(t.db, t.sessions, images)
+            val backups = dev.marulabs.noodlemap.backup.BackupService(t.dataSource, t.config.backup)
+            monitor.subscribe(io.ktor.server.application.ApplicationStopped) { backups.close() }
             installApp(
                 AuthHandler(t.db, GoogleVerifier(t.config.googleOAuthClientId), t.sessions),
                 shopHandler,
@@ -135,6 +139,9 @@ fun testApp(
                 VisitImageHandler(t.db, t.sessions, images, bitmapWork, t.config.publicBaseUrl),
                 PlacesHandler(t.sessions, placesApiKey, placesBaseUrl, placesHttp),
                 OgHandler(shopHandler, t.config.publicBaseUrl, ogStore, images, bitmapWork, ogCoverFailureTtl),
+                dev.marulabs.noodlemap.backup.BackupHandler(t.sessions, backups),
+                maxPendingJsonBodies,
+                jsonReceiveTimeoutMillis,
             )
         }
         block(t)

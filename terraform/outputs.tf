@@ -25,3 +25,7 @@ output "visit_images_bucket_name" {
 output "visit_images_public_base_url" {
   value = module.visit_images_r2.public_base_url
 }
+
+output "backups_bucket_name" {
+  value = module.backups_r2.bucket_name
+}

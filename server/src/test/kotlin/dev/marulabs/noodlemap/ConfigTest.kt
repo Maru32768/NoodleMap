@@ -28,7 +28,7 @@ class ConfigTest {
             adminEmail = "",
             cookieSecure = false,
             googlePlacesApiKey = "",
-            backup = Config.BackupConfig(snapshotPath = "/data/app.db.bak", s3Bucket = null, s3Prefix = null, awsRegion = null),
+            backup = Config.BackupConfig(snapshotPath = "/data/app.db.bak"),
             publicBaseUrl = "http://localhost:8080",
             ogR2 = null,
             visitImagesR2 = null,
@@ -127,16 +127,21 @@ class ConfigTest {
     }
 
     @Test
-    fun `backup settings come from env and S3 is enabled only with a bucket`() {
-        val backup = load(
-            "BACKUP_PATH" to "/backups/snap.db", "S3_BUCKET" to "bucket", "S3_PREFIX" to "noodle/", "AWS_REGION" to "ap-northeast-1",
-        ).backup
-
-        backup shouldBe Config.BackupConfig("/backups/snap.db", "bucket", "noodle/", "ap-northeast-1")
-        backup.s3Enabled shouldBe true
-        load("S3_BUCKET" to " ", "BACKUP_PATH" to "").backup.let {
-            it.s3Enabled shouldBe false
-            it.snapshotPath shouldBe "/data/app.db.bak"
-        }
+    fun `backup R2 settings are private, all or nothing, and hide the secret`() {
+        val r2 = arrayOf(
+            "BACKUP_R2_BUCKET" to "backups", "BACKUP_R2_ENDPOINT" to "https://acct.r2.cloudflarestorage.com/",
+            "BACKUP_R2_ACCESS_KEY_ID" to "kid", "BACKUP_R2_SECRET_ACCESS_KEY" to "backup-secret",
+        )
+        val cfg = load(*r2, "BACKUP_PATH" to "/backups/snap.db", "BACKUP_R2_PREFIX" to "noodle/")
+        cfg.backup shouldBe Config.BackupConfig(
+            "/backups/snap.db", Config.BackupR2Config("backups", "https://acct.r2.cloudflarestorage.com", "kid", "backup-secret"), "noodle/",
+        )
+        cfg.toString() shouldNotContain "backup-secret"
+        load("BACKUP_PATH" to " ").backup shouldBe Config.BackupConfig("/data/app.db.bak")
+        shouldThrow<IllegalStateException> { load(*r2.drop(1).toTypedArray()) }.message shouldContain "missing: BACKUP_R2_BUCKET"
+        shouldThrow<IllegalStateException> { load(*r2, "BACKUP_R2_ENDPOINT" to "https://acct.r2.cloudflarestorage.com/backups") }
+            .message shouldContain "BACKUP_R2_ENDPOINT must be the account endpoint without a path"
+        shouldThrow<IllegalStateException> { load(*r2, "BACKUP_R2_ENDPOINT" to "acct.r2.cloudflarestorage.com") }
+            .message shouldContain "BACKUP_R2_ENDPOINT"
     }
 }

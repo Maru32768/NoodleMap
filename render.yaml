@@ -28,15 +28,16 @@ services:
         sync: false
       - key: AUTH_COOKIE_SECURE
         value: "true"
-      - key: AWS_REGION
-        value: ap-northeast-1
-      - key: AWS_ACCESS_KEY_ID
+      # Private database backups. Set all four R2 credentials together; no public bucket/domain.
+      - key: BACKUP_R2_BUCKET
         sync: false
-      - key: AWS_SECRET_ACCESS_KEY
+      - key: BACKUP_R2_ENDPOINT
         sync: false
-      - key: S3_BUCKET
-        value: noodle-map-bucket
-      - key: S3_PREFIX
+      - key: BACKUP_R2_ACCESS_KEY_ID
+        sync: false
+      - key: BACKUP_R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: BACKUP_R2_PREFIX
         value: db-backup
       - key: PUBLIC_BASE_URL
         value: https://noodle-map.marulabs.dev

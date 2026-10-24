@@ -157,9 +157,12 @@ class OgHandler(
         recentCoverFailure(key)?.let { failure ->
             return failure.fallback?.let { Produced(Rendered(it, fallback = true), stored = false) }
         }
-        // Read before taking a render slot: slow storage must not hold the bitmap gate.
-        val jpeg = card.coverPhotoKey?.let { readCover(it) ?: return null.also { rememberCoverFailure(key, null) } }
-        val rendered = renderOrNull(card, jpeg) ?: return null
+        val rendered = bitmapWork.withSlotOrNull {
+            val jpeg = card.coverPhotoKey?.let {
+                readCover(it) ?: return@withSlotOrNull null.also { rememberCoverFailure(key, null) }
+            }
+            render(card, jpeg)
+        } ?: return null
         if (rendered.fallback) rememberCoverFailure(key, rendered.png)
         val stored = store != null && !rendered.fallback && storageOrNull("upload") { store.put(key, rendered.png) } != null
         return Produced(rendered, stored)
@@ -178,21 +181,19 @@ class OgHandler(
     }
 
     /**
-     * The image, or null when the bitmap work gate is full. The cover is decoded inside the exclusive section,
+     * The cover is decoded inside the exclusive section,
      * so no bitmap outlives a render; one that will not decode gets the text card.
      */
-    private suspend fun renderOrNull(card: OgCard, jpeg: ByteArray?): Rendered? = bitmapWork.withSlotOrNull {
-        bitmapWork.exclusive {
-            val cover = jpeg?.let { bytes ->
-                try {
-                    decodeCover(bytes)
-                } catch (e: Exception) {
-                    log.warn("og: cover decode failed for {}; drawing the text card", card.coverPhotoKey, e)
-                    null
-                }
+    private suspend fun render(card: OgCard, jpeg: ByteArray?): Rendered = bitmapWork.exclusive {
+        val cover = jpeg?.let { bytes ->
+            try {
+                decodeCover(bytes)
+            } catch (e: Exception) {
+                log.warn("og: cover decode failed for {}; drawing the text card", card.coverPhotoKey, e)
+                null
             }
-            Rendered(renderOgImage(card, cover), fallback = jpeg != null && cover == null)
         }
+        Rendered(renderOgImage(card, cover), fallback = jpeg != null && cover == null)
     }
 
     private fun recentCoverFailure(key: String): CoverFailure? {

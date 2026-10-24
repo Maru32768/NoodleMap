@@ -7,6 +7,14 @@ import kotlinx.serialization.SerialName
 public enum class ErrorType(
   public val `value`: String,
 ) {
+  @SerialName("request_body_too_large")
+  REQUEST_BODY_TOO_LARGE("request_body_too_large"),
+  @SerialName("request_body_busy")
+  REQUEST_BODY_BUSY("request_body_busy"),
+  @SerialName("request_body_timeout")
+  REQUEST_BODY_TIMEOUT("request_body_timeout"),
+  @SerialName("backup_busy")
+  BACKUP_BUSY("backup_busy"),
   @SerialName("invalid_request")
   INVALID_REQUEST("invalid_request"),
   @SerialName("authentication_required")

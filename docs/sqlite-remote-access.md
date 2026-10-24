@@ -40,12 +40,40 @@ UPDATE restaurants SET closed = 1 WHERE id = 'xxx-xxx-xxx';
 
 ---
 
+## バックアップの設定と手動実行
+
+DB バックアップは非公開の Cloudflare R2 バケットへ保存します。Render の環境変数に
+`BACKUP_R2_BUCKET`、`BACKUP_R2_ENDPOINT`（アカウントの S3 API URL）、
+`BACKUP_R2_ACCESS_KEY_ID`、`BACKUP_R2_SECRET_ACCESS_KEY` の4つを設定してください。
+`BACKUP_R2_PREFIX` は任意です（Render の既定値は `db-backup`）。公開ドメインは不要です。
+4つとも未設定の場合はローカルの `BACKUP_PATH`（既定値は `DB_PATH.bak`）だけに保存します。
+旧 `S3_BUCKET`、`S3_PREFIX`、`AWS_REGION`、AWS 認証情報はバックアップには使用しません。
+既存の S3 オブジェクトは自動移動しないため、必要な履歴は別途 R2 へコピーしてください。
+
+起動時と30分おきに、DB の変更があればバックアップします。管理者セッションで次を実行すると、
+DB に変更がなくても新しいバックアップを作成します。
+
+```sh
+curl --fail-with-body -X POST \
+  -H 'Content-Type: application/json' \
+  --cookie 'noodle_map_session=YOUR_ADMIN_SESSION_TOKEN' \
+  https://noodle-map.marulabs.dev/api/v1/auth/admin/backups
+```
+
+セッション Cookie はブラウザの実際の値を使用してください。JSON 本文は不要です。
+保存とアップロードが完了すると `204`、未認証は `401`、管理者以外は `403`、
+別のバックアップが実行中なら待機せず `503` を返します。R2 の権限は対象バケットの
+オブジェクト読み書きに限定し、バケットの公開アクセスは無効にしてください。
+
 ## 破損時のリストア
 
 ### 1. バックアップ一覧を確認（ローカルから）
 
 ```sh
-aws s3 ls s3://noodle-map-bucket/db-backup/ --recursive
+AWS_ACCESS_KEY_ID="$BACKUP_R2_ACCESS_KEY_ID" \
+AWS_SECRET_ACCESS_KEY="$BACKUP_R2_SECRET_ACCESS_KEY" \
+aws --endpoint-url "$BACKUP_R2_ENDPOINT" --region auto \
+  s3 ls "s3://$BACKUP_R2_BUCKET/${BACKUP_R2_PREFIX:+$BACKUP_R2_PREFIX/}" --recursive
 ```
 
 ### 2. Renderのサービスを停止
@@ -54,7 +82,7 @@ Renderダッシュボード → `noodle-map-backend` → **Suspend Service**
 
 > Shell はサービスが起動中にしか使えないため、**停止前に** Shell を開いておくこと。
 
-### 3. Shell でS3から復元
+### 3. Shell でR2から復元
 
 ```sh
 # 停止前に開いておいたShellで実行
@@ -62,8 +90,11 @@ Renderダッシュボード → `noodle-map-backend` → **Suspend Service**
 # 現在のDBをバックアップ（念のため）
 cp /work/db-data/noodle_map.db /work/db-data/noodle_map.db.broken
 
-# S3から復元したいバックアップをダウンロード
-aws s3 cp s3://noodle-map-bucket/db-backup/YYYY/MM/DD/noodle_map-YYYYMMDD-HHMMSS.db.gz /work/db-data/noodle_map.db.gz
+# R2から復元したいバックアップをダウンロード（KEY は一覧に出た実際のオブジェクトキー）
+AWS_ACCESS_KEY_ID="$BACKUP_R2_ACCESS_KEY_ID" \
+AWS_SECRET_ACCESS_KEY="$BACKUP_R2_SECRET_ACCESS_KEY" \
+aws --endpoint-url "$BACKUP_R2_ENDPOINT" --region auto \
+  s3 cp "s3://$BACKUP_R2_BUCKET/KEY" /work/db-data/noodle_map.db.gz
 
 # 解凍して上書き
 gunzip -c /work/db-data/noodle_map.db.gz > /work/db-data/noodle_map.db

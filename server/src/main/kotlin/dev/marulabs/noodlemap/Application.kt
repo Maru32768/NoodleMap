@@ -36,6 +36,10 @@ import dev.marulabs.noodlemap.generated.controllers.ApiV1ShopsController.Compani
 import dev.marulabs.noodlemap.generated.controllers.ApiV1ShopsVisitsController.Companion.apiV1ShopsVisitsRoutes
 import dev.marulabs.noodlemap.generated.controllers.ApiV1TagsController.Companion.apiV1TagsRoutes
 import dev.marulabs.noodlemap.http.NoCache
+import dev.marulabs.noodlemap.http.installRequestBodyLimits
+import dev.marulabs.noodlemap.backup.BackupService
+import dev.marulabs.noodlemap.backup.BackupHandler
+import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthAdminBackupsController.Companion.apiV1AuthAdminBackupsRoutes
 import dev.marulabs.noodlemap.jobs.startBackgroundJobs
 import dev.marulabs.noodlemap.og.OgHandler
 import dev.marulabs.noodlemap.og.R2OgImageStore
@@ -78,8 +82,10 @@ fun Application.module(config: Config) {
     ogStore?.let { store -> monitor.subscribe(ApplicationStopped) { store.close() } }
     val ogHandler = OgHandler(shopHandler, config.publicBaseUrl, ogStore, visitImageStore, bitmapWork)
 
-    startBackgroundJobs(config, dataSource, db, sessions)
-    installApp(authHandler, shopHandler, visitLogHandler, visitImageHandler, placesHandler, ogHandler)
+    val backups = BackupService(dataSource, config.backup)
+    monitor.subscribe(ApplicationStopped) { backups.close() }
+    startBackgroundJobs(sessions, backups)
+    installApp(authHandler, shopHandler, visitLogHandler, visitImageHandler, placesHandler, ogHandler, BackupHandler(sessions, backups))
 }
 
 /** Installs plugins and routes. Separated from [module] so tests can wire test handlers. */
@@ -90,7 +96,11 @@ fun Application.installApp(
     visitImageHandler: VisitImageHandler,
     placesHandler: PlacesHandler,
     ogHandler: OgHandler,
+    backupHandler: BackupHandler,
+    maxPendingJsonBodies: Int = 8,
+    jsonReceiveTimeoutMillis: Long = 10_000,
 ) {
+    installRequestBodyLimits(maxPendingJsonBodies, jsonReceiveTimeoutMillis)
     install(ContentNegotiation) {
         // ignoreUnknownKeys matches Gin's BindJSON tolerance for extra fields.
         json(Json { ignoreUnknownKeys = true })
@@ -105,6 +115,7 @@ fun Application.installApp(
 
     routing {
         get("/health") { call.respondText("ok") }
+        apiV1AuthAdminBackupsRoutes(backupHandler)
 
         apiV1ShopsRoutes(shopHandler)
         apiV1TagsRoutes(shopHandler)

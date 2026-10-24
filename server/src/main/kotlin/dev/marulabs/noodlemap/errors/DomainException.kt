@@ -7,6 +7,10 @@ import kotlinx.serialization.Serializable
 /** Machine-readable error discriminator. Values mirror TypeSpec `ErrorType`. */
 @Serializable
 enum class ErrorType {
+    @SerialName("request_body_too_large") REQUEST_BODY_TOO_LARGE,
+    @SerialName("request_body_busy") REQUEST_BODY_BUSY,
+    @SerialName("request_body_timeout") REQUEST_BODY_TIMEOUT,
+    @SerialName("backup_busy") BACKUP_BUSY,
     @SerialName("invalid_request") INVALID_REQUEST,
     @SerialName("authentication_required") AUTHENTICATION_REQUIRED,
     @SerialName("permission_denied") PERMISSION_DENIED,
@@ -65,6 +69,18 @@ sealed class DomainException(
     val fieldErrors: List<FieldError> = emptyList(),
     cause: Throwable? = null,
 ) : RuntimeException(publicMessage, cause) {
+
+    class RequestBodyTooLarge :
+        DomainException(HttpStatusCode.PayloadTooLarge, ErrorType.REQUEST_BODY_TOO_LARGE, "request body exceeds 256 KiB")
+
+    class RequestBodyBusy :
+        DomainException(HttpStatusCode.ServiceUnavailable, ErrorType.REQUEST_BODY_BUSY, "too many request bodies are being processed")
+
+    class RequestBodyTimeout :
+        DomainException(HttpStatusCode.RequestTimeout, ErrorType.REQUEST_BODY_TIMEOUT, "request body receive timed out")
+
+    class BackupBusy :
+        DomainException(HttpStatusCode.ServiceUnavailable, ErrorType.BACKUP_BUSY, "backup already running")
 
     fun toBody(): ErrorBody = ErrorBody(
         type = type,

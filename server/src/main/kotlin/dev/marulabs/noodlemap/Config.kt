@@ -26,11 +26,19 @@ data class Config(
 ) {
     data class BackupConfig(
         val snapshotPath: String,
-        val s3Bucket: String?,
-        val s3Prefix: String?,
-        val awsRegion: String?,
+        val r2: BackupR2Config? = null,
+        val prefix: String? = null,
+    )
+
+    /** Private backup storage; it has no public URL or public bucket requirement. */
+    data class BackupR2Config(
+        val bucket: String,
+        val endpoint: String,
+        val accessKeyId: String,
+        val secretAccessKey: String,
     ) {
-        val s3Enabled: Boolean get() = !s3Bucket.isNullOrBlank()
+        override fun toString(): String =
+            "BackupR2Config(bucket=$bucket, endpoint=$endpoint, accessKeyId=$accessKeyId, secretAccessKey=***)"
     }
 
     /** A Cloudflare R2 bucket reached through its S3 API and served from a public custom domain. */
@@ -97,9 +105,8 @@ data class Config(
                 googlePlacesApiKey = googlePlacesApiKey,
                 backup = BackupConfig(
                     snapshotPath = snapshotPath,
-                    s3Bucket = env("S3_BUCKET")?.takeIf { it.isNotBlank() },
-                    s3Prefix = env("S3_PREFIX")?.takeIf { it.isNotBlank() },
-                    awsRegion = env("AWS_REGION")?.takeIf { it.isNotBlank() },
+                    r2 = backupR2(env),
+                    prefix = env("BACKUP_R2_PREFIX")?.trim()?.takeIf { it.isNotEmpty() },
                 ),
                 publicBaseUrl = publicBaseUrl,
                 ogR2 = ogR2,
@@ -110,6 +117,17 @@ data class Config(
 
         private fun required(env: (String) -> String?, key: String): String =
             env(key)?.takeIf { it.isNotBlank() } ?: error("$key is missing")
+
+        private fun backupR2(env: (String) -> String?): BackupR2Config? {
+            val keys = listOf("BUCKET", "ENDPOINT", "ACCESS_KEY_ID", "SECRET_ACCESS_KEY").map { "BACKUP_R2_$it" }
+            val values = keys.map { env(it)?.trim().orEmpty() }
+            return when {
+                values.all { it.isEmpty() } -> null
+                values.any { it.isEmpty() } ->
+                    error("Set all BACKUP_R2_* credentials or none; missing: ${keys.filterIndexed { i, _ -> values[i].isEmpty() }.joinToString()}")
+                else -> BackupR2Config(values[0], r2Endpoint(keys[1], values[1]), values[2], values[3])
+            }
+        }
 
         /** Returns [value] if it is an absolute http(s) URL with a host; otherwise refuses to boot. */
         private fun httpUrl(key: String, value: String): String {
