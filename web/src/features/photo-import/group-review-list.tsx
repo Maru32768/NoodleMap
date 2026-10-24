@@ -197,7 +197,7 @@ function GroupRowView({
       <Box display="flex" flexWrap="wrap" alignItems="center" gap="8px">
         {row.candidates.length > 0 && (
           <SegmentedPicker
-            variant="chip"
+            variant="outline"
             label="店舗の候補"
             disabled={readOnly}
             value={choice.kind === "shop" ? choice.shopId : undefined}
