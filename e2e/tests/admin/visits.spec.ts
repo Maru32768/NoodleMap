@@ -182,7 +182,11 @@ test("admin sets 絶対行きたい and a guest sees it", async ({ page, api, as
   await asGuest(async (guestPage) => {
     await guestPage.goto(`/search?shop=${shop.id}`);
     await guestPage.getByRole("complementary").getByPlaceholder("店名・読み・エリア・タグで検索...").fill(id);
-    // On the open detail and on the shop's card in the list.
-    await expect(guestPage.getByText("絶対行きたい", { exact: true }).filter({ visible: true })).toHaveCount(2);
+    // On the open detail and on the shop's card in the list. The sidebar's
+    // 気になる度 filter toggle shows the same text, so its group is excluded.
+    const outsideWishFilter = guestPage.locator(':not([role="group"][aria-label="気になる度"] *)');
+    await expect(
+      guestPage.getByText("絶対行きたい", { exact: true }).filter({ visible: true }).and(outsideWishFilter),
+    ).toHaveCount(2);
   });
 });

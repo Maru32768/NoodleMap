@@ -17,52 +17,75 @@ function renderFilters(filters: Partial<SearchFilters>) {
       onFilterChange={onFilterChange}
     />,
   );
-  const group = screen.getByRole("radiogroup", { name: "気になる度" });
-  const option = (name: string) => within(group).getByRole("radio", { name });
-  return { onFilterChange, option };
+  const group = screen.getByRole("group", { name: "気になる度" });
+  const level = (label: string) =>
+    within(group).getByRole("button", { name: `気になる度: ${label}` });
+  const visitChip = (name: string) => screen.getByRole("button", { name });
+  return { onFilterChange, group, level, visitChip };
 }
 
 describe("ShopFilters 気になる度", () => {
-  it("checks exactly the current floor and picks another", async () => {
-    const { onFilterChange, option } = renderFilters({ wishMin: "medium" });
-    expect(option("すべて")).toHaveAttribute("aria-checked", "false");
-    expect(option("気になる以上")).toHaveAttribute("aria-checked", "true");
-    expect(option("絶対行きたいのみ")).toHaveAttribute("aria-checked", "false");
-
-    await userEvent.click(option("絶対行きたいのみ"));
-    expect(onFilterChange).toHaveBeenLastCalledWith("wishMin", "high");
-    await userEvent.click(option("すべて"));
-    expect(onFilterChange).toHaveBeenLastCalledWith("wishMin", "all");
+  it("offers the three levels, none pressed by default, without すべて", () => {
+    const { group, level } = renderFilters({});
+    expect(
+      within(group)
+        .getAllByRole("button")
+        .map((button) => button.textContent),
+    ).toEqual(["ちょっと気になる", "気になる", "絶対行きたい"]);
+    for (const name of ["ちょっと気になる", "気になる", "絶対行きたい"]) {
+      expect(level(name)).toHaveAttribute("aria-pressed", "false");
+    }
   });
 
-  it("moves the choice with arrow keys from a single tab stop", async () => {
-    const { onFilterChange, option } = renderFilters({ wishMin: "all" });
-    expect(option("すべて")).toHaveAttribute("tabindex", "0");
-    expect(option("気になる以上")).toHaveAttribute("tabindex", "-1");
+  it("presses the selected levels and toggles each independently", async () => {
+    const { onFilterChange, level } = renderFilters({
+      wishLevels: ["medium", "high"],
+    });
+    expect(level("ちょっと気になる")).toHaveAttribute("aria-pressed", "false");
+    expect(level("気になる")).toHaveAttribute("aria-pressed", "true");
+    expect(level("絶対行きたい")).toHaveAttribute("aria-pressed", "true");
 
-    option("すべて").focus();
-    await userEvent.keyboard("{ArrowRight}");
-    expect(onFilterChange).toHaveBeenLastCalledWith("wishMin", "medium");
-    expect(option("気になる以上")).toHaveFocus();
+    await userEvent.click(level("ちょっと気になる"));
+    expect(onFilterChange).toHaveBeenLastCalledWith("wishLevels", [
+      "low",
+      "medium",
+      "high",
+    ]);
+    await userEvent.click(level("気になる"));
+    expect(onFilterChange).toHaveBeenLastCalledWith("wishLevels", ["high"]);
   });
 
   it("is disabled while the 気になる visit filter is off", () => {
-    const { option } = renderFilters({ wish: false });
-    expect(
-      screen.getByRole("radiogroup", { name: "気になる度" }),
-    ).toHaveAttribute("aria-disabled", "true");
-    expect(option("気になる以上")).toBeDisabled();
+    const { group, level } = renderFilters({ wish: false });
+    expect(group).toHaveAttribute("aria-disabled", "true");
+    expect(level("気になる")).toBeDisabled();
   });
 
-  it("keeps aria-pressed on the multi-toggle chips", () => {
-    renderFilters({ eaten: true, wish: false });
-    expect(screen.getByRole("button", { name: "食べた" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
+  it("clears the levels when the 気になる visit filter is turned off", async () => {
+    const { onFilterChange, visitChip } = renderFilters({
+      wishLevels: ["high"],
+    });
+    await userEvent.click(visitChip("気になる"));
+    expect(onFilterChange).toHaveBeenCalledWith("wish", false);
+    expect(onFilterChange).toHaveBeenCalledWith("wishLevels", []);
+  });
+
+  it("leaves the levels alone when the 気になる visit filter is turned on", async () => {
+    const { onFilterChange, visitChip } = renderFilters({ wish: false });
+    await userEvent.click(visitChip("気になる"));
+    expect(onFilterChange).toHaveBeenCalledWith("wish", true);
+    expect(onFilterChange).not.toHaveBeenCalledWith(
+      "wishLevels",
+      expect.anything(),
     );
-    expect(screen.getByRole("button", { name: "気になる" })).toHaveAttribute(
-      "aria-pressed",
-      "false",
-    );
+  });
+
+  it("names the level toggles apart from the visit chips", () => {
+    const { visitChip } = renderFilters({ eaten: true, wish: false });
+    expect(visitChip("食べた")).toHaveAttribute("aria-pressed", "true");
+    expect(visitChip("気になる")).toHaveAttribute("aria-pressed", "false");
+    expect(
+      screen.getByRole("button", { name: "気になる度: 気になる" }),
+    ).toHaveTextContent("気になる");
   });
 });

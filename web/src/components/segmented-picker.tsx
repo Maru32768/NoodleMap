@@ -9,17 +9,15 @@ export interface SegmentedOption<T extends string> {
 
 /**
  * - `outline`: separate outlined buttons (form fields).
- * - `chip`: rounded pills like the search sidebar's filter chips.
  * - `segment`: buttons inside one boxed track, like a segmented control.
  */
-export type SegmentedVariant = "outline" | "chip" | "segment";
+export type SegmentedVariant = "outline" | "segment";
 
 const NEXT_KEYS = ["ArrowRight", "ArrowDown"];
 const PREV_KEYS = ["ArrowLeft", "ArrowUp"];
 
 const GROUP_STYLES: Record<SegmentedVariant, BoxProps> = {
   outline: { display: "flex", gap: "6px", flexWrap: "wrap" },
-  chip: { display: "flex", gap: "0.375rem", flexWrap: "wrap" },
   segment: {
     display: "inline-flex",
     flexShrink: 0,
@@ -35,7 +33,6 @@ const GROUP_STYLES: Record<SegmentedVariant, BoxProps> = {
 function optionStyles(
   variant: SegmentedVariant,
   selected: boolean,
-  accent: string,
 ): ButtonProps {
   switch (variant) {
     case "outline":
@@ -50,24 +47,6 @@ function optionStyles(
         borderColor: selected ? "nm.ink" : "nm.line",
         rounded: "nmMd",
         _hover: { borderColor: "nm.ink" },
-      };
-    case "chip":
-      return {
-        minW: "auto",
-        px: "0.75rem",
-        py: "0.4375rem",
-        fontSize: "0.75rem",
-        fontWeight: 500,
-        bg: selected ? accent : "nm.bg",
-        color: selected ? "nm.paper" : "nm.inkMuted",
-        border: "1px solid",
-        borderColor: selected ? accent : "nm.line",
-        borderRadius: "full",
-        transition: "all 0.15s",
-        userSelect: "none",
-        _hover: selected
-          ? {}
-          : { borderColor: "nm.lineStrong", color: "nm.ink" },
       };
     case "segment":
       return {
@@ -98,7 +77,6 @@ export function SegmentedPicker<T extends string>({
   value,
   onChange,
   variant = "outline",
-  accent = "nm.ink",
   disabled = false,
 }: {
   label: string;
@@ -106,8 +84,6 @@ export function SegmentedPicker<T extends string>({
   value: T | undefined;
   onChange: (value: T) => void;
   variant?: SegmentedVariant;
-  /** Selected color of the `chip` variant. */
-  accent?: string;
   disabled?: boolean;
 }) {
   const field = useFieldContext();
@@ -163,12 +139,64 @@ export function SegmentedPicker<T extends string>({
             variant="plain"
             h="auto"
             minH="auto"
-            {...optionStyles(variant, selected, accent)}
+            {...optionStyles(variant, selected)}
             _disabled={{ cursor: "not-allowed", opacity: 1 }}
             onClick={() => onChange(option.id)}
             onKeyDown={(e) => handleKeyDown(e, index)}
           >
             {option.label}
+          </Button>
+        );
+      })}
+    </Box>
+  );
+}
+
+/**
+ * The `segment` track holding independent toggle buttons (`aria-pressed`), any
+ * number of which may be on; each is its own tab stop. Each toggle is named
+ * 「{label}: {option}」 so it stays distinct from same-named options elsewhere.
+ */
+export function SegmentedToggles<T extends string>({
+  label,
+  options,
+  labels,
+  value,
+  onToggle,
+  disabled = false,
+}: {
+  label: string;
+  options: readonly T[];
+  labels: Readonly<Record<T, string>>;
+  value: readonly T[];
+  onToggle: (id: T) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <Box
+      role="group"
+      aria-label={label}
+      aria-disabled={disabled || undefined}
+      opacity={disabled ? 0.45 : undefined}
+      transition="opacity 0.15s"
+      {...GROUP_STYLES.segment}
+    >
+      {options.map((id) => {
+        const pressed = value.includes(id);
+        return (
+          <Button
+            key={id}
+            aria-label={`${label}: ${labels[id]}`}
+            aria-pressed={pressed}
+            disabled={disabled}
+            variant="plain"
+            h="auto"
+            minH="auto"
+            {...optionStyles("segment", pressed)}
+            _disabled={{ cursor: "not-allowed", opacity: 1 }}
+            onClick={() => onToggle(id)}
+          >
+            {labels[id]}
           </Button>
         );
       })}

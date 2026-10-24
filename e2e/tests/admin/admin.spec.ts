@@ -16,7 +16,7 @@ async function openEditModal(page: Page, name: string, filter: string) {
   return page.getByRole("dialog").filter({ hasText: name });
 }
 
-test("admin narrows by 気になる度 and × クリア resets it to すべて", async ({ page, api }) => {
+test("admin narrows by 気になる度 and × クリア clears every level", async ({ page, api }) => {
   const id = uid();
   const shop = await api.createShop({ name: `${id} 気になる店` });
   await openAdmin(page);
@@ -24,14 +24,33 @@ test("admin narrows by 気になる度 and × クリア resets it to すべて",
   const row = page.getByRole("row").filter({ hasText: shop.name });
   await expect(row).toHaveCount(1);
 
-  const wishLevel = page.getByRole("radiogroup", { name: "気になる度" });
-  const wishOption = (name: string) => wishLevel.getByRole("radio", { name, exact: true });
-  // An unset 気になる度 ranks as 気になる, below 絶対行きたい.
-  await wishOption("絶対行きたいのみ").click();
+  const level = (label: string) => page.getByRole("button", { name: `気になる度: ${label}`, exact: true });
+  const levels = ["ちょっと気になる", "気になる", "絶対行きたい"];
+  await level("絶対行きたい").click();
+  await expect(row).toHaveCount(0);
+  // An unset 気になる度 counts as 気になる.
+  await level("気になる").click();
+  await expect(row).toHaveCount(1);
+  await level("絶対行きたい").click();
+  await level("気になる").click();
+  await level("ちょっと気になる").click();
   await expect(row).toHaveCount(0);
 
   await page.getByRole("button", { name: "× クリア" }).click();
-  await expect(wishOption("すべて")).toBeChecked();
+  for (const label of levels) {
+    await expect(level(label)).toHaveAttribute("aria-pressed", "false");
+  }
+  await expect(row).toHaveCount(1);
+
+  // 食べた clears the levels, so returning to 全て does not restore them.
+  const visit = page.getByRole("radiogroup", { name: "状態" });
+  await level("ちょっと気になる").click();
+  await expect(row).toHaveCount(0);
+  await visit.getByRole("radio", { name: "食べた", exact: true }).click();
+  await visit.getByRole("radio", { name: "全て", exact: true }).click();
+  for (const label of levels) {
+    await expect(level(label)).toHaveAttribute("aria-pressed", "false");
+  }
   await expect(row).toHaveCount(1);
 });
 
