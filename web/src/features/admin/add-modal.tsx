@@ -284,7 +284,7 @@ export function AddModal({
           <line x1="5" y1="12" x2="19" y2="12" />
         </svg>
       }
-      bodyProps={{ p: 0, overflow: "visible" }}
+      bodyProps={{ p: 0 }}
       contentProps={{
         animation: "adm-modal-in 0.16s cubic-bezier(0.2, 0.8, 0.2, 1)",
       }}
