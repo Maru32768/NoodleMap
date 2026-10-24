@@ -11,6 +11,7 @@ import {
 } from "@/features/map/google-place-finder.tsx";
 import {
   AddShopCommand,
+  Shop,
   useShops,
   useTags,
 } from "@/features/shops/api/use-shops.ts";
@@ -54,9 +55,15 @@ const FIELDS_WITH_INPUT: readonly AddShopField[] = [
 interface AddModalProps {
   open: boolean;
   onClose: () => void;
+  /** Called with the saved shop, just before onClose. */
+  onAdded?: (shop: Shop) => void;
+  /** Prefills 緯度/経度, and the Google Place search starts there. */
   initialLatLng?: { lat: number; lng: number };
   // Replaceable because its WebGL map cannot render in jsdom tests.
-  PlaceFinder?: ComponentType<{ onSelect: (res: FindResult) => void }>;
+  PlaceFinder?: ComponentType<{
+    onSelect: (res: FindResult) => void;
+    near?: { lat: number; lng: number };
+  }>;
 }
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
@@ -122,6 +129,7 @@ function FormInput({
 export function AddModal({
   open,
   onClose,
+  onAdded,
   initialLatLng,
   PlaceFinder = GooglePlaceFinder,
 }: AddModalProps) {
@@ -242,6 +250,7 @@ export function AddModal({
         return;
       }
 
+      onAdded?.(result.data);
       onClose();
       toaster.success({ description: "店舗を追加しました" });
     } finally {
@@ -568,7 +577,7 @@ export function AddModal({
               Google Place 検索
             </Box>
             <Box flex="1" overflow="hidden">
-              <PlaceFinder onSelect={handleSelect} />
+              <PlaceFinder onSelect={handleSelect} near={initialLatLng} />
             </Box>
           </Box>
         </Box>

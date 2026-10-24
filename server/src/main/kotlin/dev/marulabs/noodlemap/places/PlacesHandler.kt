@@ -22,6 +22,7 @@ import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
+import kotlinx.serialization.json.putJsonObject
 import org.slf4j.LoggerFactory
 
 /**
@@ -38,11 +39,17 @@ class PlacesHandler(
     override suspend fun googlePlacesAutocomplete(
         q: String,
         sessionToken: String,
+        lat: Double?,
+        lng: Double?,
         call: TypedApplicationCall<PlaceSuggestionsResponse>,
     ) {
         sessions.requireAdmin(call)
         requireKey()
         requireSessionToken(sessionToken)
+        val near = if (lat != null && lng != null) lat to lng else null
+        if (near != null && (near.first !in -90.0..90.0 || near.second !in -180.0..180.0)) {
+            throw DomainException.InvalidRequest("invalid location")
+        }
         val input = q.trim()
         if (input.isEmpty()) {
             call.respondTyped(PlaceSuggestionsResponse(emptyList()))
@@ -55,6 +62,17 @@ class PlacesHandler(
             put("languageCode", "ja")
             put("regionCode", "JP")
             putJsonArray("includedRegionCodes") { add("jp") }
+            if (near != null) {
+                putJsonObject("locationBias") {
+                    putJsonObject("circle") {
+                        putJsonObject("center") {
+                            put("latitude", near.first)
+                            put("longitude", near.second)
+                        }
+                        put("radius", LOCATION_BIAS_RADIUS_M)
+                    }
+                }
+            }
         }
         val request = request("/v1/places:autocomplete", AUTOCOMPLETE_FIELDS)
             .header("Content-Type", "application/json")
@@ -140,6 +158,8 @@ class PlacesHandler(
         private val json = Json { ignoreUnknownKeys = true }
         private val PLACE_ID = Regex("^[A-Za-z0-9_-]{1,512}$")
         private val SESSION_TOKEN = Regex("^[A-Za-z0-9_-]{1,36}$")
+        // A bias, not a restriction: a shop the admin names outright still shows when it is farther.
+        private const val LOCATION_BIAS_RADIUS_M = 300.0
         private const val AUTOCOMPLETE_FIELDS =
             "suggestions.placePrediction.placeId,suggestions.placePrediction.text,suggestions.placePrediction.structuredFormat"
         private const val DETAILS_FIELDS = "id,displayName,formattedAddress,addressComponents,location,businessStatus"

@@ -13,6 +13,7 @@ import io.ktor.util.converters.ConversionService
 import io.ktor.util.converters.DefaultConversionService
 import io.ktor.util.reflect.typeInfo
 import kotlin.Any
+import kotlin.Double
 import kotlin.String
 
 public interface ApiV1AuthGooglePlacesAutocompleteController {
@@ -27,11 +28,16 @@ public interface ApiV1AuthGooglePlacesAutocompleteController {
    * @param q 
    * @param sessionToken Client-generated token grouping an autocomplete session with its details
    * call for billing.
+   * @param lat With lng, biases suggestions toward this point, e.g. where a photo was taken.
+   * Ignored alone.
+   * @param lng With lat, biases suggestions toward this point. Ignored alone.
    * @param call Decorated ApplicationCall with additional typed respond methods
    */
   public suspend fun googlePlacesAutocomplete(
     q: String,
     sessionToken: String,
+    lat: Double?,
+    lng: Double?,
     call: TypedApplicationCall<PlaceSuggestionsResponse>,
   )
 
@@ -48,7 +54,9 @@ public interface ApiV1AuthGooglePlacesAutocompleteController {
         val q = call.request.queryParameters.getTypedOrFail<kotlin.String>("q")
         val sessionToken =
             call.request.queryParameters.getTypedOrFail<kotlin.String>("sessionToken")
-        controller.googlePlacesAutocomplete(q, sessionToken, TypedApplicationCall(call))
+        val lat = call.request.queryParameters.getTyped<kotlin.Double>("lat")
+        val lng = call.request.queryParameters.getTyped<kotlin.Double>("lng")
+        controller.googlePlacesAutocomplete(q, sessionToken, lat, lng, TypedApplicationCall(call))
       }
     }
 

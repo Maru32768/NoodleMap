@@ -13,7 +13,7 @@ import {
 } from "@/features/photo-import/use-photo-import.ts";
 import type { Shop } from "@/features/shops/api/use-shops.ts";
 import { Box } from "@chakra-ui/react";
-import { ReactNode, useEffect, useRef } from "react";
+import { ComponentProps, ReactNode, useEffect, useRef } from "react";
 import { LuImagePlus } from "react-icons/lu";
 
 const REJECTION_LABELS: Record<PhotoRejection["reason"], string> = {
@@ -60,12 +60,15 @@ export function PhotoImportModal({
   open,
   onClose,
   onShopsChanged,
+  PlaceFinder,
 }: {
   shops: readonly Shop[];
   open: boolean;
   onClose: () => void;
   /** Called once on close when an import ran: 食べた, visitCount and 代表写真 changed. */
   onShopsChanged: () => void;
+  // Replaceable because its WebGL map cannot render in jsdom tests.
+  PlaceFinder?: ComponentProps<typeof GroupReviewList>["PlaceFinder"];
 }) {
   const imp = usePhotoImport(shops);
   const { state } = imp;
@@ -137,6 +140,7 @@ export function PhotoImportModal({
             excluded={state.review.excluded}
             onChoose={imp.choose}
             onTogglePhoto={imp.togglePhoto}
+            PlaceFinder={PlaceFinder}
           />
         </>
       )}

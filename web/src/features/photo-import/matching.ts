@@ -41,7 +41,7 @@ export function matchShop(
     return { kind: "no_location" };
   }
   // shortcut: a linear scan, about 1.5M distances for 1,000 groups x 1,465 shops (tens of ms), add a spatial index if shops grow tenfold.
-  // shortcut: an unregistered shop next to a registered one is invisible, so its photos auto-pick the neighbor; auto rows show the distance for the admin to scan, upgrade with the Places follow-up.
+  // An unregistered shop next to a registered one is invisible, so its photos auto-pick the neighbor; auto rows show the distance for the admin to scan, and この場所の店を追加 registers the right one.
   const candidates = shops
     .map((shop) => ({ shop, distanceM: distanceM(center, shop) }))
     .filter((c) => c.distanceM <= CANDIDATE_RADIUS_M)

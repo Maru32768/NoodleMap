@@ -11,9 +11,12 @@ import dev.marulabs.noodlemap.session
 import dev.marulabs.noodlemap.testApp
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 import io.ktor.client.request.get
 import io.ktor.http.HttpStatusCode
 import java.net.InetSocketAddress
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
 import org.junit.jupiter.api.Test
 
 class PlacesApiTest {
@@ -93,6 +96,35 @@ class PlacesApiTest {
             req.body shouldContain "\"input\":\"ラーメン\""
             req.body shouldContain "\"sessionToken\":\"tok-1\""
             req.body shouldContain "\"includedRegionCodes\":[\"jp\"]"
+            req.body shouldNotContain "locationBias"
+        }
+    }
+
+    @Test
+    fun `autocomplete biases toward a given point, and only when both coordinates are given`() =
+        FakeGoogle(200, """{"suggestions":[]}""").use { google ->
+            testApp(placesApiKey = "secret", placesBaseUrl = google.url) { t ->
+                val admin = t.adminToken()
+
+                client.get("$autocompletePath&lat=35.6812&lng=139.7671") { session(admin) }.status shouldBe HttpStatusCode.OK
+                client.get("$autocompletePath&lat=35.6812") { session(admin) }.status shouldBe HttpStatusCode.OK
+
+                val (biased, alone) = google.requests.map { Json.parseToJsonElement(it.body).jsonObject }
+                biased["locationBias"] shouldBe Json.parseToJsonElement(
+                    """{"circle":{"center":{"latitude":35.6812,"longitude":139.7671},"radius":300.0}}""",
+                )
+                alone["locationBias"] shouldBe null
+            }
+        }
+
+    @Test
+    fun `an out-of-range point is rejected without calling Google`() = FakeGoogle(500, "").use { google ->
+        testApp(placesApiKey = "secret", placesBaseUrl = google.url) { t ->
+            val res = client.get("$autocompletePath&lat=91&lng=139.7") { session(t.adminToken()) }
+
+            res.status shouldBe HttpStatusCode.BadRequest
+            res.body<ErrorBody>().type shouldBe ErrorType.INVALID_REQUEST
+            google.requests shouldBe emptyList()
         }
     }
 
