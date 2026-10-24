@@ -798,6 +798,16 @@ op googlePlacesAutocomplete(
   @pattern("^[A-Za-z0-9_-]{1,36}$")
   @query
   sessionToken: string,
+  @doc("With lng, biases suggestions toward this point, e.g. where a photo was taken. Ignored alone.")
+  @minValue(-90)
+  @maxValue(90)
+  @query
+  lat?: float64,
+  @doc("With lat, biases suggestions toward this point. Ignored alone.")
+  @minValue(-180)
+  @maxValue(180)
+  @query
+  lng?: float64,
 ): OkResponse<PlaceSuggestionsResponse> | BadRequestResponse<InvalidRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | InternalServerErrorResponse<InternalErrorBody> | BadGatewayResponse<GooglePlacesFailedErrorBody> | ServiceUnavailableResponse<GooglePlacesNotConfiguredErrorBody>;
 
 @doc("Admin-only Google Places (New) place details proxy.")

@@ -817,6 +817,10 @@ export interface operations {
                 q: string;
                 /** @description Client-generated token grouping an autocomplete session with its details call for billing. */
                 sessionToken: string;
+                /** @description With lng, biases suggestions toward this point, e.g. where a photo was taken. Ignored alone. */
+                lat?: number;
+                /** @description With lat, biases suggestions toward this point. Ignored alone. */
+                lng?: number;
             };
             header?: never;
             path?: never;

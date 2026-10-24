@@ -53,6 +53,26 @@ paths:
             pattern: ^[A-Za-z0-9_-]{1,36}$
             maxLength: 36
           explode: false
+        - name: lat
+          in: query
+          required: false
+          description: With lng, biases suggestions toward this point, e.g. where a photo was taken. Ignored alone.
+          schema:
+            type: number
+            format: double
+            minimum: -90
+            maximum: 90
+          explode: false
+        - name: lng
+          in: query
+          required: false
+          description: With lat, biases suggestions toward this point. Ignored alone.
+          schema:
+            type: number
+            format: double
+            minimum: -180
+            maximum: 180
+          explode: false
       responses:
         '200':
           description: The request has succeeded.
