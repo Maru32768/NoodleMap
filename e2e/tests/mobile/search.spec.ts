@@ -43,7 +43,7 @@ test("guest opens a shared shop URL in the mobile sheet", async ({ page, api }) 
   await expect(page.getByRole("button", { name: "閉じる" })).toBeVisible();
 });
 
-test("guest can scroll shop details to the bottom actions", async ({
+test("guest can scroll shop details and swipe the body closed", async ({
   page,
   api,
 }) => {
@@ -76,6 +76,7 @@ test("guest can scroll shop details to the bottom actions", async ({
     const scroller = page.locator(".react-modal-sheet-content-scroller");
     const share = scroller.getByRole("button", { name: "共有" });
     await expect(share).toBeVisible();
+    await expect(scroller).toHaveCSS("overflow-y", "auto");
     await expect
       .poll(async () => {
         await scroller.evaluate((el) => {
@@ -90,5 +91,31 @@ test("guest can scroll shop details to the bottom actions", async ({
     await expect(
       scroller.getByRole("link", { name: "Google Maps", exact: true }),
     ).toBeInViewport({ ratio: 1 });
+
+    const touch = await page.context().newCDPSession(page);
+    await touch.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [{ x: 375, y: 250, id: 1 }],
+    });
+    for (let step = 1; step <= 12; step++) {
+      await touch.send("Input.dispatchTouchEvent", {
+        type: "touchMove",
+        touchPoints: [{ x: 375, y: 250 + step * 15, id: 1 }],
+      });
+      await page.evaluate(
+        () => new Promise<void>((resolve) => {
+          requestAnimationFrame(() => resolve());
+        }),
+      );
+    }
+    await touch.send("Input.dispatchTouchEvent", {
+      type: "touchEnd",
+      touchPoints: [],
+    });
+    await expect(share).toBeHidden();
+    await expect
+      .poll(async () => (await header.boundingBox())?.y ?? 0)
+      .toBeGreaterThan(height * 0.7);
+    await touch.detach();
   }
 });
