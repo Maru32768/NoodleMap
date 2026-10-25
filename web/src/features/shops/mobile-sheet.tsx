@@ -20,15 +20,9 @@ import { ShopRating } from "@/features/visits/shop-rating.tsx";
 import { ShopVisitHistory } from "@/features/visits/shop-visit-history.tsx";
 import { useIsPc } from "@/utils/use-is-pc.ts";
 import { Box } from "@chakra-ui/react";
-import { useEffect, useRef, useState } from "react";
-import {
-  Sheet,
-  type SheetContentProps,
-  type SheetRef,
-} from "react-modal-sheet";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Sheet, type SheetRef } from "react-modal-sheet";
 import { Virtuoso } from "react-virtuoso";
-
-type MobileSheetLevel = "peek" | "full";
 
 export interface MobileSheetProps {
   shop: Shop | undefined;
@@ -38,19 +32,10 @@ export interface MobileSheetProps {
   onClose: () => void;
 }
 
-// Index 0 = pseudo-close (redirected back to peek), index 1 = peek, index 2 = full.
 // Peek heights are clamped so short and tall screens stay usable.
-const LIST_PEEK = { minPx: 104, ratio: 0.14, maxPx: 132 };
-const DETAIL_PEEK = { minPx: 132, ratio: 0.205, maxPx: 144 };
-const LEVEL_TO_SNAP: Record<MobileSheetLevel, number> = {
-  peek: 1,
-  full: 2,
-};
-const SNAP_TO_LEVEL: Record<number, MobileSheetLevel> = {
-  1: "peek",
-  2: "full",
-  3: "full",
-};
+const PEEK = { minPx: 132, ratio: 0.205, maxPx: 144 };
+const PEEK_SNAP = 1;
+const FULL_SNAP = 2;
 
 function getPeekRatio(
   viewportHeight: number,
@@ -128,20 +113,6 @@ function MobileListItem({
   );
 }
 
-function MobileSheetContent({
-  isDetailMode,
-  ...props
-}: SheetContentProps & { isDetailMode: boolean }) {
-  const { y } = Sheet.useContext();
-
-  return (
-    <Sheet.Content
-      {...props}
-      scrollStyle={isDetailMode ? { paddingBottom: y } : undefined}
-    />
-  );
-}
-
 export function MobileSheet({
   shop,
   sortedShops,
@@ -153,12 +124,9 @@ export function MobileSheet({
   const isPc = useIsPc();
   const sheetRef = useRef<SheetRef>(null);
   const mapsUrl = shop ? buildGoogleMapsUrl(shop) : "";
-  const isDetailMode = Boolean(shop);
-  const [level, setLevel] = useState<MobileSheetLevel>("peek");
   const [viewportHeight, setViewportHeight] = useState(() =>
     typeof window === "undefined" ? 0 : window.innerHeight,
   );
-  const detailsVisible = isDetailMode && level !== "peek";
 
   useEffect(() => {
     const handleResize = () => {
@@ -169,52 +137,21 @@ export function MobileSheet({
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const handleClose = () => {
-    setLevel("peek");
+  const handleClose = useCallback(() => {
     onClose();
-  };
+    sheetRef.current?.snapTo(PEEK_SNAP);
+  }, [onClose]);
 
-  const snapPoints = shop
-    ? [0, getPeekRatio(viewportHeight, DETAIL_PEEK), 0.88, 1]
-    : [0, getPeekRatio(viewportHeight, LIST_PEEK), 0.88, 1];
+  const snapPoints = [0, getPeekRatio(viewportHeight, PEEK), 1];
 
   return (
     <Sheet
-      key={shop ? "detail" : "list"}
       ref={sheetRef}
       isOpen={!isPc}
       snapPoints={snapPoints}
-      onClose={() => {
-        // Sheet is never truly closed. If in detail mode, go back to list.
-        if (shop) {
-          handleClose();
-        }
-        sheetRef.current?.snapTo(LEVEL_TO_SNAP.peek);
-      }}
-      initialSnap={LEVEL_TO_SNAP.peek}
-      onSnap={(snapIndex) => {
-        // Always redirect snap-to-close back to peek (sheet is never dismissed).
-        if (snapIndex === 0) {
-          if (shop) {
-            handleClose();
-          }
-          sheetRef.current?.snapTo(LEVEL_TO_SNAP.peek);
-          return;
-        }
-        const nextLevel = SNAP_TO_LEVEL[snapIndex];
-        if (nextLevel) {
-          setLevel(nextLevel);
-          // Clamp library's auto-added 4th snap back to full.
-          if (snapIndex > LEVEL_TO_SNAP.full) {
-            requestAnimationFrame(() => {
-              sheetRef.current?.snapTo(LEVEL_TO_SNAP.full);
-            });
-          }
-        }
-      }}
-      tweenConfig={{ ease: [0.2, 0.8, 0.2, 1], duration: 0.28 }}
-      dragVelocityThreshold={500}
-      disableScrollLocking
+      onClose={onClose}
+      initialSnap={PEEK_SNAP}
+      disableDismiss
       style={{ zIndex: 800 }}
     >
       <Sheet.Container
@@ -232,14 +169,8 @@ export function MobileSheet({
           </Box>
         </Sheet.Header>
 
-        <MobileSheetContent
-          isDetailMode={isDetailMode}
-          disableScroll={(state) => state.currentSnap !== LEVEL_TO_SNAP.full}
-          disableDrag={(state) =>
-            state.currentSnap === LEVEL_TO_SNAP.full &&
-            (state.scrollPosition === "middle" ||
-              state.scrollPosition === "bottom")
-          }
+        <Sheet.Content
+          disableScroll={(state) => state.currentSnap !== FULL_SNAP}
         >
           {shop ? (
             <Box
@@ -317,100 +248,96 @@ export function MobileSheet({
                 />
               </Box>
 
-              {detailsVisible && (
-                <>
-                  {shop.eaten && (
+              {shop.eaten && (
+                <Box
+                  bg="nm.bg"
+                  borderRadius="nmMd"
+                  px="1rem"
+                  py="0.875rem"
+                  mt="0.875rem"
+                >
+                  <Box
+                    display="flex"
+                    alignItems="baseline"
+                    justifyContent="space-between"
+                    mb="0.5rem"
+                  >
                     <Box
-                      bg="nm.bg"
-                      borderRadius="nmMd"
-                      px="1rem"
-                      py="0.875rem"
-                      mt="0.875rem"
+                      fontFamily="mono"
+                      fontSize="0.625rem"
+                      letterSpacing="0.18em"
+                      color="nm.inkMuted"
+                      textTransform="uppercase"
                     >
-                      <Box
-                        display="flex"
-                        alignItems="baseline"
-                        justifyContent="space-between"
-                        mb="0.5rem"
-                      >
-                        <Box
-                          fontFamily="mono"
-                          fontSize="0.625rem"
-                          letterSpacing="0.18em"
-                          color="nm.inkMuted"
-                          textTransform="uppercase"
-                        >
-                          お気に入り度
-                        </Box>
-                        <Box fontSize="0.6875rem" color="nm.inkMuted">
-                          {shop.visitCount}回訪問
-                        </Box>
-                      </Box>
-                      <ShopRating shop={shop} compact />
+                      お気に入り度
                     </Box>
-                  )}
-
-                  <Box mt="0.875rem" fontSize="0.8125rem">
-                    {[
-                      {
-                        label: "ADDRESS",
-                        value: (
-                          <ShopAddressLink
-                            address={shop.address}
-                            mapsUrl={mapsUrl}
-                          />
-                        ),
-                      },
-                      {
-                        label: "STATUS",
-                        value: shopStatusLabel(shop),
-                      },
-                    ].map(({ label, value }) => (
-                      <Box
-                        key={label}
-                        py="0.625rem"
-                        borderBottom="1px dashed"
-                        borderBottomColor="nm.lineFaint"
-                        _last={{ borderBottom: "0" }}
-                      >
-                        <Box
-                          fontFamily="mono"
-                          fontSize="0.625rem"
-                          letterSpacing="0.15em"
-                          color="nm.inkMuted"
-                          mb="0.125rem"
-                        >
-                          {label}
-                        </Box>
-                        <Box color="nm.ink">{value}</Box>
-                      </Box>
-                    ))}
-                  </Box>
-
-                  <Box mt="0.75rem">
-                    <ShopLinkList links={shop.links} />
-                  </Box>
-
-                  {shop.eaten && (
-                    <Box mt="1rem">
-                      <ShopVisitHistory shopId={shop.id} />
+                    <Box fontSize="0.6875rem" color="nm.inkMuted">
+                      {shop.visitCount}回訪問
                     </Box>
-                  )}
-
-                  <Box display="flex" gap="0.5rem" mt="1rem">
-                    <ShopActions
-                      shop={shop}
-                      mapsUrl={mapsUrl}
-                      mapsLabel="Google Maps"
-                      onAdminClick={
-                        currentUser.type === "admin"
-                          ? () => onAdminEdit(shop.id)
-                          : undefined
-                      }
-                    />
                   </Box>
-                </>
+                  <ShopRating shop={shop} compact />
+                </Box>
               )}
+
+              <Box mt="0.875rem" fontSize="0.8125rem">
+                {[
+                  {
+                    label: "ADDRESS",
+                    value: (
+                      <ShopAddressLink
+                        address={shop.address}
+                        mapsUrl={mapsUrl}
+                      />
+                    ),
+                  },
+                  {
+                    label: "STATUS",
+                    value: shopStatusLabel(shop),
+                  },
+                ].map(({ label, value }) => (
+                  <Box
+                    key={label}
+                    py="0.625rem"
+                    borderBottom="1px dashed"
+                    borderBottomColor="nm.lineFaint"
+                    _last={{ borderBottom: "0" }}
+                  >
+                    <Box
+                      fontFamily="mono"
+                      fontSize="0.625rem"
+                      letterSpacing="0.15em"
+                      color="nm.inkMuted"
+                      mb="0.125rem"
+                    >
+                      {label}
+                    </Box>
+                    <Box color="nm.ink">{value}</Box>
+                  </Box>
+                ))}
+              </Box>
+
+              <Box mt="0.75rem">
+                <ShopLinkList links={shop.links} />
+              </Box>
+
+              {shop.eaten && (
+                <Box mt="1rem">
+                  <ShopVisitHistory shopId={shop.id} />
+                </Box>
+              )}
+
+              <Box display="flex" gap="0.5rem" mt="1rem">
+                <ShopActions
+                  shop={shop}
+                  mapsUrl={mapsUrl}
+                  mapsLabel="Google Maps"
+                  onAdminClick={
+                    currentUser.type === "admin"
+                      ? () => onAdminEdit(shop.id)
+                      : undefined
+                  }
+                />
+              </Box>
             </Box>
           ) : (
             <ShopsLoadState>
@@ -473,7 +400,7 @@ export function MobileSheet({
               )}
             </ShopsLoadState>
           )}
-        </MobileSheetContent>
+        </Sheet.Content>
       </Sheet.Container>
     </Sheet>
   );
