@@ -43,7 +43,7 @@ test("guest opens a shared shop URL in the mobile sheet", async ({ page, api }) 
   await expect(page.getByRole("button", { name: "閉じる" })).toBeVisible();
 });
 
-test("guest can scroll shop details and swipe the body closed", async ({
+test("guest scrolls details without dismissal and pulls down from the top", async ({
   page,
   api,
 }) => {
@@ -57,7 +57,7 @@ test("guest can scroll shop details and swipe the body closed", async ({
     links: Array.from({ length: 10 }, (_, i) => ({
       type: "other",
       url: `https://example.com/shop/${i}`,
-      label: `店舗リンク ${i + 1}`,
+      label: `店舗リンク ${i + 1} の詳しい情報を確認する`,
     })),
   });
 
@@ -93,25 +93,41 @@ test("guest can scroll shop details and swipe the body closed", async ({
     ).toBeInViewport({ ratio: 1 });
 
     const touch = await page.context().newCDPSession(page);
-    await touch.send("Input.dispatchTouchEvent", {
-      type: "touchStart",
-      touchPoints: [{ x: 375, y: 250, id: 1 }],
-    });
-    for (let step = 1; step <= 12; step++) {
+    const swipe = async (positions: number[]) => {
       await touch.send("Input.dispatchTouchEvent", {
-        type: "touchMove",
-        touchPoints: [{ x: 375, y: 250 + step * 15, id: 1 }],
+        type: "touchStart",
+        touchPoints: [{ x: 375, y: positions[0], id: 1 }],
       });
-      await page.evaluate(
-        () => new Promise<void>((resolve) => {
-          requestAnimationFrame(() => resolve());
-        }),
-      );
-    }
-    await touch.send("Input.dispatchTouchEvent", {
-      type: "touchEnd",
-      touchPoints: [],
-    });
+      for (const y of positions.slice(1)) {
+        await touch.send("Input.dispatchTouchEvent", {
+          type: "touchMove",
+          touchPoints: [{ x: 375, y, id: 1 }],
+        });
+        await page.evaluate(
+          () => new Promise<void>((resolve) => {
+            requestAnimationFrame(() => resolve());
+          }),
+        );
+      }
+      await touch.send("Input.dispatchTouchEvent", {
+        type: "touchEnd",
+        touchPoints: [],
+      });
+    };
+
+    const expandedTop = (await header.boundingBox())!.y;
+    await swipe([250, 270, 290, 310, 330, 350, 370, 390, 410, 430, 410, 390, 370, 350, 330]);
+    await expect(share).toBeVisible();
+    await expect.poll(async () => (await header.boundingBox())?.y).toBeCloseTo(expandedTop, 0);
+
+    const scrollStart = await scroller.evaluate((el) => el.scrollTop);
+    await swipe([500, 480, 460, 440, 420, 400, 380, 360, 340, 320, 300]);
+    await expect.poll(() => scroller.evaluate((el) => el.scrollTop)).toBeGreaterThan(scrollStart);
+    await expect(share).toBeVisible();
+
+    await scroller.evaluate((el) => { el.scrollTop = 0; });
+    await expect(scroller).toHaveCSS("touch-action", "pan-down");
+    await swipe([250, 270, 290, 310, 330, 350, 370, 390, 410, 430, 450, 470, 490, 510, 530, 550]);
     await expect(share).toBeHidden();
     await expect
       .poll(async () => (await header.boundingBox())?.y ?? 0)

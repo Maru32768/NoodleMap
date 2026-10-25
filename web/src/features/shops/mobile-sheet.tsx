@@ -20,13 +20,7 @@ import { ShopRating } from "@/features/visits/shop-rating.tsx";
 import { ShopVisitHistory } from "@/features/visits/shop-visit-history.tsx";
 import { useIsPc } from "@/utils/use-is-pc.ts";
 import { Box } from "@chakra-ui/react";
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type TouchEvent,
-} from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Sheet,
   type SheetContentProps,
@@ -138,64 +132,12 @@ function MobileSheetContent({
   isDetailMode,
   ...props
 }: SheetContentProps & { isDetailMode: boolean }) {
-  const { y, currentSnap, snapTo } = Sheet.useContext();
-  const swipeStart = useRef<{ id: number; x: number; y: number } | null>(null);
-
-  const handleTouchStart = useCallback(
-    (event: TouchEvent<HTMLDivElement>) => {
-      swipeStart.current = null;
-      if (
-        !isDetailMode ||
-        currentSnap !== LEVEL_TO_SNAP.full ||
-        event.touches.length !== 1 ||
-        (event.target instanceof Element &&
-          event.target.closest(
-            'input, textarea, select, [contenteditable]:not([contenteditable="false"])',
-          ))
-      ) {
-        return;
-      }
-      const touch = event.touches[0];
-      swipeStart.current = {
-        id: touch.identifier,
-        x: touch.clientX,
-        y: touch.clientY,
-      };
-    },
-    [currentSnap, isDetailMode],
-  );
-
-  const handleTouchEnd = useCallback(
-    (event: TouchEvent<HTMLDivElement>) => {
-      const start = swipeStart.current;
-      swipeStart.current = null;
-      if (!start || event.touches.length !== 0) {
-        return;
-      }
-      const touch = Array.from(event.changedTouches).find(
-        (touch) => touch.identifier === start.id,
-      );
-      if (!touch) {
-        return;
-      }
-      const distanceY = touch.clientY - start.y;
-      const distanceX = Math.abs(touch.clientX - start.x);
-      if (distanceY >= 60 && distanceY > distanceX * 1.5) {
-        snapTo(LEVEL_TO_SNAP.peek);
-      }
-    },
-    [snapTo],
-  );
+  const { y } = Sheet.useContext();
 
   return (
     <Sheet.Content
       {...props}
       scrollStyle={isDetailMode ? { paddingBottom: y } : undefined}
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-      onTouchCancel={() => {
-        swipeStart.current = null;
-      }}
     />
   );
 }
@@ -295,8 +237,7 @@ export function MobileSheet({
           disableScroll={(state) => state.currentSnap !== LEVEL_TO_SNAP.full}
           disableDrag={(state) =>
             state.currentSnap === LEVEL_TO_SNAP.full &&
-            (isDetailMode ||
-              state.scrollPosition === "middle" ||
+            (state.scrollPosition === "middle" ||
               state.scrollPosition === "bottom")
           }
         >
