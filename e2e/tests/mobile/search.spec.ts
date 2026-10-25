@@ -42,3 +42,53 @@ test("guest opens a shared shop URL in the mobile sheet", async ({ page, api }) 
   await expect(page.getByText(shop.name, { exact: true }).filter({ visible: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "閉じる" })).toBeVisible();
 });
+
+test("guest can scroll shop details to the bottom actions", async ({
+  page,
+  api,
+}) => {
+  const shop = await api.createShop({
+    name: `${uid()} 訪問履歴のある店舗`,
+    address: "東京都新宿区新宿１丁目１６−１０ カテリーナ・ネオハイツ 103",
+    eaten: true,
+    rate: 85,
+  });
+  await api.updateShop(shop, {
+    links: Array.from({ length: 10 }, (_, i) => ({
+      type: "other",
+      url: `https://example.com/shop/${i}`,
+      label: `店舗リンク ${i + 1}`,
+    })),
+  });
+
+  for (const height of [640, 844]) {
+    await page.setViewportSize({ width: 390, height });
+    await page.goto(`/search?shop=${shop.id}`);
+    const header = page.locator(".react-modal-sheet-header-container");
+    await expect(header).toBeVisible();
+    const handle = await header.boundingBox();
+    expect(handle).not.toBeNull();
+    await page.mouse.move(195, handle!.y + handle!.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(195, height * 0.12, { steps: 30 });
+    await page.mouse.up();
+
+    const scroller = page.locator(".react-modal-sheet-content-scroller");
+    const share = scroller.getByRole("button", { name: "共有" });
+    await expect(share).toBeVisible();
+    await expect
+      .poll(async () => {
+        await scroller.evaluate((el) => {
+          el.scrollTop = el.scrollHeight;
+        });
+        const bounds = await share.boundingBox();
+        return (
+          bounds !== null && bounds.y >= 0 && bounds.y + bounds.height <= height
+        );
+      })
+      .toBe(true);
+    await expect(
+      scroller.getByRole("link", { name: "Google Maps", exact: true }),
+    ).toBeInViewport({ ratio: 1 });
+  }
+});

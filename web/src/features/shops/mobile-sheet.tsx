@@ -21,7 +21,11 @@ import { ShopVisitHistory } from "@/features/visits/shop-visit-history.tsx";
 import { useIsPc } from "@/utils/use-is-pc.ts";
 import { Box } from "@chakra-ui/react";
 import { useEffect, useRef, useState } from "react";
-import { Sheet, type SheetRef } from "react-modal-sheet";
+import {
+  Sheet,
+  type SheetContentProps,
+  type SheetRef,
+} from "react-modal-sheet";
 import { Virtuoso } from "react-virtuoso";
 
 type MobileSheetLevel = "peek" | "full";
@@ -124,6 +128,20 @@ function MobileListItem({
   );
 }
 
+function MobileSheetContent({
+  isDetailMode,
+  ...props
+}: SheetContentProps & { isDetailMode: boolean }) {
+  const { y } = Sheet.useContext();
+
+  return (
+    <Sheet.Content
+      {...props}
+      scrollStyle={isDetailMode ? { paddingBottom: y } : undefined}
+    />
+  );
+}
+
 export function MobileSheet({
   shop,
   sortedShops,
@@ -214,7 +232,8 @@ export function MobileSheet({
           </Box>
         </Sheet.Header>
 
-        <Sheet.Content
+        <MobileSheetContent
+          isDetailMode={isDetailMode}
           disableScroll={(state) => state.currentSnap !== LEVEL_TO_SNAP.full}
           disableDrag={(state) =>
             state.currentSnap === LEVEL_TO_SNAP.full &&
@@ -454,7 +473,7 @@ export function MobileSheet({
               )}
             </ShopsLoadState>
           )}
-        </Sheet.Content>
+        </MobileSheetContent>
       </Sheet.Container>
     </Sheet>
   );
