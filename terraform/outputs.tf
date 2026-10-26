@@ -18,12 +18,12 @@ output "og_images_public_base_url" {
   value = module.og_images_r2.public_base_url
 }
 
-output "visit_images_bucket_name" {
-  value = module.visit_images_r2.bucket_name
+output "meal_record_images_bucket_name" {
+  value = module.meal_record_images_r2.bucket_name
 }
 
-output "visit_images_public_base_url" {
-  value = module.visit_images_r2.public_base_url
+output "meal_record_images_public_base_url" {
+  value = module.meal_record_images_r2.public_base_url
 }
 
 output "backups_bucket_name" {

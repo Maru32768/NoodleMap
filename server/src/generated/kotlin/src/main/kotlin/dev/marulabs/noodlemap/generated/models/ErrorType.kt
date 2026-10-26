@@ -33,14 +33,14 @@ public enum class ErrorType(
   GOOGLE_PLACES_NOT_CONFIGURED("google_places_not_configured"),
   @SerialName("google_places_failed")
   GOOGLE_PLACES_FAILED("google_places_failed"),
-  @SerialName("shop_has_visit_logs")
-  SHOP_HAS_VISIT_LOGS("shop_has_visit_logs"),
-  @SerialName("visit_image_limit_reached")
-  VISIT_IMAGE_LIMIT_REACHED("visit_image_limit_reached"),
-  @SerialName("visit_image_processing_busy")
-  VISIT_IMAGE_PROCESSING_BUSY("visit_image_processing_busy"),
-  @SerialName("visit_images_storage_unconfigured")
-  VISIT_IMAGES_STORAGE_UNCONFIGURED("visit_images_storage_unconfigured"),
+  @SerialName("shop_has_meal_records")
+  SHOP_HAS_MEAL_RECORDS("shop_has_meal_records"),
+  @SerialName("meal_record_image_limit_reached")
+  MEAL_RECORD_IMAGE_LIMIT_REACHED("meal_record_image_limit_reached"),
+  @SerialName("meal_record_image_processing_busy")
+  MEAL_RECORD_IMAGE_PROCESSING_BUSY("meal_record_image_processing_busy"),
+  @SerialName("meal_record_images_storage_unconfigured")
+  MEAL_RECORD_IMAGES_STORAGE_UNCONFIGURED("meal_record_images_storage_unconfigured"),
   ;
 
   override fun toString(): String = value

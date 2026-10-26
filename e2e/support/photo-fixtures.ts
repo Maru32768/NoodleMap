@@ -7,7 +7,7 @@ export const DATELESS_SHOP = { lat: 43.07, lng: 141.36 };
 // A shop not registered yet, about 5 km from the others; only the test that adds it uses this photo.
 export const UNREGISTERED_SHOP = { lat: 43.1, lng: 141.4 };
 
-/** Copies of visit-image.jpg with the EXIF an iPhone writes; scripts/write-photo-fixtures.ts writes them. */
+/** Copies of meal-record-image.jpg with the EXIF an iPhone writes; scripts/write-photo-fixtures.ts writes them. */
 export const PHOTO_FIXTURES: { name: string; exif: ExifSpec }[] = [
   {
     name: "photo-near-1.jpg",

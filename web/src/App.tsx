@@ -78,6 +78,7 @@ function App() {
             </Suspense>
           }
         >
+          <Route path="/venues/:venueId" element={<LazyVenuePage />} />
           <Route
             path={`${ADMIN_PATH}/*`}
             element={
@@ -112,5 +113,6 @@ const LazySearchPage = React.lazy(() => import("./pages/search"));
 const LazyAdminPage = React.lazy(() => import("./pages/admin"));
 const LazyLoginPage = React.lazy(() => import("./pages/login"));
 const LazyAccountPage = React.lazy(() => import("./pages/account"));
+const LazyVenuePage = React.lazy(() => import("./pages/venue"));
 
 export default App;

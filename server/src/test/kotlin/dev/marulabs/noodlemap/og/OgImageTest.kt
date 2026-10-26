@@ -1,7 +1,7 @@
 package dev.marulabs.noodlemap.og
 
-import dev.marulabs.noodlemap.visits.halves
-import dev.marulabs.noodlemap.visits.jpeg
+import dev.marulabs.noodlemap.mealrecords.halves
+import dev.marulabs.noodlemap.mealrecords.jpeg
 import io.kotest.assertions.throwables.shouldThrowAny
 import io.kotest.matchers.ints.shouldBeInRange
 import io.kotest.matchers.shouldBe
@@ -11,7 +11,7 @@ class OgImageTest {
 
     @Test
     fun `a cover decodes subsampled to just cover the card`() {
-        // A stored 訪問画像 is not subsampled: halving it would leave it short of the card.
+        // A stored 記録の画像 is not subsampled: halving it would leave it short of the card.
         decodeCover(jpeg(halves(2048, 1536))).let {
             it.width shouldBe 2048
             it.height shouldBe 1536

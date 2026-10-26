@@ -3,12 +3,12 @@ import { AddModal } from "@/features/admin/add-modal.tsx";
 import { AdminFilters } from "@/features/admin/admin-filters.tsx";
 import { AdminMap } from "@/features/admin/admin-map.tsx";
 import { AdminTable } from "@/features/admin/admin-table.tsx";
+import {
+  matchesMealRecordFilter,
+  MealRecordFilter,
+} from "@/features/admin/meal-record-filter.ts";
 import { MobileShopList } from "@/features/admin/mobile-shop-list.tsx";
 import { TagManagementModal } from "@/features/admin/tag-management-modal.tsx";
-import {
-  matchesVisitFilter,
-  VisitFilter,
-} from "@/features/admin/visit-filter.ts";
 import { AccountLink } from "@/features/auth/account-link.tsx";
 import { PhotoImportModal } from "@/features/photo-import/photo-import-modal.tsx";
 import {
@@ -135,13 +135,14 @@ export default function AdminPage() {
   const [keyword, setKeyword] = useState("");
   const deferredKeyword = useDeferredValue(keyword);
   const [categoryFilter, setCategoryFilter] = useState<CategoryType>("all");
-  const [visitFilter, setVisitFilter] = useState<VisitFilter>("all");
+  const [mealRecordFilter, setMealRecordFilter] =
+    useState<MealRecordFilter>("all");
   const [wishLevels, setWishLevels] = useState<WishLevel[]>([]);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mobileView, setMobileView] = useState<MobileAdminView>("list");
   const [editId, setEditId] = useState<string | null>(null);
-  const [editTab, setEditTab] = useState<"info" | "visit">("info");
+  const [editTab, setEditTab] = useState<"info" | "mealRecord">("info");
   const [showAdd, setShowAdd] = useState(false);
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [showTagManagement, setShowTagManagement] = useState(false);
@@ -165,22 +166,22 @@ export default function AdminPage() {
         }
       }
       return (
-        matchesVisitFilter(shop, visitFilter) &&
+        matchesMealRecordFilter(shop, mealRecordFilter) &&
         matchesWishLevels(shop, wishLevels)
       );
     }) ?? [];
 
   // Counts stay undefined until the shops load so the UI shows a placeholder, not 0.
   const total = shops?.length;
-  // Same rules as the visit filter, so a count matches its filtered list.
+  // Same rules as the meal record filter, so a count matches its filtered list.
   const eatenCount = shops?.filter((shop) =>
-    matchesVisitFilter(shop, "eaten"),
+    matchesMealRecordFilter(shop, "eaten"),
   ).length;
   const wishCount = shops?.filter((shop) =>
-    matchesVisitFilter(shop, "wish"),
+    matchesMealRecordFilter(shop, "wish"),
   ).length;
   const closedCount = shops?.filter((shop) =>
-    matchesVisitFilter(shop, "closed"),
+    matchesMealRecordFilter(shop, "closed"),
   ).length;
   const editShop = shops?.find((shop) => shop.id === editId);
   const mapPaneDisplay = {
@@ -188,7 +189,7 @@ export default function AdminPage() {
     lg: "block",
   };
 
-  const handleEdit = (id: string, tab?: "visit") => {
+  const handleEdit = (id: string, tab?: "mealRecord") => {
     setEditId(id);
     setEditTab(tab ?? "info");
   };
@@ -542,15 +543,15 @@ export default function AdminPage() {
           <AdminFilters
             categoryFilter={categoryFilter}
             setCategoryFilter={setCategoryFilter}
-            visitFilter={visitFilter}
-            setVisitFilter={setVisitFilter}
+            mealRecordFilter={mealRecordFilter}
+            setMealRecordFilter={setMealRecordFilter}
             wishLevels={wishLevels}
             setWishLevels={setWishLevels}
             filteredCount={shops && filtered.length}
             totalCount={total}
             onClearAll={() => {
               setCategoryFilter("all");
-              setVisitFilter("all");
+              setMealRecordFilter("all");
               setWishLevels([]);
             }}
           />

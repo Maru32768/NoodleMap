@@ -10,7 +10,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /**
- * The one bound on bitmap work (OGP renders, visit image processing) for the 512 MB instance: one bitmap
+ * The one bound on bitmap work (OGP renders, meal record image processing) for the 512 MB instance: one bitmap
  * job runs at a time, and at most [maxPending] callers hold a slot (running, waiting, or receiving the
  * upload they will process) before new ones are turned away.
  */

@@ -18,7 +18,7 @@ CREATE TABLE shops (
 
 -- (modtime trigger omitted; see note in Users.sq)
 
--- 食べた / お気に入り度 are derived from visit_logs (VisitLogs.sq findAllVisitSummaries).
+-- 食べた / お気に入り度 are derived from meal_records (MealRecords.sq findAllMealRecordSummaries).
 findAllShops:
 SELECT r.id,
        r.name,

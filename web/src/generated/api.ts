@@ -103,6 +103,96 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/meal-record-images/{imageId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Updates an image's caption. */
+        put: operations["updateMealRecordImage"];
+        post?: never;
+        delete: operations["deleteMealRecordImage"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/meal-records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["addMealRecord"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/meal-records/{mealRecordId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Replaces every field of a meal record. */
+        put: operations["updateMealRecord"];
+        post?: never;
+        /** @description Deletes a meal record with its images. */
+        delete: operations["deleteMealRecord"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/meal-records/{mealRecordId}/images": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Adds an image at the end of a meal record's images (at most 10). The server applies the EXIF orientation,
+         *     scales the long edge down to 2048 px and stores a JPEG without metadata.
+         *     The request's Origin must be the site's own origin, or a localhost one on an http (local development) site;
+         *     403 otherwise.
+         */
+        post: operations["uploadMealRecordImage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/meal-records/{mealRecordId}/images/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Replaces the display order of a meal record's images. */
+        put: operations["reorderMealRecordImages"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/sessions": {
         parameters: {
             query?: never;
@@ -179,24 +269,8 @@ export interface paths {
         get?: never;
         put: operations["updateShop"];
         post?: never;
-        /** @description Deletes a shop with its tags and links. A shop with visit logs cannot be deleted (409). */
+        /** @description Deletes a shop with its tags and links. A shop with meal records cannot be deleted (409). */
         delete: operations["deleteShop"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/shops/{id}/visits": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["addVisitLog"];
-        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -211,80 +285,6 @@ export interface paths {
         };
         get?: never;
         put: operations["saveTags"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/visit-images/{imageId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** @description Updates an image's caption. */
-        put: operations["updateVisitImage"];
-        post?: never;
-        delete: operations["deleteVisitImage"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/visits/{visitId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** @description Replaces every field of a visit log. */
-        put: operations["updateVisitLog"];
-        post?: never;
-        /** @description Deletes a visit log with its images. */
-        delete: operations["deleteVisitLog"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/visits/{visitId}/images": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * @description Adds an image at the end of a visit log's images (at most 10). The server applies the EXIF orientation,
-         *     scales the long edge down to 2048 px and stores a JPEG without metadata.
-         *     The request's Origin must be the site's own origin, or a localhost one on an http (local development) site;
-         *     403 otherwise.
-         */
-        post: operations["uploadVisitImage"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/visits/{visitId}/images/order": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** @description Replaces the display order of a visit log's images. */
-        put: operations["reorderVisitImages"];
         post?: never;
         delete?: never;
         options?: never;
@@ -308,15 +308,15 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/shops/{id}/visits": {
+    "/api/v1/shops/{id}/meal-records": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** @description A shop's visit logs, newest first. privateNote is included only for the admin. */
-        get: operations["listVisitLogs"];
+        /** @description A shop's meal records, newest first. privateNote is included only for the admin. */
+        get: operations["listMealRecords"];
         put?: never;
         post?: never;
         delete?: never;
@@ -333,6 +333,38 @@ export interface paths {
             cookie?: never;
         };
         get: operations["listTags"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/venues": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listVenues"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/venues/{venueId}/meal-records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listVenueMealRecords"];
         put?: never;
         post?: never;
         delete?: never;
@@ -405,7 +437,7 @@ export interface components {
         /** @enum {string} */
         CategorySlug: "ramen" | "udon";
         /** @enum {string} */
-        ErrorType: "request_body_too_large" | "request_body_busy" | "request_body_timeout" | "backup_busy" | "invalid_request" | "authentication_required" | "permission_denied" | "google_auth_failed" | "session_creation_failed" | "not_found" | "internal_error" | "google_places_not_configured" | "google_places_failed" | "shop_has_visit_logs" | "visit_image_limit_reached" | "visit_image_processing_busy" | "visit_images_storage_unconfigured";
+        ErrorType: "request_body_too_large" | "request_body_busy" | "request_body_timeout" | "backup_busy" | "invalid_request" | "authentication_required" | "permission_denied" | "google_auth_failed" | "session_creation_failed" | "not_found" | "internal_error" | "google_places_not_configured" | "google_places_failed" | "shop_has_meal_records" | "meal_record_image_limit_reached" | "meal_record_image_processing_busy" | "meal_record_images_storage_unconfigured";
         /** @enum {string} */
         FieldErrorType: "required" | "invalid_format" | "out_of_range" | "too_long" | "duplicate" | "unknown";
         GoogleAuthBadRequestErrorBody: {
@@ -446,7 +478,122 @@ export interface components {
             type: "invalid_request";
             message?: string;
         };
-        /** @description One 食べたメニュー of a visit log. */
+        /** @description One 食べた記録. Meal records are listed newest first: by eatenOn, those without one last, then by creation. */
+        MealRecord: {
+            id: components["schemas"]["uuid"];
+            shops: components["schemas"]["MealRecordShop"][];
+            venue?: components["schemas"]["Venue"];
+            /** @description Eating date as an ISO 8601 calendar date (YYYY-MM-DD). Absent when unknown. */
+            eatenOn?: string;
+            /** @description 食べたメニュー in display order. */
+            menuItems: components["schemas"]["MenuItem"][];
+            /**
+             * Format: int32
+             * @description Derived on the server: the sum of the menu item prices. Absent when no item has a price.
+             */
+            totalPrice?: number;
+            /**
+             * Format: double
+             * @description 0 to 100. Absent when the meal record is not rated.
+             */
+            rate?: number;
+            publicNote?: string;
+            /** @description Only in responses to the admin; omitted for everyone else. */
+            privateNote?: string;
+            /** @description The meal record's images in display order; the first one represents the mealRecord. */
+            images: components["schemas"]["MealRecordImage"][];
+        };
+        MealRecordBadRequestErrorBody: {
+            /** @enum {string} */
+            type: "invalid_request";
+            message?: string;
+            fieldErrors?: components["schemas"]["MealRecordFieldError"][];
+        };
+        /**
+         * @description `menuItems` covers the list and each item; the message names the item (`menuItems[0].name`).
+         * @enum {string}
+         */
+        MealRecordField: "shopIds" | "eatenOn" | "menuItems" | "rate" | "venueName" | "publicNote" | "privateNote";
+        MealRecordFieldError: {
+            field: components["schemas"]["MealRecordField"];
+            type: components["schemas"]["FieldErrorType"];
+            message?: string;
+        };
+        /** @description One 記録の画像: a JPEG whose long edge is at most 2048 px, already rotated upright. */
+        MealRecordImage: {
+            id: components["schemas"]["uuid"];
+            /** @description Absolute URL of the JPEG. */
+            url: string;
+            /** Format: int32 */
+            width: number;
+            /** Format: int32 */
+            height: number;
+            caption?: string;
+        };
+        MealRecordImageBadRequestErrorBody: {
+            /** @enum {string} */
+            type: "invalid_request";
+            message?: string;
+            fieldErrors?: components["schemas"]["MealRecordImageFieldError"][];
+        };
+        /**
+         * @description `file` is the uploaded image part; `imageIds` is the full ordered id list of a reorder.
+         * @enum {string}
+         */
+        MealRecordImageField: "file" | "caption" | "imageIds";
+        MealRecordImageFieldError: {
+            field: components["schemas"]["MealRecordImageField"];
+            type: components["schemas"]["FieldErrorType"];
+            message?: string;
+        };
+        /** @description The meal record already has the maximum number of images (10). */
+        MealRecordImageLimitReachedErrorBody: {
+            /** @enum {string} */
+            type: "meal_record_image_limit_reached";
+            message?: string;
+        };
+        /** @description Too many images are being processed right now; retry shortly. */
+        MealRecordImageProcessingBusyErrorBody: {
+            /** @enum {string} */
+            type: "meal_record_image_processing_busy";
+            message?: string;
+        };
+        MealRecordImagesResponse: {
+            images: components["schemas"]["MealRecordImage"][];
+        };
+        /** @description The server has no storage for meal record images configured. */
+        MealRecordImagesStorageUnconfiguredErrorBody: {
+            /** @enum {string} */
+            type: "meal_record_images_storage_unconfigured";
+            message?: string;
+        };
+        /**
+         * @description A meal record as written by the admin. Strings are trimmed and a blank string means not set.
+         *     On update every field is replaced, so an omitted field is cleared.
+         */
+        MealRecordInput: {
+            shopIds: components["schemas"]["uuid"][];
+            /** @description ISO 8601 calendar date (YYYY-MM-DD), no later than tomorrow. Omit when unknown. */
+            eatenOn?: string;
+            /** @description 食べたメニュー in display order, at most 10. Omit for none. */
+            menuItems?: components["schemas"]["MenuItemInput"][];
+            /**
+             * Format: double
+             * @description 0 to 100. Omit when not rated.
+             */
+            rate?: number;
+            venueName?: string;
+            publicNote?: string;
+            privateNote?: string;
+        };
+        MealRecordShop: {
+            id: components["schemas"]["uuid"];
+            name: string;
+        };
+        MealRecordsResponse: {
+            mealRecords: components["schemas"]["MealRecord"][];
+        };
+        /** @description One 食べたメニュー of a meal record. */
         MenuItem: {
             name: string;
             /** @description True for a 限定メニュー. */
@@ -499,8 +646,8 @@ export interface components {
         PlaceSuggestionsResponse: {
             suggestions: components["schemas"]["PlaceSuggestion"][];
         };
-        /** @description Every image id of the visit log exactly once, in the new display order. */
-        ReorderVisitImagesRequest: {
+        /** @description Every image id of the meal record exactly once, in the new display order. */
+        ReorderMealRecordImagesRequest: {
             imageIds: components["schemas"]["uuid"][];
         };
         RequestBodyBusyErrorBody: {
@@ -546,33 +693,33 @@ export interface components {
             address: string;
             /** @description Google Places place id. Absent when the shop was entered by hand. */
             googlePlaceId?: string;
-            /** @description Derived on the server: true when the shop has at least one visit log. Read-only. */
+            /** @description Derived on the server: true when the shop has at least one meal record. Read-only. */
             eaten: boolean;
             /**
              * Format: double
-             * @description Derived on the server: the rate of the latest visit log that has one, or 0 when none has. Read-only.
+             * @description Derived on the server: the rate of the latest meal record that has one, or 0 when none has. Read-only.
              */
             rate: number;
-            /** @description Derived on the server: true when the shop's rate comes from a visit log and is 80 or more. Read-only. */
+            /** @description Derived on the server: true when the shop's rate comes from a meal record and is 80 or more. Read-only. */
             favorite: boolean;
             /**
              * Format: int32
-             * @description Number of visit logs of the shop. Read-only.
+             * @description Number of meal records of the shop. Read-only.
              */
-            visitCount: number;
+            mealRecordCount: number;
             /** @description 気になる度. Absent when not set. Kept after the shop is eaten, but only meaningful before. */
             wishLevel?: components["schemas"]["WishLevel"];
             category: components["schemas"]["CategorySlug"];
             tags: components["schemas"]["Tag"][];
             /** @description External links (official site, SNS, ...) in display order. */
             links: components["schemas"]["ShopLink"][];
-            /** @description Derived on the server: URL of the first image of the latest visit log that has images. Absent when none has. */
+            /** @description Derived on the server: URL of the first image of the latest meal record that has images. Absent when none has. */
             coverPhotoUrl?: string;
         };
-        /** @description The shop has visit logs, so it cannot be deleted. */
-        ShopHasVisitLogsErrorBody: {
+        /** @description The shop has meal records, so it cannot be deleted. */
+        ShopHasMealRecordsErrorBody: {
             /** @enum {string} */
-            type: "shop_has_visit_logs";
+            type: "shop_has_meal_records";
             message?: string;
         };
         ShopLink: {
@@ -626,6 +773,10 @@ export interface components {
         TagsResponse: {
             tags: components["schemas"]["Tag"][];
         };
+        /** @description Trimmed; blank or omitted clears the caption. */
+        UpdateMealRecordImageRequest: {
+            caption?: string;
+        };
         UpdateShopBadRequestErrorBody: {
             /** @enum {string} */
             type: "invalid_request";
@@ -654,11 +805,11 @@ export interface components {
             /** @description Omit to keep the stored place id (older clients); a blank string clears it. */
             googlePlaceId?: string;
             category: components["schemas"]["CategorySlug"];
-            /** @description Deprecated and ignored by the server: 食べた is derived from visit logs. Older clients still send it. */
+            /** @description Deprecated and ignored by the server: 食べた is derived from meal records. Older clients still send it. */
             eaten?: boolean;
             /**
              * Format: double
-             * @description Deprecated and ignored by the server: the shop's rate is derived from visit logs. Older clients still send it.
+             * @description Deprecated and ignored by the server: the shop's rate is derived from meal records. Older clients still send it.
              */
             rate?: number;
             tagIds: components["schemas"]["uuid"][];
@@ -667,11 +818,7 @@ export interface components {
             /** @description Omit to keep the stored links (older clients); an array replaces them all, in array order. At most 10. */
             links?: components["schemas"]["ShopLinkInput"][];
         };
-        /** @description Trimmed; blank or omitted clears the caption. */
-        UpdateVisitImageRequest: {
-            caption?: string;
-        };
-        UploadVisitImageRequest: {
+        UploadMealRecordImageRequest: {
             /** Format: binary */
             file: string;
         };
@@ -680,115 +827,16 @@ export interface components {
             email: string;
             isAdmin: boolean;
         };
-        /** @description One 訪問画像: a JPEG whose long edge is at most 2048 px, already rotated upright. */
-        VisitImage: {
+        Venue: {
             id: components["schemas"]["uuid"];
-            /** @description Absolute URL of the JPEG. */
-            url: string;
-            /** Format: int32 */
-            width: number;
-            /** Format: int32 */
-            height: number;
-            caption?: string;
+            name: string;
         };
-        VisitImageBadRequestErrorBody: {
-            /** @enum {string} */
-            type: "invalid_request";
-            message?: string;
-            fieldErrors?: components["schemas"]["VisitImageFieldError"][];
+        VenueMealRecordsResponse: {
+            venue: components["schemas"]["Venue"];
+            mealRecords: components["schemas"]["MealRecord"][];
         };
-        /**
-         * @description `file` is the uploaded image part; `imageIds` is the full ordered id list of a reorder.
-         * @enum {string}
-         */
-        VisitImageField: "file" | "caption" | "imageIds";
-        VisitImageFieldError: {
-            field: components["schemas"]["VisitImageField"];
-            type: components["schemas"]["FieldErrorType"];
-            message?: string;
-        };
-        /** @description The visit log already has the maximum number of images (10). */
-        VisitImageLimitReachedErrorBody: {
-            /** @enum {string} */
-            type: "visit_image_limit_reached";
-            message?: string;
-        };
-        /** @description Too many images are being processed right now; retry shortly. */
-        VisitImageProcessingBusyErrorBody: {
-            /** @enum {string} */
-            type: "visit_image_processing_busy";
-            message?: string;
-        };
-        VisitImagesResponse: {
-            images: components["schemas"]["VisitImage"][];
-        };
-        /** @description The server has no storage for visit images configured. */
-        VisitImagesStorageUnconfiguredErrorBody: {
-            /** @enum {string} */
-            type: "visit_images_storage_unconfigured";
-            message?: string;
-        };
-        /** @description One 訪問ログ. Visit logs are listed newest first: by visitedOn, those without one last, then by creation. */
-        VisitLog: {
-            id: components["schemas"]["uuid"];
-            /** @description Visit date as an ISO 8601 calendar date (YYYY-MM-DD). Absent when unknown. */
-            visitedOn?: string;
-            /** @description 食べたメニュー in display order. */
-            menuItems: components["schemas"]["MenuItem"][];
-            /**
-             * Format: int32
-             * @description Derived on the server: the sum of the menu item prices. Absent when no item has a price.
-             */
-            totalPrice?: number;
-            /**
-             * Format: double
-             * @description 0 to 100. Absent when the visit is not rated.
-             */
-            rate?: number;
-            /** @description 催事 (department store fair, ramen festival, ...) where the shop was visited. */
-            eventName?: string;
-            publicNote?: string;
-            /** @description Only in responses to the admin; omitted for everyone else. */
-            privateNote?: string;
-            /** @description The visit's images in display order; the first one represents the visit. */
-            images: components["schemas"]["VisitImage"][];
-        };
-        VisitLogBadRequestErrorBody: {
-            /** @enum {string} */
-            type: "invalid_request";
-            message?: string;
-            fieldErrors?: components["schemas"]["VisitLogFieldError"][];
-        };
-        /**
-         * @description `menuItems` covers the list and each item; the message names the item (`menuItems[0].name`).
-         * @enum {string}
-         */
-        VisitLogField: "visitedOn" | "menuItems" | "rate" | "eventName" | "publicNote" | "privateNote";
-        VisitLogFieldError: {
-            field: components["schemas"]["VisitLogField"];
-            type: components["schemas"]["FieldErrorType"];
-            message?: string;
-        };
-        /**
-         * @description A visit log as written by the admin. Strings are trimmed and a blank string means not set.
-         *     On update every field is replaced, so an omitted field is cleared.
-         */
-        VisitLogInput: {
-            /** @description ISO 8601 calendar date (YYYY-MM-DD), no later than tomorrow. Omit when unknown. */
-            visitedOn?: string;
-            /** @description 食べたメニュー in display order, at most 10. Omit for none. */
-            menuItems?: components["schemas"]["MenuItemInput"][];
-            /**
-             * Format: double
-             * @description 0 to 100. Omit when not rated.
-             */
-            rate?: number;
-            eventName?: string;
-            publicNote?: string;
-            privateNote?: string;
-        };
-        VisitLogsResponse: {
-            visits: components["schemas"]["VisitLog"][];
+        VenuesResponse: {
+            venues: components["schemas"]["Venue"][];
         };
         /**
          * @description 気になる度 of a shop not eaten yet: low = ちょっと気になる, medium = 気になる, high = 絶対行きたい.
@@ -1190,6 +1238,597 @@ export interface operations {
             };
         };
     };
+    updateMealRecordImage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                imageId: components["schemas"]["uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateMealRecordImageRequest"];
+            };
+        };
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MealRecordImage"];
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MealRecordImageBadRequestErrorBody"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthenticationRequiredErrorBody"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PermissionDeniedErrorBody"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotFoundErrorBody"];
+                };
+            };
+            /** @description Client error */
+            408: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestBodyTimeoutErrorBody"];
+                };
+            };
+            /** @description Client error */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestBodyTooLargeErrorBody"];
+                };
+            };
+            /** @description Server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InternalErrorBody"];
+                };
+            };
+            /** @description Service unavailable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestBodyBusyErrorBody"];
+                };
+            };
+        };
+    };
+    deleteMealRecordImage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                imageId: components["schemas"]["uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description There is no content to send for this request, but the headers may be useful. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthenticationRequiredErrorBody"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PermissionDeniedErrorBody"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotFoundErrorBody"];
+                };
+            };
+            /** @description Server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InternalErrorBody"];
+                };
+            };
+        };
+    };
+    addMealRecord: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MealRecordInput"];
+            };
+        };
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MealRecord"];
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MealRecordBadRequestErrorBody"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthenticationRequiredErrorBody"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PermissionDeniedErrorBody"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotFoundErrorBody"];
+                };
+            };
+            /** @description Client error */
+            408: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestBodyTimeoutErrorBody"];
+                };
+            };
+            /** @description Client error */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestBodyTooLargeErrorBody"];
+                };
+            };
+            /** @description Server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InternalErrorBody"];
+                };
+            };
+            /** @description Service unavailable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestBodyBusyErrorBody"];
+                };
+            };
+        };
+    };
+    updateMealRecord: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mealRecordId: components["schemas"]["uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MealRecordInput"];
+            };
+        };
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MealRecord"];
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MealRecordBadRequestErrorBody"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthenticationRequiredErrorBody"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PermissionDeniedErrorBody"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotFoundErrorBody"];
+                };
+            };
+            /** @description Client error */
+            408: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestBodyTimeoutErrorBody"];
+                };
+            };
+            /** @description Client error */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestBodyTooLargeErrorBody"];
+                };
+            };
+            /** @description Server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InternalErrorBody"];
+                };
+            };
+            /** @description Service unavailable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestBodyBusyErrorBody"];
+                };
+            };
+        };
+    };
+    deleteMealRecord: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mealRecordId: components["schemas"]["uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description There is no content to send for this request, but the headers may be useful. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthenticationRequiredErrorBody"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PermissionDeniedErrorBody"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotFoundErrorBody"];
+                };
+            };
+            /** @description Server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InternalErrorBody"];
+                };
+            };
+        };
+    };
+    uploadMealRecordImage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mealRecordId: components["schemas"]["uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["UploadMealRecordImageRequest"];
+            };
+        };
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MealRecordImage"];
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MealRecordImageBadRequestErrorBody"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthenticationRequiredErrorBody"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PermissionDeniedErrorBody"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotFoundErrorBody"];
+                };
+            };
+            /** @description The request conflicts with the current state of the server. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MealRecordImageLimitReachedErrorBody"];
+                };
+            };
+            /** @description Server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InternalErrorBody"];
+                };
+            };
+            /** @description Service unavailable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MealRecordImageProcessingBusyErrorBody"] | components["schemas"]["MealRecordImagesStorageUnconfiguredErrorBody"];
+                };
+            };
+        };
+    };
+    reorderMealRecordImages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mealRecordId: components["schemas"]["uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReorderMealRecordImagesRequest"];
+            };
+        };
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MealRecordImagesResponse"];
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MealRecordImageBadRequestErrorBody"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthenticationRequiredErrorBody"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PermissionDeniedErrorBody"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotFoundErrorBody"];
+                };
+            };
+            /** @description Client error */
+            408: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestBodyTimeoutErrorBody"];
+                };
+            };
+            /** @description Client error */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestBodyTooLargeErrorBody"];
+                };
+            };
+            /** @description Server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InternalErrorBody"];
+                };
+            };
+            /** @description Service unavailable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestBodyBusyErrorBody"];
+                };
+            };
+        };
+    };
     listSessions: {
         parameters: {
             query?: never;
@@ -1554,7 +2193,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ShopHasVisitLogsErrorBody"];
+                    "application/json": components["schemas"]["ShopHasMealRecordsErrorBody"];
                 };
             };
             /** @description Server error */
@@ -1564,104 +2203,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InternalErrorBody"];
-                };
-            };
-        };
-    };
-    addVisitLog: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["schemas"]["uuid"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["VisitLogInput"];
-            };
-        };
-        responses: {
-            /** @description The request has succeeded. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VisitLog"];
-                };
-            };
-            /** @description The server could not understand the request due to invalid syntax. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VisitLogBadRequestErrorBody"];
-                };
-            };
-            /** @description Access is unauthorized. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AuthenticationRequiredErrorBody"];
-                };
-            };
-            /** @description Access is forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PermissionDeniedErrorBody"];
-                };
-            };
-            /** @description The server cannot find the requested resource. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NotFoundErrorBody"];
-                };
-            };
-            /** @description Client error */
-            408: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RequestBodyTimeoutErrorBody"];
-                };
-            };
-            /** @description Client error */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RequestBodyTooLargeErrorBody"];
-                };
-            };
-            /** @description Server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InternalErrorBody"];
-                };
-            };
-            /** @description Service unavailable. */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RequestBodyBusyErrorBody"];
                 };
             };
         };
@@ -1753,501 +2294,6 @@ export interface operations {
             };
         };
     };
-    updateVisitImage: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                imageId: components["schemas"]["uuid"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateVisitImageRequest"];
-            };
-        };
-        responses: {
-            /** @description The request has succeeded. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VisitImage"];
-                };
-            };
-            /** @description The server could not understand the request due to invalid syntax. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VisitImageBadRequestErrorBody"];
-                };
-            };
-            /** @description Access is unauthorized. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AuthenticationRequiredErrorBody"];
-                };
-            };
-            /** @description Access is forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PermissionDeniedErrorBody"];
-                };
-            };
-            /** @description The server cannot find the requested resource. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NotFoundErrorBody"];
-                };
-            };
-            /** @description Client error */
-            408: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RequestBodyTimeoutErrorBody"];
-                };
-            };
-            /** @description Client error */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RequestBodyTooLargeErrorBody"];
-                };
-            };
-            /** @description Server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InternalErrorBody"];
-                };
-            };
-            /** @description Service unavailable. */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RequestBodyBusyErrorBody"];
-                };
-            };
-        };
-    };
-    deleteVisitImage: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                imageId: components["schemas"]["uuid"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description There is no content to send for this request, but the headers may be useful. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Access is unauthorized. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AuthenticationRequiredErrorBody"];
-                };
-            };
-            /** @description Access is forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PermissionDeniedErrorBody"];
-                };
-            };
-            /** @description The server cannot find the requested resource. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NotFoundErrorBody"];
-                };
-            };
-            /** @description Server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InternalErrorBody"];
-                };
-            };
-        };
-    };
-    updateVisitLog: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                visitId: components["schemas"]["uuid"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["VisitLogInput"];
-            };
-        };
-        responses: {
-            /** @description The request has succeeded. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VisitLog"];
-                };
-            };
-            /** @description The server could not understand the request due to invalid syntax. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VisitLogBadRequestErrorBody"];
-                };
-            };
-            /** @description Access is unauthorized. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AuthenticationRequiredErrorBody"];
-                };
-            };
-            /** @description Access is forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PermissionDeniedErrorBody"];
-                };
-            };
-            /** @description The server cannot find the requested resource. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NotFoundErrorBody"];
-                };
-            };
-            /** @description Client error */
-            408: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RequestBodyTimeoutErrorBody"];
-                };
-            };
-            /** @description Client error */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RequestBodyTooLargeErrorBody"];
-                };
-            };
-            /** @description Server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InternalErrorBody"];
-                };
-            };
-            /** @description Service unavailable. */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RequestBodyBusyErrorBody"];
-                };
-            };
-        };
-    };
-    deleteVisitLog: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                visitId: components["schemas"]["uuid"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description There is no content to send for this request, but the headers may be useful. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Access is unauthorized. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AuthenticationRequiredErrorBody"];
-                };
-            };
-            /** @description Access is forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PermissionDeniedErrorBody"];
-                };
-            };
-            /** @description The server cannot find the requested resource. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NotFoundErrorBody"];
-                };
-            };
-            /** @description Server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InternalErrorBody"];
-                };
-            };
-        };
-    };
-    uploadVisitImage: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                visitId: components["schemas"]["uuid"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "multipart/form-data": components["schemas"]["UploadVisitImageRequest"];
-            };
-        };
-        responses: {
-            /** @description The request has succeeded. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VisitImage"];
-                };
-            };
-            /** @description The server could not understand the request due to invalid syntax. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VisitImageBadRequestErrorBody"];
-                };
-            };
-            /** @description Access is unauthorized. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AuthenticationRequiredErrorBody"];
-                };
-            };
-            /** @description Access is forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PermissionDeniedErrorBody"];
-                };
-            };
-            /** @description The server cannot find the requested resource. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NotFoundErrorBody"];
-                };
-            };
-            /** @description The request conflicts with the current state of the server. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VisitImageLimitReachedErrorBody"];
-                };
-            };
-            /** @description Server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InternalErrorBody"];
-                };
-            };
-            /** @description Service unavailable. */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VisitImageProcessingBusyErrorBody"] | components["schemas"]["VisitImagesStorageUnconfiguredErrorBody"];
-                };
-            };
-        };
-    };
-    reorderVisitImages: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                visitId: components["schemas"]["uuid"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ReorderVisitImagesRequest"];
-            };
-        };
-        responses: {
-            /** @description The request has succeeded. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VisitImagesResponse"];
-                };
-            };
-            /** @description The server could not understand the request due to invalid syntax. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VisitImageBadRequestErrorBody"];
-                };
-            };
-            /** @description Access is unauthorized. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AuthenticationRequiredErrorBody"];
-                };
-            };
-            /** @description Access is forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PermissionDeniedErrorBody"];
-                };
-            };
-            /** @description The server cannot find the requested resource. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NotFoundErrorBody"];
-                };
-            };
-            /** @description Client error */
-            408: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RequestBodyTimeoutErrorBody"];
-                };
-            };
-            /** @description Client error */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RequestBodyTooLargeErrorBody"];
-                };
-            };
-            /** @description Server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InternalErrorBody"];
-                };
-            };
-            /** @description Service unavailable. */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RequestBodyBusyErrorBody"];
-                };
-            };
-        };
-    };
     listShops: {
         parameters: {
             query?: never;
@@ -2277,7 +2323,7 @@ export interface operations {
             };
         };
     };
-    listVisitLogs: {
+    listMealRecords: {
         parameters: {
             query?: never;
             header?: never;
@@ -2294,7 +2340,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["VisitLogsResponse"];
+                    "application/json": components["schemas"]["MealRecordsResponse"];
                 };
             };
             /** @description The server cannot find the requested resource. */
@@ -2333,6 +2379,75 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TagsResponse"];
+                };
+            };
+            /** @description Server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InternalErrorBody"];
+                };
+            };
+        };
+    };
+    listVenues: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VenuesResponse"];
+                };
+            };
+            /** @description Server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InternalErrorBody"];
+                };
+            };
+        };
+    };
+    listVenueMealRecords: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                venueId: components["schemas"]["uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VenueMealRecordsResponse"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotFoundErrorBody"];
                 };
             };
             /** @description Server error */

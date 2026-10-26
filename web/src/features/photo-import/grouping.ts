@@ -1,12 +1,12 @@
+import { IsoDate, japanDate } from "@/features/meal-records/eaten-date.ts";
 import { distanceM } from "@/features/photo-import/matching.ts";
 import type { LatLng, Photo } from "@/features/photo-import/photos.ts";
-import { IsoDate, japanDate } from "@/features/visits/visit-date.ts";
 
 /** Photos taken together at one place. Over-split on purpose: the plan re-merges by (shop, day). */
 export interface PhotoGroup {
   /** The index of its first photo. */
   readonly id: number;
-  /** JST day of the first photo, so a visit spanning midnight keeps one date. */
+  /** JST day of the first photo, so a mealRecord spanning midnight keeps one date. */
   readonly day: IsoDate;
   /** capturedAt ascending, then index: the order images are uploaded in, which resuming relies on. */
   readonly photos: readonly Photo[];

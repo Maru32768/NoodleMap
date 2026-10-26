@@ -4,7 +4,7 @@ import {
   SegmentedToggles,
 } from "@/components/segmented-picker.tsx";
 import { Button } from "@/components/ui/button.tsx";
-import type { VisitFilter } from "@/features/admin/visit-filter.ts";
+import type { MealRecordFilter } from "@/features/admin/meal-record-filter.ts";
 import { CategoryType, toggleWishLevel } from "@/features/search/utils.ts";
 import {
   WISH_LEVEL_LABEL,
@@ -17,8 +17,8 @@ import { useCallback } from "react";
 interface AdminFiltersProps {
   categoryFilter: CategoryType;
   setCategoryFilter: (v: CategoryType) => void;
-  visitFilter: VisitFilter;
-  setVisitFilter: (v: VisitFilter) => void;
+  mealRecordFilter: MealRecordFilter;
+  setMealRecordFilter: (v: MealRecordFilter) => void;
   wishLevels: WishLevel[];
   setWishLevels: (v: WishLevel[]) => void;
   // undefined until the shop list has loaded.
@@ -33,7 +33,7 @@ const CATEGORY_OPTIONS: readonly SegmentedOption<CategoryType>[] = [
   { id: "udon", label: "うどん" },
 ];
 
-const VISIT_OPTIONS: readonly SegmentedOption<VisitFilter>[] = [
+const MEAL_RECORD_OPTIONS: readonly SegmentedOption<MealRecordFilter>[] = [
   { id: "all", label: "全て" },
   { id: "eaten", label: "食べた" },
   { id: "wish", label: "気になる" },
@@ -77,8 +77,8 @@ function GroupLabel({
 export function AdminFilters({
   categoryFilter,
   setCategoryFilter,
-  visitFilter,
-  setVisitFilter,
+  mealRecordFilter,
+  setMealRecordFilter,
   wishLevels,
   setWishLevels,
   filteredCount,
@@ -86,7 +86,9 @@ export function AdminFilters({
   onClearAll,
 }: AdminFiltersProps) {
   const hasFilters =
-    categoryFilter !== "all" || visitFilter !== "all" || wishLevels.length > 0;
+    categoryFilter !== "all" ||
+    mealRecordFilter !== "all" ||
+    wishLevels.length > 0;
 
   const toggleLevel = useCallback(
     (level: WishLevel) => setWishLevels(toggleWishLevel(wishLevels, level)),
@@ -94,14 +96,14 @@ export function AdminFilters({
   );
   // 食べた disables 気になる度; clearing it keeps a later 全て from silently
   // restoring the old narrowing.
-  const changeVisitFilter = useCallback(
-    (value: VisitFilter) => {
-      setVisitFilter(value);
+  const changeMealRecordFilter = useCallback(
+    (value: MealRecordFilter) => {
+      setMealRecordFilter(value);
       if (value === "eaten") {
         setWishLevels([]);
       }
     },
-    [setVisitFilter, setWishLevels],
+    [setMealRecordFilter, setWishLevels],
   );
 
   return (
@@ -137,12 +139,12 @@ export function AdminFilters({
         <SegmentedPicker
           label="状態"
           variant="segment"
-          options={VISIT_OPTIONS}
-          value={visitFilter}
-          onChange={changeVisitFilter}
+          options={MEAL_RECORD_OPTIONS}
+          value={mealRecordFilter}
+          onChange={changeMealRecordFilter}
         />
 
-        <GroupLabel ml="6px" dimmed={visitFilter === "eaten"} showOnMobile>
+        <GroupLabel ml="6px" dimmed={mealRecordFilter === "eaten"} showOnMobile>
           気になる度
         </GroupLabel>
         {/* Eaten shops are never narrowed by 気になる度, so 食べた leaves it nothing to do. */}
@@ -152,7 +154,7 @@ export function AdminFilters({
           labels={WISH_LEVEL_LABEL}
           value={wishLevels}
           onToggle={toggleLevel}
-          disabled={visitFilter === "eaten"}
+          disabled={mealRecordFilter === "eaten"}
         />
 
         <Box flex="1" />

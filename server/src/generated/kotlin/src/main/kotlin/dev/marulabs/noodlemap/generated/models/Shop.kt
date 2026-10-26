@@ -46,27 +46,27 @@ public data class Shop(
   @SerialName("googlePlaceId")
   public val googlePlaceId: String? = null,
   /**
-   * Derived on the server: true when the shop has at least one visit log. Read-only.
+   * Derived on the server: true when the shop has at least one meal record. Read-only.
    */
   @SerialName("eaten")
   public val eaten: Boolean,
   /**
-   * Derived on the server: the rate of the latest visit log that has one, or 0 when none has.
+   * Derived on the server: the rate of the latest meal record that has one, or 0 when none has.
    * Read-only.
    */
   @SerialName("rate")
   public val rate: Double,
   /**
-   * Derived on the server: true when the shop's rate comes from a visit log and is 80 or more.
+   * Derived on the server: true when the shop's rate comes from a meal record and is 80 or more.
    * Read-only.
    */
   @SerialName("favorite")
   public val favorite: Boolean,
   /**
-   * Number of visit logs of the shop. Read-only.
+   * Number of meal records of the shop. Read-only.
    */
-  @SerialName("visitCount")
-  public val visitCount: Int,
+  @SerialName("mealRecordCount")
+  public val mealRecordCount: Int,
   /**
    * 気になる度. Absent when not set. Kept after the shop is eaten, but only meaningful before.
    */
@@ -82,7 +82,7 @@ public data class Shop(
   @SerialName("links")
   public val links: List<ShopLink>,
   /**
-   * Derived on the server: URL of the first image of the latest visit log that has images. Absent
+   * Derived on the server: URL of the first image of the latest meal record that has images. Absent
    * when none has.
    */
   @SerialName("coverPhotoUrl")

@@ -80,7 +80,7 @@ describe("groupPhotos", () => {
     ]);
   });
 
-  it("keeps a visit from 23:50 to 00:10 in one group dated on its first day", () => {
+  it("keeps a meal record from 23:50 to 00:10 in one group dated on its first day", () => {
     const a = photo("2023-04-01T23:50");
     const b = photo("2023-04-02T00:10");
 

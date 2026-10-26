@@ -37,7 +37,7 @@ class ConfigTest {
             backup = Config.BackupConfig(snapshotPath = "/data/app.db.bak"),
             publicBaseUrl = "http://localhost:8080",
             ogR2 = null,
-            visitImagesR2 = null,
+            mealRecordImagesR2 = null,
         )
     }
 
@@ -57,13 +57,13 @@ class ConfigTest {
             .message shouldContain "R2_ENDPOINT must be the account endpoint without a path"
         val cfg = load(*sharedR2)
         cfg.ogR2 shouldBe null
-        cfg.visitImagesR2 shouldBe null
+        cfg.mealRecordImagesR2 shouldBe null
         cfg.backup.r2 shouldBe null
     }
 
     @Test
     fun `public buckets require a bucket and public URL together plus the shared connection`() {
-        for (prefix in listOf("OG_R2_", "VISIT_IMAGES_R2_")) {
+        for (prefix in listOf("OG_R2_", "MEAL_RECORD_IMAGES_R2_")) {
             shouldThrow<IllegalStateException> { load(*sharedR2, "${prefix}BUCKET" to "images") }
                 .message shouldContain "missing: ${prefix}PUBLIC_BASE_URL"
             shouldThrow<IllegalStateException> { load(*sharedR2, "${prefix}PUBLIC_BASE_URL" to "https://images.example") }
@@ -82,15 +82,15 @@ class ConfigTest {
         val cfg = load(
             *sharedR2,
             "OG_R2_BUCKET" to "og", "OG_R2_PUBLIC_BASE_URL" to "https://og.example/",
-            "VISIT_IMAGES_R2_BUCKET" to "images", "VISIT_IMAGES_R2_PUBLIC_BASE_URL" to "https://images.example/",
+            "MEAL_RECORD_IMAGES_R2_BUCKET" to "images", "MEAL_RECORD_IMAGES_R2_PUBLIC_BASE_URL" to "https://images.example/",
             "BACKUP_R2_BUCKET" to "backups",
         )
         cfg.ogR2 shouldBe Config.R2Config("og", connection, "https://og.example")
-        cfg.visitImagesR2 shouldBe Config.R2Config("images", connection, "https://images.example")
+        cfg.mealRecordImagesR2 shouldBe Config.R2Config("images", connection, "https://images.example")
         cfg.backup.r2 shouldBe Config.BackupR2Config("backups", connection)
         cfg.toString() shouldNotContain "r2-secret"
         cfg.ogR2.toString() shouldNotContain "r2-secret"
-        cfg.visitImagesR2.toString() shouldNotContain "r2-secret"
+        cfg.mealRecordImagesR2.toString() shouldNotContain "r2-secret"
         cfg.backup.toString() shouldNotContain "r2-secret"
         connection.toString() shouldNotContain "r2-secret"
     }
@@ -143,7 +143,7 @@ class ConfigTest {
             "/backups/snap.db", Config.BackupR2Config("backups", connection), "noodle/",
         )
         cfg.ogR2 shouldBe null
-        cfg.visitImagesR2 shouldBe null
+        cfg.mealRecordImagesR2 shouldBe null
         load("BACKUP_PATH" to " ").backup shouldBe Config.BackupConfig("/data/app.db.bak")
         load(*sharedR2, "BACKUP_R2_PREFIX" to "noodle/").backup.r2 shouldBe null
         shouldThrow<IllegalStateException> { load("BACKUP_R2_BUCKET" to "backups") }

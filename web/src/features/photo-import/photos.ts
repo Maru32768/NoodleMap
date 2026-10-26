@@ -1,4 +1,4 @@
-import { IsoDate, japanDate } from "@/features/visits/visit-date.ts";
+import { IsoDate, japanDate } from "@/features/meal-records/eaten-date.ts";
 import { forEachConcurrently } from "@/utils/concurrency.ts";
 
 export interface LatLng {
@@ -50,7 +50,7 @@ export async function readPhotos(
   options: { signal: AbortSignal; onProgress: (done: number) => void },
 ): Promise<{ photos: Photo[]; rejected: PhotoRejection[] }> {
   const { default: exifr } = await import("exifr");
-  // The server refuses a visit dated later than tomorrow in Japan.
+  // The server refuses a meal record dated later than tomorrow in Japan.
   const latestDay = japanDate(new Date(Date.now() + DAY_MS));
   const results: (Photo | PhotoRejection)[] = [];
   let done = 0;

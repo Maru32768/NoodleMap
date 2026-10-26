@@ -11,7 +11,7 @@ import type {
 import { useThumbnail } from "@/features/photo-import/use-thumbnail-url.ts";
 import { createQueryMatcher } from "@/features/search/utils.ts";
 import type { Shop } from "@/features/shops/api/use-shops.ts";
-import { VISIT_IMAGES_MAX } from "@/utils/toast.ts";
+import { MEAL_RECORD_IMAGES_MAX } from "@/utils/toast.ts";
 import { Box, Image, Input } from "@chakra-ui/react";
 import { ComponentProps, useState } from "react";
 import { Virtuoso } from "react-virtuoso";
@@ -206,12 +206,13 @@ function GroupRowView({
         )}
         {row.tab !== "imported" && row.existingImages !== null && (
           <Box fontSize="12px" color="nm.shuDeep">
-            既存の訪問 (画像{row.existingImages}枚)
+            既存の記録 (画像{row.existingImages}枚)
           </Box>
         )}
         {row.overflow > 0 && (
           <Box fontSize="12px" color="nm.shuDeep">
-            上限{VISIT_IMAGES_MAX}枚を超える{row.overflow}枚は取り込まれません
+            上限{MEAL_RECORD_IMAGES_MAX}枚を超える{row.overflow}
+            枚は取り込まれません
           </Box>
         )}
       </Box>

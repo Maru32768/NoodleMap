@@ -17,10 +17,10 @@ import dev.marulabs.noodlemap.og.OgHandler
 import dev.marulabs.noodlemap.og.R2OgImageStore
 import dev.marulabs.noodlemap.places.PlacesHandler
 import dev.marulabs.noodlemap.shops.ShopHandler
-import dev.marulabs.noodlemap.visits.LocalVisitImageStore
-import dev.marulabs.noodlemap.visits.VisitImageHandler
-import dev.marulabs.noodlemap.visits.VisitImageStore
-import dev.marulabs.noodlemap.visits.VisitLogHandler
+import dev.marulabs.noodlemap.mealrecords.LocalMealRecordImageStore
+import dev.marulabs.noodlemap.mealrecords.MealRecordImageHandler
+import dev.marulabs.noodlemap.mealrecords.MealRecordImageStore
+import dev.marulabs.noodlemap.mealrecords.MealRecordHandler
 import io.ktor.client.HttpClient
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.cookie
@@ -52,7 +52,7 @@ private val placesHttp = JdkHttpClient.newHttpClient()
 /** A migrated SQLite file DB plus the real services built on it. */
 class TestDb(val config: Config, val dataSource: HikariDataSource, val db: NoodleMapDb) {
     val sessions = SessionService(db, config)
-    val localVisitImages = LocalVisitImageStore.nextToDatabase(config.dbPath, config.publicBaseUrl)
+    val localMealRecordImages = LocalMealRecordImageStore.nextToDatabase(config.dbPath, config.publicBaseUrl)
 
     fun seedUser(email: String): UUID =
         UUID.randomUUID().also { db.usersQueries.insertUser(id = it, email = email, google_sub = "sub-$it") }
@@ -85,7 +85,7 @@ fun testConfig(
     backup = Config.BackupConfig(snapshotPath = "$dbPath.bak"),
     publicBaseUrl = publicBaseUrl,
     ogR2 = null,
-    visitImagesR2 = null,
+    mealRecordImagesR2 = null,
 )
 
 const val PUBLIC_BASE_URL = "https://noodle.example"
@@ -117,8 +117,8 @@ fun testApp(
     ogStore: R2OgImageStore? = null,
     maxPendingBitmapWork: Int = 3,
     ogCoverFailureTtl: Duration = 5.minutes,
-    // Null stores visit images on local disk next to the test database, as the app does without R2.
-    visitImageStore: VisitImageStore? = null,
+    // Null stores meal record images on local disk next to the test database, as the app does without R2.
+    mealRecordImageStore: MealRecordImageStore? = null,
     // An http URL puts the app in local-development mode (local-disk images, localhost upload origins).
     publicBaseUrl: String = PUBLIC_BASE_URL,
     maxPendingJsonBodies: Int = 8,
@@ -127,7 +127,7 @@ fun testApp(
 ) = withTestDb(adminEmail, cookieSecure, publicBaseUrl) { t ->
     testApplication {
         application {
-            val images = visitImageStore ?: t.localVisitImages
+            val images = mealRecordImageStore ?: t.localMealRecordImages
             val bitmapWork = BitmapWorkGate(maxPendingBitmapWork)
             val shopHandler = ShopHandler(t.db, t.sessions, images)
             val backups = dev.marulabs.noodlemap.backup.BackupService(t.dataSource, t.config.backup)
@@ -135,8 +135,8 @@ fun testApp(
             installApp(
                 AuthHandler(t.db, GoogleVerifier(t.config.googleOAuthClientId), t.sessions),
                 shopHandler,
-                VisitLogHandler(t.db, t.sessions, images),
-                VisitImageHandler(t.db, t.sessions, images, bitmapWork, t.config.publicBaseUrl),
+                MealRecordHandler(t.db, t.sessions, images),
+                MealRecordImageHandler(t.db, t.sessions, images, bitmapWork, t.config.publicBaseUrl),
                 PlacesHandler(t.sessions, placesApiKey, placesBaseUrl, placesHttp),
                 OgHandler(shopHandler, t.config.publicBaseUrl, ogStore, images, bitmapWork, ogCoverFailureTtl),
                 dev.marulabs.noodlemap.backup.BackupHandler(t.sessions, backups),

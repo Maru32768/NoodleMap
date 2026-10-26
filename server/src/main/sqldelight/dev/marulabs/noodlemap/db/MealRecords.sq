@@ -1,0 +1,54 @@
+-- 食べた記録. Reads come back unordered: the "latest meal record" order lives in Kotlin (`latestFirst` in
+-- mealrecords/MealRecords.kt), which sorts these rows.
+CREATE TABLE meal_records (
+    id              TEXT AS java.util.UUID NOT NULL PRIMARY KEY,
+    venue_id        TEXT AS java.util.UUID,
+    eaten_on      TEXT CHECK (eaten_on IS NULL OR
+        (eaten_on GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' AND date(eaten_on, '+0 days') IS eaten_on)),
+    rate            REAL CHECK (rate BETWEEN 0 AND 100),
+    public_note     TEXT,
+    private_note    TEXT,
+    created_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%f', 'now')),
+    updated_at      TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (venue_id) REFERENCES venues (id)
+);
+
+CREATE INDEX idx_meal_records_venue_id ON meal_records (venue_id);
+
+-- (modtime trigger omitted; see note in Users.sq)
+
+insertMealRecord:
+INSERT INTO meal_records (id, venue_id, eaten_on, rate, public_note, private_note)
+VALUES (?, ?, ?, ?, ?, ?);
+
+updateMealRecord:
+UPDATE meal_records
+SET eaten_on      = :eatenOn,
+    rate            = :rate,
+    venue_id        = :venueId,
+    public_note     = :publicNote,
+    private_note    = :privateNote
+WHERE id = :id;
+
+deleteMealRecord:
+DELETE FROM meal_records WHERE id = ?;
+
+findMealRecordsByShopId:
+SELECT v.* FROM meal_records v JOIN meal_record_shops s ON s.meal_record_id = v.id WHERE s.shop_id = ?;
+
+findMealRecord:
+SELECT * FROM meal_records WHERE id = ?;
+
+findMealRecordsByVenueId:
+SELECT * FROM meal_records WHERE venue_id = ?;
+
+-- Only what the shop list derives 食べた and お気に入り度 from, for every shop in one query.
+findAllMealRecordSummaries:
+SELECT v.id, s.shop_id, v.eaten_on, v.rate, v.created_at
+FROM meal_records v JOIN meal_record_shops s ON s.meal_record_id = v.id;
+
+mealRecordExists:
+SELECT EXISTS (SELECT 1 FROM meal_records WHERE id = ?);
+
+shopHasMealRecords:
+SELECT EXISTS (SELECT 1 FROM meal_record_shops WHERE shop_id = ?);

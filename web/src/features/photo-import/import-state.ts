@@ -1,10 +1,10 @@
 import type { PhotoGroup } from "@/features/photo-import/grouping.ts";
 import type {
   ImportPlan,
+  MealRecordKey,
   ReviewState,
-  ServerVisits,
+  ServerMealRecords,
   ShopChoice,
-  VisitKey,
 } from "@/features/photo-import/import-plan.ts";
 import type { Photo, PhotoRejection } from "@/features/photo-import/photos.ts";
 
@@ -12,12 +12,12 @@ export interface Analysis {
   readonly photos: readonly Photo[];
   readonly rejected: readonly PhotoRejection[];
   readonly groups: readonly PhotoGroup[];
-  /** Visits of every candidate shop with visitCount > 0, fetched once per analysis. */
-  readonly serverVisits: ServerVisits;
+  /** MealRecords of every candidate shop with mealRecordCount > 0, fetched once per analysis. */
+  readonly serverMealRecords: ServerMealRecords;
 }
 
 export interface RunFailure {
-  readonly key: VisitKey;
+  readonly key: MealRecordKey;
   /** Japanese, from utils/toast.ts; never a backend message. */
   readonly message: string;
   /** The server may have saved it (status 0). The next run settles it by counting. */
@@ -35,7 +35,7 @@ export interface RunProgress {
   readonly uploadedImages: number;
   readonly failures: readonly RunFailure[];
   readonly current: {
-    readonly key: VisitKey;
+    readonly key: MealRecordKey;
     readonly uploaded: number;
     readonly total: number;
   } | null;
@@ -97,8 +97,11 @@ export type ImportAction =
   | { readonly type: "start"; readonly plan: ImportPlan }
   | { readonly type: "progress"; readonly progress: RunProgress }
   | { readonly type: "finished"; readonly outcome: RunOutcome }
-  /** Back to review after a run, against the server's visits as they are now. */
-  | { readonly type: "refreshed"; readonly serverVisits: ServerVisits }
+  /** Back to review after a run, against the server's mealRecords as they are now. */
+  | {
+      readonly type: "refreshed";
+      readonly serverMealRecords: ServerMealRecords;
+    }
   /** More photos joined the selection; the admin's decisions stay. */
   | { readonly type: "appended"; readonly analysis: Analysis }
   | { readonly type: "reset" };
@@ -169,7 +172,10 @@ export function importReducer(
       return state.kind === "finished"
         ? {
             kind: "review",
-            analysis: { ...state.analysis, serverVisits: action.serverVisits },
+            analysis: {
+              ...state.analysis,
+              serverMealRecords: action.serverMealRecords,
+            },
             review: state.review,
           }
         : state;

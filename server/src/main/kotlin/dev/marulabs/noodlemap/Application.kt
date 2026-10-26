@@ -27,13 +27,14 @@ import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthMeController.Compan
 import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthSessionsController.Companion.apiV1AuthSessionsRoutes
 import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthSessionsRevokeOthersController.Companion.apiV1AuthSessionsRevokeOthersRoutes
 import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthShopsController.Companion.apiV1AuthShopsRoutes
-import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthShopsVisitsController.Companion.apiV1AuthShopsVisitsRoutes
-import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthVisitImagesController.Companion.apiV1AuthVisitImagesRoutes
-import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthVisitsController.Companion.apiV1AuthVisitsRoutes
-import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthVisitsImagesOrderController.Companion.apiV1AuthVisitsImagesOrderRoutes
+import dev.marulabs.noodlemap.generated.controllers.ApiV1VenuesController.Companion.apiV1VenuesRoutes
+import dev.marulabs.noodlemap.generated.controllers.ApiV1VenuesMealRecordsController.Companion.apiV1VenuesMealRecordsRoutes
+import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthMealRecordImagesController.Companion.apiV1AuthMealRecordImagesRoutes
+import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthMealRecordsController.Companion.apiV1AuthMealRecordsRoutes
+import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthMealRecordsImagesOrderController.Companion.apiV1AuthMealRecordsImagesOrderRoutes
 import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthTagsController.Companion.apiV1AuthTagsRoutes
 import dev.marulabs.noodlemap.generated.controllers.ApiV1ShopsController.Companion.apiV1ShopsRoutes
-import dev.marulabs.noodlemap.generated.controllers.ApiV1ShopsVisitsController.Companion.apiV1ShopsVisitsRoutes
+import dev.marulabs.noodlemap.generated.controllers.ApiV1ShopsMealRecordsController.Companion.apiV1ShopsMealRecordsRoutes
 import dev.marulabs.noodlemap.generated.controllers.ApiV1TagsController.Companion.apiV1TagsRoutes
 import dev.marulabs.noodlemap.http.NoCache
 import dev.marulabs.noodlemap.http.installRequestBodyLimits
@@ -46,10 +47,10 @@ import dev.marulabs.noodlemap.og.R2OgImageStore
 import dev.marulabs.noodlemap.og.ogRoutes
 import dev.marulabs.noodlemap.places.PlacesHandler
 import dev.marulabs.noodlemap.shops.ShopHandler
-import dev.marulabs.noodlemap.visits.VisitImageHandler
-import dev.marulabs.noodlemap.visits.VisitLogHandler
-import dev.marulabs.noodlemap.visits.visitImageRoutes
-import dev.marulabs.noodlemap.visits.visitImageStoreFor
+import dev.marulabs.noodlemap.mealrecords.MealRecordImageHandler
+import dev.marulabs.noodlemap.mealrecords.MealRecordHandler
+import dev.marulabs.noodlemap.mealrecords.mealRecordImageRoutes
+import dev.marulabs.noodlemap.mealrecords.mealRecordImageStoreFor
 import kotlinx.serialization.json.Json
 
 fun main() {
@@ -70,30 +71,30 @@ fun Application.module(config: Config) {
     val sessions = SessionService(db, config)
     val google = GoogleVerifier(config.googleOAuthClientId)
     val authHandler = AuthHandler(db, google, sessions)
-    // OGP renders and visit image uploads share one bound on bitmap memory.
+    // OGP renders and meal record image uploads share one bound on bitmap memory.
     val bitmapWork = BitmapWorkGate(maxPending = 3)
-    val visitImageStore = visitImageStoreFor(config)
-    monitor.subscribe(ApplicationStopped) { visitImageStore.close() }
-    val shopHandler = ShopHandler(db, sessions, visitImageStore)
-    val visitLogHandler = VisitLogHandler(db, sessions, visitImageStore)
-    val visitImageHandler = VisitImageHandler(db, sessions, visitImageStore, bitmapWork, config.publicBaseUrl)
+    val mealRecordImageStore = mealRecordImageStoreFor(config)
+    monitor.subscribe(ApplicationStopped) { mealRecordImageStore.close() }
+    val shopHandler = ShopHandler(db, sessions, mealRecordImageStore)
+    val mealRecordHandler = MealRecordHandler(db, sessions, mealRecordImageStore)
+    val mealRecordImageHandler = MealRecordImageHandler(db, sessions, mealRecordImageStore, bitmapWork, config.publicBaseUrl)
     val placesHandler = PlacesHandler(sessions, config.googlePlacesApiKey)
     val ogStore = config.ogR2?.let(::R2OgImageStore)
     ogStore?.let { store -> monitor.subscribe(ApplicationStopped) { store.close() } }
-    val ogHandler = OgHandler(shopHandler, config.publicBaseUrl, ogStore, visitImageStore, bitmapWork)
+    val ogHandler = OgHandler(shopHandler, config.publicBaseUrl, ogStore, mealRecordImageStore, bitmapWork)
 
     val backups = BackupService(dataSource, config.backup)
     monitor.subscribe(ApplicationStopped) { backups.close() }
     startBackgroundJobs(sessions, backups)
-    installApp(authHandler, shopHandler, visitLogHandler, visitImageHandler, placesHandler, ogHandler, BackupHandler(sessions, backups))
+    installApp(authHandler, shopHandler, mealRecordHandler, mealRecordImageHandler, placesHandler, ogHandler, BackupHandler(sessions, backups))
 }
 
 /** Installs plugins and routes. Separated from [module] so tests can wire test handlers. */
 fun Application.installApp(
     authHandler: AuthHandler,
     shopHandler: ShopHandler,
-    visitLogHandler: VisitLogHandler,
-    visitImageHandler: VisitImageHandler,
+    mealRecordHandler: MealRecordHandler,
+    mealRecordImageHandler: MealRecordImageHandler,
     placesHandler: PlacesHandler,
     ogHandler: OgHandler,
     backupHandler: BackupHandler,
@@ -121,13 +122,14 @@ fun Application.installApp(
         apiV1TagsRoutes(shopHandler)
         apiV1AuthTagsRoutes(shopHandler)
         apiV1AuthShopsRoutes(shopHandler)
-        apiV1ShopsVisitsRoutes(visitLogHandler)
-        apiV1AuthShopsVisitsRoutes(visitLogHandler)
-        apiV1AuthVisitsRoutes(visitLogHandler)
-        apiV1AuthVisitsImagesOrderRoutes(visitImageHandler)
-        apiV1AuthVisitImagesRoutes(visitImageHandler)
-        // The upload streams its multipart body, so it is a plain route (see visitImageRoutes).
-        visitImageRoutes(visitImageHandler)
+        apiV1ShopsMealRecordsRoutes(mealRecordHandler)
+        apiV1VenuesRoutes(mealRecordHandler)
+        apiV1VenuesMealRecordsRoutes(mealRecordHandler)
+        apiV1AuthMealRecordsRoutes(mealRecordHandler)
+        apiV1AuthMealRecordsImagesOrderRoutes(mealRecordImageHandler)
+        apiV1AuthMealRecordImagesRoutes(mealRecordImageHandler)
+        // The upload streams its multipart body, so it is a plain route (see mealRecordImageRoutes).
+        mealRecordImageRoutes(mealRecordImageHandler)
 
         apiV1AuthGoogleRoutes(authHandler)
         apiV1AuthMeRoutes(authHandler)

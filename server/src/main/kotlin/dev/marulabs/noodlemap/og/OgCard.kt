@@ -25,14 +25,14 @@ data class OgCard(
     val tags: List<Chip>,
     /** 0-5 in half steps (the web's favToHearts as drawn); 0 draws nothing. */
     val hearts: Double,
-    /** Number of visit logs; 0 for a shop not eaten, and then nothing is drawn. */
-    val visitCount: Int,
+    /** Number of meal records; 0 for a shop not eaten, and then nothing is drawn. */
+    val mealRecordCount: Int,
     val area: String,
     /** Storage key of the shop's 代表写真, drawn as the background; null draws the text-only card. */
     val coverPhotoKey: String?,
 ) {
     /** 「3回訪問」, or null for a shop not eaten. */
-    val visitCountLabel: String? get() = if (visitCount > 0) "${visitCount}回訪問" else null
+    val mealRecordCountLabel: String? get() = if (mealRecordCount > 0) "${mealRecordCount}回訪問" else null
 
     fun hash(): String {
         // Length-prefixed fields, so no value can shift into its neighbour.
@@ -46,7 +46,7 @@ data class OgCard(
                 chips.forEach { field(it.label); field(it.color) }
             }
             field(hearts)
-            field(visitCount)
+            field(mealRecordCount)
             field(area)
             // The key holds the image id, so a new 代表写真 always gets a new image.
             field(coverPhotoKey.orEmpty())
@@ -57,7 +57,7 @@ data class OgCard(
     }
 
     fun description(): String =
-        (listOf(category) + tags.map { it.label } + statuses.map { it.label } + listOfNotNull(visitCountLabel) + area)
+        (listOf(category) + tags.map { it.label } + statuses.map { it.label } + listOfNotNull(mealRecordCountLabel) + area)
             .filter { it.isNotEmpty() }.joinToString("・")
 
     companion object {
@@ -71,7 +71,7 @@ data class OgCard(
             tags = shop.tags.take(3).map { Chip(it.label, it.color) },
             // Down to the half heart the image can show, so rates drawn alike share one hash.
             hearts = if (shop.rate > 0) floor(minOf(5.0, shop.rate / 20) * 2) / 2 else 0.0,
-            visitCount = shop.visitCount,
+            mealRecordCount = shop.mealRecordCount,
             area = areaOf(shop.address),
             coverPhotoKey = coverPhotoKey,
         )

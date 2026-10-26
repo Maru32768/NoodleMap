@@ -1,3 +1,17 @@
+import { uploadTimeoutMs } from "@/features/meal-records/api/meal-record-uploads.ts";
+import {
+  retryAfterMs,
+  sleep,
+  uploadMealRecordImage,
+} from "@/features/meal-records/api/use-meal-record-images.ts";
+import {
+  fetchMealRecords,
+  MealRecord,
+  mealRecordInputOf,
+  postMealRecord,
+  putMealRecord,
+} from "@/features/meal-records/api/use-meal-records.ts";
+import { prepareImageForUpload } from "@/features/meal-records/prepare-image.ts";
 import {
   decideAction,
   ImportPlan,
@@ -9,32 +23,18 @@ import {
   runProgressOf,
 } from "@/features/photo-import/import-state.ts";
 import type { Photo } from "@/features/photo-import/photos.ts";
-import {
-  retryAfterMs,
-  sleep,
-  uploadVisitImage,
-} from "@/features/visits/api/use-visit-images.ts";
-import {
-  fetchVisits,
-  postVisit,
-  putVisit,
-  visitInputOf,
-  VisitLog,
-} from "@/features/visits/api/use-visits.ts";
-import { uploadTimeoutMs } from "@/features/visits/api/visit-uploads.ts";
-import { prepareImageForUpload } from "@/features/visits/prepare-image.ts";
 import { ApiError } from "@/utils/request.ts";
 import { err } from "@/utils/result.ts";
 import {
   apiErrorText,
-  VISIT_IMAGE_UNDECODABLE_MESSAGE,
-  VISIT_IMAGE_UPLOAD_UNCONFIRMED_MESSAGE,
-  visitImageUploadErrorMessage,
+  MEAL_RECORD_IMAGE_UNDECODABLE_MESSAGE,
+  MEAL_RECORD_IMAGE_UPLOAD_UNCONFIRMED_MESSAGE,
+  mealRecordImageUploadErrorMessage,
 } from "@/utils/toast.ts";
 
 /** The server's own output size: no pixel beyond it survives the upload anyway. */
 export const IMPORT_MAX_EDGE = 2048;
-/** Extra tries of one photo while the server says it is busy, beyond uploadVisitImage's own. */
+/** Extra tries of one photo while the server says it is busy, beyond uploadMealRecordImage's own. */
 const MAX_BUSY_RETRIES = 5;
 /** Fresh looks at one entry after an outcome only the server knows: status 0, a vanished claim. */
 const MAX_REENTRIES = 2;
@@ -68,7 +68,7 @@ function stopOf(error: ApiError, signal: AbortSignal): Stop | typeof REENTER {
 
 /**
  * Runs the plan one entry at a time and one upload at a time (the server decodes one image at a
- * time). Each entry: fetchVisits -> decideAction -> POST/PUT/nothing -> upload photos[m..n).
+ * time). Each entry: fetchMealRecords -> decideAction -> POST/PUT/nothing -> upload photos[m..n).
  * A failed entry is recorded and the run moves on. Retrying means running the same plan again:
  * there is no retry list, no local progress marker, nothing to resume from but the server.
  */
@@ -126,13 +126,13 @@ async function runEntry(
   signal: AbortSignal,
   onUploaded: (uploaded: number) => void,
 ): Promise<{ readonly kind: Counted } | Stop> {
-  // shortcut: two tabs running at once can both see no visit between the GET and the POST and create two, upgrade with a server idempotency key.
+  // shortcut: two tabs running at once can both see no meal record between the GET and the POST and create two, upgrade with a server idempotency key.
   // The first write this run sends decides how the entry counts, whatever a re-read finds later.
   let counted: Counted | undefined;
   for (let reads = 0; reads <= MAX_REENTRIES; reads++) {
-    let visits: VisitLog[];
+    let mealRecords: MealRecord[];
     try {
-      visits = await fetchVisits(entry.shopId);
+      mealRecords = await fetchMealRecords(entry.shopId);
     } catch (error) {
       const stop = stopOf(error as ApiError, signal);
       if (stop === REENTER) {
@@ -141,20 +141,23 @@ async function runEntry(
       return stop;
     }
 
-    const action = decideAction(entry, visits);
-    let visitId: string;
+    const action = decideAction(entry, mealRecords);
+    let mealRecordId: string;
     let uploaded: number;
     switch (action.kind) {
       case "done":
         return { kind: counted ?? "alreadyDone" };
       case "resume":
         counted ??= "resumed";
-        visitId = action.visitId;
+        mealRecordId = action.mealRecordId;
         uploaded = action.uploaded;
         break;
       case "create": {
         counted ??= "created";
-        const result = await postVisit(entry.shopId, { visitedOn: entry.day });
+        const result = await postMealRecord({
+          shopIds: [entry.shopId],
+          eatenOn: entry.day,
+        });
         if (!result.ok) {
           const stop = stopOf(result.error, signal);
           if (stop === REENTER) {
@@ -162,18 +165,18 @@ async function runEntry(
           }
           return stop;
         }
-        visitId = result.data.id;
+        mealRecordId = result.data.id;
         uploaded = 0;
         break;
       }
       case "claim": {
         counted ??= "claimed";
-        const result = await putVisit(action.visit.id, {
-          ...visitInputOf(action.visit),
-          visitedOn: entry.day,
+        const result = await putMealRecord(action.mealRecord.id, {
+          ...mealRecordInputOf(action.mealRecord),
+          eatenOn: entry.day,
         });
         if (!result.ok) {
-          // not_found: the dateless visit was deleted meanwhile, so the next look creates one.
+          // not_found: the dateless meal record was deleted meanwhile, so the next look creates one.
           const stop =
             result.error.type === "not_found"
               ? REENTER
@@ -183,14 +186,14 @@ async function runEntry(
           }
           return stop;
         }
-        visitId = action.visit.id;
+        mealRecordId = action.mealRecord.id;
         uploaded = 0;
         break;
       }
     }
 
     const end = await uploadFrom(
-      visitId,
+      mealRecordId,
       entry.photos,
       uploaded,
       signal,
@@ -203,7 +206,7 @@ async function runEntry(
       return end;
     }
   }
-  return failed(VISIT_IMAGE_UPLOAD_UNCONFIRMED_MESSAGE, true);
+  return failed(MEAL_RECORD_IMAGE_UPLOAD_UNCONFIRMED_MESSAGE, true);
 }
 
 const prepare = (photo: Photo) =>
@@ -212,11 +215,11 @@ const prepare = (photo: Photo) =>
   }).catch(() => err("undecodable" as const));
 
 /**
- * Uploads photos[from..] in order, one at a time, so the visit's image count stays the number of
+ * Uploads photos[from..] in order, one at a time, so the meal record's image count stays the number of
  * leading photos already stored: the cursor the next look at the server resumes from.
  */
 async function uploadFrom(
-  visitId: string,
+  mealRecordId: string,
   photos: readonly Photo[],
   from: number,
   signal: AbortSignal,
@@ -234,10 +237,10 @@ async function uploadFrom(
     const failedPhoto = (message: string) =>
       failed(`${photos[i].file.name}: ${message}`);
     if (!prepared.ok) {
-      return failedPhoto(VISIT_IMAGE_UNDECODABLE_MESSAGE);
+      return failedPhoto(MEAL_RECORD_IMAGE_UNDECODABLE_MESSAGE);
     }
     for (let busy = 0; ; busy++) {
-      const result = await uploadVisitImage(visitId, prepared.data, {
+      const result = await uploadMealRecordImage(mealRecordId, prepared.data, {
         signal,
         timeoutMs: uploadTimeoutMs(prepared.data.blob.size),
       });
@@ -246,7 +249,7 @@ async function uploadFrom(
         break;
       }
       if (
-        result.error.type === "visit_image_processing_busy" &&
+        result.error.type === "meal_record_image_processing_busy" &&
         busy < MAX_BUSY_RETRIES
       ) {
         try {
@@ -259,7 +262,7 @@ async function uploadFrom(
       if (result.error.status === 0 || result.error.status === 401) {
         return stopOf(result.error, signal);
       }
-      return failedPhoto(visitImageUploadErrorMessage(result.error));
+      return failedPhoto(mealRecordImageUploadErrorMessage(result.error));
     }
   }
   return "uploaded";

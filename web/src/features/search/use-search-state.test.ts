@@ -33,7 +33,7 @@ describe("useSearchState", () => {
     expect(result.current.initialMapView).toEqual(saved.mapView);
   });
 
-  it("persists changes so the next visit restores them", () => {
+  it("persists changes so the next meal record restores them", () => {
     const { result } = renderHook(() => useSearchState());
 
     act(() => {

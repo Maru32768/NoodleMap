@@ -1,16 +1,16 @@
+import type { MealRecord } from "@/features/meal-records/api/use-meal-records.ts";
+import type { IsoDate } from "@/features/meal-records/eaten-date.ts";
 import type { PhotoGroup } from "@/features/photo-import/grouping.ts";
 import {
   buildPlan,
   decideAction,
   defaultChoice,
+  mealRecordKey,
   PlanEntry,
   ShopChoice,
-  visitKey,
 } from "@/features/photo-import/import-plan.ts";
 import { matchShop } from "@/features/photo-import/matching.ts";
 import type { Photo } from "@/features/photo-import/photos.ts";
-import type { VisitLog } from "@/features/visits/api/use-visits.ts";
-import type { IsoDate } from "@/features/visits/visit-date.ts";
 import { makeShop } from "@/test/fixtures.ts";
 import { describe, expect, it } from "vitest";
 
@@ -32,15 +32,16 @@ function group(on: string, photoCount = 1, minute = 0): PhotoGroup {
   return { id: photos[0].index, day: on as IsoDate, photos, center: SHOP_A };
 }
 
-let nextVisit = 0;
-function visit(
-  visitedOn: string | undefined,
+let nextMealRecord = 0;
+function mealRecord(
+  eatenOn: string | undefined,
   images = 0,
-  extra: Partial<VisitLog> = {},
-): VisitLog {
+  extra: Partial<MealRecord> = {},
+): MealRecord {
   return {
-    id: `visit-${nextVisit++}`,
-    visitedOn,
+    id: `mealRecord-${nextMealRecord++}`,
+    eatenOn,
+    shops: [SHOP_A],
     menuItems: [],
     images: Array.from({ length: images }, (_, i) => ({
       id: `image-${i}`,
@@ -63,7 +64,7 @@ function entry({
 }: { photoCount?: number; claimsDateless?: boolean } = {}): PlanEntry {
   const g = group("2023-04-01", photoCount);
   return {
-    key: visitKey(SHOP_A.id, g.day),
+    key: mealRecordKey(SHOP_A.id, g.day),
     shopId: SHOP_A.id,
     day: g.day,
     photos: g.photos,
@@ -103,7 +104,7 @@ describe("defaultChoice", () => {
     });
   });
 
-  it("prefers the one candidate that already has a visit on that day, even over an auto pick", () => {
+  it("prefers the one candidate that already has a meal record on that day, even over an auto pick", () => {
     const g = group("2023-04-01");
     // About 44 m north of A: far enough for A to auto-pick.
     const nearB = makeShop({ name: "B", lat: 35.6899, lng: 139.7005 });
@@ -113,7 +114,7 @@ describe("defaultChoice", () => {
     const choice = defaultChoice(
       g,
       autoA,
-      new Map([[nearB.id, [visit("2023-04-01")]]]),
+      new Map([[nearB.id, [mealRecord("2023-04-01")]]]),
     );
 
     expect(choice).toEqual({
@@ -123,15 +124,15 @@ describe("defaultChoice", () => {
     });
   });
 
-  it("asks when two candidates have a visit on that day", () => {
+  it("asks when two candidates have a meal record on that day", () => {
     const g = group("2023-04-01");
-    const visits = new Map([
-      [SHOP_A.id, [visit("2023-04-01")]],
-      [SHOP_B.id, [visit("2023-04-01")]],
+    const mealRecords = new Map([
+      [SHOP_A.id, [mealRecord("2023-04-01")]],
+      [SHOP_B.id, [mealRecord("2023-04-01")]],
     ]);
 
     expect(
-      defaultChoice(g, matchShop(SHOP_A, [SHOP_A, SHOP_B]), visits),
+      defaultChoice(g, matchShop(SHOP_A, [SHOP_A, SHOP_B]), mealRecords),
     ).toEqual({ kind: "undecided" });
   });
 });
@@ -176,7 +177,7 @@ describe("buildPlan", () => {
     ]);
   });
 
-  it("lets only each shop's earliest day claim its dateless visit", () => {
+  it("lets only each shop's earliest day claim its dateless meal record", () => {
     const may = group("2023-05-01");
     const april = group("2023-04-01");
     const atB = group("2023-04-15");
@@ -219,39 +220,57 @@ describe("buildPlan", () => {
 });
 
 describe("decideAction", () => {
-  it("creates a visit when the shop has none on that day and nothing to claim", () => {
-    expect(decideAction(entry(), [visit("2023-03-01", 2)])).toEqual({
+  it("does not count collaboration images as this shop's import cursor or claim a shared undated record", () => {
+    const shops = [SHOP_A, SHOP_B];
+    expect(
+      decideAction(entry(), [
+        mealRecord("2023-04-01", 3, { shops }),
+        mealRecord(undefined, 0, { shops }),
+      ]),
+    ).toEqual({ kind: "create" });
+    const single = mealRecord("2023-04-01", 1);
+    expect(
+      decideAction(entry(), [mealRecord("2023-04-01", 3, { shops }), single]),
+    ).toEqual({ kind: "resume", mealRecordId: single.id, uploaded: 1 });
+  });
+  it("creates a meal record when the shop has none on that day and nothing to claim", () => {
+    expect(decideAction(entry(), [mealRecord("2023-03-01", 2)])).toEqual({
       kind: "create",
     });
   });
 
-  it("claims a dateless visit without images, handing it over whole", () => {
-    const dateless = visit(undefined, 0, { rate: 70, publicNote: "old app" });
-
-    expect(decideAction(entry(), [visit("2023-03-01"), dateless])).toEqual({
-      kind: "claim",
-      visit: dateless,
+  it("claims a dateless meal record without images, handing it over whole", () => {
+    const dateless = mealRecord(undefined, 0, {
+      rate: 70,
+      publicNote: "old app",
     });
+
+    expect(decideAction(entry(), [mealRecord("2023-03-01"), dateless])).toEqual(
+      {
+        kind: "claim",
+        mealRecord: dateless,
+      },
+    );
   });
 
-  it("leaves a dateless visit alone when it has images or a later day would claim it", () => {
-    expect(decideAction(entry(), [visit(undefined, 1)])).toEqual({
+  it("leaves a dateless meal record alone when it has images or a later day would claim it", () => {
+    expect(decideAction(entry(), [mealRecord(undefined, 1)])).toEqual({
       kind: "create",
     });
     expect(
-      decideAction(entry({ claimsDateless: false }), [visit(undefined)]),
+      decideAction(entry({ claimsDateless: false }), [mealRecord(undefined)]),
     ).toEqual({ kind: "create" });
   });
 
-  it("resumes the same-day visit from its image count and is done once it has them all", () => {
-    const partial = visit("2023-04-01", 2);
-    const complete = visit("2023-04-01", 3);
+  it("resumes the same-day meal record from its image count and is done once it has them all", () => {
+    const partial = mealRecord("2023-04-01", 2);
+    const complete = mealRecord("2023-04-01", 3);
 
     expect(
-      decideAction(entry({ photoCount: 3 }), [partial, visit(undefined)]),
-    ).toEqual({ kind: "resume", visitId: partial.id, uploaded: 2 });
+      decideAction(entry({ photoCount: 3 }), [partial, mealRecord(undefined)]),
+    ).toEqual({ kind: "resume", mealRecordId: partial.id, uploaded: 2 });
     expect(decideAction(entry({ photoCount: 3 }), [partial, complete])).toEqual(
-      { kind: "done", visitId: complete.id },
+      { kind: "done", mealRecordId: complete.id },
     );
   });
 });

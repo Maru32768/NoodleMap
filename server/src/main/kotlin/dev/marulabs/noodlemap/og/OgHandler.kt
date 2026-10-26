@@ -6,7 +6,7 @@ import dev.marulabs.noodlemap.common.retrySoon
 import dev.marulabs.noodlemap.errors.DomainException
 import dev.marulabs.noodlemap.shops.ShopHandler
 import dev.marulabs.noodlemap.shops.ShopRecord
-import dev.marulabs.noodlemap.visits.VisitImageStore
+import dev.marulabs.noodlemap.mealrecords.MealRecordImageStore
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -76,8 +76,8 @@ class OgHandler(
     /** Null renders the image on every request (local dev, tests). */
     private val store: R2OgImageStore?,
     /** Where the 代表写真 drawn behind the card is read from, by storage key (never over HTTP). */
-    private val visitImages: VisitImageStore,
-    /** Shared with visit image processing; a full gate answers 503, bounding unauthenticated render work. */
+    private val mealRecordImages: MealRecordImageStore,
+    /** Shared with mealRecord image processing; a full gate answers 503, bounding unauthenticated render work. */
     private val bitmapWork: BitmapWorkGate,
     /** How long a cover that failed to read or decode is not tried again. */
     private val coverFailureTtl: Duration = 5.minutes,
@@ -170,7 +170,7 @@ class OgHandler(
 
     /** The stored cover's bytes, or null when storage fails or is slower than [COVER_READ_TIMEOUT]. */
     private suspend fun readCover(coverKey: String): ByteArray? = try {
-        withTimeout(COVER_READ_TIMEOUT) { visitImages.read(coverKey) }
+        withTimeout(COVER_READ_TIMEOUT) { mealRecordImages.read(coverKey) }
     } catch (e: TimeoutCancellationException) {
         log.warn("og: cover read timed out for {}; answering 503", coverKey)
         null

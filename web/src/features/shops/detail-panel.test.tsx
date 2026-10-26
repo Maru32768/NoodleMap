@@ -12,13 +12,16 @@ import { server } from "@/test/server.ts";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
+import { MemoryRouter } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-type VisitLog = components["schemas"]["VisitLog"];
+type MealRecord = components["schemas"]["MealRecord"];
 
-function serveVisits(visits: VisitLog[]) {
+function serveMealRecords(mealRecords: MealRecord[]) {
   server.use(
-    http.get("/api/v1/shops/:id/visits", () => HttpResponse.json({ visits })),
+    http.get("/api/v1/shops/:id/meal-records", () =>
+      HttpResponse.json({ mealRecords }),
+    ),
   );
 }
 
@@ -36,15 +39,17 @@ function renderPanel(shop: Shop, user: CurrentUser = GUEST_USER) {
   const onAdminEdit = vi.fn();
   const onClose = vi.fn();
   renderWithProviders(
-    <CurrentUserProvider value={user}>
-      <DetailPanel shop={shop} onAdminEdit={onAdminEdit} onClose={onClose} />
-    </CurrentUserProvider>,
+    <MemoryRouter>
+      <CurrentUserProvider value={user}>
+        <DetailPanel shop={shop} onAdminEdit={onAdminEdit} onClose={onClose} />
+      </CurrentUserProvider>
+    </MemoryRouter>,
   );
   return { onAdminEdit, onClose };
 }
 
 describe("DetailPanel", () => {
-  beforeEach(() => serveVisits([]));
+  beforeEach(() => serveMealRecords([]));
 
   const shop = makeShop({
     name: "中華そば 青葉",
@@ -135,7 +140,7 @@ describe("DetailPanel", () => {
     expect(links[0]).toHaveAttribute("rel", "noopener noreferrer");
   });
 
-  it("shows the お気に入り度 only for visited shops", () => {
+  it("shows the お気に入り度 only for shops with eating records", () => {
     renderPanel(makeShop({ eaten: false, rate: 0 }));
 
     expect(
@@ -154,12 +159,13 @@ describe("DetailPanel", () => {
   });
 });
 
-describe("DetailPanel visit logs", () => {
-  const eaten = makeShop({ name: "麺屋 訪問", rate: 85, visitCount: 2 });
-  const visits: VisitLog[] = [
+describe("DetailPanel meal records", () => {
+  const eaten = makeShop({ name: "麺屋 訪問", rate: 85, mealRecordCount: 2 });
+  const mealRecords: MealRecord[] = [
     {
       id: "00000000-0000-4000-8000-0000000000a1",
-      visitedOn: "2026-10-01",
+      eatenOn: "2026-10-01",
+      shops: [eaten],
       menuItems: [
         { name: "秋の限定つけ麺", isLimited: true, price: 1200 },
         { name: "替え玉", isLimited: false, price: 150 },
@@ -167,25 +173,26 @@ describe("DetailPanel visit logs", () => {
       ],
       totalPrice: 1350,
       rate: 85,
-      eventName: "大つけ麺博",
+      venue: { id: "venue-1", name: "大つけ麺博" },
       publicNote: "スープが濃厚",
       images: [],
     },
     {
       id: "00000000-0000-4000-8000-0000000000a2",
+      shops: [eaten],
       menuItems: [],
       images: [],
     },
   ];
 
-  it("lists the visits with the visit count for a guest", async () => {
-    serveVisits(visits);
+  it("lists the meal records with the meal record count for a guest", async () => {
+    serveMealRecords(mealRecords);
     renderPanel(eaten);
 
-    expect(screen.getByText("2回訪問")).toBeInTheDocument();
+    expect(screen.getByText("2件の記録")).toBeInTheDocument();
     const list = await screen.findByRole("list", {
       ...hidden,
-      name: "訪問ログ",
+      name: "食べた記録",
     });
     const [first, second] = within(list).getAllByRole("listitem", hidden);
     expect(first).toHaveTextContent("2026/10/1");
@@ -203,49 +210,49 @@ describe("DetailPanel visit logs", () => {
   });
 
   it("shows メモ（自分用） when the API returns it (admin)", async () => {
-    serveVisits([{ ...visits[0], privateNote: "次は味玉" }]);
+    serveMealRecords([{ ...mealRecords[0], privateNote: "次は味玉" }]);
     renderPanel(eaten, admin);
 
     const list = await screen.findByRole("list", {
       ...hidden,
-      name: "訪問ログ",
+      name: "食べた記録",
     });
     expect(within(list).getByText("メモ（自分用）")).toBeInTheDocument();
     expect(within(list).getByText("次は味玉")).toBeInTheDocument();
   });
 
-  it("says when the visit list is empty", async () => {
-    serveVisits([]);
+  it("says when the meal record list is empty", async () => {
+    serveMealRecords([]);
     renderPanel(eaten);
 
     expect(
-      await screen.findByText("まだ訪問ログがありません"),
+      await screen.findByText("まだ食べた記録がありません"),
     ).toBeInTheDocument();
   });
 
-  it("shows 未設定 instead of a 0 お気に入り度 when no visit has one", async () => {
-    serveVisits([visits[1]]);
-    renderPanel(makeShop({ eaten: true, rate: 0, visitCount: 1 }));
+  it("shows 未設定 instead of a 0 お気に入り度 when no meal record has one", async () => {
+    serveMealRecords([mealRecords[1]]);
+    renderPanel(makeShop({ eaten: true, rate: 0, mealRecordCount: 1 }));
 
-    await screen.findByRole("list", { ...hidden, name: "訪問ログ" });
+    await screen.findByRole("list", { ...hidden, name: "食べた記録" });
     expect(screen.getByText("未設定")).toBeInTheDocument();
     expect(screen.getByText("お気に入り度 未設定")).toBeInTheDocument();
     expect(screen.queryByText("/ 100")).not.toBeInTheDocument();
   });
 
-  it("offers 再試行 when the visits fail to load", async () => {
+  it("offers 再試行 when the meal records fail to load", async () => {
     let fail = true;
     server.use(
-      http.get("/api/v1/shops/:id/visits", () =>
+      http.get("/api/v1/shops/:id/meal-records", () =>
         fail
           ? HttpResponse.json({ type: "internal_error" }, { status: 500 })
-          : HttpResponse.json({ visits }),
+          : HttpResponse.json({ mealRecords }),
       ),
     );
     renderPanel(eaten);
 
     expect(
-      await screen.findByText("訪問ログを読み込めませんでした"),
+      await screen.findByText("食べた記録を読み込めませんでした"),
     ).toBeInTheDocument();
     fail = false;
     await userEvent.click(
@@ -254,7 +261,7 @@ describe("DetailPanel visit logs", () => {
     );
 
     expect(
-      await screen.findByRole("list", { ...hidden, name: "訪問ログ" }),
+      await screen.findByRole("list", { ...hidden, name: "食べた記録" }),
     ).toHaveTextContent("秋の限定つけ麺");
   });
 });
@@ -269,7 +276,7 @@ describe("DetailPanel images", () => {
   };
 
   it("shows the shop's 代表写真 at the top", () => {
-    serveVisits([]);
+    serveMealRecords([]);
     renderPanel(
       makeShop({ name: "麺屋 写真", coverPhotoUrl: image.url, eaten: false }),
     );
@@ -280,7 +287,7 @@ describe("DetailPanel images", () => {
   });
 
   it("loads the 代表写真 eagerly and falls back to the category art when it breaks", () => {
-    serveVisits([]);
+    serveMealRecords([]);
     renderPanel(
       makeShop({ name: "麺屋 壊れ", coverPhotoUrl: image.url, eaten: false }),
     );
@@ -298,7 +305,7 @@ describe("DetailPanel images", () => {
   });
 
   it("shows no photo for a shop without one", () => {
-    serveVisits([]);
+    serveMealRecords([]);
     renderPanel(makeShop({ name: "麺屋 写真なし", eaten: false }));
 
     expect(
@@ -306,10 +313,11 @@ describe("DetailPanel images", () => {
     ).toBeNull();
   });
 
-  it("shows each visit's images; Esc closes the lightbox, not the panel", async () => {
-    serveVisits([
+  it("shows each meal record's images; Esc closes the lightbox, not the panel", async () => {
+    serveMealRecords([
       {
         id: "00000000-0000-4000-8000-0000000000a1",
+        shops: [{ id: "shop-a", name: "A" }],
         menuItems: [],
         images: [image],
       },
@@ -318,7 +326,7 @@ describe("DetailPanel images", () => {
 
     const images = await screen.findByRole("list", {
       ...hidden,
-      name: "訪問画像",
+      name: "記録の画像",
     });
     await userEvent.click(
       within(images).getByRole("button", {

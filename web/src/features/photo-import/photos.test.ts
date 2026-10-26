@@ -1,8 +1,8 @@
+import { japanDate } from "@/features/meal-records/eaten-date.ts";
 import {
   parseExifInstant,
   readPhotos,
 } from "@/features/photo-import/photos.ts";
-import { japanDate } from "@/features/visits/visit-date.ts";
 import { ExifSpec, withExif } from "@/test/exif-jpeg.ts";
 import { describe, expect, it } from "vitest";
 

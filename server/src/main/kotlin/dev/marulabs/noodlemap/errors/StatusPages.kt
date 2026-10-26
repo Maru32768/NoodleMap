@@ -22,7 +22,7 @@ fun Application.installStatusPages() {
             // Places key and missing image storage are expected config (warned at startup) and a busy image
             // upload is load shedding, not faults.
             if (cause.status.value >= 500 && cause !is DomainException.GooglePlacesNotConfigured &&
-                cause !is DomainException.VisitImageProcessingBusy && cause !is DomainException.VisitImagesStorageUnconfigured &&
+                cause !is DomainException.MealRecordImageProcessingBusy && cause !is DomainException.MealRecordImagesStorageUnconfigured &&
                 cause !is DomainException.RequestBodyBusy && cause !is DomainException.BackupBusy
             ) {
                 log.error("domain error: ${cause.type}", cause)

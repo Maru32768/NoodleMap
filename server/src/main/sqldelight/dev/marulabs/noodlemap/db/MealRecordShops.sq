@@ -1,0 +1,21 @@
+CREATE TABLE meal_record_shops (
+    meal_record_id TEXT AS java.util.UUID NOT NULL,
+    shop_id TEXT AS java.util.UUID NOT NULL,
+    sort_order INTEGER NOT NULL,
+    PRIMARY KEY (meal_record_id, shop_id),
+    FOREIGN KEY (meal_record_id) REFERENCES meal_records (id),
+    FOREIGN KEY (shop_id) REFERENCES shops (id)
+);
+
+CREATE INDEX idx_meal_record_shops_shop_id ON meal_record_shops (shop_id);
+
+insertMealRecordShop:
+INSERT INTO meal_record_shops (meal_record_id, shop_id, sort_order) VALUES (?, ?, ?);
+
+deleteMealRecordShops:
+DELETE FROM meal_record_shops WHERE meal_record_id = ?;
+
+findShopsByMealRecordIds:
+SELECT j.meal_record_id, s.id, s.name FROM meal_record_shops j
+JOIN shops s ON s.id = j.shop_id WHERE j.meal_record_id IN ?
+ORDER BY j.meal_record_id, j.sort_order;

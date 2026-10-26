@@ -6,7 +6,7 @@ import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
-/** Calendar days (新店/閉店, the latest allowed visit date) follow the Japanese day the app is used in. */
+/** Calendar days (新店/閉店, the latest allowed mealRecord date) follow the Japanese day the app is used in. */
 val JST: ZoneId = ZoneId.of("Asia/Tokyo")
 
 /**

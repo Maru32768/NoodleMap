@@ -43,11 +43,11 @@ test("admin narrows by 気になる度 and × クリア clears every level", asy
   await expect(row).toHaveCount(1);
 
   // 食べた clears the levels, so returning to 全て does not restore them.
-  const visit = page.getByRole("radiogroup", { name: "状態" });
+  const mealRecord = page.getByRole("radiogroup", { name: "状態" });
   await level("ちょっと気になる").click();
   await expect(row).toHaveCount(0);
-  await visit.getByRole("radio", { name: "食べた", exact: true }).click();
-  await visit.getByRole("radio", { name: "全て", exact: true }).click();
+  await mealRecord.getByRole("radio", { name: "食べた", exact: true }).click();
+  await mealRecord.getByRole("radio", { name: "全て", exact: true }).click();
   for (const label of levels) {
     await expect(level(label)).toHaveAttribute("aria-pressed", "false");
   }
@@ -92,7 +92,7 @@ test("admin adds a shop link that guests see in the shop detail", async ({ page,
     const sidebar = guestPage.getByRole("complementary");
     await sidebar.getByPlaceholder("店名・読み・エリア・タグで検索...").fill(id);
     await sidebar.getByText(shop.name, { exact: true }).click();
-    const link = guestPage
+    const link = guestPage.locator("#root")
       .getByRole("list", { name: "店舗リンク" })
       .filter({ visible: true })
       .getByRole("link", { name: "Twitter" });
@@ -104,7 +104,7 @@ test("admin adds a shop link that guests see in the shop detail", async ({ page,
 
 test("admin deletes a shop from the edit modal", async ({ page, api }) => {
   const id = uid();
-  // A shop with visit logs cannot be deleted, so this one has none.
+  // A shop with meal records cannot be deleted, so this one has none.
   const shop = await api.createShop({ name: `${id} 削除する店` });
 
   await openAdmin(page);
@@ -130,7 +130,7 @@ test("admin deletes a shop from the search page and keeps using the page", async
   const other = await api.createShop({ name: `${id} 残る店` });
 
   await page.goto(`/search?shop=${shop.id}`);
-  await page.getByRole("button", { name: "編集" }).filter({ visible: true }).click();
+  await page.locator("#root").getByRole("button", { name: "編集" }).filter({ visible: true }).click();
   const dialog = page.getByRole("dialog").filter({ hasText: shop.name });
   await dialog.getByRole("button", { name: "削除", exact: true }).click();
   await page
@@ -145,7 +145,7 @@ test("admin deletes a shop from the search page and keeps using the page", async
   const sidebar = page.getByRole("complementary");
   await sidebar.getByPlaceholder("店名・読み・エリア・タグで検索...").fill(id);
   await sidebar.getByText(other.name, { exact: true }).click();
-  await page.getByRole("button", { name: "編集" }).filter({ visible: true }).click();
+  await page.locator("#root").getByRole("button", { name: "編集" }).filter({ visible: true }).click();
   await expect(page.getByRole("dialog").filter({ hasText: other.name })).toBeVisible();
 });
 

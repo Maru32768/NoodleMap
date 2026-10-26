@@ -233,10 +233,10 @@ const errorTypes = new Set<ErrorType>([
   "internal_error",
   "google_places_not_configured",
   "google_places_failed",
-  "shop_has_visit_logs",
-  "visit_image_limit_reached",
-  "visit_image_processing_busy",
-  "visit_images_storage_unconfigured",
+  "shop_has_meal_records",
+  "meal_record_image_limit_reached",
+  "meal_record_image_processing_busy",
+  "meal_record_images_storage_unconfigured",
 ]);
 
 function getErrorType(body: ApiErrorBody | undefined): ErrorType | undefined {

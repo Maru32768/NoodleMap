@@ -26,19 +26,20 @@ class SeedDatabaseTest {
             buildDatabase(source)
             source.connection.use { connection ->
                 connection.count("shops") shouldBe 1465
-                connection.count("visit_logs") shouldBe 468
+                connection.count("meal_records") shouldBe 468
                 connection.count("users") shouldBe 0
                 connection.count("sessions") shouldBe 0
                 connection.createStatement().use { statement ->
                     statement.executeQuery("PRAGMA integrity_check").use { rows -> rows.next(); rows.getString(1) shouldBe "ok" }
                     statement.executeQuery("PRAGMA foreign_key_check").use { rows -> rows.next() shouldBe false }
-                    statement.executeUpdate("DELETE FROM visit_logs")
+                    statement.executeUpdate("DELETE FROM meal_record_shops")
+                    statement.executeUpdate("DELETE FROM meal_records")
                 }
             }
         }
         buildDataSource(target.toString(), directory.resolve("missing-seed.db").toString()).use { source ->
             buildDatabase(source)
-            source.connection.use { it.count("visit_logs") shouldBe 0 }
+            source.connection.use { it.count("meal_records") shouldBe 0 }
         }
         Files.readAllBytes(seed).contentEquals(original) shouldBe true
         Files.exists(Path.of("$seed-wal")) shouldBe false

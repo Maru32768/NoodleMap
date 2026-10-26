@@ -15,7 +15,7 @@ class OgCardTest {
     private val shop = Shop(
         id = "0f8e5d0c-1111-4222-8333-444455556666", name = "麺屋", lat = 35.0, lng = 139.0,
         postalCode = "160-0023", address = "日本、〒160-0023 東京都新宿区西新宿1-1", googlePlaceId = "p",
-        eaten = true, rate = 70.0, favorite = false, visitCount = 3, category = CategorySlug.RAMEN, tags = listOf(tag), links = emptyList(),
+        eaten = true, rate = 70.0, favorite = false, mealRecordCount = 3, category = CategorySlug.RAMEN, tags = listOf(tag), links = emptyList(),
     )
 
     private fun hash(s: Shop, day: LocalDate = today) = OgCard.of(s, null, day).hash()
@@ -25,16 +25,16 @@ class OgCardTest {
         val card = OgCard.of(shop.copy(openedAt = "2026-06-01"), null, today)
         card.statuses.map { it.label } shouldBe listOf("食べた", "新店")
         card.hearts shouldBe 3.5
-        card.visitCountLabel shouldBe "3回訪問"
+        card.mealRecordCountLabel shouldBe "3回訪問"
         card.area shouldBe "東京都新宿区"
         card.description() shouldBe "ラーメン・家系・食べた・新店・3回訪問・東京都新宿区"
-        val wish = shop.copy(eaten = false, rate = 0.0, visitCount = 0, wishLevel = "high", category = CategorySlug.UDON)
+        val wish = shop.copy(eaten = false, rate = 0.0, mealRecordCount = 0, wishLevel = "high", category = CategorySlug.UDON)
         OgCard.of(wish, null, today).let {
             it.category shouldBe "うどん"
             // The 気になる度 replaces the plain 気になる status.
             it.statuses.map { s -> s.label } shouldBe listOf("絶対行きたい")
             it.hearts shouldBe 0.0
-            it.visitCountLabel shouldBe null
+            it.mealRecordCountLabel shouldBe null
             it.description() shouldBe "うどん・家系・絶対行きたい・東京都新宿区"
         }
         fun status(s: Shop) = OgCard.of(s, null, today).statuses.first().label
@@ -72,9 +72,9 @@ class OgCardTest {
             shop.copy(tags = emptyList()),
             shop.copy(address = "大阪府大阪市北区梅田1-1"),
             shop.copy(closedAt = "2026-10-01"),
-            shop.copy(visitCount = 4),
+            shop.copy(mealRecordCount = 4),
         ).forEach { hash(it) shouldNotBe base }
-        val wish = shop.copy(eaten = false, rate = 0.0, visitCount = 0)
+        val wish = shop.copy(eaten = false, rate = 0.0, mealRecordCount = 0)
         listOf(wish.copy(wishLevel = "low"), wish.copy(wishLevel = "high"), wish).map { hash(it) }.toSet().size shouldBe 3
         // Medium is drawn as the plain 気になる, so it shares the unset shop's image.
         hash(wish.copy(wishLevel = "medium")) shouldBe hash(wish)
@@ -83,8 +83,8 @@ class OgCardTest {
     @Test
     fun `hash changes when the cover photo changes`() {
         fun hash(coverPhotoKey: String?) = OgCard.of(shop, coverPhotoKey, today).hash()
-        val first = "visits/0f8e5d0c-1111-4222-8333-444455556666/11111111-1111-4111-8111-111111111111.jpg"
-        val second = "visits/0f8e5d0c-1111-4222-8333-444455556666/22222222-2222-4222-8222-222222222222.jpg"
+        val first = "meal-records/0f8e5d0c-1111-4222-8333-444455556666/11111111-1111-4111-8111-111111111111.jpg"
+        val second = "meal-records/0f8e5d0c-1111-4222-8333-444455556666/22222222-2222-4222-8222-222222222222.jpg"
         hash(first) shouldBe hash(first)
         setOf(hash(null), hash(first), hash(second)).size shouldBe 3
     }

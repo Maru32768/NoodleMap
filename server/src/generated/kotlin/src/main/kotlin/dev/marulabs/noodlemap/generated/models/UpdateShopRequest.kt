@@ -36,14 +36,14 @@ public data class UpdateShopRequest(
   @SerialName("category")
   public val category: CategorySlug,
   /**
-   * Deprecated and ignored by the server: 食べた is derived from visit logs. Older clients still send
-   * it.
+   * Deprecated and ignored by the server: 食べた is derived from meal records. Older clients still
+   * send it.
    */
   @SerialName("eaten")
   public val eaten: Boolean? = null,
   /**
-   * Deprecated and ignored by the server: the shop's rate is derived from visit logs. Older clients
-   * still send it.
+   * Deprecated and ignored by the server: the shop's rate is derived from meal records. Older
+   * clients still send it.
    */
   @SerialName("rate")
   public val rate: Double? = null,

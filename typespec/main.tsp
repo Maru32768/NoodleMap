@@ -24,10 +24,10 @@ union ErrorType {
   "internal_error",
   "google_places_not_configured",
   "google_places_failed",
-  "shop_has_visit_logs",
-  "visit_image_limit_reached",
-  "visit_image_processing_busy",
-  "visit_images_storage_unconfigured",
+  "shop_has_meal_records",
+  "meal_record_image_limit_reached",
+  "meal_record_image_processing_busy",
+  "meal_record_images_storage_unconfigured",
 }
 
 union FieldErrorType {
@@ -99,17 +99,18 @@ union WishLevel {
 }
 
 @doc("`menuItems` covers the list and each item; the message names the item (`menuItems[0].name`).")
-union VisitLogField {
-  "visitedOn",
+union MealRecordField {
+  "shopIds",
+  "eatenOn",
   "menuItems",
   "rate",
-  "eventName",
+  "venueName",
   "publicNote",
   "privateNote",
 }
 
 @doc("`file` is the uploaded image part; `imageIds` is the full ordered id list of a reorder.")
-union VisitImageField {
+union MealRecordImageField {
   "file",
   "caption",
   "imageIds",
@@ -141,14 +142,14 @@ model UpdateShopFieldError {
   message?: string;
 }
 
-model VisitLogFieldError {
-  field: VisitLogField;
+model MealRecordFieldError {
+  field: MealRecordField;
   type: FieldErrorType;
   message?: string;
 }
 
-model VisitImageFieldError {
-  field: VisitImageField;
+model MealRecordImageFieldError {
+  field: MealRecordImageField;
   type: FieldErrorType;
   message?: string;
 }
@@ -182,16 +183,16 @@ model UpdateShopBadRequestErrorBody {
   fieldErrors?: UpdateShopFieldError[];
 }
 
-model VisitLogBadRequestErrorBody {
+model MealRecordBadRequestErrorBody {
   type: "invalid_request";
   message?: string;
-  fieldErrors?: VisitLogFieldError[];
+  fieldErrors?: MealRecordFieldError[];
 }
 
-model VisitImageBadRequestErrorBody {
+model MealRecordImageBadRequestErrorBody {
   type: "invalid_request";
   message?: string;
-  fieldErrors?: VisitImageFieldError[];
+  fieldErrors?: MealRecordImageFieldError[];
 }
 
 model TagBadRequestErrorBody {
@@ -220,27 +221,27 @@ model NotFoundErrorBody {
   message?: string;
 }
 
-@doc("The shop has visit logs, so it cannot be deleted.")
-model ShopHasVisitLogsErrorBody {
-  type: "shop_has_visit_logs";
+@doc("The shop has meal records, so it cannot be deleted.")
+model ShopHasMealRecordsErrorBody {
+  type: "shop_has_meal_records";
   message?: string;
 }
 
-@doc("The visit log already has the maximum number of images (10).")
-model VisitImageLimitReachedErrorBody {
-  type: "visit_image_limit_reached";
+@doc("The meal record already has the maximum number of images (10).")
+model MealRecordImageLimitReachedErrorBody {
+  type: "meal_record_image_limit_reached";
   message?: string;
 }
 
 @doc("Too many images are being processed right now; retry shortly.")
-model VisitImageProcessingBusyErrorBody {
-  type: "visit_image_processing_busy";
+model MealRecordImageProcessingBusyErrorBody {
+  type: "meal_record_image_processing_busy";
   message?: string;
 }
 
-@doc("The server has no storage for visit images configured.")
-model VisitImagesStorageUnconfiguredErrorBody {
-  type: "visit_images_storage_unconfigured";
+@doc("The server has no storage for meal record images configured.")
+model MealRecordImagesStorageUnconfiguredErrorBody {
+  type: "meal_record_images_storage_unconfigured";
   message?: string;
 }
 
@@ -286,12 +287,12 @@ alias ErrorBody =
   PermissionDeniedErrorBody |
   SessionCreationFailedErrorBody |
   NotFoundErrorBody |
-  ShopHasVisitLogsErrorBody |
-  VisitLogBadRequestErrorBody |
-  VisitImageBadRequestErrorBody |
-  VisitImageLimitReachedErrorBody |
-  VisitImageProcessingBusyErrorBody |
-  VisitImagesStorageUnconfiguredErrorBody |
+  ShopHasMealRecordsErrorBody |
+  MealRecordBadRequestErrorBody |
+  MealRecordImageBadRequestErrorBody |
+  MealRecordImageLimitReachedErrorBody |
+  MealRecordImageProcessingBusyErrorBody |
+  MealRecordImagesStorageUnconfiguredErrorBody |
   InternalErrorBody |
   GooglePlacesNotConfiguredErrorBody |
   GooglePlacesFailedErrorBody;
@@ -404,17 +405,17 @@ model Shop {
   @doc("Google Places place id. Absent when the shop was entered by hand.")
   googlePlaceId?: string;
 
-  @doc("Derived on the server: true when the shop has at least one visit log. Read-only.")
+  @doc("Derived on the server: true when the shop has at least one meal record. Read-only.")
   eaten: boolean;
 
-  @doc("Derived on the server: the rate of the latest visit log that has one, or 0 when none has. Read-only.")
+  @doc("Derived on the server: the rate of the latest meal record that has one, or 0 when none has. Read-only.")
   rate: float64;
 
-  @doc("Derived on the server: true when the shop's rate comes from a visit log and is 80 or more. Read-only.")
+  @doc("Derived on the server: true when the shop's rate comes from a meal record and is 80 or more. Read-only.")
   favorite: boolean;
 
-  @doc("Number of visit logs of the shop. Read-only.")
-  visitCount: int32;
+  @doc("Number of meal records of the shop. Read-only.")
+  mealRecordCount: int32;
 
   @doc("気になる度. Absent when not set. Kept after the shop is eaten, but only meaningful before.")
   wishLevel?: WishLevel;
@@ -425,16 +426,18 @@ model Shop {
   @doc("External links (official site, SNS, ...) in display order.")
   links: ShopLink[];
 
-  @doc("Derived on the server: URL of the first image of the latest visit log that has images. Absent when none has.")
+  @doc("Derived on the server: URL of the first image of the latest meal record that has images. Absent when none has.")
   coverPhotoUrl?: string;
 }
 
-@doc("One 訪問ログ. Visit logs are listed newest first: by visitedOn, those without one last, then by creation.")
-model VisitLog {
+@doc("One 食べた記録. Meal records are listed newest first: by eatenOn, those without one last, then by creation.")
+model MealRecord {
   id: uuid;
+  shops: MealRecordShop[];
+  venue?: Venue;
 
-  @doc("Visit date as an ISO 8601 calendar date (YYYY-MM-DD). Absent when unknown.")
-  visitedOn?: string;
+  @doc("Eating date as an ISO 8601 calendar date (YYYY-MM-DD). Absent when unknown.")
+  eatenOn?: string;
 
   @doc("食べたメニュー in display order.")
   menuItems: MenuItem[];
@@ -442,22 +445,39 @@ model VisitLog {
   @doc("Derived on the server: the sum of the menu item prices. Absent when no item has a price.")
   totalPrice?: int32;
 
-  @doc("0 to 100. Absent when the visit is not rated.")
+  @doc("0 to 100. Absent when the meal record is not rated.")
   rate?: float64;
 
-  @doc("催事 (department store fair, ramen festival, ...) where the shop was visited.")
-  eventName?: string;
 
   publicNote?: string;
 
   @doc("Only in responses to the admin; omitted for everyone else.")
   privateNote?: string;
 
-  @doc("The visit's images in display order; the first one represents the visit.")
-  images: VisitImage[];
+  @doc("The meal record's images in display order; the first one represents the mealRecord.")
+  images: MealRecordImage[];
 }
 
-@doc("One 食べたメニュー of a visit log.")
+model MealRecordShop {
+  id: uuid;
+  name: string;
+}
+
+model Venue {
+  id: uuid;
+  name: string;
+}
+
+model VenuesResponse {
+  venues: Venue[];
+}
+
+model VenueMealRecordsResponse {
+  venue: Venue;
+  mealRecords: MealRecord[];
+}
+
+@doc("One 食べたメニュー of a meal record.")
 model MenuItem {
   name: string;
 
@@ -468,8 +488,8 @@ model MenuItem {
   price?: int32;
 }
 
-@doc("One 訪問画像: a JPEG whose long edge is at most 2048 px, already rotated upright.")
-model VisitImage {
+@doc("One 記録の画像: a JPEG whose long edge is at most 2048 px, already rotated upright.")
+model MealRecordImage {
   id: uuid;
 
   @doc("Absolute URL of the JPEG.")
@@ -481,38 +501,40 @@ model VisitImage {
   caption?: string;
 }
 
-model VisitImagesResponse {
-  images: VisitImage[];
+model MealRecordImagesResponse {
+  images: MealRecordImage[];
 }
 
 @doc("A JPEG or PNG of at most 15 MB. HEIC and WebP are converted to JPEG by the client before upload.")
-model UploadVisitImageRequest {
+model UploadMealRecordImageRequest {
   file: HttpPart<File>;
 }
 
 @doc("Trimmed; blank or omitted clears the caption.")
-model UpdateVisitImageRequest {
+model UpdateMealRecordImageRequest {
   @maxLength(100)
   caption?: string;
 }
 
-@doc("Every image id of the visit log exactly once, in the new display order.")
-model ReorderVisitImagesRequest {
+@doc("Every image id of the meal record exactly once, in the new display order.")
+model ReorderMealRecordImagesRequest {
   @maxItems(10)
   imageIds: uuid[];
 }
 
-model VisitLogsResponse {
-  visits: VisitLog[];
+model MealRecordsResponse {
+  mealRecords: MealRecord[];
 }
 
 @doc("""
-  A visit log as written by the admin. Strings are trimmed and a blank string means not set.
+  A meal record as written by the admin. Strings are trimmed and a blank string means not set.
   On update every field is replaced, so an omitted field is cleared.
   """)
-model VisitLogInput {
+model MealRecordInput {
+  @minItems(1)
+  shopIds: uuid[];
   @doc("ISO 8601 calendar date (YYYY-MM-DD), no later than tomorrow. Omit when unknown.")
-  visitedOn?: string;
+  eatenOn?: string;
 
   @doc("食べたメニュー in display order, at most 10. Omit for none.")
   @maxItems(10)
@@ -524,7 +546,7 @@ model VisitLogInput {
   rate?: float64;
 
   @maxLength(100)
-  eventName?: string;
+  venueName?: string;
 
   @maxLength(2000)
   publicNote?: string;
@@ -639,10 +661,10 @@ model UpdateShopRequest {
 
   category: CategorySlug;
 
-  @doc("Deprecated and ignored by the server: 食べた is derived from visit logs. Older clients still send it.")
+  @doc("Deprecated and ignored by the server: 食べた is derived from meal records. Older clients still send it.")
   eaten?: boolean;
 
-  @doc("Deprecated and ignored by the server: the shop's rate is derived from visit logs. Older clients still send it.")
+  @doc("Deprecated and ignored by the server: the shop's rate is derived from meal records. Older clients still send it.")
   rate?: float64;
 
   tagIds: uuid[];
@@ -740,75 +762,82 @@ op updateShop(
   @body body: UpdateShopRequest,
 ): RequestBodyErrorResponse | OkEmptyResponse | BadRequestResponse<UpdateShopBadRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | NotFoundResponse<NotFoundErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
 
-@doc("Deletes a shop with its tags and links. A shop with visit logs cannot be deleted (409).")
+@doc("Deletes a shop with its tags and links. A shop with meal records cannot be deleted (409).")
 @delete
 @route("/auth/shops/{id}")
 op deleteShop(
   @path id: uuid,
-): NoContentResponse | BadRequestResponse<InvalidRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | NotFoundResponse<NotFoundErrorBody> | ConflictResponse<ShopHasVisitLogsErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
+): NoContentResponse | BadRequestResponse<InvalidRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | NotFoundResponse<NotFoundErrorBody> | ConflictResponse<ShopHasMealRecordsErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
 
-@doc("A shop's visit logs, newest first. privateNote is included only for the admin.")
+@doc("A shop's meal records, newest first. privateNote is included only for the admin.")
 @get
-@route("/shops/{id}/visits")
-op listVisitLogs(
+@route("/shops/{id}/meal-records")
+op listMealRecords(
   @path id: uuid,
-): OkResponse<VisitLogsResponse> | NotFoundResponse<NotFoundErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
+): OkResponse<MealRecordsResponse> | NotFoundResponse<NotFoundErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
 
 @post
-@route("/auth/shops/{id}/visits")
-op addVisitLog(
-  @path id: uuid,
-  @body body: VisitLogInput,
-): RequestBodyErrorResponse | OkResponse<VisitLog> | BadRequestResponse<VisitLogBadRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | NotFoundResponse<NotFoundErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
+@route("/auth/meal-records")
+op addMealRecord(
+  @body body: MealRecordInput,
+): RequestBodyErrorResponse | OkResponse<MealRecord> | BadRequestResponse<MealRecordBadRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | NotFoundResponse<NotFoundErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
 
-@doc("Replaces every field of a visit log.")
+@get
+@route("/venues")
+op listVenues(): OkResponse<VenuesResponse> | InternalServerErrorResponse<InternalErrorBody>;
+
+@get
+@route("/venues/{venueId}/meal-records")
+op listVenueMealRecords(@path venueId: uuid): OkResponse<VenueMealRecordsResponse> | NotFoundResponse<NotFoundErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
+
+@doc("Replaces every field of a meal record.")
 @put
-@route("/auth/visits/{visitId}")
-op updateVisitLog(
-  @path visitId: uuid,
-  @body body: VisitLogInput,
-): RequestBodyErrorResponse | OkResponse<VisitLog> | BadRequestResponse<VisitLogBadRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | NotFoundResponse<NotFoundErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
+@route("/auth/meal-records/{mealRecordId}")
+op updateMealRecord(
+  @path mealRecordId: uuid,
+  @body body: MealRecordInput,
+): RequestBodyErrorResponse | OkResponse<MealRecord> | BadRequestResponse<MealRecordBadRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | NotFoundResponse<NotFoundErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
 
-@doc("Deletes a visit log with its images.")
+@doc("Deletes a meal record with its images.")
 @delete
-@route("/auth/visits/{visitId}")
-op deleteVisitLog(
-  @path visitId: uuid,
+@route("/auth/meal-records/{mealRecordId}")
+op deleteMealRecord(
+  @path mealRecordId: uuid,
 ): NoContentResponse | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | NotFoundResponse<NotFoundErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
 
 @doc("""
-  Adds an image at the end of a visit log's images (at most 10). The server applies the EXIF orientation,
+  Adds an image at the end of a meal record's images (at most 10). The server applies the EXIF orientation,
   scales the long edge down to 2048 px and stores a JPEG without metadata.
   The request's Origin must be the site's own origin, or a localhost one on an http (local development) site;
   403 otherwise.
   """)
 @post
-@route("/auth/visits/{visitId}/images")
-op uploadVisitImage(
-  @path visitId: uuid,
+@route("/auth/meal-records/{mealRecordId}/images")
+op uploadMealRecordImage(
+  @path mealRecordId: uuid,
   @header contentType: "multipart/form-data",
-  @multipartBody body: UploadVisitImageRequest,
-): OkResponse<VisitImage> | BadRequestResponse<VisitImageBadRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | NotFoundResponse<NotFoundErrorBody> | ConflictResponse<VisitImageLimitReachedErrorBody> | InternalServerErrorResponse<InternalErrorBody> | ServiceUnavailableResponse<VisitImageProcessingBusyErrorBody | VisitImagesStorageUnconfiguredErrorBody>;
+  @multipartBody body: UploadMealRecordImageRequest,
+): OkResponse<MealRecordImage> | BadRequestResponse<MealRecordImageBadRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | NotFoundResponse<NotFoundErrorBody> | ConflictResponse<MealRecordImageLimitReachedErrorBody> | InternalServerErrorResponse<InternalErrorBody> | ServiceUnavailableResponse<MealRecordImageProcessingBusyErrorBody | MealRecordImagesStorageUnconfiguredErrorBody>;
 
-@doc("Replaces the display order of a visit log's images.")
+@doc("Replaces the display order of a meal record's images.")
 @put
-@route("/auth/visits/{visitId}/images/order")
-op reorderVisitImages(
-  @path visitId: uuid,
-  @body body: ReorderVisitImagesRequest,
-): RequestBodyErrorResponse | OkResponse<VisitImagesResponse> | BadRequestResponse<VisitImageBadRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | NotFoundResponse<NotFoundErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
+@route("/auth/meal-records/{mealRecordId}/images/order")
+op reorderMealRecordImages(
+  @path mealRecordId: uuid,
+  @body body: ReorderMealRecordImagesRequest,
+): RequestBodyErrorResponse | OkResponse<MealRecordImagesResponse> | BadRequestResponse<MealRecordImageBadRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | NotFoundResponse<NotFoundErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
 
 @doc("Updates an image's caption.")
 @put
-@route("/auth/visit-images/{imageId}")
-op updateVisitImage(
+@route("/auth/meal-record-images/{imageId}")
+op updateMealRecordImage(
   @path imageId: uuid,
-  @body body: UpdateVisitImageRequest,
-): RequestBodyErrorResponse | OkResponse<VisitImage> | BadRequestResponse<VisitImageBadRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | NotFoundResponse<NotFoundErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
+  @body body: UpdateMealRecordImageRequest,
+): RequestBodyErrorResponse | OkResponse<MealRecordImage> | BadRequestResponse<MealRecordImageBadRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | NotFoundResponse<NotFoundErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
 
 @delete
-@route("/auth/visit-images/{imageId}")
-op deleteVisitImage(
+@route("/auth/meal-record-images/{imageId}")
+op deleteMealRecordImage(
   @path imageId: uuid,
 ): NoContentResponse | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | NotFoundResponse<NotFoundErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
 

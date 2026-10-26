@@ -21,7 +21,7 @@ interface AdminTableProps {
   shops: Shop[];
   selectedId: string | null;
   onSelect: (id: string) => void;
-  onEdit: (id: string, tab?: "visit") => void;
+  onEdit: (id: string, tab?: "mealRecord") => void;
 }
 
 type AdminTableRow = Shop & {
@@ -249,15 +249,15 @@ export function AdminTable({
       render: (address) => <Box>{address}</Box>,
     }),
     createSortableColumn({
-      property: "visitCount",
+      property: "mealRecordCount",
       header: "食べた",
       width: "96px",
-      render: (visitCount, shop) =>
+      render: (mealRecordCount, shop) =>
         shop.eaten ? (
           <Box display="flex" alignItems="center" gap="4px">
             <CheckDot on variant="eaten" />
             <Box as="span" fontSize="11px" color="nm.inkMuted">
-              {visitCount}回
+              {mealRecordCount}件
             </Box>
           </Box>
         ) : (
@@ -306,10 +306,10 @@ export function AdminTable({
               </svg>
             </RowActionButton>
             <RowActionButton
-              title="訪問ログ・画像"
+              title="食べた記録・画像"
               onClick={(e) => {
                 e.stopPropagation();
-                onEdit(shop.id, "visit");
+                onEdit(shop.id, "mealRecord");
               }}
             >
               <svg

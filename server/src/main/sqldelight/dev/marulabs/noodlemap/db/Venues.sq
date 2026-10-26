@@ -1,0 +1,16 @@
+CREATE TABLE venues (
+    id TEXT AS java.util.UUID NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE
+);
+
+insertVenue:
+INSERT INTO venues (id, name) VALUES (?, ?) ON CONFLICT (name) DO NOTHING;
+
+findVenueByName:
+SELECT * FROM venues WHERE name = ?;
+
+findVenue:
+SELECT * FROM venues WHERE id = ?;
+
+findVenues:
+SELECT * FROM venues ORDER BY name, id;

@@ -29,7 +29,7 @@ $env:E2E_BACKEND_PORT=28888; $env:E2E_WEB_PORT=24180; mise exec -- npm test
 ```
 
 The ports must be different integers from 1 to 65535. Everything a run writes
-(database, visit images, web and server builds, storage state, test results)
+(database, mealRecord images, web and server builds, storage state, test results)
 lives under `.data/<backend port>-<web port>/`, so runs on different ports don't
 wipe each other; two runs on the same ports would.
 
@@ -118,6 +118,6 @@ stub the backend `/api/v1/auth/google-places/*` endpoints with `page.route`.
 - Tests run on one worker against one database. `PUT /api/v1/auth/tags`
   replaces the whole tag list, so parallel workers would race.
 - Prefer `getByRole` / `getByText` with the Japanese UI copy.
-- The photo import's `fixtures/photo-*.jpg` are `visit-image.jpg` with EXIF
+- The photo import's `fixtures/photo-*.jpg` are `meal-record-image.jpg` with EXIF
   written by `node scripts/write-photo-fixtures.ts` from the specs in
   `support/photo-fixtures.ts`; rerun it after changing them.

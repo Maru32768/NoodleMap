@@ -3,6 +3,8 @@ import { CloseButton } from "@/components/ui/close-button.tsx";
 import { useCurrentUser } from "@/features/auth/use-current-user.ts";
 import { CategorySlug } from "@/features/categories/categories.ts";
 import { CategoryIcon } from "@/features/map/category-icon.tsx";
+import { ShopMealRecordHistory } from "@/features/meal-records/shop-meal-record-history.tsx";
+import { ShopRating } from "@/features/meal-records/shop-rating.tsx";
 import { Shop } from "@/features/shops/api/use-shops.ts";
 import {
   buildGoogleMapsUrl,
@@ -17,12 +19,10 @@ import {
   shopStatusLabel,
 } from "@/features/shops/status.ts";
 import { SystemTagChips, TagChips } from "@/features/shops/tag-chips.tsx";
-import { ShopRating } from "@/features/visits/shop-rating.tsx";
-import { ShopVisitHistory } from "@/features/visits/shop-visit-history.tsx";
 import { Box, Image } from "@chakra-ui/react";
 import { useEffect, useEffectEvent, useState } from "react";
 
-// The hero badge shows visit status only; lifecycle/new are shown as system tag
+// The hero badge shows meal record status only; lifecycle/new are shown as system tag
 // chips in the body.
 const STATUS_TAG: Record<ShopEatenStatus, { bg: string; color: string }> = {
   eaten: { bg: "nm.matcha", color: "white" },
@@ -258,7 +258,7 @@ export function DetailPanel({ shop, onAdminEdit, onClose }: DetailPanelProps) {
                 お気に入り度 - Favorite
               </Box>
               <Box fontSize="0.75rem" color="nm.inkMuted">
-                {shop.visitCount}回訪問
+                {shop.mealRecordCount}件の記録
               </Box>
             </Box>
             <ShopRating shop={shop} />
@@ -313,7 +313,7 @@ export function DetailPanel({ shop, onAdminEdit, onClose }: DetailPanelProps) {
 
         {shop.eaten && (
           <Box mt="1.375rem">
-            <ShopVisitHistory shopId={shop.id} />
+            <ShopMealRecordHistory shopId={shop.id} />
           </Box>
         )}
       </Box>

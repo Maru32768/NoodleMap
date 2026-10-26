@@ -6,8 +6,8 @@ import dev.marulabs.noodlemap.addShopRequest
 import dev.marulabs.noodlemap.body
 import dev.marulabs.noodlemap.encode
 import dev.marulabs.noodlemap.generated.models.Shop
-import dev.marulabs.noodlemap.generated.models.VisitImage
-import dev.marulabs.noodlemap.generated.models.VisitLog
+import dev.marulabs.noodlemap.generated.models.MealRecordImage
+import dev.marulabs.noodlemap.generated.models.MealRecord
 import dev.marulabs.noodlemap.postJson
 import dev.marulabs.noodlemap.putJson
 import dev.marulabs.noodlemap.session
@@ -15,9 +15,9 @@ import dev.marulabs.noodlemap.shops.MISO
 import dev.marulabs.noodlemap.shops.SHOYU
 import dev.marulabs.noodlemap.testApp
 import dev.marulabs.noodlemap.toUpdate
-import dev.marulabs.noodlemap.visits.R2VisitImageStore
-import dev.marulabs.noodlemap.visits.VISIT_IMAGE_MAX_BYTES
-import dev.marulabs.noodlemap.visits.jpeg
+import dev.marulabs.noodlemap.mealrecords.R2MealRecordImageStore
+import dev.marulabs.noodlemap.mealrecords.MEAL_RECORD_IMAGE_MAX_BYTES
+import dev.marulabs.noodlemap.mealrecords.jpeg
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.ints.shouldBeLessThan
@@ -58,7 +58,7 @@ class OgApiTest {
 
     @Test
     fun `a pending cover read refuses distinct covers before storage and frees admission afterwards`() =
-        testApp(visitImageStore = images, maxPendingBitmapWork = 1) { t ->
+        testApp(mealRecordImageStore = images, maxPendingBitmapWork = 1) { t ->
             val admin = t.adminToken()
             val first = addShop("First", admin)
             val second = client.postJson("/api/v1/auth/shops", encode(addShopRequest(placeId = "second")), admin).body<Shop>()
@@ -93,7 +93,7 @@ class OgApiTest {
 
     private val s3 = FakeS3()
     private val store = R2OgImageStore(s3.r2Config("og", "https://og.example"))
-    private val images = R2VisitImageStore(s3.r2Config("images", "https://images.example"))
+    private val images = R2MealRecordImageStore(s3.r2Config("images", "https://images.example"))
 
     @AfterEach
     fun tearDown() {
@@ -120,14 +120,14 @@ class OgApiTest {
 
     private fun png(bytes: ByteArray) = ImageIO.read(ByteArrayInputStream(bytes))
 
-    /** Logs a rated visit with one solid [PHOTO]-colored image, which becomes the shop's 代表写真. */
-    private suspend fun ApplicationTestBuilder.addCover(shopId: String, admin: String): VisitImage {
-        val visit = client.postJson("/api/v1/auth/shops/$shopId/visits", """{"rate":90}""", admin).body<VisitLog>()
+    /** Logs a rated mealRecord with one solid [PHOTO]-colored image, which becomes the shop's 代表写真. */
+    private suspend fun ApplicationTestBuilder.addCover(shopId: String, admin: String): MealRecordImage {
+        val mealRecord = client.postJson("/api/v1/auth/meal-records", """{"shopIds":["$shopId"],"rate":90}""", admin).body<MealRecord>()
         val photo = BufferedImage(64, 32, BufferedImage.TYPE_INT_RGB).apply {
             createGraphics().run { color = PHOTO; fillRect(0, 0, width, height); dispose() }
         }
         val res = client.submitFormWithBinaryData(
-            "/api/v1/auth/visits/${visit.id}/images",
+            "/api/v1/auth/meal-records/${mealRecord.id}/images",
             formData {
                 append("file", jpeg(photo), Headers.build {
                     append(HttpHeaders.ContentType, "image/jpeg")
@@ -224,7 +224,7 @@ class OgApiTest {
 
     @Test
     fun `a cover that will not decode gets the text card, uncached, unstored and remembered`() =
-        testApp(ogStore = store, visitImageStore = images) { t ->
+        testApp(ogStore = store, mealRecordImageStore = images) { t ->
             val admin = t.adminToken()
             val shop = addShop("壊れた写真", admin)
             val key = addCover(shop.id, admin).url.removePrefix("https://images.example/")
@@ -244,7 +244,7 @@ class OgApiTest {
 
     @Test
     fun `a cover that cannot be read answers 503 and is not read again for a while`() =
-        testApp(ogStore = store, visitImageStore = images) { t ->
+        testApp(ogStore = store, mealRecordImageStore = images) { t ->
             val admin = t.adminToken()
             val shop = addShop("消えた写真", admin)
             val key = addCover(shop.id, admin).url.removePrefix("https://images.example/")
@@ -263,7 +263,7 @@ class OgApiTest {
 
     @Test
     fun `an oversized cover object is refused, and the photo card follows once the cover reads`() =
-        testApp(ogStore = store, visitImageStore = images, ogCoverFailureTtl = Duration.ZERO) { t ->
+        testApp(ogStore = store, mealRecordImageStore = images, ogCoverFailureTtl = Duration.ZERO) { t ->
             val admin = t.adminToken()
             val shop = addShop("巨大な写真", admin)
             val key = addCover(shop.id, admin).url.removePrefix("https://images.example/")
@@ -271,7 +271,7 @@ class OgApiTest {
             val path = client.imagePath(shop.id)
             val ogKey = "og/shops/${shop.id}/${path.substringAfterLast('/')}"
 
-            s3.objects["/images/$key"] = ByteArray(VISIT_IMAGE_MAX_BYTES.toInt() + 1)
+            s3.objects["/images/$key"] = ByteArray(MEAL_RECORD_IMAGE_MAX_BYTES.toInt() + 1)
             client.get(path).status shouldBe HttpStatusCode.ServiceUnavailable
 
             s3.objects["/images/$key"] = jpeg
@@ -280,7 +280,7 @@ class OgApiTest {
         }
 
     @Test
-    fun `the cover is read from R2 by its storage key`() = testApp(ogStore = store, visitImageStore = images) { t ->
+    fun `the cover is read from R2 by its storage key`() = testApp(ogStore = store, mealRecordImageStore = images) { t ->
         val admin = t.adminToken()
         val shop = addShop("R2の店", admin)
         val key = addCover(shop.id, admin).url.removePrefix("https://images.example/")
@@ -293,7 +293,7 @@ class OgApiTest {
     }
 
     @Test
-    fun `visit logs and the wish level change the share text and the image`() = testApp { t ->
+    fun `meal records and the wish level change the share text and the image`() = testApp { t ->
         val admin = t.adminToken()
         val shop = addShop("煮干し", admin)
         client.putJson(
@@ -308,7 +308,7 @@ class OgApiTest {
         }
         client.get(wishPath).status shouldBe HttpStatusCode.OK
 
-        client.postJson("/api/v1/auth/shops/${shop.id}/visits", """{"rate":90}""", admin).status shouldBe HttpStatusCode.OK
+        client.postJson("/api/v1/auth/meal-records", """{"shopIds":["${shop.id}"],"rate":90}""", admin).status shouldBe HttpStatusCode.OK
 
         val eatenPath = client.imagePath(shop.id)
         eatenPath shouldNotBe wishPath

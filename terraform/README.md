@@ -70,7 +70,7 @@ immutable caching.
 
 Create one R2 API token with Object Read & Write scoped to the three application
 buckets: `noodle-map-backups`, `noodle-map-og-images`, and
-`noodle-map-visit-images`. Exclude `noodle-map-terraform-state`; keep its
+`noodle-map-meal-record-images`. Exclude `noodle-map-terraform-state`; keep its
 `AWS_*` credentials separate. Set the shared connection on the Render backend:
 
 - `R2_ENDPOINT=https://<account_id>.r2.cloudflarestorage.com` (no bucket suffix)
@@ -79,7 +79,7 @@ buckets: `noodle-map-backups`, `noodle-map-og-images`, and
 Set all three connection values or none. Any enabled R2 feature requires the
 shared connection, while each feature below can be enabled independently.
 When replacing the old per-feature connection variables, set these shared values
-and remove the old `BACKUP_R2_*`, `OG_R2_*`, and `VISIT_IMAGES_R2_*` endpoint and
+and remove the old `BACKUP_R2_*`, `OG_R2_*`, and `MEAL_RECORD_IMAGES_R2_*` endpoint and
 credential variables. Keep the bucket, prefix, and public URL variables below.
 
 ## OGP images
@@ -109,15 +109,19 @@ objects are not migrated by Terraform or by the application. See
 [`sqlite-remote-access.md`](../docs/sqlite-remote-access.md) for manual backups
 and restore commands.
 
-## Visit images
+## Meal record images
 
-`module.visit_images_r2` creates the `noodle-map-visit-images` bucket served at
-`https://images.noodle-map.marulabs.dev`. The backend stores the photos of visit
-logs there as JPEGs under `visits/<visit_id>/<image_id>.jpg`. Set on the Render backend:
+`module.meal_record_images_r2` creates the `noodle-map-meal-record-images` bucket served at
+`https://images.noodle-map.marulabs.dev`. The backend stores record photos there as
+JPEGs under `meal-records/<meal_record_id>/<image_id>.jpg`. Set on the Render backend:
 
-- `VISIT_IMAGES_R2_BUCKET=noodle-map-visit-images`
-- `VISIT_IMAGES_R2_PUBLIC_BASE_URL=https://images.noodle-map.marulabs.dev`
+- `MEAL_RECORD_IMAGES_R2_BUCKET=noodle-map-meal-record-images`
+- `MEAL_RECORD_IMAGES_R2_PUBLIC_BASE_URL=https://images.noodle-map.marulabs.dev`
 
 Set both feature values or neither. With neither, an https site boots but refuses image uploads
-(503 `visit_images_storage_unconfigured`); only an http `PUBLIC_BASE_URL` (local
+(503 `meal_record_images_storage_unconfigured`); only an http `PUBLIC_BASE_URL` (local
 development, e2e) stores the images on the local disk next to the database.
+
+For existing images, follow [Migrate existing records and images](../docs/migrate-meal-records.md)
+before applying the image-domain change. The root module imports the prepared new bucket,
+retains the old bucket without destruction, and moves the custom domain only at cutover.

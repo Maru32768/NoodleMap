@@ -13,7 +13,7 @@ const analysis: Analysis = {
   photos: [],
   rejected: [],
   groups: [],
-  serverVisits: new Map(),
+  serverMealRecords: new Map(),
 };
 const plan: ImportPlan = { entries: [] };
 
@@ -67,13 +67,13 @@ describe("importReducer", () => {
     });
   });
 
-  it("goes back to review with fresh server visits after a run, keeping the choices", () => {
+  it("goes back to review with fresh server meal records after a run, keeping the choices", () => {
     const chosen = run(review, {
       type: "choose",
       groupId: 4,
       choice: { kind: "skip" },
     });
-    const serverVisits = new Map([["shop", []]]);
+    const serverMealRecords = new Map([["shop", []]]);
 
     const state = run(
       chosen,
@@ -82,10 +82,13 @@ describe("importReducer", () => {
         type: "finished",
         outcome: { kind: "stopped", progress: runProgressOf(plan) },
       },
-      { type: "refreshed", serverVisits },
+      { type: "refreshed", serverMealRecords },
     );
 
-    expect(state).toMatchObject({ kind: "review", analysis: { serverVisits } });
+    expect(state).toMatchObject({
+      kind: "review",
+      analysis: { serverMealRecords },
+    });
     expect(state.kind === "review" && state.review).toEqual(
       chosen.kind === "review" && chosen.review,
     );
@@ -124,7 +127,7 @@ describe("importReducer", () => {
       { type: "togglePhoto", photoIndex: 1 },
       { type: "start", plan },
       { type: "reset" },
-      { type: "refreshed", serverVisits: new Map() },
+      { type: "refreshed", serverMealRecords: new Map() },
       { type: "appended", analysis },
     ] satisfies ImportAction[]) {
       expect(importReducer(running, action)).toBe(running);

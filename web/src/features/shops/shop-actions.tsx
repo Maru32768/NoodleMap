@@ -42,14 +42,17 @@ export async function shareShop(shop: Pick<Shop, "id" | "name">) {
 }
 
 const actionBtnBase = {
-  flex: "1",
+  flex: "1 0 auto",
   minW: "auto" as const,
   minH: "auto" as const,
-  px: "0.875rem",
+  h: "auto",
+  px: { base: "0.5rem", md: "0.875rem" },
   py: "0.6875rem",
   borderRadius: "nmMd",
   fontSize: "0.8125rem",
   fontWeight: 600,
+  whiteSpace: "nowrap",
+  _icon: { width: "1.25rem", height: "1.25rem", flexShrink: 0 },
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
@@ -82,6 +85,7 @@ export function ShopActions({
         textDecoration="none"
         _hover={{ borderColor: "nm.ink", textDecoration: "none" }}
       >
+        <LuExternalLink aria-hidden="true" />
         {mapsLabel}
       </Link>
       <LoadableButton

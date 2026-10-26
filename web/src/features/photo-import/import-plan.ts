@@ -1,9 +1,9 @@
+import type { MealRecord } from "@/features/meal-records/api/use-meal-records.ts";
+import type { IsoDate } from "@/features/meal-records/eaten-date.ts";
 import { byCapture, PhotoGroup } from "@/features/photo-import/grouping.ts";
 import type { Match } from "@/features/photo-import/matching.ts";
 import type { Photo } from "@/features/photo-import/photos.ts";
-import type { VisitLog } from "@/features/visits/api/use-visits.ts";
-import type { IsoDate } from "@/features/visits/visit-date.ts";
-import { VISIT_IMAGES_MAX } from "@/utils/toast.ts";
+import { MEAL_RECORD_IMAGES_MAX } from "@/utils/toast.ts";
 
 export type ShopChoice =
   | {
@@ -22,59 +22,59 @@ export interface ReviewState {
   readonly excluded: ReadonlySet<number>;
 }
 
-/** The server's visits of each shop that matters to the import, by shop id. */
-export type ServerVisits = ReadonlyMap<string, readonly VisitLog[]>;
+/** The server's mealRecords of each shop that matters to the import, by shop id. */
+export type ServerMealRecords = ReadonlyMap<string, readonly MealRecord[]>;
 
-/** The visit's identity on the server: one shop, one JST day. */
-// shortcut: two real visits to one shop on one day become one visit, upgrade by keying on capture time if that ever matters.
-export type VisitKey = `${string}|${IsoDate}`;
+/** The mealRecord's identity on the server: one shop, one JST day. */
+// shortcut: two real meal records to one shop on one day become one meal record, upgrade by keying on capture time if that ever matters.
+export type MealRecordKey = `${string}|${IsoDate}`;
 
-export const visitKey = (shopId: string, day: IsoDate): VisitKey =>
+export const mealRecordKey = (shopId: string, day: IsoDate): MealRecordKey =>
   `${shopId}|${day}`;
 
 export interface PlanEntry {
-  readonly key: VisitKey;
+  readonly key: MealRecordKey;
   readonly shopId: string;
   readonly day: IsoDate;
-  /** At most VISIT_IMAGES_MAX, capturedAt asc then index, across every merged group. */
+  /** At most MEAL_RECORD_IMAGES_MAX, capturedAt asc then index, across every merged group. */
   readonly photos: readonly Photo[];
   /** Photos beyond the cap; never uploaded, shown as a warning. */
   readonly overflow: number;
-  /** The earliest entry of its shop in this plan; only it may date the shop's dateless visit. */
+  /** The earliest entry of its shop in this plan; only it may date the shop's dateless mealRecord. */
   readonly claimsDateless: boolean;
 }
 
 /** Entries in run order: admin-decided first, then the rest; each tier by day. */
 export interface ImportPlan {
-  /** Keys are unique: entries are built from a Map keyed by VisitKey. */
+  /** Keys are unique: entries are built from a Map keyed by MealRecordKey. */
   readonly entries: readonly PlanEntry[];
 }
 
-/** What a fresh look at the shop's server visits says to do for one entry. */
+/** What a fresh look at the shop's server mealRecords says to do for one entry. */
 export type EntryAction =
   | { readonly kind: "create" }
-  /** PUT its fields back plus visitedOn. */
-  | { readonly kind: "claim"; readonly visit: VisitLog }
+  /** PUT its fields back plus eatenOn. */
+  | { readonly kind: "claim"; readonly mealRecord: MealRecord }
   | {
       readonly kind: "resume";
-      readonly visitId: string;
+      readonly mealRecordId: string;
       readonly uploaded: number;
     }
-  | { readonly kind: "done"; readonly visitId: string };
+  | { readonly kind: "done"; readonly mealRecordId: string };
 
 /**
  * The choice before the admin touches the row.
  * 0. Filename dates always need the admin to choose a shop.
- * 1. Exactly one candidate shop already has a visit dated `group.day`: that shop, source "existing".
+ * 1. Exactly one candidate shop already has a meal record dated `group.day`: that shop, source "existing".
  *    This makes a re-run converge even when the admin's earlier picks were lost with the tab.
  *    Two or more such shops: undecided.
  * 2. match auto: shop, source "auto".  ambiguous: undecided.
- * 3. far / no_location: skip. Photos far from every shop never silently become visits.
+ * 3. far / no_location: skip. Photos far from every shop never silently become mealRecords.
  */
 export function defaultChoice(
   group: PhotoGroup,
   match: Match,
-  serverVisits: ServerVisits,
+  serverMealRecords: ServerMealRecords,
 ): ShopChoice {
   if (group.photos[0].dateSource === "filename") {
     return { kind: "undecided" };
@@ -82,13 +82,17 @@ export function defaultChoice(
   if (match.kind === "far" || match.kind === "no_location") {
     return { kind: "skip" };
   }
-  const visited = match.candidates.filter((c) =>
-    serverVisits.get(c.shop.id)?.some((v) => v.visitedOn === group.day),
+  const candidatesWithRecords = match.candidates.filter((c) =>
+    serverMealRecords.get(c.shop.id)?.some((v) => v.eatenOn === group.day),
   );
-  if (visited.length === 1) {
-    return { kind: "shop", shopId: visited[0].shop.id, source: "existing" };
+  if (candidatesWithRecords.length === 1) {
+    return {
+      kind: "shop",
+      shopId: candidatesWithRecords[0].shop.id,
+      source: "existing",
+    };
   }
-  if (visited.length === 0 && match.kind === "auto") {
+  if (candidatesWithRecords.length === 0 && match.kind === "auto") {
     return {
       kind: "shop",
       shopId: match.candidates[0].shop.id,
@@ -100,7 +104,7 @@ export function defaultChoice(
 
 /**
  * Every group whose effective choice is a shop, minus excluded photos, merged by (shopId, day).
- * Photos are sorted (capturedAt, index) and capped at VISIT_IMAGES_MAX. claimsDateless marks the
+ * Photos are sorted (capturedAt, index) and capped at MEAL_RECORD_IMAGES_MAX. claimsDateless marks the
  * earliest day per shop. Order: entries containing an admin-decided group first (a crash then
  * loses mostly auto picks, which re-matching reproduces), then the rest, each by day.
  */
@@ -110,7 +114,7 @@ export function buildPlan(
   excluded: ReadonlySet<number>,
 ): ImportPlan {
   const merged = new Map<
-    VisitKey,
+    MealRecordKey,
     { shopId: string; day: IsoDate; photos: Photo[]; admin: boolean }
   >();
   for (const group of groups) {
@@ -119,7 +123,7 @@ export function buildPlan(
     if (choice.kind !== "shop" || photos.length === 0) {
       continue;
     }
-    const key = visitKey(choice.shopId, group.day);
+    const key = mealRecordKey(choice.shopId, group.day);
     const entry = merged.get(key) ?? {
       shopId: choice.shopId,
       day: group.day,
@@ -152,8 +156,8 @@ export function buildPlan(
         key,
         shopId,
         day,
-        photos: sorted.slice(0, VISIT_IMAGES_MAX),
-        overflow: Math.max(0, sorted.length - VISIT_IMAGES_MAX),
+        photos: sorted.slice(0, MEAL_RECORD_IMAGES_MAX),
+        overflow: Math.max(0, sorted.length - MEAL_RECORD_IMAGES_MAX),
         claimsDateless: earliestDay.get(shopId) === day,
       };
     });
@@ -161,31 +165,34 @@ export function buildPlan(
 }
 
 /**
- * Decides one entry from the shop's current server visits. Pure; the runner calls it right
+ * Decides one entry from the shop's current server mealRecords. Pure; the runner calls it right
  * after a fresh GET, so the decision never trusts anything remembered from an earlier run.
  */
 export function decideAction(
   entry: PlanEntry,
-  visits: readonly VisitLog[],
+  mealRecords: readonly MealRecord[],
 ): EntryAction {
-  const sameDay = visits.filter((v) => v.visitedOn === entry.day);
+  const singleShopMealRecords = mealRecords.filter(
+    (v) => v.shops.length === 1 && v.shops[0].id === entry.shopId,
+  );
+  const sameDay = singleShopMealRecords.filter((v) => v.eatenOn === entry.day);
   if (sameDay.length > 0) {
     const target = sameDay.reduce((best, v) =>
       v.images.length > best.images.length ? v : best,
     );
     const uploaded = target.images.length;
-    // shortcut: images are identified by position, not content, so a same-day visit logged by hand with m photos gets only photos[m..]; review shows it as 既存の訪問 (画像m枚). Upgrade if the server ever keeps a content hash.
+    // shortcut: images are identified by position, not content, so a same-day meal recorded by hand with m photos gets only photos[m..]; review shows it as 既存の記録 (画像m枚). Upgrade if the server ever keeps a content hash.
     return uploaded >= entry.photos.length
-      ? { kind: "done", visitId: target.id }
-      : { kind: "resume", visitId: target.id, uploaded };
+      ? { kind: "done", mealRecordId: target.id }
+      : { kind: "resume", mealRecordId: target.id, uploaded };
   }
   if (entry.claimsDateless) {
-    // A dateless visit with images is left alone: its images would break the count-as-cursor rule.
-    const dateless = visits.find(
-      (v) => v.visitedOn === undefined && v.images.length === 0,
+    // A dateless meal record with images is left alone: its images would break the count-as-cursor rule.
+    const dateless = singleShopMealRecords.find(
+      (v) => v.eatenOn === undefined && v.images.length === 0,
     );
     if (dateless) {
-      return { kind: "claim", visit: dateless };
+      return { kind: "claim", mealRecord: dateless };
     }
   }
   return { kind: "create" };

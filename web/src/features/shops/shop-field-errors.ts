@@ -7,7 +7,7 @@ export type FieldErrorType = components["schemas"]["FieldErrorType"];
 // Mirrors the server's NAME_KANA_MAX_LENGTH (and @maxLength in typespec/main.tsp).
 export const SHOP_NAME_KANA_MAX_LENGTH = 100;
 
-/** The error shown on each form input (shop or 訪問ログ), keyed by its API field name. */
+/** The error shown on each form input (shop or 食べた記録), keyed by its API field name. */
 export type ShopFieldErrors<F extends string> = Partial<
   Record<F, FieldErrorType>
 >;

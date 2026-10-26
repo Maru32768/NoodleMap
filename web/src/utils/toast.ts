@@ -1,4 +1,5 @@
 import { toaster } from "@/components/ui/toaster.tsx";
+import type { UploadMealRecordImageErrorBody } from "@/features/meal-records/api/use-meal-record-images.ts";
 import {
   type FieldErrorType,
   SHOP_NAME_KANA_MAX_LENGTH,
@@ -10,12 +11,11 @@ import {
   SHOP_LINKS_MAX,
   type ShopLinkProblem,
 } from "@/features/shops/shop-links.ts";
-import type { UploadVisitImageErrorBody } from "@/features/visits/api/use-visit-images.ts";
 import type { components } from "@/generated/api.ts";
 import { ApiError, invalidRequestFieldErrors } from "@/utils/request.ts";
 
 type ErrorType = components["schemas"]["ErrorType"];
-type VisitLogField = components["schemas"]["VisitLogField"];
+type MealRecordField = components["schemas"]["MealRecordField"];
 
 export function toastError(options: Parameters<typeof toaster.error>[0]) {
   toaster.error(options);
@@ -84,19 +84,19 @@ const apiErrorMessages: Readonly<Record<ErrorType, UserErrorMessage>> = {
     description:
       "時間をおいてもう一度お試しください。店舗情報はフォームに直接入力することもできます。",
   },
-  shop_has_visit_logs: {
+  shop_has_meal_records: {
     title: "店舗を削除できませんでした",
-    description: "訪問ログがある店舗は削除できません",
+    description: "食べた記録がある店舗は削除できません",
   },
-  visit_image_limit_reached: {
+  meal_record_image_limit_reached: {
     title: "画像を追加できませんでした",
-    description: "1つの訪問ログに追加できる画像は10枚までです",
+    description: "1つの食べた記録に追加できる画像は10枚までです",
   },
-  visit_image_processing_busy: {
+  meal_record_image_processing_busy: {
     title: "画像を処理できませんでした",
     description: "時間をおいてもう一度お試しください。",
   },
-  visit_images_storage_unconfigured: {
+  meal_record_images_storage_unconfigured: {
     title: "画像の保存先が設定されていません",
   },
 };
@@ -190,46 +190,49 @@ export function toastShopFieldErrors(
   }
 }
 
-export const VISIT_SAVE_FAILED_TITLE = "訪問ログを保存できませんでした";
-export const VISIT_DELETE_FAILED_TITLE = "訪問ログを削除できませんでした";
-export const VISIT_ALREADY_DELETED_TITLE =
-  "この訪問ログはすでに削除されています";
-export const VISIT_INPUT_INVALID_DESCRIPTION = "入力内容を確認してください";
-export const VISITS_LOAD_FAILED_MESSAGE = "訪問ログを読み込めませんでした";
-export const VISITS_REFRESH_FAILED_MESSAGE =
-  "訪問ログを更新できませんでした。表示は前回の内容です";
+export const MEAL_RECORD_SAVE_FAILED_TITLE = "食べた記録を保存できませんでした";
+export const MEAL_RECORD_DELETE_FAILED_TITLE =
+  "食べた記録を削除できませんでした";
+export const MEAL_RECORD_ALREADY_DELETED_TITLE =
+  "この食べた記録はすでに削除されています";
+export const MEAL_RECORD_INPUT_INVALID_DESCRIPTION =
+  "入力内容を確認してください";
+export const MEAL_RECORDS_LOAD_FAILED_MESSAGE =
+  "食べた記録を読み込めませんでした";
+export const MEAL_RECORDS_REFRESH_FAILED_MESSAGE =
+  "食べた記録を更新できませんでした。表示は前回の内容です";
 
-// Mirrors @maxLength on VisitLogInput in typespec/main.tsp.
-const VISIT_TEXT_MAX_LENGTH: Partial<Record<VisitLogField, number>> = {
-  eventName: 100,
+// Mirrors @maxLength on MealRecordInput in typespec/main.tsp.
+const MEAL_RECORD_TEXT_MAX_LENGTH: Partial<Record<MealRecordField, number>> = {
+  venueName: 100,
   publicNote: 2000,
   privateNote: 2000,
 };
 
-const VISIT_FORMAT_MESSAGE: Partial<Record<VisitLogField, string>> = {
-  visitedOn: "日付の形式が正しくありません",
+const MEAL_RECORD_FORMAT_MESSAGE: Partial<Record<MealRecordField, string>> = {
+  eatenOn: "日付の形式が正しくありません",
   rate: "数値で入力してください",
 };
 
-const VISIT_RANGE_MESSAGE: Partial<Record<VisitLogField, string>> = {
-  visitedOn: "明日以前の日付を入力してください",
+const MEAL_RECORD_RANGE_MESSAGE: Partial<Record<MealRecordField, string>> = {
+  eatenOn: "明日以前の日付を入力してください",
   rate: "0〜100の範囲で入力してください",
 };
 
-// Message for an `invalid_request` field error on the 訪問ログ form.
-export function visitFieldErrorMessage(
-  field: VisitLogField,
+// Message for an `invalid_request` field error on the 食べた記録 form.
+export function mealRecordFieldErrorMessage(
+  field: MealRecordField,
   type: FieldErrorType,
 ): string {
   switch (type) {
     case "required":
       return "入力してください";
     case "invalid_format":
-      return VISIT_FORMAT_MESSAGE[field] ?? "形式が正しくありません";
+      return MEAL_RECORD_FORMAT_MESSAGE[field] ?? "形式が正しくありません";
     case "out_of_range":
-      return VISIT_RANGE_MESSAGE[field] ?? "範囲外の値です";
+      return MEAL_RECORD_RANGE_MESSAGE[field] ?? "範囲外の値です";
     case "too_long": {
-      const max = VISIT_TEXT_MAX_LENGTH[field];
+      const max = MEAL_RECORD_TEXT_MAX_LENGTH[field];
       return max ? `${max}文字以内で入力してください` : "長すぎます";
     }
     case "duplicate":
@@ -240,7 +243,7 @@ export function visitFieldErrorMessage(
   return "入力内容を確認してください";
 }
 
-// Mirror @maxItems on VisitLogInput.menuItems and the limits on MenuItemInput in typespec/main.tsp.
+// Mirror @maxItems on MealRecordInput.menuItems and the limits on MenuItemInput in typespec/main.tsp.
 export const MENU_ITEMS_MAX = 10;
 export const MENU_ITEM_NAME_MAX_LENGTH = 200;
 export const MENU_ITEM_PRICE_MAX = 10_000_000;
@@ -289,52 +292,57 @@ export function menuItemsServerErrorMessage(error: {
     : "メニューを確認してください";
 }
 
-// Mirrors @maxLength on UpdateVisitImageRequest.caption in typespec/main.tsp.
-export const VISIT_IMAGE_CAPTION_MAX_LENGTH = 100;
-// Mirrors the server's per-visit image limit.
-export const VISIT_IMAGES_MAX = 10;
+// Mirrors @maxLength on UpdateMealRecordImageRequest.caption in typespec/main.tsp.
+export const MEAL_RECORD_IMAGE_CAPTION_MAX_LENGTH = 100;
+// Mirrors the server's per-meal record image limit.
+export const MEAL_RECORD_IMAGES_MAX = 10;
 
-export const VISIT_IMAGE_UNDECODABLE_MESSAGE = "この画像形式は読み込めません";
+export const MEAL_RECORD_IMAGE_UNDECODABLE_MESSAGE =
+  "この画像形式は読み込めません";
 // The upload was aborted (timeout) or cut off: it may still have been saved.
-export const VISIT_IMAGE_UPLOAD_UNCONFIRMED_MESSAGE =
+export const MEAL_RECORD_IMAGE_UPLOAD_UNCONFIRMED_MESSAGE =
   "アップロードの完了を確認できませんでした。一覧を確認してください";
-export const VISIT_IMAGE_NOT_IMAGE_MESSAGE = "画像ファイルのみ追加できます";
-export const VISIT_IMAGE_LIMIT_MESSAGE = `1つの訪問ログに追加できる画像は${VISIT_IMAGES_MAX}枚までです`;
-export const VISIT_IMAGE_CAPTION_FAILED_TITLE =
+export const MEAL_RECORD_IMAGE_NOT_IMAGE_MESSAGE =
+  "画像ファイルのみ追加できます";
+export const MEAL_RECORD_IMAGE_LIMIT_MESSAGE = `1つの食べた記録に追加できる画像は${MEAL_RECORD_IMAGES_MAX}枚までです`;
+export const MEAL_RECORD_IMAGE_CAPTION_FAILED_TITLE =
   "キャプションを保存できませんでした";
-export const VISIT_IMAGE_REORDER_FAILED_TITLE =
+export const MEAL_RECORD_IMAGE_REORDER_FAILED_TITLE =
   "画像の並び順を保存できませんでした";
-export const VISIT_IMAGE_DELETE_FAILED_TITLE = "画像を削除できませんでした";
-export const VISIT_IMAGE_ALREADY_DELETED_TITLE =
+export const MEAL_RECORD_IMAGE_DELETE_FAILED_TITLE =
+  "画像を削除できませんでした";
+export const MEAL_RECORD_IMAGE_ALREADY_DELETED_TITLE =
   "この画像はすでに削除されています";
 
-const VISIT_IMAGE_FILE_MESSAGE: Partial<Record<FieldErrorType, string>> = {
-  too_long: "15MB以下の画像を選んでください",
-  invalid_format: "JPEG・PNGとして読み込めない画像です",
-  out_of_range: "画像の画素数が大きすぎます",
-};
+const MEAL_RECORD_IMAGE_FILE_MESSAGE: Partial<Record<FieldErrorType, string>> =
+  {
+    too_long: "15MB以下の画像を選んでください",
+    invalid_format: "JPEG・PNGとして読み込めない画像です",
+    out_of_range: "画像の画素数が大きすぎます",
+  };
 
-const VISIT_IMAGE_UPLOAD_MESSAGE: Partial<Record<ErrorType, string>> = {
-  visit_image_limit_reached: VISIT_IMAGE_LIMIT_MESSAGE,
-  visit_image_processing_busy:
+const MEAL_RECORD_IMAGE_UPLOAD_MESSAGE: Partial<Record<ErrorType, string>> = {
+  meal_record_image_limit_reached: MEAL_RECORD_IMAGE_LIMIT_MESSAGE,
+  meal_record_image_processing_busy:
     "サーバーが混み合っています。時間をおいてもう一度お試しください",
-  visit_images_storage_unconfigured:
+  meal_record_images_storage_unconfigured:
     "画像の保存先が設定されていないため追加できません",
-  not_found: "訪問ログが見つかりません。削除された可能性があります",
+  not_found: "食べた記録が見つかりません。削除された可能性があります",
 };
 
-/** Why one file could not be added to a 訪問ログ, shown next to that file. */
-export function visitImageUploadErrorMessage(
-  err: ApiError<UploadVisitImageErrorBody | undefined>,
+/** Why one file could not be added to a 食べた記録, shown next to that file. */
+export function mealRecordImageUploadErrorMessage(
+  err: ApiError<UploadMealRecordImageErrorBody | undefined>,
 ): string {
   const fileError = invalidRequestFieldErrors(err.body)?.find(
     (e) => e.field === "file",
   );
-  const fileMessage = fileError && VISIT_IMAGE_FILE_MESSAGE[fileError.type];
+  const fileMessage =
+    fileError && MEAL_RECORD_IMAGE_FILE_MESSAGE[fileError.type];
   if (fileMessage) {
     return fileMessage;
   }
-  const typeMessage = err.type && VISIT_IMAGE_UPLOAD_MESSAGE[err.type];
+  const typeMessage = err.type && MEAL_RECORD_IMAGE_UPLOAD_MESSAGE[err.type];
   return typeMessage || apiErrorText(err);
 }
 
@@ -347,9 +355,11 @@ export function apiErrorText(err: ApiError): string {
 }
 
 /** Message under the caption input for an `invalid_request` on it. */
-export function visitImageCaptionErrorMessage(type: FieldErrorType): string {
+export function mealRecordImageCaptionErrorMessage(
+  type: FieldErrorType,
+): string {
   return type === "too_long"
-    ? `${VISIT_IMAGE_CAPTION_MAX_LENGTH}文字以内で入力してください`
+    ? `${MEAL_RECORD_IMAGE_CAPTION_MAX_LENGTH}文字以内で入力してください`
     : "入力内容を確認してください";
 }
 

@@ -15,8 +15,8 @@ export type Tag = components["schemas"]["Tag"];
 type TagInput = components["schemas"]["TagInput"];
 type AddShopRequest = components["schemas"]["AddShopRequest"];
 type UpdateShopRequest = components["schemas"]["UpdateShopRequest"];
-type VisitLogInput = components["schemas"]["VisitLogInput"];
-export type VisitLog = components["schemas"]["VisitLog"];
+type MealRecordInput = components["schemas"]["MealRecordInput"];
+export type MealRecord = components["schemas"]["MealRecord"];
 
 /** A short token unique to this run, used to namespace seeded shops and tags. */
 export function uid(): string {
@@ -56,7 +56,7 @@ export class Api {
     return tags.find((t) => t.slug === input.slug)!;
   }
 
-  /** Adds a shop (near the default map center unless placed) with its tags; an eaten shop gets one 訪問ログ with the rate. */
+  /** Adds a shop (near the default map center unless placed) with its tags; an eaten shop gets one 食べた記録 with the rate. */
   async createShop(
     spec: Pick<AddShopRequest, "name"> &
       Partial<Pick<AddShopRequest, "category" | "tagIds" | "address" | "lat" | "lng">> & {
@@ -76,15 +76,15 @@ export class Api {
     };
     const shop = await expectOkJson<Shop>(await this.request.post("/api/v1/auth/shops", { data: add }));
     if (spec.eaten) {
-      const visit: VisitLogInput = { rate: spec.rate };
-      await expectOkJson(await this.request.post(`/api/v1/auth/shops/${shop.id}/visits`, { data: visit }));
+      const mealRecord: MealRecordInput = { shopIds: [shop.id], rate: spec.rate };
+      await expectOkJson(await this.request.post("/api/v1/auth/meal-records", { data: mealRecord }));
     }
     return this.getShop(shop.id);
   }
 
-  async listVisits(shopId: string): Promise<VisitLog[]> {
-    const res = await this.request.get(`/api/v1/shops/${shopId}/visits`);
-    return (await expectOkJson<{ visits: VisitLog[] }>(res)).visits;
+  async listMealRecords(shopId: string): Promise<MealRecord[]> {
+    const res = await this.request.get(`/api/v1/shops/${shopId}/meal-records`);
+    return (await expectOkJson<{ mealRecords: MealRecord[] }>(res)).mealRecords;
   }
 
   async updateShop(shop: Shop, patch: Partial<UpdateShopRequest>): Promise<void> {

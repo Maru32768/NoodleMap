@@ -26,10 +26,10 @@ import dev.marulabs.noodlemap.generated.models.Tag
 import dev.marulabs.noodlemap.generated.models.TagsResponse
 import dev.marulabs.noodlemap.generated.models.UpdateShopRequest
 import dev.marulabs.noodlemap.generated.models.WishLevel
-import dev.marulabs.noodlemap.visits.VisitImageStore
-import dev.marulabs.noodlemap.visits.VisitSummary
-import dev.marulabs.noodlemap.visits.coverPhotoKeysByShop
-import dev.marulabs.noodlemap.visits.visitSummariesByShop
+import dev.marulabs.noodlemap.mealrecords.MealRecordImageStore
+import dev.marulabs.noodlemap.mealrecords.MealRecordSummary
+import dev.marulabs.noodlemap.mealrecords.coverPhotoKeysByShop
+import dev.marulabs.noodlemap.mealrecords.mealRecordSummariesByShop
 import java.net.IDN
 import java.util.UUID
 import org.sqlite.SQLiteErrorCode
@@ -83,7 +83,7 @@ class ShopRecord(val shop: Shop, val coverPhotoKey: String?)
 class ShopHandler(
     private val db: NoodleMapDb,
     private val sessions: SessionService,
-    private val visitImages: VisitImageStore,
+    private val mealRecordImages: MealRecordImageStore,
 ) : ApiV1ShopsController, ApiV1TagsController, ApiV1AuthShopsController, ApiV1AuthTagsController {
 
     // --- Public reads ---
@@ -154,7 +154,7 @@ class ShopHandler(
                 id = shopId.toString(), name = req.name, nameKana = nameKana, lat = req.lat, lng = req.lng,
                 openedAt = ShopDate.encode(req.openedAt), closedAt = ShopDate.encode(req.closedAt),
                 postalCode = req.postalCode, address = req.address, googlePlaceId = googlePlaceId,
-                eaten = false, rate = 0.0, favorite = false, visitCount = 0, wishLevel = wishLevel?.value,
+                eaten = false, rate = 0.0, favorite = false, mealRecordCount = 0, wishLevel = wishLevel?.value,
                 category = req.category,
                 tags = tagsByShopIds(listOf(shopId))[shopId] ?: emptyList(),
                 links = linksByShopIds(listOf(shopId))[shopId] ?: emptyList(),
@@ -172,7 +172,7 @@ class ShopHandler(
         }
         if (!user.isAdmin) throw DomainException.PermissionDenied()
 
-        // eaten / rate are deprecated and ignored: 食べた and お気に入り度 come from visit logs.
+        // eaten / rate are deprecated and ignored: 食べた and お気に入り度 come from meal records.
         val req = updateShopRequest
         // Missing (older clients) keeps the stored reading; blank clears it ('' -> NULL in SQL).
         val nameKana = req.nameKana?.let { normalizeNameKana(it) ?: "" }
@@ -215,8 +215,8 @@ class ShopHandler(
             // the first write in a deferred WAL transaction can fail with SQLITE_BUSY_SNAPSHOT). An unknown
             // id deletes nothing; it is detected by rows affected.
             db.shopsTagsQueries.deleteShopTagsByShopId(shopId)
-            // A shop with visit logs is never deleted (GLOSSARY.md 店舗); throwing rolls the tag delete back.
-            if (db.visitLogsQueries.shopHasVisitLogs(shopId).executeAsOne()) throw DomainException.ShopHasVisitLogs()
+            // A shop with meal records is never deleted (GLOSSARY.md 店舗); throwing rolls the tag delete back.
+            if (db.mealRecordsQueries.shopHasMealRecords(shopId).executeAsOne()) throw DomainException.ShopHasMealRecords()
             // Legacy shop_images rows have no ON DELETE CASCADE, so they go before the shop.
             db.shopImagesQueries.deleteShopImagesByShopId(shopId)
             db.shopLinksQueries.deleteShopLinksByShopId(shopId)
@@ -233,29 +233,29 @@ class ShopHandler(
     // --- Helpers ---
 
     // The one place the お気に入り rule lives (GLOSSARY.md): the shop's お気に入り度 is 80 or more. A shop
-    // only gets お気に入り度 from a rated visit log, so a favorite is always eaten.
+    // only gets お気に入り度 from a rated meal record, so a favorite is always eaten.
     private fun isFavorite(rate: Double?): Boolean = rate != null && rate >= 80.0
 
     private fun loadShops(): List<ShopRecord> {
         val rows = db.shopsQueries.findAllShops().executeAsList()
         val tagsByShop = tagsByShopIds(rows.map { it.id })
         val linksByShop = linksByShopIds(rows.map { it.id })
-        val visitsByShop = visitSummariesByShop(db)
+        val mealRecordsByShop = mealRecordSummariesByShop(db)
         val coversByShop = coverPhotoKeysByShop(db)
         return rows.map { r ->
-            val visits = visitsByShop[r.id] ?: VisitSummary.NONE
+            val mealRecords = mealRecordsByShop[r.id] ?: MealRecordSummary.NONE
             val coverKey = coversByShop[r.id]
             val shop = Shop(
                 id = r.id.toString(), name = r.name, nameKana = r.name_kana, lat = r.lat, lng = r.lng,
                 openedAt = ShopDate.decode(r.opened_at), closedAt = ShopDate.decode(r.closed_at),
                 postalCode = r.postal_code, address = r.address, googlePlaceId = r.google_place_id,
                 // Older clients read a missing お気に入り度 as 0.
-                eaten = visits.eaten, rate = visits.rate ?: 0.0, favorite = isFavorite(visits.rate),
-                visitCount = visits.visitCount, wishLevel = r.wish_level,
+                eaten = mealRecords.eaten, rate = mealRecords.rate ?: 0.0, favorite = isFavorite(mealRecords.rate),
+                mealRecordCount = mealRecords.mealRecordCount, wishLevel = r.wish_level,
                 category = CategorySlug.fromValue(r.category) ?: CategorySlug.RAMEN,
                 tags = tagsByShop[r.id] ?: emptyList(),
                 links = linksByShop[r.id] ?: emptyList(),
-                coverPhotoUrl = coverKey?.let(visitImages::publicUrl),
+                coverPhotoUrl = coverKey?.let(mealRecordImages::publicUrl),
             )
             ShopRecord(shop, coverKey)
         }

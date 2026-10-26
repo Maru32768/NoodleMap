@@ -63,7 +63,7 @@ type UpdateShopErrorBody = ApiErrorBodyFor<"/api/v1/auth/shops/{id}", "put">;
 type DeleteShopErrorBody = ApiErrorBodyFor<"/api/v1/auth/shops/{id}", "delete">;
 export type SaveTagsErrorBody = ApiErrorBodyFor<"/api/v1/auth/tags", "put">;
 
-// Exported so other mutations (e.g. visit logs) can revalidate the shop list.
+// Exported so other mutations (e.g. meal records) can revalidate the shop list.
 export const SHOPS_KEY = ["/api/v1/shops"];
 
 export function useShops(config?: SWRConfiguration<Shop[]>) {
@@ -160,7 +160,7 @@ export function useShops(config?: SWRConfiguration<Shop[]>) {
             }
             // tagIds is not part of the Shop shape and tags cannot be derived
             // from ids here; the revalidation triggered below refreshes tags.
-            // eaten/rate are ignored by the server (derived from visit logs).
+            // eaten/rate are ignored by the server (derived from meal records).
             const {
               // eslint-disable-next-line @typescript-eslint/no-unused-vars
               tagIds: _tagIds,

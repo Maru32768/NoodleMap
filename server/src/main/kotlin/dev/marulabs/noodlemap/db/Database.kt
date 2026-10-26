@@ -75,9 +75,11 @@ fun buildDatabase(dataSource: DataSource): NoodleMapDb {
         ),
         shop_imagesAdapter = Shop_images.Adapter(idAdapter = UuidAdapter, shop_idAdapter = UuidAdapter),
         shop_linksAdapter = Shop_links.Adapter(idAdapter = UuidAdapter, shop_idAdapter = UuidAdapter),
-        visit_logsAdapter = Visit_logs.Adapter(idAdapter = UuidAdapter, shop_idAdapter = UuidAdapter),
-        visit_imagesAdapter = Visit_images.Adapter(idAdapter = UuidAdapter, visit_log_idAdapter = UuidAdapter),
-        visit_menu_itemsAdapter = Visit_menu_items.Adapter(idAdapter = UuidAdapter, visit_log_idAdapter = UuidAdapter),
+        meal_recordsAdapter = Meal_records.Adapter(idAdapter = UuidAdapter, venue_idAdapter = UuidAdapter),
+        meal_record_shopsAdapter = Meal_record_shops.Adapter(meal_record_idAdapter = UuidAdapter, shop_idAdapter = UuidAdapter),
+        venuesAdapter = Venues.Adapter(idAdapter = UuidAdapter),
+        meal_record_imagesAdapter = Meal_record_images.Adapter(idAdapter = UuidAdapter, meal_record_idAdapter = UuidAdapter),
+        meal_record_menu_itemsAdapter = Meal_record_menu_items.Adapter(idAdapter = UuidAdapter, meal_record_idAdapter = UuidAdapter),
     )
 }
 

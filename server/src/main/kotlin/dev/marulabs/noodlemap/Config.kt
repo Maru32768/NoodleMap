@@ -20,8 +20,8 @@ data class Config(
     val publicBaseUrl: String,
     /** R2 bucket that caches OGP images; null renders them on every request instead. */
     val ogR2: R2Config?,
-    /** R2 bucket holding 訪問画像; null stores them on local disk next to the database instead. */
-    val visitImagesR2: R2Config?,
+    /** R2 bucket holding 記録の画像; null stores them on local disk next to the database instead. */
+    val mealRecordImagesR2: R2Config?,
     val dbSeedPath: String? = null,
 ) {
     data class BackupConfig(
@@ -56,7 +56,7 @@ data class Config(
     override fun toString(): String =
         "Config(dbPath=$dbPath, serverPort=$serverPort, googleOAuthClientId=$googleOAuthClientId, adminEmail=$adminEmail, " +
             "cookieSecure=$cookieSecure, googlePlacesApiKey=${if (googlePlacesApiKey.isEmpty()) "" else "***"}, backup=$backup, " +
-            "publicBaseUrl=$publicBaseUrl, ogR2=$ogR2, visitImagesR2=$visitImagesR2)"
+            "publicBaseUrl=$publicBaseUrl, ogR2=$ogR2, mealRecordImagesR2=$mealRecordImagesR2)"
 
     companion object {
         private val log = LoggerFactory.getLogger(Config::class.java)
@@ -93,8 +93,8 @@ data class Config(
             val r2Connection = r2Connection(env)
             val ogR2 = r2(env, "OG_R2_", r2Connection)
             if (ogR2 == null) log.info("OG_R2_* not set; OGP images are rendered on every request")
-            val visitImagesR2 = r2(env, "VISIT_IMAGES_R2_", r2Connection)
-            if (visitImagesR2 == null) log.info("VISIT_IMAGES_R2_* not set; visit images are stored on local disk")
+            val mealRecordImagesR2 = r2(env, "MEAL_RECORD_IMAGES_R2_", r2Connection)
+            if (mealRecordImagesR2 == null) log.info("MEAL_RECORD_IMAGES_R2_* not set; mealRecord images are stored on local disk")
 
             return Config(
                 dbPath = dbPath,
@@ -112,7 +112,7 @@ data class Config(
                 ),
                 publicBaseUrl = publicBaseUrl,
                 ogR2 = ogR2,
-                visitImagesR2 = visitImagesR2,
+                mealRecordImagesR2 = mealRecordImagesR2,
                 dbSeedPath = env("DB_SEED_PATH")?.trim()?.takeIf { it.isNotEmpty() },
             )
         }

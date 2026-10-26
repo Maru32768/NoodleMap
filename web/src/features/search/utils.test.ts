@@ -62,7 +62,7 @@ describe("filterShops", () => {
     expect(filterNames(shops, {})).toEqual(["A", "B"]);
   });
 
-  it("ORs the visit toggles and hides a visit status that is off", () => {
+  it("ORs the meal record toggles and hides a meal record status that is off", () => {
     const shops = [
       makeShop({ name: "eaten", eaten: true }),
       makeShop({ name: "wish", eaten: false }),

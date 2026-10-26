@@ -10,6 +10,8 @@ import {
   CategorySlug,
 } from "@/features/categories/categories.ts";
 import { CategoryIcon } from "@/features/map/category-icon.tsx";
+import { useShopUploading } from "@/features/meal-records/api/meal-record-uploads.ts";
+import { MealRecordEditor } from "@/features/meal-records/meal-record-editor.tsx";
 import {
   Shop,
   UpdateShopCommand,
@@ -36,8 +38,6 @@ import {
 import type { WishLevel } from "@/features/shops/status.ts";
 import { TagSelector } from "@/features/shops/tag-chips.tsx";
 import { WishLevelSelect } from "@/features/shops/wish-level-select.tsx";
-import { useShopUploading } from "@/features/visits/api/visit-uploads.ts";
-import { VisitLogEditor } from "@/features/visits/visit-log-editor.tsx";
 import { invalidRequestFieldErrors } from "@/utils/request.ts";
 import {
   SHOP_ALREADY_DELETED_TITLE,
@@ -292,11 +292,11 @@ function ShopLinksEditor({
   );
 }
 
-type Tab = "info" | "visit";
+type Tab = "info" | "mealRecord";
 
 const TAB_LABELS: Record<Tab, string> = {
   info: "店舗情報",
-  visit: "訪問ログ",
+  mealRecord: "食べた記録",
 };
 
 // Fields with an input, all on 店舗情報; an error on any other field (including
@@ -387,14 +387,16 @@ export function ShopEditModal({
   const [deleting, setDeleting] = useState(false);
   // What the 気になる度 select started from: unchanged means omit (keep).
   const [initialWishLevel] = useState<WishLevel | "">(shop.wishLevel ?? "");
-  // The 訪問ログ tab stays mounted once opened so a visit draft survives tab
+  // The 食べた記録 tab stays mounted once opened so a meal record draft survives tab
   // switches; closing or saving the shop with one unsaved asks first.
-  const [visitTabOpened, setVisitTabOpened] = useState(initialTab === "visit");
-  const [visitDraftDirty, setVisitDraftDirty] = useState(false);
-  // A visit save or delete in flight locks closing like the shop save does.
-  const [visitBusy, setVisitBusy] = useState(false);
-  // Remounts the 訪問ログ tab to drop a discarded draft.
-  const [visitEditorKey, setVisitEditorKey] = useState(0);
+  const [mealRecordTabOpened, setMealRecordTabOpened] = useState(
+    initialTab === "mealRecord",
+  );
+  const [mealRecordDraftDirty, setMealRecordDraftDirty] = useState(false);
+  // A meal record save or delete in flight locks closing like the shop save does.
+  const [mealRecordBusy, setMealRecordBusy] = useState(false);
+  // Remounts the 食べた記録 tab to drop a discarded draft.
+  const [mealRecordEditorKey, setMealRecordEditorKey] = useState(0);
   const [discardAction, setDiscardAction] = useState<
     "close" | "save" | "delete" | null
   >(null);
@@ -404,7 +406,7 @@ export function ShopEditModal({
   const { ref: formRef, reveal: revealFirstError } =
     useRevealFirstError<HTMLDivElement>();
 
-  // A file dropped beside a visit's image area would make the browser open it
+  // A file dropped beside a meal record's image area would make the browser open it
   // and leave the page.
   useEffect(() => {
     if (!open) {
@@ -571,26 +573,26 @@ export function ShopEditModal({
     }
   };
 
-  // Asks before an action that would drop an unsaved visit draft.
-  const guardVisitDraft = (action: "close" | "save" | "delete") => {
-    if (visitDraftDirty) {
+  // Asks before an action that would drop an unsaved meal record draft.
+  const guardMealRecordDraft = (action: "close" | "save" | "delete") => {
+    if (mealRecordDraftDirty) {
       setDiscardAction(action);
       return;
     }
     runAction(action);
   };
 
-  const discardVisitDraft = () => {
+  const discardMealRecordDraft = () => {
     const action = discardAction;
     setDiscardAction(null);
-    setVisitDraftDirty(false);
-    setVisitEditorKey((key) => key + 1);
+    setMealRecordDraftDirty(false);
+    setMealRecordEditorKey((key) => key + 1);
     if (action) {
       runAction(action);
     }
   };
 
-  // Adding a visit found the shop deleted elsewhere.
+  // Adding a meal record found the shop deleted elsewhere.
   const handleShopGone = () => {
     toastError({ title: SHOP_ALREADY_DELETED_TITLE });
     void mutateShops();
@@ -598,26 +600,26 @@ export function ShopEditModal({
     onClose();
   };
 
-  // Image uploads run outside the 訪問ログ tab, which may not be mounted.
+  // Image uploads run outside the 食べた記録 tab, which may not be mounted.
   const uploading = useShopUploading(shop.id);
-  const locked = saving || deleting || visitBusy || uploading;
+  const locked = saving || deleting || mealRecordBusy || uploading;
 
   const selectTab = (t: Tab) => {
     setTab(t);
-    if (t === "visit") {
-      setVisitTabOpened(true);
+    if (t === "mealRecord") {
+      setMealRecordTabOpened(true);
     }
   };
 
   const displayName = shop.name || "(名称未設定)";
-  const hasVisits = shop.visitCount > 0;
+  const hasMealRecords = shop.mealRecordCount > 0;
 
   return (
     <>
       <ModalDialog
         open={open}
         // Closing while a save or delete is in flight would drop its errors.
-        onOpenChange={(o) => !o && !locked && guardVisitDraft("close")}
+        onOpenChange={(o) => !o && !locked && guardMealRecordDraft("close")}
         width="100%"
         maxWidth="1040px"
         height="90vh"
@@ -657,7 +659,7 @@ export function ShopEditModal({
             borderBottomColor="nm.lineFaint"
             px="22px"
           >
-            {(["info", "visit"] as Tab[]).map((t) => (
+            {(["info", "mealRecord"] as Tab[]).map((t) => (
               <Button
                 key={t}
                 variant="plain"
@@ -860,13 +862,13 @@ export function ShopEditModal({
               </Box>
             )}
 
-            {visitTabOpened && (
-              <Box display={tab === "visit" ? "block" : "none"}>
-                <VisitLogEditor
-                  key={visitEditorKey}
+            {mealRecordTabOpened && (
+              <Box display={tab === "mealRecord" ? "block" : "none"}>
+                <MealRecordEditor
+                  key={mealRecordEditorKey}
                   shopId={shop.id}
-                  onDirtyChange={setVisitDraftDirty}
-                  onBusyChange={setVisitBusy}
+                  onDirtyChange={setMealRecordDraftDirty}
+                  onBusyChange={setMealRecordBusy}
                   onShopGone={handleShopGone}
                 />
               </Box>
@@ -898,15 +900,15 @@ export function ShopEditModal({
               border="1px solid"
               borderColor="nm.shu"
               _hover={{ bg: "nm.shu", color: "white" }}
-              // The server refuses (409) to delete a shop with visit logs.
-              disabled={locked || hasVisits}
-              onClick={() => guardVisitDraft("delete")}
+              // The server refuses (409) to delete a shop with meal records.
+              disabled={locked || hasMealRecords}
+              onClick={() => guardMealRecordDraft("delete")}
             >
               削除
             </Button>
-            {hasVisits && (
+            {hasMealRecords && (
               <Box fontSize="11px" color="nm.inkMuted">
-                訪問ログがある店舗は削除できません
+                食べた記録がある店舗は削除できません
               </Box>
             )}
             <Box flex="1" />
@@ -925,7 +927,7 @@ export function ShopEditModal({
               borderColor="nm.line"
               _hover={{ borderColor: "nm.ink", color: "nm.ink" }}
               disabled={locked}
-              onClick={() => guardVisitDraft("close")}
+              onClick={() => guardMealRecordDraft("close")}
             >
               キャンセル
             </Button>
@@ -943,7 +945,7 @@ export function ShopEditModal({
               opacity={locked ? 0.6 : 1}
               _hover={{ bg: "nm.inkSoft" }}
               disabled={locked}
-              onClick={() => guardVisitDraft("save")}
+              onClick={() => guardMealRecordDraft("save")}
             >
               保存{" "}
             </Button>
@@ -955,10 +957,10 @@ export function ShopEditModal({
         onOpenChange={(o) => !o && setDiscardAction(null)}
         width="100%"
         maxWidth="420px"
-        title="訪問ログの入力"
+        title="食べた記録の入力"
       >
         <Box fontSize="13px" color="nm.ink">
-          保存していない訪問ログがあります。破棄しますか？
+          保存していない食べた記録があります。破棄しますか？
         </Box>
         <Box display="flex" justifyContent="flex-end" gap="8px" mt="20px">
           <Button
@@ -977,7 +979,7 @@ export function ShopEditModal({
             _hover={{ borderColor: "nm.ink", color: "nm.ink" }}
             onClick={() => {
               setDiscardAction(null);
-              selectTab("visit");
+              selectTab("mealRecord");
             }}
           >
             入力に戻る
@@ -994,7 +996,7 @@ export function ShopEditModal({
             bg="nm.shu"
             color="white"
             _hover={{ opacity: 0.9 }}
-            onClick={discardVisitDraft}
+            onClick={discardMealRecordDraft}
           >
             破棄する
           </Button>

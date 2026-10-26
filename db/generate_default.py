@@ -41,12 +41,16 @@ def import_seed(connection):
         for row in rows("eaten_shops.csv"):
             rate = float(row["rate"])
             connection.execute(
-                """INSERT INTO visit_logs
-                   (id, shop_id, visited_on, rate, created_at, updated_at)
-                   VALUES (?, ?, NULL, ?, ?, ?)""",
-                (str(UUID(row["id"])), str(UUID(row["shop_id"])),
+                """INSERT INTO meal_records
+                   (id, eaten_on, rate, created_at, updated_at)
+                   VALUES (?, NULL, ?, ?, ?)""",
+                (str(UUID(row["id"])),
                  None if rate == 0 else max(0, min(100, rate)),
                  SEED_TIMESTAMP, SEED_TIMESTAMP),
+            )
+            connection.execute(
+                "INSERT INTO meal_record_shops (meal_record_id, shop_id, sort_order) VALUES (?, ?, 0)",
+                (str(UUID(row["id"])), str(UUID(row["shop_id"]))),
             )
         connection.execute("UPDATE goose_db_version SET tstamp = ?", (SEED_TIMESTAMP,))
     if connection.execute("PRAGMA integrity_check").fetchall() != [("ok",)]:
@@ -73,9 +77,9 @@ def main():
         with closing(sqlite3.connect(database)) as connection:
             import_seed(connection)
             shops = connection.execute("SELECT count(*) FROM shops").fetchone()[0]
-            visits = connection.execute("SELECT count(*) FROM visit_logs").fetchone()[0]
+            meal_records = connection.execute("SELECT count(*) FROM meal_records").fetchone()[0]
         os.replace(database, DB_DIR / "default.db")
-    print(f"Generated db/default.db: {shops} shops, {visits} visits")
+    print(f"Generated db/default.db: {shops} shops, {meal_records} meal records")
 
 
 if __name__ == "__main__":

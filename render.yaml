@@ -48,10 +48,10 @@ services:
         value: noodle-map-og-images
       - key: OG_R2_PUBLIC_BASE_URL
         value: https://og.noodle-map.marulabs.dev
-      # 訪問画像 storage (terraform/modules/cloudflare-r2-visit-images).
-      - key: VISIT_IMAGES_R2_BUCKET
-        value: noodle-map-visit-images
-      - key: VISIT_IMAGES_R2_PUBLIC_BASE_URL
+      # 記録の画像 storage (terraform/modules/cloudflare-r2-meal-record-images).
+      - key: MEAL_RECORD_IMAGES_R2_BUCKET
+        value: noodle-map-meal-record-images
+      - key: MEAL_RECORD_IMAGES_R2_PUBLIC_BASE_URL
         value: https://images.noodle-map.marulabs.dev
 
   - type: web

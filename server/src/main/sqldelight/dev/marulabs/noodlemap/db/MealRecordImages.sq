@@ -1,0 +1,57 @@
+-- 記録の画像. The JPEG lives in object storage under storage_key (mealrecords/MealRecordImageStore.kt).
+CREATE TABLE meal_record_images (
+    id           TEXT AS java.util.UUID NOT NULL PRIMARY KEY,
+    meal_record_id TEXT AS java.util.UUID NOT NULL,
+    storage_key  TEXT NOT NULL,
+    width        INTEGER NOT NULL CHECK (width > 0),
+    height       INTEGER NOT NULL CHECK (height > 0),
+    caption      TEXT CHECK (length(caption) <= 100),
+    sort_order   INTEGER NOT NULL,
+    created_at   TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at   TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (meal_record_id) REFERENCES meal_records (id)
+);
+
+CREATE INDEX idx_meal_record_images_meal_record_id ON meal_record_images (meal_record_id);
+
+-- (modtime trigger omitted; see note in Users.sq)
+
+-- Appends after the meal record's last image; the INSERT itself writes first, so no read precedes it in the transaction.
+appendMealRecordImage:
+INSERT INTO meal_record_images (id, meal_record_id, storage_key, width, height, sort_order)
+SELECT :id, :mealRecordId, :storageKey, :width, :height, ifnull(max(sort_order) + 1, 0)
+FROM meal_record_images
+WHERE meal_record_id = :mealRecordId;
+
+countMealRecordImages:
+SELECT count(*) FROM meal_record_images WHERE meal_record_id = ?;
+
+findMealRecordImage:
+SELECT * FROM meal_record_images WHERE id = ?;
+
+findMealRecordImagesByMealRecordIds:
+SELECT *
+FROM meal_record_images
+WHERE meal_record_id IN ?
+ORDER BY meal_record_id, sort_order;
+
+updateMealRecordImageCaption:
+UPDATE meal_record_images SET caption = :caption WHERE id = :id;
+
+updateMealRecordImageSortOrder:
+UPDATE meal_record_images SET sort_order = :sortOrder WHERE id = :id AND meal_record_id = :mealRecordId;
+
+deleteMealRecordImage:
+DELETE FROM meal_record_images WHERE id = ? RETURNING storage_key;
+
+deleteMealRecordImagesByMealRecordId:
+DELETE FROM meal_record_images WHERE meal_record_id = ? RETURNING storage_key;
+
+-- The first image of every meal record that has images, with what the "latest meal record" order needs, so the
+-- shop list derives 代表写真 in one query. Unordered, like the meal record reads (see MealRecords.sq).
+findAllMealRecordCovers:
+SELECT s.shop_id, v.id AS meal_record_id, v.eaten_on, v.created_at, i.storage_key
+FROM meal_record_images i
+JOIN meal_records v ON v.id = i.meal_record_id
+JOIN meal_record_shops s ON s.meal_record_id = v.id
+WHERE i.sort_order = (SELECT min(sort_order) FROM meal_record_images WHERE meal_record_id = i.meal_record_id);

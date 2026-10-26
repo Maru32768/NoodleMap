@@ -37,7 +37,7 @@ export function makeShop(overrides: Partial<ApiShop> = {}): Shop {
     rate,
     // The server's お気に入り rule: お気に入り度 of 80 or more, which only an eaten shop has.
     favorite: eaten && rate >= 80,
-    visitCount: eaten ? 1 : 0,
+    mealRecordCount: eaten ? 1 : 0,
     category: "ramen",
     tags: [],
     links: [],

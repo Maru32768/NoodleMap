@@ -47,12 +47,12 @@ class MigrationsTest {
 
             conn.version() shouldBe migrations.maxOf { it.version }
             conn.strings("SELECT name FROM sqlite_master WHERE type = 'table'") shouldContainAll
-                listOf("users", "sessions", "shops", "tags", "shops_tags", "shop_images", "shop_links", "visit_logs", "visit_menu_items", "visit_images")
+                listOf("users", "sessions", "shops", "tags", "shops_tags", "shop_images", "shop_links", "meal_records", "meal_record_menu_items", "meal_record_images")
             conn.strings("SELECT name FROM sqlite_master WHERE name = 'eaten_shops'") shouldBe emptyList()
             conn.strings("SELECT name FROM sqlite_master WHERE type = 'trigger'") shouldContainAll
                 listOf(
                     "update_users_modtime", "update_shops_modtime", "update_tags_modtime", "update_shop_links_modtime",
-                    "update_visit_logs_modtime", "update_visit_menu_items_modtime", "update_visit_images_modtime",
+                    "update_meal_records_modtime", "update_meal_record_menu_items_modtime", "update_meal_record_images_modtime",
                 )
         }
     }
@@ -184,7 +184,7 @@ class MigrationsTest {
                 st.execute("PRAGMA foreign_keys = ON")
             }
 
-            migrate(conn, loadMigrations())
+            migrate(conn, loadMigrations().filter { it.version <= 14 })
 
             conn.strings(
                 "SELECT id || '|' || shop_id || '|' || ifnull(visited_on, 'NULL') || '|' || ifnull(rate, 'NULL') || '|' || created_at || '|' || updated_at FROM visit_logs ORDER BY id",
@@ -262,7 +262,7 @@ class MigrationsTest {
     @Test
     fun `00015 visit images pin their visit log and keep captions to 100 characters`() {
         withPooledDb { conn ->
-            migrate(conn, loadMigrations())
+            migrate(conn, loadMigrations().filter { it.version <= 15 })
             conn.createStatement().use { st ->
                 st.executeUpdate("INSERT INTO shops (id, name, lat, lng, postal_code, address) VALUES ('s1', 'shop', 0, 0, '', '')")
                 st.executeUpdate("INSERT INTO visit_logs (id, shop_id) VALUES ('v1', 's1')")
@@ -281,6 +281,83 @@ class MigrationsTest {
                 }
                 shouldThrow<Exception> { st.executeUpdate("DELETE FROM visit_logs WHERE id = 'v1'") }
             }
+        }
+    }
+
+    @Test
+    fun `00016 preserves record identity children and timestamps and groups trimmed venues while keeping orphan references`() {
+        withPooledDb { conn ->
+            migrate(conn, loadMigrations().filter { it.version <= 15 })
+            conn.createStatement().use { st ->
+                st.executeUpdate("INSERT INTO shops (id, name, lat, lng, postal_code, address) VALUES ('s1', 'shop', 0, 0, '', '')")
+                st.execute("PRAGMA foreign_keys = OFF")
+                st.executeUpdate("""
+                    INSERT INTO visit_logs (id, shop_id, visited_on, rate, event_name, public_note, private_note, created_at, updated_at) VALUES
+                    ('v1', 's1', '2024-02-29', 85, char(9) || 'Walkerキッチン' || char(12288), '公開', '秘密', '2020-01-02 03:04:05.678', '2021-02-03 04:05:06'),
+                    ('v2', 's1', NULL, NULL, 'Walkerキッチン', NULL, NULL, '2022-01-01 00:00:00.123', '2022-01-02 00:00:00'),
+                    ('v3', 'gone', NULL, 0, char(9, 10, 160, 12288, 32), NULL, NULL, '2023-01-01 00:00:00.000', '2023-01-02 00:00:00'),
+                    ('v4', 's1', NULL, NULL, '新宿地下ラーメン', NULL, NULL, '2024-01-01 00:00:00.000', '2024-01-02 00:00:00')
+                """.trimIndent())
+                st.executeUpdate("INSERT INTO visit_menu_items (id, visit_log_id, name, is_limited, price, sort_order, created_at, updated_at) VALUES ('m1', 'v1', '限定そば', 1, 1500, 2, '2020', '2021')")
+                st.executeUpdate("INSERT INTO visit_images (id, visit_log_id, storage_key, width, height, caption, sort_order, created_at, updated_at) VALUES ('i1', 'v1', 'visits/v1/i1.jpg', 640, 480, '写真', 3, '2020', '2021')")
+                st.execute("PRAGMA foreign_keys = ON")
+            }
+            migrate(conn, loadMigrations().filter { it.version <= 16 })
+            conn.strings("SELECT id || '|' || ifnull(visited_on, '') || '|' || ifnull(rate, '') || '|' || ifnull(public_note, '') || '|' || ifnull(private_note, '') || '|' || created_at || '|' || updated_at FROM visit_logs ORDER BY id") shouldBe listOf(
+                "v1|2024-02-29|85.0|公開|秘密|2020-01-02 03:04:05.678|2021-02-03 04:05:06",
+                "v2|||||2022-01-01 00:00:00.123|2022-01-02 00:00:00",
+                "v3||0.0|||2023-01-01 00:00:00.000|2023-01-02 00:00:00",
+                "v4|||||2024-01-01 00:00:00.000|2024-01-02 00:00:00",
+            )
+            conn.strings("SELECT visit_log_id || '|' || shop_id || '|' || sort_order FROM visit_log_shops ORDER BY visit_log_id") shouldBe listOf("v1|s1|0", "v2|s1|0", "v3|gone|0", "v4|s1|0")
+            conn.strings("SELECT name FROM venues ORDER BY name") shouldBe listOf("Walkerキッチン", "新宿地下ラーメン")
+            conn.strings("SELECT count(DISTINCT venue_id) FROM visit_logs WHERE id IN ('v1', 'v2')") shouldBe listOf("1")
+            conn.strings("SELECT venue_id IS NULL FROM visit_logs WHERE id = 'v3'") shouldBe listOf("1")
+            conn.strings("SELECT id || '|' || visit_log_id || '|' || name || '|' || is_limited || '|' || price || '|' || sort_order || '|' || created_at || '|' || updated_at FROM visit_menu_items") shouldBe listOf("m1|v1|限定そば|1|1500|2|2020|2021")
+            conn.strings("SELECT id || '|' || visit_log_id || '|' || storage_key || '|' || width || '|' || height || '|' || caption || '|' || sort_order || '|' || created_at || '|' || updated_at FROM visit_images") shouldBe listOf("i1|v1|visits/v1/i1.jpg|640|480|写真|3|2020|2021")
+            conn.strings("SELECT \"table\" FROM pragma_foreign_key_check") shouldBe listOf("visit_log_shops")
+            conn.strings("PRAGMA foreign_keys") shouldBe listOf("1")
+            conn.createStatement().use { st ->
+                shouldThrow<SQLException> { st.executeUpdate("DELETE FROM shops WHERE id = 's1'") }
+                shouldThrow<SQLException> { st.executeUpdate("DELETE FROM visit_logs WHERE id = 'v1'") }
+                st.executeUpdate("UPDATE visit_logs SET public_note = '更新' WHERE id = 'v1'")
+            }
+            conn.strings("SELECT updated_at = '2021-02-03 04:05:06' FROM visit_logs WHERE id = 'v1'") shouldBe listOf("0")
+        }
+    }
+
+    @Test
+    fun `00017 preserves shared records and image metadata while renaming schema and keys`() {
+        withPooledDb { conn ->
+            migrate(conn, loadMigrations().filter { it.version <= 16 })
+            conn.createStatement().use { st ->
+                st.executeUpdate("INSERT INTO shops (id, name, lat, lng, postal_code, address) VALUES ('s1', 'A', 1, 2, '', ''), ('s2', 'B', 3, 4, '', '')")
+                st.executeUpdate("INSERT INTO venues (id, name) VALUES ('venue', 'Walkerキッチン')")
+                st.executeUpdate("INSERT INTO visit_logs (id, venue_id, visited_on, rate, public_note, private_note, created_at, updated_at) VALUES ('record', 'venue', '2024-02-29', 85, '公開', '秘密', '2020-01-01 01:02:03.123', '2021-02-03 04:05:06')")
+                st.executeUpdate("INSERT INTO visit_log_shops (visit_log_id, shop_id, sort_order) VALUES ('record', 's1', 1), ('record', 's2', 0)")
+                st.executeUpdate("INSERT INTO visit_menu_items (id, visit_log_id, name, is_limited, price, sort_order, created_at, updated_at) VALUES ('menu', 'record', '限定そば', 1, 1500, 2, '2020', '2021')")
+                st.executeUpdate("INSERT INTO visit_images (id, visit_log_id, storage_key, width, height, caption, sort_order, created_at, updated_at) VALUES ('image', 'record', 'visits/record/image.jpg', 640, 480, '写真', 3, '2020', '2021')")
+            }
+            migrate(conn, loadMigrations())
+            conn.strings("SELECT id || '|' || venue_id || '|' || eaten_on || '|' || rate || '|' || public_note || '|' || private_note || '|' || created_at || '|' || updated_at FROM meal_records") shouldBe
+                listOf("record|venue|2024-02-29|85.0|公開|秘密|2020-01-01 01:02:03.123|2021-02-03 04:05:06")
+            conn.strings("SELECT meal_record_id || '|' || shop_id || '|' || sort_order FROM meal_record_shops ORDER BY sort_order") shouldBe listOf("record|s2|0", "record|s1|1")
+            conn.strings("SELECT id || '|' || meal_record_id || '|' || name || '|' || is_limited || '|' || price || '|' || sort_order || '|' || created_at || '|' || updated_at FROM meal_record_menu_items") shouldBe listOf("menu|record|限定そば|1|1500|2|2020|2021")
+            conn.strings("SELECT id || '|' || meal_record_id || '|' || storage_key || '|' || width || '|' || height || '|' || caption || '|' || sort_order || '|' || created_at || '|' || updated_at FROM meal_record_images") shouldBe listOf("image|record|meal-records/record/image.jpg|640|480|写真|3|2020|2021")
+            conn.strings("SELECT name FROM sqlite_master WHERE name LIKE '%visit%'") shouldBe emptyList()
+            conn.strings("PRAGMA foreign_key_check") shouldBe emptyList()
+            conn.createStatement().use { st ->
+                shouldThrow<SQLException> { st.executeUpdate("DELETE FROM shops WHERE id = 's1'") }
+                shouldThrow<SQLException> { st.executeUpdate("UPDATE meal_records SET eaten_on = '2024-02-30'") }
+                st.executeUpdate("UPDATE meal_records SET public_note = '変更'")
+                st.executeUpdate("UPDATE meal_record_images SET caption = '変更'")
+                st.executeUpdate("UPDATE meal_record_menu_items SET name = '変更'")
+            }
+            conn.strings("SELECT updated_at = '2021-02-03 04:05:06' FROM meal_records") shouldBe listOf("0")
+            conn.strings("SELECT updated_at = '2021' FROM meal_record_images") shouldBe listOf("0")
+            conn.strings("SELECT updated_at = '2021' FROM meal_record_menu_items") shouldBe listOf("0")
+            migrate(conn, loadMigrations())
+            conn.version() shouldBe 17
         }
     }
 

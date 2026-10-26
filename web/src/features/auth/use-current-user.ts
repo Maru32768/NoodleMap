@@ -5,7 +5,7 @@ export type UserType = "guest" | "admin" | "normal";
 
 type UserProfile = Omit<User, "isAdmin">;
 
-// `authFailed`: /auth/me failed, so the visitor may in fact be signed in.
+// `authFailed`: /auth/me failed, so the viewer may in fact be signed in.
 export type GuestUser = { type: "guest"; authFailed?: boolean };
 export type AuthenticatedUser = UserProfile & { type: "admin" | "normal" };
 export type CurrentUser = GuestUser | AuthenticatedUser;

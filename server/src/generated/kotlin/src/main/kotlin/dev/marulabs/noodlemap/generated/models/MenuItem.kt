@@ -7,7 +7,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
- * One 食べたメニュー of a visit log.
+ * One 食べたメニュー of a meal record.
  */
 @Serializable
 public data class MenuItem(

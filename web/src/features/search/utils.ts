@@ -9,7 +9,7 @@ import {
 export type CategoryType = "all" | "ramen" | "udon";
 
 export type FilterToggles = {
-  // Visit facet (OR within).
+  // Meal record facet (OR within).
   eaten: boolean;
   wish: boolean;
   // Category facet (OR within).
@@ -77,10 +77,10 @@ export function filterShops(
   const matchesQuery = createQueryMatcher(query);
 
   return shops.filter((r) => {
-    const visitMatch =
+    const mealRecordMatch =
       (r.eatenStatus === "eaten" && filters.eaten) ||
       (r.eatenStatus === "uneaten" && filters.wish);
-    if (!visitMatch || !matchesWishLevels(r, filters.wishLevels)) {
+    if (!mealRecordMatch || !matchesWishLevels(r, filters.wishLevels)) {
       return false;
     }
 

@@ -289,6 +289,429 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/InternalErrorBody'
+  /api/v1/auth/meal-record-images/{imageId}:
+    put:
+      operationId: updateMealRecordImage
+      description: Updates an image's caption.
+      parameters:
+        - name: imageId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MealRecordImage'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MealRecordImageBadRequestErrorBody'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthenticationRequiredErrorBody'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionDeniedErrorBody'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorBody'
+        '408':
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestBodyTimeoutErrorBody'
+        '413':
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestBodyTooLargeErrorBody'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalErrorBody'
+        '503':
+          description: Service unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestBodyBusyErrorBody'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMealRecordImageRequest'
+    delete:
+      operationId: deleteMealRecordImage
+      parameters:
+        - name: imageId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '204':
+          description: 'There is no content to send for this request, but the headers may be useful. '
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthenticationRequiredErrorBody'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionDeniedErrorBody'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorBody'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalErrorBody'
+  /api/v1/auth/meal-records:
+    post:
+      operationId: addMealRecord
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MealRecord'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MealRecordBadRequestErrorBody'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthenticationRequiredErrorBody'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionDeniedErrorBody'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorBody'
+        '408':
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestBodyTimeoutErrorBody'
+        '413':
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestBodyTooLargeErrorBody'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalErrorBody'
+        '503':
+          description: Service unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestBodyBusyErrorBody'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MealRecordInput'
+  /api/v1/auth/meal-records/{mealRecordId}:
+    put:
+      operationId: updateMealRecord
+      description: Replaces every field of a meal record.
+      parameters:
+        - name: mealRecordId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MealRecord'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MealRecordBadRequestErrorBody'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthenticationRequiredErrorBody'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionDeniedErrorBody'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorBody'
+        '408':
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestBodyTimeoutErrorBody'
+        '413':
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestBodyTooLargeErrorBody'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalErrorBody'
+        '503':
+          description: Service unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestBodyBusyErrorBody'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MealRecordInput'
+    delete:
+      operationId: deleteMealRecord
+      description: Deletes a meal record with its images.
+      parameters:
+        - name: mealRecordId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '204':
+          description: 'There is no content to send for this request, but the headers may be useful. '
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthenticationRequiredErrorBody'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionDeniedErrorBody'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorBody'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalErrorBody'
+  /api/v1/auth/meal-records/{mealRecordId}/images:
+    post:
+      operationId: uploadMealRecordImage
+      description: |-
+        Adds an image at the end of a meal record's images (at most 10). The server applies the EXIF orientation,
+        scales the long edge down to 2048 px and stores a JPEG without metadata.
+        The request's Origin must be the site's own origin, or a localhost one on an http (local development) site;
+        403 otherwise.
+      parameters:
+        - name: mealRecordId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MealRecordImage'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MealRecordImageBadRequestErrorBody'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthenticationRequiredErrorBody'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionDeniedErrorBody'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorBody'
+        '409':
+          description: The request conflicts with the current state of the server.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MealRecordImageLimitReachedErrorBody'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalErrorBody'
+        '503':
+          description: Service unavailable.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/MealRecordImageProcessingBusyErrorBody'
+                  - $ref: '#/components/schemas/MealRecordImagesStorageUnconfiguredErrorBody'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UploadMealRecordImageRequest'
+            encoding:
+              file:
+                contentType: '*/*'
+  /api/v1/auth/meal-records/{mealRecordId}/images/order:
+    put:
+      operationId: reorderMealRecordImages
+      description: Replaces the display order of a meal record's images.
+      parameters:
+        - name: mealRecordId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MealRecordImagesResponse'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MealRecordImageBadRequestErrorBody'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthenticationRequiredErrorBody'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionDeniedErrorBody'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorBody'
+        '408':
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestBodyTimeoutErrorBody'
+        '413':
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestBodyTooLargeErrorBody'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalErrorBody'
+        '503':
+          description: Service unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestBodyBusyErrorBody'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReorderMealRecordImagesRequest'
   /api/v1/auth/sessions:
     get:
       operationId: listSessions
@@ -490,7 +913,7 @@ paths:
               $ref: '#/components/schemas/UpdateShopRequest'
     delete:
       operationId: deleteShop
-      description: Deletes a shop with its tags and links. A shop with visit logs cannot be deleted (409).
+      description: Deletes a shop with its tags and links. A shop with meal records cannot be deleted (409).
       parameters:
         - name: id
           in: path
@@ -529,83 +952,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ShopHasVisitLogsErrorBody'
+                $ref: '#/components/schemas/ShopHasMealRecordsErrorBody'
         '500':
           description: Server error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/InternalErrorBody'
-  /api/v1/auth/shops/{id}/visits:
-    post:
-      operationId: addVisitLog
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            $ref: '#/components/schemas/uuid'
-      responses:
-        '200':
-          description: The request has succeeded.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VisitLog'
-        '400':
-          description: The server could not understand the request due to invalid syntax.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VisitLogBadRequestErrorBody'
-        '401':
-          description: Access is unauthorized.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthenticationRequiredErrorBody'
-        '403':
-          description: Access is forbidden.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PermissionDeniedErrorBody'
-        '404':
-          description: The server cannot find the requested resource.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/NotFoundErrorBody'
-        '408':
-          description: Client error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RequestBodyTimeoutErrorBody'
-        '413':
-          description: Client error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RequestBodyTooLargeErrorBody'
-        '500':
-          description: Server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/InternalErrorBody'
-        '503':
-          description: Service unavailable.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RequestBodyBusyErrorBody'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/VisitLogInput'
   /api/v1/auth/tags:
     put:
       operationId: saveTags
@@ -665,364 +1018,6 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/SaveTagsRequest'
-  /api/v1/auth/visit-images/{imageId}:
-    put:
-      operationId: updateVisitImage
-      description: Updates an image's caption.
-      parameters:
-        - name: imageId
-          in: path
-          required: true
-          schema:
-            $ref: '#/components/schemas/uuid'
-      responses:
-        '200':
-          description: The request has succeeded.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VisitImage'
-        '400':
-          description: The server could not understand the request due to invalid syntax.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VisitImageBadRequestErrorBody'
-        '401':
-          description: Access is unauthorized.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthenticationRequiredErrorBody'
-        '403':
-          description: Access is forbidden.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PermissionDeniedErrorBody'
-        '404':
-          description: The server cannot find the requested resource.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/NotFoundErrorBody'
-        '408':
-          description: Client error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RequestBodyTimeoutErrorBody'
-        '413':
-          description: Client error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RequestBodyTooLargeErrorBody'
-        '500':
-          description: Server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/InternalErrorBody'
-        '503':
-          description: Service unavailable.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RequestBodyBusyErrorBody'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpdateVisitImageRequest'
-    delete:
-      operationId: deleteVisitImage
-      parameters:
-        - name: imageId
-          in: path
-          required: true
-          schema:
-            $ref: '#/components/schemas/uuid'
-      responses:
-        '204':
-          description: 'There is no content to send for this request, but the headers may be useful. '
-        '401':
-          description: Access is unauthorized.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthenticationRequiredErrorBody'
-        '403':
-          description: Access is forbidden.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PermissionDeniedErrorBody'
-        '404':
-          description: The server cannot find the requested resource.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/NotFoundErrorBody'
-        '500':
-          description: Server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/InternalErrorBody'
-  /api/v1/auth/visits/{visitId}:
-    put:
-      operationId: updateVisitLog
-      description: Replaces every field of a visit log.
-      parameters:
-        - name: visitId
-          in: path
-          required: true
-          schema:
-            $ref: '#/components/schemas/uuid'
-      responses:
-        '200':
-          description: The request has succeeded.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VisitLog'
-        '400':
-          description: The server could not understand the request due to invalid syntax.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VisitLogBadRequestErrorBody'
-        '401':
-          description: Access is unauthorized.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthenticationRequiredErrorBody'
-        '403':
-          description: Access is forbidden.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PermissionDeniedErrorBody'
-        '404':
-          description: The server cannot find the requested resource.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/NotFoundErrorBody'
-        '408':
-          description: Client error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RequestBodyTimeoutErrorBody'
-        '413':
-          description: Client error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RequestBodyTooLargeErrorBody'
-        '500':
-          description: Server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/InternalErrorBody'
-        '503':
-          description: Service unavailable.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RequestBodyBusyErrorBody'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/VisitLogInput'
-    delete:
-      operationId: deleteVisitLog
-      description: Deletes a visit log with its images.
-      parameters:
-        - name: visitId
-          in: path
-          required: true
-          schema:
-            $ref: '#/components/schemas/uuid'
-      responses:
-        '204':
-          description: 'There is no content to send for this request, but the headers may be useful. '
-        '401':
-          description: Access is unauthorized.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthenticationRequiredErrorBody'
-        '403':
-          description: Access is forbidden.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PermissionDeniedErrorBody'
-        '404':
-          description: The server cannot find the requested resource.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/NotFoundErrorBody'
-        '500':
-          description: Server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/InternalErrorBody'
-  /api/v1/auth/visits/{visitId}/images:
-    post:
-      operationId: uploadVisitImage
-      description: |-
-        Adds an image at the end of a visit log's images (at most 10). The server applies the EXIF orientation,
-        scales the long edge down to 2048 px and stores a JPEG without metadata.
-        The request's Origin must be the site's own origin, or a localhost one on an http (local development) site;
-        403 otherwise.
-      parameters:
-        - name: visitId
-          in: path
-          required: true
-          schema:
-            $ref: '#/components/schemas/uuid'
-      responses:
-        '200':
-          description: The request has succeeded.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VisitImage'
-        '400':
-          description: The server could not understand the request due to invalid syntax.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VisitImageBadRequestErrorBody'
-        '401':
-          description: Access is unauthorized.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthenticationRequiredErrorBody'
-        '403':
-          description: Access is forbidden.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PermissionDeniedErrorBody'
-        '404':
-          description: The server cannot find the requested resource.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/NotFoundErrorBody'
-        '409':
-          description: The request conflicts with the current state of the server.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VisitImageLimitReachedErrorBody'
-        '500':
-          description: Server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/InternalErrorBody'
-        '503':
-          description: Service unavailable.
-          content:
-            application/json:
-              schema:
-                anyOf:
-                  - $ref: '#/components/schemas/VisitImageProcessingBusyErrorBody'
-                  - $ref: '#/components/schemas/VisitImagesStorageUnconfiguredErrorBody'
-      requestBody:
-        required: true
-        content:
-          multipart/form-data:
-            schema:
-              $ref: '#/components/schemas/UploadVisitImageRequest'
-            encoding:
-              file:
-                contentType: '*/*'
-  /api/v1/auth/visits/{visitId}/images/order:
-    put:
-      operationId: reorderVisitImages
-      description: Replaces the display order of a visit log's images.
-      parameters:
-        - name: visitId
-          in: path
-          required: true
-          schema:
-            $ref: '#/components/schemas/uuid'
-      responses:
-        '200':
-          description: The request has succeeded.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VisitImagesResponse'
-        '400':
-          description: The server could not understand the request due to invalid syntax.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VisitImageBadRequestErrorBody'
-        '401':
-          description: Access is unauthorized.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthenticationRequiredErrorBody'
-        '403':
-          description: Access is forbidden.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PermissionDeniedErrorBody'
-        '404':
-          description: The server cannot find the requested resource.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/NotFoundErrorBody'
-        '408':
-          description: Client error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RequestBodyTimeoutErrorBody'
-        '413':
-          description: Client error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RequestBodyTooLargeErrorBody'
-        '500':
-          description: Server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/InternalErrorBody'
-        '503':
-          description: Service unavailable.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RequestBodyBusyErrorBody'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ReorderVisitImagesRequest'
   /api/v1/shops:
     get:
       operationId: listShops
@@ -1040,10 +1035,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/InternalErrorBody'
-  /api/v1/shops/{id}/visits:
+  /api/v1/shops/{id}/meal-records:
     get:
-      operationId: listVisitLogs
-      description: A shop's visit logs, newest first. privateNote is included only for the admin.
+      operationId: listMealRecords
+      description: A shop's meal records, newest first. privateNote is included only for the admin.
       parameters:
         - name: id
           in: path
@@ -1056,7 +1051,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/VisitLogsResponse'
+                $ref: '#/components/schemas/MealRecordsResponse'
         '404':
           description: The server cannot find the requested resource.
           content:
@@ -1080,6 +1075,51 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TagsResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalErrorBody'
+  /api/v1/venues:
+    get:
+      operationId: listVenues
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VenuesResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalErrorBody'
+  /api/v1/venues/{venueId}/meal-records:
+    get:
+      operationId: listVenueMealRecords
+      parameters:
+        - name: venueId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VenueMealRecordsResponse'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorBody'
         '500':
           description: Server error
           content:
@@ -1251,10 +1291,10 @@ components:
         - internal_error
         - google_places_not_configured
         - google_places_failed
-        - shop_has_visit_logs
-        - visit_image_limit_reached
-        - visit_image_processing_busy
-        - visit_images_storage_unconfigured
+        - shop_has_meal_records
+        - meal_record_image_limit_reached
+        - meal_record_image_processing_busy
+        - meal_record_images_storage_unconfigured
     FieldErrorType:
       type: string
       enum:
@@ -1349,6 +1389,244 @@ components:
             - invalid_request
         message:
           type: string
+    MealRecord:
+      type: object
+      required:
+        - id
+        - shops
+        - menuItems
+        - images
+      properties:
+        id:
+          $ref: '#/components/schemas/uuid'
+        shops:
+          type: array
+          items:
+            $ref: '#/components/schemas/MealRecordShop'
+        venue:
+          $ref: '#/components/schemas/Venue'
+        eatenOn:
+          type: string
+          description: Eating date as an ISO 8601 calendar date (YYYY-MM-DD). Absent when unknown.
+        menuItems:
+          type: array
+          items:
+            $ref: '#/components/schemas/MenuItem'
+          description: 食べたメニュー in display order.
+        totalPrice:
+          type: integer
+          format: int32
+          description: 'Derived on the server: the sum of the menu item prices. Absent when no item has a price.'
+        rate:
+          type: number
+          format: double
+          description: 0 to 100. Absent when the meal record is not rated.
+        publicNote:
+          type: string
+        privateNote:
+          type: string
+          description: Only in responses to the admin; omitted for everyone else.
+        images:
+          type: array
+          items:
+            $ref: '#/components/schemas/MealRecordImage'
+          description: The meal record's images in display order; the first one represents the mealRecord.
+      description: 'One 食べた記録. Meal records are listed newest first: by eatenOn, those without one last, then by creation.'
+    MealRecordBadRequestErrorBody:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum:
+            - invalid_request
+        message:
+          type: string
+        fieldErrors:
+          type: array
+          items:
+            $ref: '#/components/schemas/MealRecordFieldError'
+    MealRecordField:
+      type: string
+      enum:
+        - shopIds
+        - eatenOn
+        - menuItems
+        - rate
+        - venueName
+        - publicNote
+        - privateNote
+      description: '`menuItems` covers the list and each item; the message names the item (`menuItems[0].name`).'
+    MealRecordFieldError:
+      type: object
+      required:
+        - field
+        - type
+      properties:
+        field:
+          $ref: '#/components/schemas/MealRecordField'
+        type:
+          $ref: '#/components/schemas/FieldErrorType'
+        message:
+          type: string
+    MealRecordImage:
+      type: object
+      required:
+        - id
+        - url
+        - width
+        - height
+      properties:
+        id:
+          $ref: '#/components/schemas/uuid'
+        url:
+          type: string
+          description: Absolute URL of the JPEG.
+        width:
+          type: integer
+          format: int32
+        height:
+          type: integer
+          format: int32
+        caption:
+          type: string
+      description: 'One 記録の画像: a JPEG whose long edge is at most 2048 px, already rotated upright.'
+    MealRecordImageBadRequestErrorBody:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum:
+            - invalid_request
+        message:
+          type: string
+        fieldErrors:
+          type: array
+          items:
+            $ref: '#/components/schemas/MealRecordImageFieldError'
+    MealRecordImageField:
+      type: string
+      enum:
+        - file
+        - caption
+        - imageIds
+      description: '`file` is the uploaded image part; `imageIds` is the full ordered id list of a reorder.'
+    MealRecordImageFieldError:
+      type: object
+      required:
+        - field
+        - type
+      properties:
+        field:
+          $ref: '#/components/schemas/MealRecordImageField'
+        type:
+          $ref: '#/components/schemas/FieldErrorType'
+        message:
+          type: string
+    MealRecordImageLimitReachedErrorBody:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum:
+            - meal_record_image_limit_reached
+        message:
+          type: string
+      description: The meal record already has the maximum number of images (10).
+    MealRecordImageProcessingBusyErrorBody:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum:
+            - meal_record_image_processing_busy
+        message:
+          type: string
+      description: Too many images are being processed right now; retry shortly.
+    MealRecordImagesResponse:
+      type: object
+      required:
+        - images
+      properties:
+        images:
+          type: array
+          items:
+            $ref: '#/components/schemas/MealRecordImage'
+    MealRecordImagesStorageUnconfiguredErrorBody:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum:
+            - meal_record_images_storage_unconfigured
+        message:
+          type: string
+      description: The server has no storage for meal record images configured.
+    MealRecordInput:
+      type: object
+      required:
+        - shopIds
+      properties:
+        shopIds:
+          type: array
+          items:
+            $ref: '#/components/schemas/uuid'
+          minItems: 1
+        eatenOn:
+          type: string
+          description: ISO 8601 calendar date (YYYY-MM-DD), no later than tomorrow. Omit when unknown.
+        menuItems:
+          type: array
+          items:
+            $ref: '#/components/schemas/MenuItemInput'
+          maxItems: 10
+          description: 食べたメニュー in display order, at most 10. Omit for none.
+        rate:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 100
+          description: 0 to 100. Omit when not rated.
+        venueName:
+          type: string
+          maxLength: 100
+        publicNote:
+          type: string
+          maxLength: 2000
+        privateNote:
+          type: string
+          maxLength: 2000
+      description: |-
+        A meal record as written by the admin. Strings are trimmed and a blank string means not set.
+        On update every field is replaced, so an omitted field is cleared.
+    MealRecordShop:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          $ref: '#/components/schemas/uuid'
+        name:
+          type: string
+    MealRecordsResponse:
+      type: object
+      required:
+        - mealRecords
+      properties:
+        mealRecords:
+          type: array
+          items:
+            $ref: '#/components/schemas/MealRecord'
     MenuItem:
       type: object
       required:
@@ -1364,7 +1642,7 @@ components:
           type: integer
           format: int32
           description: Price in yen. Absent when not recorded.
-      description: One 食べたメニュー of a visit log.
+      description: One 食べたメニュー of a meal record.
     MenuItemInput:
       type: object
       required:
@@ -1455,7 +1733,7 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PlaceSuggestion'
-    ReorderVisitImagesRequest:
+    ReorderMealRecordImagesRequest:
       type: object
       required:
         - imageIds
@@ -1465,7 +1743,7 @@ components:
           items:
             $ref: '#/components/schemas/uuid'
           maxItems: 10
-      description: Every image id of the visit log exactly once, in the new display order.
+      description: Every image id of the meal record exactly once, in the new display order.
     RequestBodyBusyErrorBody:
       type: object
       required:
@@ -1540,7 +1818,7 @@ components:
         - eaten
         - rate
         - favorite
-        - visitCount
+        - mealRecordCount
         - category
         - tags
         - links
@@ -1573,18 +1851,18 @@ components:
           description: Google Places place id. Absent when the shop was entered by hand.
         eaten:
           type: boolean
-          description: 'Derived on the server: true when the shop has at least one visit log. Read-only.'
+          description: 'Derived on the server: true when the shop has at least one meal record. Read-only.'
         rate:
           type: number
           format: double
-          description: 'Derived on the server: the rate of the latest visit log that has one, or 0 when none has. Read-only.'
+          description: 'Derived on the server: the rate of the latest meal record that has one, or 0 when none has. Read-only.'
         favorite:
           type: boolean
-          description: "Derived on the server: true when the shop's rate comes from a visit log and is 80 or more. Read-only."
-        visitCount:
+          description: "Derived on the server: true when the shop's rate comes from a meal record and is 80 or more. Read-only."
+        mealRecordCount:
           type: integer
           format: int32
-          description: Number of visit logs of the shop. Read-only.
+          description: Number of meal records of the shop. Read-only.
         wishLevel:
           allOf:
             - $ref: '#/components/schemas/WishLevel'
@@ -1602,8 +1880,8 @@ components:
           description: External links (official site, SNS, ...) in display order.
         coverPhotoUrl:
           type: string
-          description: 'Derived on the server: URL of the first image of the latest visit log that has images. Absent when none has.'
-    ShopHasVisitLogsErrorBody:
+          description: 'Derived on the server: URL of the first image of the latest meal record that has images. Absent when none has.'
+    ShopHasMealRecordsErrorBody:
       type: object
       required:
         - type
@@ -1611,10 +1889,10 @@ components:
         type:
           type: string
           enum:
-            - shop_has_visit_logs
+            - shop_has_meal_records
         message:
           type: string
-      description: The shop has visit logs, so it cannot be deleted.
+      description: The shop has meal records, so it cannot be deleted.
     ShopLink:
       type: object
       required:
@@ -1748,6 +2026,13 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Tag'
+    UpdateMealRecordImageRequest:
+      type: object
+      properties:
+        caption:
+          type: string
+          maxLength: 100
+      description: Trimmed; blank or omitted clears the caption.
     UpdateShopBadRequestErrorBody:
       type: object
       required:
@@ -1830,11 +2115,11 @@ components:
           $ref: '#/components/schemas/CategorySlug'
         eaten:
           type: boolean
-          description: 'Deprecated and ignored by the server: 食べた is derived from visit logs. Older clients still send it.'
+          description: 'Deprecated and ignored by the server: 食べた is derived from meal records. Older clients still send it.'
         rate:
           type: number
           format: double
-          description: "Deprecated and ignored by the server: the shop's rate is derived from visit logs. Older clients still send it."
+          description: "Deprecated and ignored by the server: the shop's rate is derived from meal records. Older clients still send it."
         tagIds:
           type: array
           items:
@@ -1852,14 +2137,7 @@ components:
             $ref: '#/components/schemas/ShopLinkInput'
           maxItems: 10
           description: Omit to keep the stored links (older clients); an array replaces them all, in array order. At most 10.
-    UpdateVisitImageRequest:
-      type: object
-      properties:
-        caption:
-          type: string
-          maxLength: 100
-      description: Trimmed; blank or omitted clears the caption.
-    UploadVisitImageRequest:
+    UploadMealRecordImageRequest:
       type: object
       properties:
         file:
@@ -1880,222 +2158,37 @@ components:
           type: string
         isAdmin:
           type: boolean
-    VisitImage:
+    Venue:
       type: object
       required:
         - id
-        - url
-        - width
-        - height
+        - name
       properties:
         id:
           $ref: '#/components/schemas/uuid'
-        url:
+        name:
           type: string
-          description: Absolute URL of the JPEG.
-        width:
-          type: integer
-          format: int32
-        height:
-          type: integer
-          format: int32
-        caption:
-          type: string
-      description: 'One 訪問画像: a JPEG whose long edge is at most 2048 px, already rotated upright.'
-    VisitImageBadRequestErrorBody:
+    VenueMealRecordsResponse:
       type: object
       required:
-        - type
+        - venue
+        - mealRecords
       properties:
-        type:
-          type: string
-          enum:
-            - invalid_request
-        message:
-          type: string
-        fieldErrors:
+        venue:
+          $ref: '#/components/schemas/Venue'
+        mealRecords:
           type: array
           items:
-            $ref: '#/components/schemas/VisitImageFieldError'
-    VisitImageField:
-      type: string
-      enum:
-        - file
-        - caption
-        - imageIds
-      description: '`file` is the uploaded image part; `imageIds` is the full ordered id list of a reorder.'
-    VisitImageFieldError:
+            $ref: '#/components/schemas/MealRecord'
+    VenuesResponse:
       type: object
       required:
-        - field
-        - type
+        - venues
       properties:
-        field:
-          $ref: '#/components/schemas/VisitImageField'
-        type:
-          $ref: '#/components/schemas/FieldErrorType'
-        message:
-          type: string
-    VisitImageLimitReachedErrorBody:
-      type: object
-      required:
-        - type
-      properties:
-        type:
-          type: string
-          enum:
-            - visit_image_limit_reached
-        message:
-          type: string
-      description: The visit log already has the maximum number of images (10).
-    VisitImageProcessingBusyErrorBody:
-      type: object
-      required:
-        - type
-      properties:
-        type:
-          type: string
-          enum:
-            - visit_image_processing_busy
-        message:
-          type: string
-      description: Too many images are being processed right now; retry shortly.
-    VisitImagesResponse:
-      type: object
-      required:
-        - images
-      properties:
-        images:
+        venues:
           type: array
           items:
-            $ref: '#/components/schemas/VisitImage'
-    VisitImagesStorageUnconfiguredErrorBody:
-      type: object
-      required:
-        - type
-      properties:
-        type:
-          type: string
-          enum:
-            - visit_images_storage_unconfigured
-        message:
-          type: string
-      description: The server has no storage for visit images configured.
-    VisitLog:
-      type: object
-      required:
-        - id
-        - menuItems
-        - images
-      properties:
-        id:
-          $ref: '#/components/schemas/uuid'
-        visitedOn:
-          type: string
-          description: Visit date as an ISO 8601 calendar date (YYYY-MM-DD). Absent when unknown.
-        menuItems:
-          type: array
-          items:
-            $ref: '#/components/schemas/MenuItem'
-          description: 食べたメニュー in display order.
-        totalPrice:
-          type: integer
-          format: int32
-          description: 'Derived on the server: the sum of the menu item prices. Absent when no item has a price.'
-        rate:
-          type: number
-          format: double
-          description: 0 to 100. Absent when the visit is not rated.
-        eventName:
-          type: string
-          description: 催事 (department store fair, ramen festival, ...) where the shop was visited.
-        publicNote:
-          type: string
-        privateNote:
-          type: string
-          description: Only in responses to the admin; omitted for everyone else.
-        images:
-          type: array
-          items:
-            $ref: '#/components/schemas/VisitImage'
-          description: The visit's images in display order; the first one represents the visit.
-      description: 'One 訪問ログ. Visit logs are listed newest first: by visitedOn, those without one last, then by creation.'
-    VisitLogBadRequestErrorBody:
-      type: object
-      required:
-        - type
-      properties:
-        type:
-          type: string
-          enum:
-            - invalid_request
-        message:
-          type: string
-        fieldErrors:
-          type: array
-          items:
-            $ref: '#/components/schemas/VisitLogFieldError'
-    VisitLogField:
-      type: string
-      enum:
-        - visitedOn
-        - menuItems
-        - rate
-        - eventName
-        - publicNote
-        - privateNote
-      description: '`menuItems` covers the list and each item; the message names the item (`menuItems[0].name`).'
-    VisitLogFieldError:
-      type: object
-      required:
-        - field
-        - type
-      properties:
-        field:
-          $ref: '#/components/schemas/VisitLogField'
-        type:
-          $ref: '#/components/schemas/FieldErrorType'
-        message:
-          type: string
-    VisitLogInput:
-      type: object
-      properties:
-        visitedOn:
-          type: string
-          description: ISO 8601 calendar date (YYYY-MM-DD), no later than tomorrow. Omit when unknown.
-        menuItems:
-          type: array
-          items:
-            $ref: '#/components/schemas/MenuItemInput'
-          maxItems: 10
-          description: 食べたメニュー in display order, at most 10. Omit for none.
-        rate:
-          type: number
-          format: double
-          minimum: 0
-          maximum: 100
-          description: 0 to 100. Omit when not rated.
-        eventName:
-          type: string
-          maxLength: 100
-        publicNote:
-          type: string
-          maxLength: 2000
-        privateNote:
-          type: string
-          maxLength: 2000
-      description: |-
-        A visit log as written by the admin. Strings are trimmed and a blank string means not set.
-        On update every field is replaced, so an omitted field is cleared.
-    VisitLogsResponse:
-      type: object
-      required:
-        - visits
-      properties:
-        visits:
-          type: array
-          items:
-            $ref: '#/components/schemas/VisitLog'
+            $ref: '#/components/schemas/Venue'
     WishLevel:
       type: string
       enum:

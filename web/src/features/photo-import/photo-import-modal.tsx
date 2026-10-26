@@ -1,7 +1,7 @@
 import { ModalDialog } from "@/components/modal-dialog.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { GroupReviewList } from "@/features/photo-import/group-review-list.tsx";
-import type { VisitKey } from "@/features/photo-import/import-plan.ts";
+import type { MealRecordKey } from "@/features/photo-import/import-plan.ts";
 import type {
   ImportState,
   RunProgress,
@@ -62,8 +62,8 @@ const hasFiles = (event: DragEvent) =>
   event.dataTransfer.types.includes("Files");
 
 /**
- * Turns iPhone photos into 訪問ログ: pick JPEGs, review how they were grouped
- * and matched to shops, then create the visits and upload the photos. Closing
+ * Turns iPhone photos into 食べた記録: pick JPEGs, review how they were grouped
+ * and matched to shops, then create the meal records and upload the photos. Closing
  * is refused while the import runs.
  */
 export function PhotoImportModal({
@@ -76,7 +76,7 @@ export function PhotoImportModal({
   shops: readonly Shop[];
   open: boolean;
   onClose: () => void;
-  /** Called once on close when an import ran: 食べた, visitCount and 代表写真 changed. */
+  /** Called once on close when an import ran: 食べた, mealRecordCount and 代表写真 changed. */
   onShopsChanged: () => void;
   // Replaceable because its WebGL map cannot render in jsdom tests.
   PlaceFinder?: ComponentProps<typeof GroupReviewList>["PlaceFinder"];
@@ -227,7 +227,7 @@ export function PhotoImportModal({
           <Box color="nm.inkMuted" fontSize="13px" py="24px" textAlign="center">
             {state.done < state.total
               ? `${state.done} / ${state.total} 枚を読み込み中`
-              : "訪問ログを確認中"}
+              : "食べた記録を確認中"}
           </Box>
         )}
         {(state.kind === "review" ||
@@ -279,7 +279,7 @@ function PhotoPicker({ onSelect }: { onSelect: (files: File[]) => void }) {
       <Box fontSize="13px" color="nm.inkMuted" lineHeight="1.8">
         iPhoneで撮った写真（JPEG・互換性優先）をまとめて選んでください。
         <br />
-        撮影日時と位置から訪問をまとめ、登録済みの店舗に割り当てます。
+        撮影日時と位置から食べた記録をまとめ、登録済みの店舗に割り当てます。
         <br />
         一時対応として、撮影日時がない写真はファイル名末尾の日付（例：IMG_5415_2019-08-03.JPG）で補完し、店舗を手動で選べます。
         <br />
@@ -349,7 +349,7 @@ function ImportHeader({
   adding: { done: number; total: number } | null;
   onAdd: (files: File[]) => void;
 }) {
-  const shopName = (key: VisitKey) => {
+  const shopName = (key: MealRecordKey) => {
     const [shopId, day] = key.split("|");
     return `${shops.find((s) => s.id === shopId)?.name ?? "削除された店舗"} ${day}`;
   };
@@ -381,7 +381,7 @@ function ImportHeader({
     body = (
       <>
         <Line>
-          {summary.create} 件の訪問を作成 / {summary.claim}{" "}
+          {summary.create} 件の記録を作成 / {summary.claim}{" "}
           件の日付不明ログに日付を付ける / {summary.resume} 件に画像を追加 /{" "}
           {summary.done} 件は取り込み済み / 要確認 {summary.undecided}{" "}
           件は取り込まれません
@@ -469,7 +469,7 @@ function ImportHeader({
 function ProgressLine({ progress }: { progress: RunProgress }) {
   return (
     <Line>
-      訪問 {progress.finished} / {progress.total} · 作成 {progress.created} ·
+      記録 {progress.finished} / {progress.total} · 作成 {progress.created} ·
       日付を付与 {progress.claimed} · 画像を追加 {progress.resumed} ·
       取り込み済み {progress.alreadyDone} · 画像 {progress.uploadedImages} 枚 ·
       失敗 {progress.failures.length}
@@ -482,7 +482,7 @@ function Failures({
   shopName,
 }: {
   progress: RunProgress;
-  shopName: (key: VisitKey) => string;
+  shopName: (key: MealRecordKey) => string;
 }) {
   if (progress.failures.length === 0) {
     return null;
@@ -490,7 +490,7 @@ function Failures({
   return (
     <Box
       as="ul"
-      aria-label="取り込めなかった訪問"
+      aria-label="取り込めなかった記録"
       maxH="120px"
       overflowY="auto"
       fontSize="12px"

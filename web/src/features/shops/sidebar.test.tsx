@@ -20,8 +20,8 @@ function renderFilters(filters: Partial<SearchFilters>) {
   const group = screen.getByRole("group", { name: "気になる度" });
   const level = (label: string) =>
     within(group).getByRole("button", { name: `気になる度: ${label}` });
-  const visitChip = (name: string) => screen.getByRole("button", { name });
-  return { onFilterChange, group, level, visitChip };
+  const mealRecordChip = (name: string) => screen.getByRole("button", { name });
+  return { onFilterChange, group, level, mealRecordChip };
 }
 
 describe("ShopFilters 気になる度", () => {
@@ -55,24 +55,24 @@ describe("ShopFilters 気になる度", () => {
     expect(onFilterChange).toHaveBeenLastCalledWith("wishLevels", ["high"]);
   });
 
-  it("is disabled while the 気になる visit filter is off", () => {
+  it("is disabled while the 気になる meal record filter is off", () => {
     const { group, level } = renderFilters({ wish: false });
     expect(group).toHaveAttribute("aria-disabled", "true");
     expect(level("気になる")).toBeDisabled();
   });
 
-  it("clears the levels when the 気になる visit filter is turned off", async () => {
-    const { onFilterChange, visitChip } = renderFilters({
+  it("clears the levels when the 気になる meal record filter is turned off", async () => {
+    const { onFilterChange, mealRecordChip } = renderFilters({
       wishLevels: ["high"],
     });
-    await userEvent.click(visitChip("気になる"));
+    await userEvent.click(mealRecordChip("気になる"));
     expect(onFilterChange).toHaveBeenCalledWith("wish", false);
     expect(onFilterChange).toHaveBeenCalledWith("wishLevels", []);
   });
 
-  it("leaves the levels alone when the 気になる visit filter is turned on", async () => {
-    const { onFilterChange, visitChip } = renderFilters({ wish: false });
-    await userEvent.click(visitChip("気になる"));
+  it("leaves the levels alone when the 気になる meal record filter is turned on", async () => {
+    const { onFilterChange, mealRecordChip } = renderFilters({ wish: false });
+    await userEvent.click(mealRecordChip("気になる"));
     expect(onFilterChange).toHaveBeenCalledWith("wish", true);
     expect(onFilterChange).not.toHaveBeenCalledWith(
       "wishLevels",
@@ -80,10 +80,10 @@ describe("ShopFilters 気になる度", () => {
     );
   });
 
-  it("names the level toggles apart from the visit chips", () => {
-    const { visitChip } = renderFilters({ eaten: true, wish: false });
-    expect(visitChip("食べた")).toHaveAttribute("aria-pressed", "true");
-    expect(visitChip("気になる")).toHaveAttribute("aria-pressed", "false");
+  it("names the level toggles apart from the meal record chips", () => {
+    const { mealRecordChip } = renderFilters({ eaten: true, wish: false });
+    expect(mealRecordChip("食べた")).toHaveAttribute("aria-pressed", "true");
+    expect(mealRecordChip("気になる")).toHaveAttribute("aria-pressed", "false");
     expect(
       screen.getByRole("button", { name: "気になる度: 気になる" }),
     ).toHaveTextContent("気になる");

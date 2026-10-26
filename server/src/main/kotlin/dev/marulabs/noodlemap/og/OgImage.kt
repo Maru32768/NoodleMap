@@ -1,7 +1,7 @@
 package dev.marulabs.noodlemap.og
 
-import dev.marulabs.noodlemap.visits.VISIT_IMAGE_MAX_EDGE
-import dev.marulabs.noodlemap.visits.decodeSubsampled
+import dev.marulabs.noodlemap.mealrecords.MEAL_RECORD_IMAGE_MAX_EDGE
+import dev.marulabs.noodlemap.mealrecords.decodeSubsampled
 import java.awt.BasicStroke
 import java.awt.Color
 import java.awt.Font
@@ -78,11 +78,11 @@ fun renderOgImage(card: OgCard, cover: BufferedImage?): ByteArray {
 /** A cover more than this many times wider than tall (or taller than wide) loses too much to the crop. */
 private const val MAX_COVER_ASPECT = 3.0
 
-/** Decoded covers stay within a stored 訪問画像's pixels: 2048 x 2048 x 4 B = 16 MB. */
-private const val MAX_COVER_PIXELS = VISIT_IMAGE_MAX_EDGE.toLong() * VISIT_IMAGE_MAX_EDGE
+/** Decoded covers stay within a stored 記録の画像's pixels: 2048 x 2048 x 4 B = 16 MB. */
+private const val MAX_COVER_PIXELS = MEAL_RECORD_IMAGE_MAX_EDGE.toLong() * MEAL_RECORD_IMAGE_MAX_EDGE
 
 /**
- * Decodes a stored 訪問画像 for [renderOgImage], subsampled as coarsely as still covers the card without
+ * Decodes a stored 記録の画像 for [renderOgImage], subsampled as coarsely as still covers the card without
  * upscaling. Throws for undecodable bytes, an extreme aspect ratio or a bitmap over [MAX_COVER_PIXELS], and the
  * text card is drawn instead.
  */
@@ -116,10 +116,10 @@ private fun drawTextCard(g: Graphics2D, card: OgCard) {
     // Category, statuses, then up to 3 tags.
     drawPills(g, (listOf(Chip(card.category, "#1a1614")) + card.statuses + card.tags).map { it.pill() }, MARGIN, 318, MARGIN + CONTENT_WIDTH)
 
-    // The row under the chips: hearts and the visit count of an eaten shop.
+    // The row under the chips: hearts and the meal record count of an eaten shop.
     var rowX = MARGIN
     if (card.hearts > 0) rowX = drawHearts(g, card.hearts, MARGIN, 410, 52, INK_FAINT) + 28
-    card.visitCountLabel?.let {
+    card.mealRecordCountLabel?.let {
         g.font = baseFont.deriveFont(36f)
         g.color = INK_MUTED
         g.drawString(it, rowX, centerBaseline(g, 410, 52))
@@ -166,10 +166,10 @@ private fun drawPhotoCard(g: Graphics2D, card: OgCard, cover: BufferedImage) {
         outline = ON_PHOTO_FAINT,
     )
 
-    // Hearts and the visit count.
+    // Hearts and the meal record count.
     var rowX = PHOTO_MARGIN
     if (card.hearts > 0) rowX = drawHearts(g, card.hearts, PHOTO_MARGIN, 474, 48, ON_PHOTO_FAINT) + 24
-    card.visitCountLabel?.let {
+    card.mealRecordCountLabel?.let {
         g.font = baseFont.deriveFont(34f)
         drawShadowed(g, it, rowX, centerBaseline(g, 474, 48), ON_PHOTO)
     }

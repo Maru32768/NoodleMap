@@ -20,10 +20,10 @@ enum class ErrorType {
     @SerialName("internal_error") INTERNAL_ERROR,
     @SerialName("google_places_not_configured") GOOGLE_PLACES_NOT_CONFIGURED,
     @SerialName("google_places_failed") GOOGLE_PLACES_FAILED,
-    @SerialName("shop_has_visit_logs") SHOP_HAS_VISIT_LOGS,
-    @SerialName("visit_image_limit_reached") VISIT_IMAGE_LIMIT_REACHED,
-    @SerialName("visit_image_processing_busy") VISIT_IMAGE_PROCESSING_BUSY,
-    @SerialName("visit_images_storage_unconfigured") VISIT_IMAGES_STORAGE_UNCONFIGURED,
+    @SerialName("shop_has_meal_records") SHOP_HAS_MEAL_RECORD_LOGS,
+    @SerialName("meal_record_image_limit_reached") MEAL_RECORD_IMAGE_LIMIT_REACHED,
+    @SerialName("meal_record_image_processing_busy") MEAL_RECORD_IMAGE_PROCESSING_BUSY,
+    @SerialName("meal_record_images_storage_unconfigured") MEAL_RECORD_IMAGES_STORAGE_UNCONFIGURED,
 }
 
 /** Field-level error kind. Values mirror TypeSpec `FieldErrorType`. */
@@ -135,17 +135,17 @@ sealed class DomainException(
             listOf(FieldError("tagIds", FieldErrorType.UNKNOWN)),
         )
 
-    class ShopHasVisitLogs :
-        DomainException(HttpStatusCode.Conflict, ErrorType.SHOP_HAS_VISIT_LOGS, "shop has visit logs")
+    class ShopHasMealRecords :
+        DomainException(HttpStatusCode.Conflict, ErrorType.SHOP_HAS_MEAL_RECORD_LOGS, "shop has meal records")
 
-    class VisitImageLimitReached :
-        DomainException(HttpStatusCode.Conflict, ErrorType.VISIT_IMAGE_LIMIT_REACHED, "visit log has the maximum number of images")
+    class MealRecordImageLimitReached :
+        DomainException(HttpStatusCode.Conflict, ErrorType.MEAL_RECORD_IMAGE_LIMIT_REACHED, "meal record has the maximum number of images")
 
-    class VisitImageProcessingBusy :
-        DomainException(HttpStatusCode.ServiceUnavailable, ErrorType.VISIT_IMAGE_PROCESSING_BUSY, "too many images are being processed")
+    class MealRecordImageProcessingBusy :
+        DomainException(HttpStatusCode.ServiceUnavailable, ErrorType.MEAL_RECORD_IMAGE_PROCESSING_BUSY, "too many images are being processed")
 
-    class VisitImagesStorageUnconfigured :
-        DomainException(HttpStatusCode.ServiceUnavailable, ErrorType.VISIT_IMAGES_STORAGE_UNCONFIGURED, "visit image storage is not configured")
+    class MealRecordImagesStorageUnconfigured :
+        DomainException(HttpStatusCode.ServiceUnavailable, ErrorType.MEAL_RECORD_IMAGES_STORAGE_UNCONFIGURED, "mealRecord image storage is not configured")
 
     class InvalidTagCommand :
         DomainException(HttpStatusCode.BadRequest, ErrorType.INVALID_REQUEST, "invalid tag")

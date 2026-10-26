@@ -15,7 +15,7 @@ type UpdateShopRequest = components["schemas"]["UpdateShopRequest"];
 // The toaster store is global; clear it so one test's toast never leaks into the next.
 afterEach(() => toaster.remove());
 
-// No visit logs: a shop with any cannot be deleted.
+// No meal records: a shop with any cannot be deleted.
 const shop = makeShop({ name: "中華そば 青葉", eaten: false });
 
 async function renderModal(deleteResponse: () => Response) {
@@ -42,7 +42,7 @@ async function renderEditor(
     tags = [],
   }: {
     saveResponse?: () => Response | Promise<Response>;
-    initialTab?: "info" | "visit";
+    initialTab?: "info" | "mealRecord";
     tags?: Tag[];
   } = {},
 ) {
@@ -50,8 +50,8 @@ async function renderEditor(
   server.use(
     http.get("/api/v1/shops", () => HttpResponse.json({ shops: [target] })),
     http.get("/api/v1/tags", () => HttpResponse.json({ tags })),
-    http.get(`/api/v1/shops/${target.id}/visits`, () =>
-      HttpResponse.json({ visits: [] }),
+    http.get(`/api/v1/shops/${target.id}/meal-records`, () =>
+      HttpResponse.json({ mealRecords: [] }),
     ),
     http.put(`/api/v1/auth/shops/${target.id}`, async ({ request }) => {
       requests.push((await request.json()) as UpdateShopRequest);
@@ -155,7 +155,7 @@ describe("ShopEditModal save", () => {
 
   it("shows a field error under its input on the tab that has it", async () => {
     const { onClose } = await renderEditor(makeShop(), {
-      initialTab: "visit",
+      initialTab: "mealRecord",
       saveResponse: fieldErrorResponse([
         { field: "nameKana", type: "too_long" },
         { field: "googlePlaceId", type: "duplicate" },
@@ -190,7 +190,7 @@ describe("ShopEditModal save", () => {
 
   it("switches to 店舗情報 for a 気になる度 error", async () => {
     await renderEditor(makeShop({ eaten: false }), {
-      initialTab: "visit",
+      initialTab: "mealRecord",
       saveResponse: fieldErrorResponse([
         { field: "wishLevel", type: "invalid_format" },
       ]),
@@ -240,10 +240,10 @@ describe("ShopEditModal save", () => {
   it("toasts a field error that has no input on screen", async () => {
     await renderEditor(makeShop({ eaten: false }), {
       saveResponse: fieldErrorResponse([
-        // Deprecated: the server derives the rate from visit logs, so no input.
+        // Deprecated: the server derives the rate from meal records, so no input.
         { field: "rate", type: "out_of_range" },
         // A field from a newer server.
-        { field: "visitLogs", type: "required" } as unknown as {
+        { field: "mealRecords", type: "required" } as unknown as {
           field: "name";
           type: "required";
         },
@@ -501,7 +501,7 @@ describe("ShopEditModal 気になる度", () => {
 
     await waitFor(() => expect(requests).toHaveLength(1));
     expect(requests[0]).not.toHaveProperty("wishLevel");
-    // 食べた and お気に入り度 come from visit logs; the deprecated fields are not sent.
+    // 食べた and お気に入り度 come from meal records; the deprecated fields are not sent.
     expect(requests[0]).not.toHaveProperty("eaten");
     expect(requests[0]).not.toHaveProperty("rate");
   });
@@ -626,13 +626,13 @@ describe("ShopEditModal 気になる度 across a refresh", () => {
   });
 });
 
-describe("ShopEditModal shop with visit logs", () => {
+describe("ShopEditModal shop with meal records", () => {
   it("disables 削除 and says why", async () => {
-    await renderEditor(makeShop({ eaten: true, visitCount: 2 }));
+    await renderEditor(makeShop({ eaten: true, mealRecordCount: 2 }));
 
     expect(screen.getByRole("button", { name: "削除" })).toBeDisabled();
     expect(
-      screen.getByText("訪問ログがある店舗は削除できません"),
+      screen.getByText("食べた記録がある店舗は削除できません"),
     ).toBeInTheDocument();
   });
 });

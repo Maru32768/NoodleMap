@@ -17,8 +17,8 @@ mkdirSync(dirname(dbPath), { recursive: true });
 for (const suffix of ["", "-wal", "-shm", ".bak"]) {
   rmSync(dbPath + suffix, { force: true });
 }
-// Local-disk visit images live next to the database.
-rmSync(resolve(dirname(dbPath), "visit-images"), { recursive: true, force: true });
+// Local-disk meal record images live next to the database.
+rmSync(resolve(dirname(dbPath), "meal-record-images"), { recursive: true, force: true });
 
 const isWindows = process.platform === "win32";
 const gradlew = resolve(serverDir, isWindows ? "gradlew.bat" : "gradlew");

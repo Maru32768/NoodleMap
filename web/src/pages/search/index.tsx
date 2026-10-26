@@ -17,6 +17,7 @@ import {
   MapHandle,
   MapSelectDetails,
 } from "@/features/map/map.tsx";
+import { restoresSearchCamera } from "@/features/meal-records/record-navigation.tsx";
 import { useSearchState } from "@/features/search/use-search-state.ts";
 import { filterShops, sortShops } from "@/features/search/utils.ts";
 import { useShops } from "@/features/shops/api/use-shops.ts";
@@ -37,7 +38,7 @@ import {
   useState,
 } from "react";
 import { CiFilter } from "react-icons/ci";
-import { useSearchParams } from "react-router";
+import { useLocation, useSearchParams } from "react-router";
 
 const DEFAULT_CENTER = { lat: 35.6895315, lng: 139.700492 } as const;
 
@@ -158,7 +159,14 @@ export default function SearchPage() {
       { replace: true },
     );
   }, []);
-  const deepLinkedIdRef = useRef(selectedId);
+  const location = useLocation();
+  const handledLocationKeyRef = useRef<string | null>(
+    restoresSearchCamera(location.state) ? location.key : null,
+  );
+  const pendingSelectionRef = useRef<{
+    id: string;
+    details: MapSelectDetails;
+  } | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [locationTrackingMode, setLocationTrackingMode] =
@@ -223,15 +231,21 @@ export default function SearchPage() {
       setSelectedId(null);
       return;
     }
-    // A shared link overrides the persisted map view once, on first load.
-    // mapView also feeds the map's initial center, so a map re-created after
-    // this pan still opens on the shop.
-    if (deepLinkedIdRef.current === selectedId) {
-      deepLinkedIdRef.current = null;
-      const center: [number, number] = [selectedShop.lat, selectedShop.lng];
-      handleMapViewChange({ center, zoom: mapView.zoom });
-      mapRef.current?.panTo(center, { animate: false });
+    if (handledLocationKeyRef.current === location.key) {
+      return;
     }
+    const pending = pendingSelectionRef.current;
+    const animate = pending !== null || handledLocationKeyRef.current !== null;
+    handledLocationKeyRef.current = location.key;
+    pendingSelectionRef.current = null;
+    const center: [number, number] =
+      pending?.id === selectedId &&
+      pending.details.source === "map" &&
+      pending.details.latlng
+        ? pending.details.latlng
+        : [selectedShop.lat, selectedShop.lng];
+    handleMapViewChange({ center, zoom: mapView.zoom });
+    mapRef.current?.panTo(center, { animate });
   }, [
     shops,
     selectedId,
@@ -239,6 +253,7 @@ export default function SearchPage() {
     setSelectedId,
     handleMapViewChange,
     mapView.zoom,
+    location.key,
   ]);
 
   const editShop = useMemo(
@@ -248,19 +263,10 @@ export default function SearchPage() {
 
   const handleSelect = useCallback(
     (id: string, details: MapSelectDetails = { source: "external" }) => {
+      pendingSelectionRef.current = { id, details };
       setSelectedId(id);
-      if (details.source === "map" && details.latlng) {
-        mapRef.current?.panTo(details.latlng, { animate: true });
-        return;
-      }
-
-      const r = shops?.find((x) => x.id === id);
-      if (r && mapRef.current) {
-        const map = mapRef.current;
-        map.panTo([r.lat, r.lng], { animate: true });
-      }
     },
-    [shops, setSelectedId],
+    [setSelectedId],
   );
 
   const handleClose = useCallback(() => {

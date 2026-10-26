@@ -2,6 +2,8 @@ import { CategoryBadge } from "@/components/category-badge.tsx";
 import { ShopThumb } from "@/components/shop-thumb.tsx";
 import { CloseButton } from "@/components/ui/close-button.tsx";
 import { useCurrentUser } from "@/features/auth/use-current-user.ts";
+import { ShopMealRecordHistory } from "@/features/meal-records/shop-meal-record-history.tsx";
+import { ShopRating } from "@/features/meal-records/shop-rating.tsx";
 import { Shop } from "@/features/shops/api/use-shops.ts";
 import { MiniHearts } from "@/features/shops/rating-hearts.tsx";
 import {
@@ -16,8 +18,6 @@ import {
   shopStatusLabel,
 } from "@/features/shops/status.ts";
 import { SystemTagChips, TagChips } from "@/features/shops/tag-chips.tsx";
-import { ShopRating } from "@/features/visits/shop-rating.tsx";
-import { ShopVisitHistory } from "@/features/visits/shop-visit-history.tsx";
 import { useIsPc } from "@/utils/use-is-pc.ts";
 import { Box } from "@chakra-ui/react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -144,10 +144,14 @@ export function MobileSheet({
 
   const snapPoints = [0, getPeekRatio(viewportHeight, PEEK), 1];
 
+  if (isPc) {
+    return null;
+  }
+
   return (
     <Sheet
       ref={sheetRef}
-      isOpen={!isPc}
+      isOpen
       snapPoints={snapPoints}
       onClose={onClose}
       initialSnap={PEEK_SNAP}
@@ -272,7 +276,7 @@ export function MobileSheet({
                       お気に入り度
                     </Box>
                     <Box fontSize="0.6875rem" color="nm.inkMuted">
-                      {shop.visitCount}回訪問
+                      {shop.mealRecordCount}件の記録
                     </Box>
                   </Box>
                   <ShopRating shop={shop} compact />
@@ -322,7 +326,7 @@ export function MobileSheet({
 
               {shop.eaten && (
                 <Box mt="1rem">
-                  <ShopVisitHistory shopId={shop.id} />
+                  <ShopMealRecordHistory shopId={shop.id} />
                 </Box>
               )}
 

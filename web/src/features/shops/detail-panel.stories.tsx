@@ -3,11 +3,15 @@ import {
   CurrentUserProvider,
   GUEST_USER,
 } from "@/features/auth/use-current-user.ts";
+import {
+  MealRecord,
+  mealRecordsKey,
+} from "@/features/meal-records/api/use-meal-records.ts";
 import { DetailPanel } from "@/features/shops/detail-panel.tsx";
-import { VisitLog, visitsKey } from "@/features/visits/api/use-visits.ts";
 import { makeShop, makeTag } from "@/test/fixtures.ts";
 import { Box } from "@chakra-ui/react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { MemoryRouter } from "react-router";
 import { fn } from "storybook/test";
 import { SWRConfig, unstable_serialize } from "swr";
 
@@ -29,11 +33,12 @@ const shop = makeShop({
 });
 
 // Served from the SWR cache so the stories never hit the network.
-const visits: VisitLog[] = [
+const mealRecords: MealRecord[] = [
   {
     id: "00000000-0000-4000-8000-0000000000c1",
-    visitedOn: "2026-10-01",
-    // 連食: two items in one visit.
+    eatenOn: "2026-10-01",
+    shops: [shop],
+    // 連食: two items in one mealRecord.
     menuItems: [
       { name: "特製中華そば", isLimited: false, price: 1200 },
       { name: "味玉", isLimited: false, price: 150 },
@@ -46,8 +51,9 @@ const visits: VisitLog[] = [
   },
   {
     id: "00000000-0000-4000-8000-0000000000c2",
+    shops: [shop],
     menuItems: [{ name: "冬季限定 味噌", isLimited: true }],
-    eventName: "大つけ麺博",
+    venue: { id: "venue-1", name: "大つけ麺博" },
     images: [],
   },
 ];
@@ -61,24 +67,30 @@ const meta = {
       // Only the admin gets メモ（自分用） from the API.
       const served =
         user.type === "admin"
-          ? visits
-          : visits.map((visit) => ({ ...visit, privateNote: undefined }));
+          ? mealRecords
+          : mealRecords.map((mealRecord) => ({
+              ...mealRecord,
+              privateNote: undefined,
+            }));
       return (
-        <SWRConfig
-          value={{
-            fallback: {
-              [unstable_serialize(visitsKey(args.shop.id, user))]: served,
-            },
-            revalidateOnMount: false,
-          }}
-        >
-          <CurrentUserProvider value={user}>
-            {/* The panel is absolutely positioned and hidden below the md breakpoint. */}
-            <Box position="relative" h="100vh" minH="640px" bg="nm.bg">
-              <Story />
-            </Box>
-          </CurrentUserProvider>
-        </SWRConfig>
+        <MemoryRouter>
+          <SWRConfig
+            value={{
+              fallback: {
+                [unstable_serialize(mealRecordsKey(args.shop.id, user))]:
+                  served,
+              },
+              revalidateOnMount: false,
+            }}
+          >
+            <CurrentUserProvider value={user}>
+              {/* The panel is absolutely positioned and hidden below the md breakpoint. */}
+              <Box position="relative" h="100vh" minH="640px" bg="nm.bg">
+                <Story />
+              </Box>
+            </CurrentUserProvider>
+          </SWRConfig>
+        </MemoryRouter>
       );
     },
   ],

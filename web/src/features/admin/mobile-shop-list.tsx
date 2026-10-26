@@ -132,7 +132,7 @@ function MobileShopListItem({
           {shop.eaten ? (
             <>
               <MiniHearts rate={shop.rate} />
-              <Box as="span">{shop.visitCount}回訪問</Box>
+              <Box as="span">{shop.mealRecordCount}件の記録</Box>
             </>
           ) : (
             <Box as="span" color="nm.inkFaint">

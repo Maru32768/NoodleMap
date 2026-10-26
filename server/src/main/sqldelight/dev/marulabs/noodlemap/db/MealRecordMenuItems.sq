@@ -1,0 +1,28 @@
+-- 食べたメニュー of a meal record, in display order.
+CREATE TABLE meal_record_menu_items (
+    id           TEXT AS java.util.UUID NOT NULL PRIMARY KEY,
+    meal_record_id TEXT AS java.util.UUID NOT NULL,
+    name         TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 200),
+    is_limited   INTEGER AS kotlin.Boolean NOT NULL DEFAULT 0 CHECK (is_limited IN (0, 1)),
+    price        INTEGER CHECK (price BETWEEN 0 AND 10000000),
+    sort_order   INTEGER NOT NULL,
+    created_at   TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at   TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (meal_record_id) REFERENCES meal_records (id)
+);
+
+CREATE INDEX idx_meal_record_menu_items_meal_record_id ON meal_record_menu_items (meal_record_id);
+
+-- (modtime trigger omitted; see note in Users.sq)
+
+insertMealRecordMenuItem:
+INSERT INTO meal_record_menu_items (id, meal_record_id, name, is_limited, price, sort_order) VALUES (?, ?, ?, ?, ?, ?);
+
+deleteMealRecordMenuItemsByMealRecordId:
+DELETE FROM meal_record_menu_items WHERE meal_record_id = ?;
+
+findMealRecordMenuItemsByMealRecordIds:
+SELECT meal_record_id, name, is_limited, price
+FROM meal_record_menu_items
+WHERE meal_record_id IN ?
+ORDER BY meal_record_id, sort_order;

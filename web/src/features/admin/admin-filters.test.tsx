@@ -1,5 +1,5 @@
 import { AdminFilters } from "@/features/admin/admin-filters.tsx";
-import type { VisitFilter } from "@/features/admin/visit-filter.ts";
+import type { MealRecordFilter } from "@/features/admin/meal-record-filter.ts";
 import type { WishLevel } from "@/features/shops/status.ts";
 import { renderWithProviders } from "@/test/render.tsx";
 import { screen, within } from "@testing-library/react";
@@ -7,22 +7,22 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 function renderFilters({
-  visitFilter = "all",
+  mealRecordFilter = "all",
   wishLevels = [],
 }: {
-  visitFilter?: VisitFilter;
+  mealRecordFilter?: MealRecordFilter;
   wishLevels?: WishLevel[];
 } = {}) {
   const setCategoryFilter = vi.fn();
-  const setVisitFilter = vi.fn();
+  const setMealRecordFilter = vi.fn();
   const setWishLevels = vi.fn();
   const onClearAll = vi.fn();
   renderWithProviders(
     <AdminFilters
       categoryFilter="all"
       setCategoryFilter={setCategoryFilter}
-      visitFilter={visitFilter}
-      setVisitFilter={setVisitFilter}
+      mealRecordFilter={mealRecordFilter}
+      setMealRecordFilter={setMealRecordFilter}
       wishLevels={wishLevels}
       setWishLevels={setWishLevels}
       filteredCount={1}
@@ -42,7 +42,7 @@ function renderFilters({
     wishGroup,
     level,
     setCategoryFilter,
-    setVisitFilter,
+    setMealRecordFilter,
     setWishLevels,
     onClearAll,
   };
@@ -50,7 +50,7 @@ function renderFilters({
 
 describe("AdminFilters", () => {
   it("exposes カテゴリ and 状態 as named radio groups", async () => {
-    const { option, setCategoryFilter, setVisitFilter } = renderFilters();
+    const { option, setCategoryFilter, setMealRecordFilter } = renderFilters();
     expect(option("カテゴリ", "すべて")).toHaveAttribute(
       "aria-checked",
       "true",
@@ -61,7 +61,7 @@ describe("AdminFilters", () => {
     await userEvent.click(option("カテゴリ", "うどん"));
     expect(setCategoryFilter).toHaveBeenCalledWith("udon");
     await userEvent.click(option("状態", "閉店"));
-    expect(setVisitFilter).toHaveBeenCalledWith("closed");
+    expect(setMealRecordFilter).toHaveBeenCalledWith("closed");
   });
 
   it("exposes 気になる度 as three independent toggles, none pressed by default", async () => {
@@ -97,15 +97,15 @@ describe("AdminFilters", () => {
   });
 
   it("clears the 気になる度 levels when 状態 becomes 食べた", async () => {
-    const { option, setVisitFilter, setWishLevels } = renderFilters({
+    const { option, setMealRecordFilter, setWishLevels } = renderFilters({
       wishLevels: ["high"],
     });
     await userEvent.click(option("状態", "気になる"));
-    expect(setVisitFilter).toHaveBeenLastCalledWith("wish");
+    expect(setMealRecordFilter).toHaveBeenLastCalledWith("wish");
     expect(setWishLevels).not.toHaveBeenCalled();
 
     await userEvent.click(option("状態", "食べた"));
-    expect(setVisitFilter).toHaveBeenLastCalledWith("eaten");
+    expect(setMealRecordFilter).toHaveBeenLastCalledWith("eaten");
     expect(setWishLevels).toHaveBeenLastCalledWith([]);
   });
 
@@ -118,7 +118,7 @@ describe("AdminFilters", () => {
   });
 
   it("disables 気になる度 while 状態 is 食べた", () => {
-    const { wishGroup, level } = renderFilters({ visitFilter: "eaten" });
+    const { wishGroup, level } = renderFilters({ mealRecordFilter: "eaten" });
     expect(wishGroup).toHaveAttribute("aria-disabled", "true");
     expect(level("気になる")).toBeDisabled();
   });

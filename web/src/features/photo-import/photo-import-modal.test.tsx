@@ -4,9 +4,9 @@ import { Shop, useShops } from "@/features/shops/api/use-shops.ts";
 import type { components } from "@/generated/api.ts";
 import { ExifSpec, withExif } from "@/test/exif-jpeg.ts";
 import { makeShop } from "@/test/fixtures.ts";
+import { fakeMealRecordServer } from "@/test/meal-record-server.ts";
 import { renderWithProviders } from "@/test/render.tsx";
 import { server } from "@/test/server.ts";
-import { fakeVisitServer } from "@/test/visit-server.ts";
 import {
   cleanup,
   fireEvent,
@@ -110,7 +110,7 @@ function LiveShopsModal() {
 
 async function selectPhotos(user: ReturnType<typeof userEvent.setup>) {
   await user.upload(await screen.findByLabelText("写真を選ぶ"), PHOTOS);
-  await screen.findByText(/件の訪問を作成/);
+  await screen.findByText(/件の記録を作成/);
 }
 
 describe("PhotoImportModal", () => {
@@ -129,14 +129,14 @@ describe("PhotoImportModal", () => {
 
   it("asks about a photo between two shops, then imports what was decided", async () => {
     const user = userEvent.setup();
-    const fake = fakeVisitServer();
+    const fake = fakeMealRecordServer();
     const { onClose, onShopsChanged } = renderModal();
 
     await selectPhotos(user);
 
     expect(
       screen.getByText(
-        "1 件の訪問を作成 / 0 件の日付不明ログに日付を付ける / 0 件に画像を追加 / 0 件は取り込み済み / 要確認 1 件は取り込まれません",
+        "1 件の記録を作成 / 0 件の日付不明ログに日付を付ける / 0 件に画像を追加 / 0 件は取り込み済み / 要確認 1 件は取り込まれません",
       ),
     ).toBeInTheDocument();
     const candidates = await screen.findByRole("radiogroup", {
@@ -151,11 +151,11 @@ describe("PhotoImportModal", () => {
     await user.click(
       within(candidates).getByRole("radio", { name: /中華そば 甲/ }),
     );
-    await screen.findByText(/^2 件の訪問を作成/);
+    await screen.findByText(/^2 件の記録を作成/);
     await user.click(screen.getByRole("button", { name: "取り込む" }));
 
     await screen.findByText("取り込みが完了しました");
-    // The admin's pick runs first; the far photo never becomes a visit.
+    // The admin's pick runs first; the far photo never becomes a mealRecord.
     expect(fake.log).toEqual([
       "create 2023-04-02",
       "image 1",
@@ -163,8 +163,8 @@ describe("PhotoImportModal", () => {
       "image 1",
       "image 2",
     ]);
-    expect(fake.visitsOf(NEIGHBOR_A.id)).toHaveLength(1);
-    expect(fake.visitsOf(ALONE.id)).toHaveLength(1);
+    expect(fake.mealRecordsOf(NEIGHBOR_A.id)).toHaveLength(1);
+    expect(fake.mealRecordsOf(ALONE.id)).toHaveLength(1);
 
     await user.keyboard("{Escape}");
     expect(onClose).toHaveBeenCalledTimes(1);
@@ -173,7 +173,7 @@ describe("PhotoImportModal", () => {
 
   it("asks for each filename photo's shop and imports the filename date once for the same shop", async () => {
     const user = userEvent.setup();
-    const fake = fakeVisitServer();
+    const fake = fakeMealRecordServer();
     renderModal();
     const files = ["first_2019-08-03.JPG", "second_2019-08-03.JPG"].map(
       (name) => new File([BARE_JPEG], name, { type: "image/jpeg" }),
@@ -196,37 +196,37 @@ describe("PhotoImportModal", () => {
         within(row).getByRole("button", { name: /麺屋 ひとり/ }),
       );
     }
-    await screen.findByText(/^1 件の訪問を作成/);
+    await screen.findByText(/^1 件の記録を作成/);
     await user.click(screen.getByRole("button", { name: "取り込む" }));
     await screen.findByText("取り込みが完了しました");
     expect(fake.log).toEqual(["create 2019-08-03", "image 1", "image 2"]);
-    expect(fake.visitsOf(ALONE.id)).toEqual([
+    expect(fake.mealRecordsOf(ALONE.id)).toEqual([
       expect.objectContaining({
-        visitedOn: "2019-08-03",
+        eatenOn: "2019-08-03",
         images: expect.any(Array),
       }),
     ]);
-    expect(fake.visitsOf(ALONE.id)[0].images).toHaveLength(2);
+    expect(fake.mealRecordsOf(ALONE.id)[0].images).toHaveLength(2);
   });
 
   it("starts from photos pasted into the dialog", async () => {
-    fakeVisitServer();
+    fakeMealRecordServer();
     renderModal();
     await screen.findByLabelText("写真を選ぶ");
 
     fireEvent.paste(document, { clipboardData: { files: PHOTOS } });
 
-    await screen.findByText(/^1 件の訪問を作成/);
+    await screen.findByText(/^1 件の記録を作成/);
   });
 
   it("adds dropped photos of another shop, keeping what the admin chose and ignoring a photo dropped twice", async () => {
     const user = userEvent.setup();
-    const fake = fakeVisitServer();
+    const fake = fakeMealRecordServer();
     renderModal();
     await selectPhotos(user);
     // The shop candidates render after the summary.
     await user.click(await screen.findByRole("radio", { name: /中華そば 甲/ }));
-    const summary = await screen.findByText(/^2 件の訪問を作成/);
+    const summary = await screen.findByText(/^2 件の記録を作成/);
 
     fireEvent.drop(summary, {
       dataTransfer: {
@@ -238,7 +238,7 @@ describe("PhotoImportModal", () => {
       },
     });
 
-    await screen.findByText(/^3 件の訪問を作成/);
+    await screen.findByText(/^3 件の記録を作成/);
     await user.click(screen.getByRole("button", { name: "取り込む" }));
     await screen.findByText("取り込みが完了しました");
     expect(fake.log).toEqual([
@@ -254,7 +254,7 @@ describe("PhotoImportModal", () => {
 
   it("shows a photo far from every shop as skipped and leaves a photo out when excluded", async () => {
     const user = userEvent.setup();
-    const fake = fakeVisitServer();
+    const fake = fakeMealRecordServer();
     renderModal();
     await selectPhotos(user);
 
@@ -279,7 +279,7 @@ describe("PhotoImportModal", () => {
 
   it("adds the shop of a photo far from every shop, at the photo's position, and imports to it", async () => {
     const user = userEvent.setup();
-    const fake = fakeVisitServer();
+    const fake = fakeMealRecordServer();
     const added: components["schemas"]["AddShopRequest"][] = [];
     const created: Shop[] = [];
     server.use(
@@ -335,22 +335,22 @@ describe("PhotoImportModal", () => {
         lng: expect.closeTo(139.6, 6),
       },
     ]);
-    await screen.findByText(/^2 件の訪問を作成/);
+    await screen.findByText(/^2 件の記録を作成/);
     await user.click(screen.getByRole("button", { name: "取り込む" }));
 
     await screen.findByText("取り込みが完了しました");
-    expect(fake.visitsOf(created[0].id)).toMatchObject([
-      { visitedOn: "2023-04-03" },
+    expect(fake.mealRecordsOf(created[0].id)).toMatchObject([
+      { eatenOn: "2023-04-03" },
     ]);
   });
 
   it("refuses to close while the import runs", async () => {
     const user = userEvent.setup();
-    fakeVisitServer();
+    fakeMealRecordServer();
     let release!: () => void;
     const held = new Promise<void>((resolve) => (release = resolve));
     server.use(
-      http.post("/api/v1/auth/shops/:id/visits", async () => {
+      http.post("/api/v1/auth/meal-records", async () => {
         await held;
         return undefined;
       }),

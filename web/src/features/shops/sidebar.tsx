@@ -38,7 +38,7 @@ const STATUS_PILL: Record<
 };
 
 function StatusPill({ shop }: { shop: Shop }) {
-  // The pill shows visit status only; lifecycle/new are shown as system tag
+  // The pill shows meal record status only; lifecycle/new are shown as system tag
   // chips in the card body.
   const status = shop.eatenStatus;
   const props = {
@@ -475,7 +475,7 @@ export function ShopFilters({ filters, onFilterChange }: ShopFiltersProps) {
       </Box>
 
       <Box pt="0.875rem" pb="0.625rem">
-        <SectionLabel>訪問状況 — Visit</SectionLabel>
+        <SectionLabel>記録の有無 — Records</SectionLabel>
         <Box display="flex" flexWrap="wrap" gap="0.375rem">
           <Chip
             color="matcha"

@@ -86,11 +86,11 @@ export default defineConfig({
         BACKUP_R2_PREFIX: "",
         // No Places key: the add form's Google Place search shows its manual-entry fallback.
         GOOGLE_PLACES_API_KEY: "",
-        // An http site without VISIT_IMAGES_R2_*: visit images are stored on local disk and
+        // An http site without MEAL_RECORD_IMAGES_R2_*: meal record images are stored on local disk and
         // served under /api, which the web server proxies, so their URLs are on BASE_URL.
         PUBLIC_BASE_URL: BASE_URL,
-        VISIT_IMAGES_R2_BUCKET: "",
-        VISIT_IMAGES_R2_PUBLIC_BASE_URL: "",
+        MEAL_RECORD_IMAGES_R2_BUCKET: "",
+        MEAL_RECORD_IMAGES_R2_PUBLIC_BASE_URL: "",
         // OGP images are rendered per request instead of cached in R2.
         OG_R2_BUCKET: "",
         OG_R2_PUBLIC_BASE_URL: "",

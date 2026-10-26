@@ -14,7 +14,7 @@ import dev.marulabs.noodlemap.generated.models.ShopLink
 import dev.marulabs.noodlemap.generated.models.ShopLinkInput
 import dev.marulabs.noodlemap.generated.models.ShopLinkType
 import dev.marulabs.noodlemap.generated.models.ShopsResponse
-import dev.marulabs.noodlemap.generated.models.VisitLog
+import dev.marulabs.noodlemap.generated.models.MealRecord
 import dev.marulabs.noodlemap.postJson
 import dev.marulabs.noodlemap.putJson
 import dev.marulabs.noodlemap.testApp
@@ -308,7 +308,7 @@ class ShopApiTest {
             it.eaten shouldBe false
             it.rate shouldBe 0.0
             it.favorite shouldBe false
-            it.visitCount shouldBe 0
+            it.mealRecordCount shouldBe 0
             it.tags.map { tag -> tag.id } shouldContainExactly listOf(SHIO, MISO)
         }
 
@@ -426,21 +426,21 @@ class ShopApiTest {
     }
 
     @Test
-    fun `a shop with visit logs cannot be deleted until they are`() = testApp { t ->
+    fun `a shop with meal records cannot be deleted until they are`() = testApp { t ->
         val admin = t.adminToken()
         val req = addShopRequest(tagIds = listOf(SHOYU)).copy(links = listOf(ShopLinkInput(ShopLinkType.OFFICIAL, url = "https://a.example")))
         val id = client.postJson("/api/v1/auth/shops", encode(req), admin).body<Shop>().id
-        val visitId = client.postJson("/api/v1/auth/shops/$id/visits", """{}""", admin).body<VisitLog>().id
+        val mealRecordId = client.postJson("/api/v1/auth/meal-records", """{"shopIds":["$id"]}""", admin).body<MealRecord>().id
 
         client.deleteWithSession("/api/v1/auth/shops/$id", admin).let {
             it.status shouldBe HttpStatusCode.Conflict
-            it.body<ErrorBody>() shouldBe ErrorBody(ErrorType.SHOP_HAS_VISIT_LOGS, "shop has visit logs")
+            it.body<ErrorBody>() shouldBe ErrorBody(ErrorType.SHOP_HAS_MEAL_RECORD_LOGS, "shop has meal records")
         }
-        client.shops().single().visitCount shouldBe 1
+        client.shops().single().mealRecordCount shouldBe 1
         t.countRows("shops_tags", id) shouldBe 1L
         t.countRows("shop_links", id) shouldBe 1L
 
-        client.deleteWithSession("/api/v1/auth/visits/$visitId", admin).status shouldBe HttpStatusCode.NoContent
+        client.deleteWithSession("/api/v1/auth/meal-records/$mealRecordId", admin).status shouldBe HttpStatusCode.NoContent
         client.deleteWithSession("/api/v1/auth/shops/$id", admin).status shouldBe HttpStatusCode.NoContent
         client.shops().shouldBeEmpty()
     }

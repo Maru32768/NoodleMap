@@ -49,7 +49,8 @@ class DatabaseTest {
         // Written while enforcement is off, as it was before foreign_keys really applied.
         DriverManager.getConnection("jdbc:sqlite:$file").use { conn ->
             conn.createStatement().use { st ->
-                st.executeUpdate("INSERT INTO visit_logs (id, shop_id, rate) VALUES ('v1', 'missing', 50), ('v2', 'gone', 60)")
+                st.executeUpdate("INSERT INTO meal_records (id, rate) VALUES ('v1', 50), ('v2', 60)")
+                st.executeUpdate("INSERT INTO meal_record_shops (meal_record_id, shop_id, sort_order) VALUES ('v1', 'missing', 0), ('v2', 'gone', 0)")
                 st.executeUpdate("INSERT INTO shop_links (id, shop_id, type, url, sort_order) VALUES ('l1', 'missing', 'other', 'https://e.com', 0)")
             }
         }
@@ -61,14 +62,14 @@ class DatabaseTest {
                     it.pragma("foreign_keys") shouldBe "1"
                     // Reported, not deleted.
                     it.createStatement().use { st ->
-                        st.executeQuery("SELECT count(*) FROM visit_logs").use { rs -> rs.getInt(1) shouldBe 2 }
+                        st.executeQuery("SELECT count(*) FROM meal_records").use { rs -> rs.getInt(1) shouldBe 2 }
                     }
                 }
             }
         }
 
         warnings.size shouldBe 1
-        warnings.single() shouldContain "visit_logs: 2 (rowid 1, 2)"
+        warnings.single() shouldContain "meal_record_shops: 2 (rowid 1, 2)"
         warnings.single() shouldContain "shop_links: 1 (rowid 1)"
     }
 

@@ -1,8 +1,15 @@
 import { expect, test, uid } from "../../support/fixtures.ts";
 
-test("guest searches, filters and opens a shop on the search page", async ({ page, api }) => {
+test("guest searches, filters and opens a shop on the search page", async ({
+  page,
+  api,
+}) => {
   const id = uid();
-  const tag = await api.addTag({ label: `${id}-tag`, slug: `${id}-tag`, category: "ramen" });
+  const tag = await api.addTag({
+    label: `${id}-tag`,
+    slug: `${id}-tag`,
+    category: "ramen",
+  });
   const eatenRamen = await api.createShop({
     name: `${id} 中華そば`,
     eaten: true,
@@ -10,14 +17,18 @@ test("guest searches, filters and opens a shop on the search page", async ({ pag
     tagIds: [tag.id],
   });
   const wishRamen = await api.createShop({ name: `${id} 家系ラーメン` });
-  const wishUdon = await api.createShop({ name: `${id} 讃岐うどん`, category: "udon" });
+  const wishUdon = await api.createShop({
+    name: `${id} 讃岐うどん`,
+    category: "udon",
+  });
 
   await page.goto("/");
   await expect(page).toHaveURL(/\/search$/);
 
   const sidebar = page.getByRole("complementary");
   const card = (name: string) => sidebar.getByText(name, { exact: true });
-  const countLabel = (n: number) => sidebar.getByText(new RegExp(`^${n}\\s*件 / SHOPS`));
+  const countLabel = (n: number) =>
+    sidebar.getByText(new RegExp(`^${n}\\s*件 / SHOPS`));
 
   await sidebar.getByPlaceholder("店名・読み・エリア・タグで検索...").fill(id);
   await expect(countLabel(3)).toBeVisible();
@@ -25,7 +36,8 @@ test("guest searches, filters and opens a shop on the search page", async ({ pag
     await expect(card(shop.name)).toBeVisible();
   }
 
-  const chip = (name: string) => sidebar.getByRole("button", { name, exact: true });
+  const chip = (name: string) =>
+    sidebar.getByRole("button", { name, exact: true });
 
   await chip("食べた").click();
   await expect(countLabel(2)).toBeVisible();
@@ -36,7 +48,11 @@ test("guest searches, filters and opens a shop on the search page", async ({ pag
   // narrowed); adding 気になる ORs in the unset ones, which count as 気になる.
   // Every step changes the count, so a stale render cannot pass.
   const wishLevel = sidebar.getByRole("group", { name: "気になる度" });
-  const level = (label: string) => wishLevel.getByRole("button", { name: `気になる度: ${label}`, exact: true });
+  const level = (label: string) =>
+    wishLevel.getByRole("button", {
+      name: `気になる度: ${label}`,
+      exact: true,
+    });
   const toggleLevel = async (label: string, pressed: boolean) => {
     await level(label).click();
     await expect(level(label)).toHaveAttribute("aria-pressed", String(pressed));
@@ -61,7 +77,9 @@ test("guest searches, filters and opens a shop on the search page", async ({ pag
   await expect(card(eatenRamen.name)).toBeVisible();
   await chip(tag.label).click();
 
-  await sidebar.getByPlaceholder("店名・読み・エリア・タグで検索...").fill(`${id} 讃岐`);
+  await sidebar
+    .getByPlaceholder("店名・読み・エリア・タグで検索...")
+    .fill(`${id} 讃岐`);
   await expect(countLabel(1)).toBeVisible();
   await expect(card(wishUdon.name)).toBeVisible();
 
@@ -71,25 +89,41 @@ test("guest searches, filters and opens a shop on the search page", async ({ pag
   await expect(rating).toBeVisible();
   await expect(page.getByRole("button", { name: "編集" })).toHaveCount(0);
 
-  await page.getByRole("button", { name: "閉じる" }).click();
+  await page.locator("#root").getByRole("button", { name: "閉じる" }).click();
   await expect(rating).toBeHidden();
 });
 
-test("guest opens a shared shop URL even when filters hide the shop", async ({ page, api }) => {
-  const shop = await api.createShop({ name: `${uid()} 共有ラーメン`, eaten: true, rate: 80 });
+test("guest opens a shared shop URL even when filters hide the shop", async ({
+  page,
+  api,
+}) => {
+  const shop = await api.createShop({
+    name: `${uid()} 共有ラーメン`,
+    eaten: true,
+    rate: 80,
+  });
 
   // Persist a filter that hides every ramen shop.
   await page.goto("/search");
-  await page.getByRole("complementary").getByRole("button", { name: "ラーメン", exact: true }).click();
+  await page
+    .getByRole("complementary")
+    .getByRole("button", { name: "ラーメン", exact: true })
+    .click();
   await expect
-    .poll(() => page.evaluate(() => localStorage.getItem("noodle-map:search-state:v1")))
+    .poll(() =>
+      page.evaluate(() => localStorage.getItem("noodle-map:search-state:v1")),
+    )
     .toContain('"ramen":false');
 
   await page.goto(`/search?shop=${shop.id}`);
-  await expect(page.getByText(shop.name, { exact: true }).filter({ visible: true })).toBeVisible();
+  const detail = page
+    .locator("#root")
+    .getByRole("button", { name: "閉じる" })
+    .locator("..");
+  await expect(detail.getByText(shop.name, { exact: true })).toBeVisible();
   await expect(page.getByText("お気に入り度 - Favorite")).toBeVisible();
 
-  await page.getByRole("button", { name: "閉じる" }).click();
+  await page.locator("#root").getByRole("button", { name: "閉じる" }).click();
   await expect(page.getByText(shop.name, { exact: true })).toBeHidden();
   await expect(page).toHaveURL(/\/search$/);
 });
@@ -114,23 +148,37 @@ test("guest copies a shop's share URL", async ({ page, api, baseURL }) => {
 
   await page.goto("/search");
   const sidebar = page.getByRole("complementary");
-  await sidebar.getByPlaceholder("店名・読み・エリア・タグで検索...").fill(shop.name);
+  await sidebar
+    .getByPlaceholder("店名・読み・エリア・タグで検索...")
+    .fill(shop.name);
   await sidebar.getByText(shop.name, { exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/search\\?shop=${shop.id}$`));
 
-  await page.getByRole("button", { name: "共有" }).click();
+  await page.locator("#root").getByRole("button", { name: "共有" }).click();
   await expect(page.getByText("URLをコピーしました")).toBeVisible();
-  expect(await page.evaluate(() => (window as unknown as { copied: string }).copied)).toBe(
-    `${baseURL}/r/${shop.id}`,
-  );
+  expect(
+    await page.evaluate(() => (window as unknown as { copied: string }).copied),
+  ).toBe(`${baseURL}/r/${shop.id}`);
 });
 
-test("guest opening a share URL lands on the shop's detail", async ({ page, api }) => {
-  const shop = await api.createShop({ name: `${uid()} 共有まぜそば`, eaten: true, rate: 80 });
+test("guest opening a share URL lands on the shop's detail", async ({
+  page,
+  api,
+}) => {
+  const shop = await api.createShop({
+    name: `${uid()} 共有まぜそば`,
+    eaten: true,
+    rate: 80,
+  });
 
   await page.goto(`/r/${shop.id}`);
   await expect(page).toHaveURL(new RegExp(`/search\\?shop=${shop.id}$`));
-  // The name can also be visible in the sidebar list, so check the open detail via its close button.
-  await expect(page.getByText(shop.name, { exact: true }).filter({ visible: true }).first()).toBeVisible();
-  await expect(page.getByRole("button", { name: "閉じる" })).toBeVisible();
+  const detail = page
+    .locator("#root")
+    .getByRole("button", { name: "閉じる" })
+    .locator("..");
+  await expect(detail.getByText(shop.name, { exact: true })).toBeVisible();
+  await expect(
+    page.locator("#root").getByRole("button", { name: "閉じる" }),
+  ).toBeVisible();
 });

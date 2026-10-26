@@ -47,7 +47,7 @@ public interface ApiV1AuthShopsController {
   )
 
   /**
-   * Deletes a shop with its tags and links. A shop with visit logs cannot be deleted (409).
+   * Deletes a shop with its tags and links. A shop with meal records cannot be deleted (409).
    *
    * Route is expected to respond with status 204.
    * Use [io.ktor.server.response.respond] to send the response.
@@ -63,8 +63,8 @@ public interface ApiV1AuthShopsController {
      *
      * - POST /api/v1/auth/shops 
      * - PUT /api/v1/auth/shops/{id} 
-     * - DELETE /api/v1/auth/shops/{id} Deletes a shop with its tags and links. A shop with visit
-     * logs cannot be deleted (409).
+     * - DELETE /api/v1/auth/shops/{id} Deletes a shop with its tags and links. A shop with meal
+     * records cannot be deleted (409).
      */
     public fun Route.apiV1AuthShopsRoutes(controller: ApiV1AuthShopsController) {
       post("/api/v1/auth/shops") {

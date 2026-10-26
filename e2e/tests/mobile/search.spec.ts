@@ -1,14 +1,25 @@
 import { expect, test, uid } from "../../support/fixtures.ts";
 
-test("guest searches, filters and opens a shop from the mobile sheet", async ({ page, api }) => {
+test("guest searches, filters and opens a shop from the mobile sheet", async ({
+  page,
+  api,
+}) => {
   const id = uid();
-  const ramen = await api.createShop({ name: `${id} 煮干しそば`, eaten: true, rate: 60 });
-  const udon = await api.createShop({ name: `${id} 釜玉うどん`, category: "udon" });
+  const ramen = await api.createShop({
+    name: `${id} 煮干しそば`,
+    eaten: true,
+    rate: 60,
+  });
+  const udon = await api.createShop({
+    name: `${id} 釜玉うどん`,
+    category: "udon",
+  });
 
   await page.goto("/search");
   await expect(page.getByRole("complementary")).toBeHidden();
 
-  const countLabel = (n: number) => page.getByText(new RegExp(`^${n}\\s*件 / SHOPS$`));
+  const countLabel = (n: number) =>
+    page.getByText(new RegExp(`^${n}\\s*件 / SHOPS$`));
   await page
     .getByPlaceholder("店名・読み・エリア・タグで検索...")
     .filter({ visible: true })
@@ -30,7 +41,9 @@ test("guest searches, filters and opens a shop from the mobile sheet", async ({ 
   await page.mouse.up();
 
   const sheetBottom = async () => {
-    const bounds = await page.locator(".react-modal-sheet-container").boundingBox();
+    const bounds = await page
+      .locator(".react-modal-sheet-container")
+      .boundingBox();
     return bounds === null ? 0 : bounds.y + bounds.height;
   };
   await expect.poll(sheetBottom).toBeCloseTo(page.viewportSize()!.height, 0);
@@ -41,19 +54,24 @@ test("guest searches, filters and opens a shop from the mobile sheet", async ({ 
   await expect(page.getByText(udon.name)).toHaveCount(0);
 });
 
-test("guest opens a shared shop URL in the mobile sheet", async ({ page, api }) => {
+test("guest opens a shared shop URL in the mobile sheet", async ({
+  page,
+  api,
+}) => {
   const shop = await api.createShop({ name: `${uid()} 共有まぜそば` });
 
   await page.goto(`/search?shop=${shop.id}`);
   // The desktop detail panel is in the DOM too, hidden by a media query.
-  await expect(page.getByText(shop.name, { exact: true }).filter({ visible: true })).toBeVisible();
+  await expect(
+    page.getByText(shop.name, { exact: true }).filter({ visible: true }),
+  ).toBeVisible();
   await expect(page.getByRole("button", { name: "閉じる" })).toBeVisible();
 });
 
 test("guest scrolls details without dismissal and pulls down from the top", async ({
   page,
   api,
-}) => {
+}, testInfo) => {
   await page.addInitScript(() => {
     Object.defineProperty(navigator, "platform", { get: () => "iPhone" });
     Object.defineProperty(navigator, "userAgentData", { get: () => undefined });
@@ -73,7 +91,9 @@ test("guest scrolls details without dismissal and pulls down from the top", asyn
   });
 
   for (const height of [640, 844]) {
-    await page.emulateMedia({ reducedMotion: height === 844 ? "reduce" : "no-preference" });
+    await page.emulateMedia({
+      reducedMotion: height === 844 ? "reduce" : "no-preference",
+    });
     await page.setViewportSize({ width: 390, height });
     await page.goto(`/search?shop=${shop.id}`);
     const header = page.locator(".react-modal-sheet-header-container");
@@ -89,10 +109,14 @@ test("guest scrolls details without dismissal and pulls down from the top", asyn
     const share = scroller.getByRole("button", { name: "共有" });
     await expect(share).toBeVisible();
     await expect(scroller).toHaveCSS("overflow-y", "auto");
-    await expect.poll(async () => {
-      const bounds = await page.locator(".react-modal-sheet-container").boundingBox();
-      return bounds === null ? 0 : bounds.y + bounds.height;
-    }).toBeCloseTo(height, 0);
+    await expect
+      .poll(async () => {
+        const bounds = await page
+          .locator(".react-modal-sheet-container")
+          .boundingBox();
+        return bounds === null ? 0 : bounds.y + bounds.height;
+      })
+      .toBeCloseTo(height, 0);
     await expect
       .poll(async () => {
         await scroller.evaluate((el) => {
@@ -107,6 +131,14 @@ test("guest scrolls details without dismissal and pulls down from the top", asyn
     await expect(
       scroller.getByRole("link", { name: "Google Maps", exact: true }),
     ).toBeInViewport({ ratio: 1 });
+    await expect(
+      scroller
+        .getByRole("link", { name: "Google Maps", exact: true })
+        .locator('svg[aria-hidden="true"]'),
+    ).toHaveCount(1);
+    await page.screenshot({
+      path: testInfo.outputPath(`maps-actions-${height}.png`),
+    });
 
     const touch = await page.context().newCDPSession(page);
     const swipe = async (positions: number[]) => {
@@ -120,9 +152,10 @@ test("guest scrolls details without dismissal and pulls down from the top", asyn
           touchPoints: [{ x: 375, y, id: 1 }],
         });
         await page.evaluate(
-          () => new Promise<void>((resolve) => {
-            requestAnimationFrame(() => resolve());
-          }),
+          () =>
+            new Promise<void>((resolve) => {
+              requestAnimationFrame(() => resolve());
+            }),
         );
       }
       await touch.send("Input.dispatchTouchEvent", {
@@ -132,28 +165,43 @@ test("guest scrolls details without dismissal and pulls down from the top", asyn
     };
 
     const expandedTop = (await header.boundingBox())!.y;
-    await swipe([250, 270, 290, 310, 330, 350, 370, 390, 410, 430, 410, 390, 370, 350, 330]);
+    await swipe([
+      250, 270, 290, 310, 330, 350, 370, 390, 410, 430, 410, 390, 370, 350, 330,
+    ]);
     await expect(share).toBeVisible();
-    await expect.poll(async () => (await header.boundingBox())?.y).toBeCloseTo(expandedTop, 0);
+    await expect
+      .poll(async () => (await header.boundingBox())?.y)
+      .toBeCloseTo(expandedTop, 0);
 
     const scrollStart = await scroller.evaluate((el) => el.scrollTop);
     await swipe([500, 480, 460, 440, 420, 400, 380, 360, 340, 320, 300]);
-    await expect.poll(() => scroller.evaluate((el) => el.scrollTop)).toBeGreaterThan(scrollStart);
+    await expect
+      .poll(() => scroller.evaluate((el) => el.scrollTop))
+      .toBeGreaterThan(scrollStart);
     await expect(share).toBeVisible();
 
-    await scroller.evaluate((el) => { el.scrollTop = 0; });
+    await scroller.evaluate((el) => {
+      el.scrollTop = 0;
+    });
     await expect(scroller).toHaveCSS("touch-action", "pan-down");
     const boundaryGestures = await scroller.evaluate((el) => {
       const target = el.firstElementChild;
       if (!target) throw new Error("Shop detail content is missing");
       const dispatch = (type: string, y: number) => {
-        const touch = new Touch({ identifier: 1, target, pageX: 375, pageY: y });
-        return target.dispatchEvent(new TouchEvent(type, {
-          bubbles: true,
-          cancelable: true,
-          touches: type === "touchend" ? [] : [touch],
-          changedTouches: [touch],
-        }));
+        const touch = new Touch({
+          identifier: 1,
+          target,
+          pageX: 375,
+          pageY: y,
+        });
+        return target.dispatchEvent(
+          new TouchEvent(type, {
+            bubbles: true,
+            cancelable: true,
+            touches: type === "touchend" ? [] : [touch],
+            changedTouches: [touch],
+          }),
+        );
       };
       dispatch("touchstart", 250);
       const downwardScrollAllowed = dispatch("touchmove", 270);
@@ -167,7 +215,10 @@ test("guest scrolls details without dismissal and pulls down from the top", asyn
       downwardScrollAllowed: false,
       upwardScrollAllowed: true,
     });
-    await swipe([250, 270, 290, 310, 330, 350, 370, 390, 410, 430, 450, 470, 490, 510, 530, 550]);
+    await swipe([
+      250, 270, 290, 310, 330, 350, 370, 390, 410, 430, 450, 470, 490, 510, 530,
+      550,
+    ]);
     await expect
       .poll(async () => (await header.boundingBox())?.y ?? 0)
       .toBeGreaterThan(height * 0.7);
@@ -180,7 +231,8 @@ test("guest scrolls details without dismissal and pulls down from the top", asyn
     await page.mouse.move(195, 35, { steps: 30 });
     await page.mouse.up();
     await expect(scroller).toHaveCSS("overflow-y", "auto");
-    await expect.poll(async () => (await header.boundingBox())?.y ?? height)
+    await expect
+      .poll(async () => (await header.boundingBox())?.y ?? height)
       .toBeLessThan(height * 0.1);
     await expect(share).toBeAttached();
     await touch.detach();

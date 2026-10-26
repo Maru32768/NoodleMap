@@ -1,21 +1,21 @@
+import type { MealRecord } from "@/features/meal-records/api/use-meal-records.ts";
+import type { IsoDate } from "@/features/meal-records/eaten-date.ts";
 import {
   ImportPlan,
+  mealRecordKey,
   PlanEntry,
-  visitKey,
 } from "@/features/photo-import/import-plan.ts";
 import type { RunProgress } from "@/features/photo-import/import-state.ts";
 import type { Photo } from "@/features/photo-import/photos.ts";
 import { runImport } from "@/features/photo-import/run-import.ts";
-import type { VisitLog } from "@/features/visits/api/use-visits.ts";
-import type { IsoDate } from "@/features/visits/visit-date.ts";
+import { fakeMealRecordServer } from "@/test/meal-record-server.ts";
 import { server } from "@/test/server.ts";
-import { fakeVisitServer } from "@/test/visit-server.ts";
 import { http, HttpResponse } from "msw";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const SHOP_A = "00000000-0000-4000-8000-00000000000a";
 const SHOP_B = "00000000-0000-4000-8000-00000000000b";
-const IMAGES = "/api/v1/auth/visits/:visitId/images";
+const IMAGES = "/api/v1/auth/meal-records/:mealRecordId/images";
 
 let nextIndex = 0;
 const photo = (
@@ -30,7 +30,7 @@ const photo = (
 
 function entry(shopId: string, day: string, photoCount: number): PlanEntry {
   return {
-    key: visitKey(shopId, day as IsoDate),
+    key: mealRecordKey(shopId, day as IsoDate),
     shopId,
     day: day as IsoDate,
     photos: Array.from({ length: photoCount }, () => photo()),
@@ -44,10 +44,14 @@ const plan = (...entries: PlanEntry[]): ImportPlan => ({ entries });
 const run = (p: ImportPlan) =>
   runImport(p, { signal: new AbortController().signal, onProgress: () => {} });
 
-function visitWithImages(visitedOn: string | undefined, count = 0): VisitLog {
+function mealRecordWithImages(
+  eatenOn: string | undefined,
+  count = 0,
+): MealRecord {
   return {
     id: crypto.randomUUID(),
-    visitedOn,
+    eatenOn,
+    shops: [{ id: SHOP_A, name: "A" }],
     menuItems: [],
     images: Array.from({ length: count }, () => ({
       id: crypto.randomUUID(),
@@ -59,8 +63,36 @@ function visitWithImages(visitedOn: string | undefined, count = 0): VisitLog {
 }
 
 describe("runImport", () => {
-  it("creates each visit dated on its day and uploads its photos in order", async () => {
-    const fake = fakeVisitServer();
+  it("imports each shop's photos when an existing collaboration has images on the same day", async () => {
+    const shared = {
+      ...mealRecordWithImages("2023-04-01", 2),
+      shops: [
+        { id: SHOP_A, name: "A" },
+        { id: SHOP_B, name: "B" },
+      ],
+    };
+    const fake = fakeMealRecordServer({
+      [SHOP_A]: [shared],
+      [SHOP_B]: [shared],
+    });
+    const outcome = await run(
+      plan(entry(SHOP_A, "2023-04-01", 1), entry(SHOP_B, "2023-04-01", 1)),
+    );
+    expect(fake.log).toEqual([
+      "create 2023-04-01",
+      "image 1",
+      "create 2023-04-01",
+      "image 1",
+    ]);
+    expect(outcome.progress).toMatchObject({
+      created: 2,
+      uploadedImages: 2,
+      alreadyDone: 0,
+    });
+    expect(shared.images).toHaveLength(2);
+  });
+  it("creates each meal record dated on its day and uploads its photos in order", async () => {
+    const fake = fakeMealRecordServer();
 
     const outcome = await run(
       plan(entry(SHOP_A, "2023-04-01", 2), entry(SHOP_B, "2023-04-02", 1)),
@@ -87,7 +119,7 @@ describe("runImport", () => {
   });
 
   it("creates and uploads nothing more when the same plan runs again", async () => {
-    const fake = fakeVisitServer();
+    const fake = fakeMealRecordServer();
     const p = plan(
       entry(SHOP_A, "2023-04-01", 2),
       entry(SHOP_B, "2023-04-02", 1),
@@ -104,9 +136,9 @@ describe("runImport", () => {
     });
   });
 
-  it("uploads only the missing photos of a visit that has 2 of its 4", async () => {
-    const fake = fakeVisitServer({
-      [SHOP_A]: [visitWithImages("2023-04-01", 2)],
+  it("uploads only the missing photos of a meal record that has 2 of its 4", async () => {
+    const fake = fakeMealRecordServer({
+      [SHOP_A]: [mealRecordWithImages("2023-04-01", 2)],
     });
 
     // The photo each upload sent, as the progress line counts it.
@@ -126,36 +158,38 @@ describe("runImport", () => {
     expect(outcome.progress).toMatchObject({ resumed: 1, uploadedImages: 2 });
   });
 
-  it("dates a dateless visit with a PUT that carries every one of its fields", async () => {
-    const dateless: VisitLog = {
-      ...visitWithImages(undefined),
+  it("dates a dateless meal record with a PUT that carries every one of its fields", async () => {
+    const dateless: MealRecord = {
+      ...mealRecordWithImages(undefined),
+      shops: [{ id: SHOP_A, name: "A" }],
       menuItems: [{ name: "中華そば", isLimited: true, price: 900 }],
       rate: 70,
-      eventName: "催事",
+      venue: { id: "venue-1", name: "催事" },
       publicNote: "旧アプリ",
       privateNote: "非公開",
     };
-    const fake = fakeVisitServer({ [SHOP_A]: [dateless] });
+    const fake = fakeMealRecordServer({ [SHOP_A]: [dateless] });
 
     const outcome = await run(plan(entry(SHOP_A, "2023-04-01", 1)));
 
     expect(fake.log).toEqual([
       `update ${JSON.stringify({
-        visitedOn: "2023-04-01",
+        shopIds: [SHOP_A],
+        eatenOn: "2023-04-01",
         menuItems: [{ name: "中華そば", isLimited: true, price: 900 }],
         rate: 70,
-        eventName: "催事",
+        venueName: "催事",
         publicNote: "旧アプリ",
         privateNote: "非公開",
       })}`,
       "image 1",
     ]);
-    expect(fake.visitsOf(SHOP_A)).toHaveLength(1);
+    expect(fake.mealRecordsOf(SHOP_A)).toHaveLength(1);
     expect(outcome.progress).toMatchObject({ claimed: 1, created: 0 });
   });
 
   it("looks again after an upload cut off at status 0 and does not resend a photo the server saved", async () => {
-    const fake = fakeVisitServer();
+    const fake = fakeMealRecordServer();
     let uploads = 0;
     server.use(
       http.post(IMAGES, (info) => {
@@ -183,13 +217,13 @@ describe("runImport", () => {
   });
 
   it("waits out a busy server and sends the same photo again", async () => {
-    const fake = fakeVisitServer();
+    const fake = fakeMealRecordServer();
     const busy = () =>
       HttpResponse.json(
-        { type: "visit_image_processing_busy" },
+        { type: "meal_record_image_processing_busy" },
         { status: 503, headers: { "Retry-After": "0" } },
       );
-    // Each try is two requests (uploadVisitImage retries once itself): the third try gets through.
+    // Each try is two requests (uploadMealRecordImage retries once itself): the third try gets through.
     for (let i = 0; i < 4; i++) {
       server.use(http.post(IMAGES, busy, { once: true }));
     }
@@ -201,10 +235,10 @@ describe("runImport", () => {
   });
 
   it("ends unauthorized when the session is gone, without trying the next entry", async () => {
-    const fake = fakeVisitServer();
+    const fake = fakeMealRecordServer();
     let posts = 0;
     server.use(
-      http.post("/api/v1/auth/shops/:id/visits", () => {
+      http.post("/api/v1/auth/meal-records", () => {
         posts++;
         return HttpResponse.json(
           { type: "authentication_required" },
@@ -223,10 +257,10 @@ describe("runImport", () => {
   });
 
   it("records a failing entry and still runs the next", async () => {
-    const fake = fakeVisitServer();
+    const fake = fakeMealRecordServer();
     server.use(
       http.post(
-        "/api/v1/auth/shops/:id/visits",
+        "/api/v1/auth/meal-records",
         () => HttpResponse.json({ type: "internal_error" }, { status: 500 }),
         { once: true },
       ),
@@ -255,7 +289,7 @@ describe("runImport", () => {
   });
 
   it("names the photo that failed, so the admin can exclude it", async () => {
-    fakeVisitServer();
+    fakeMealRecordServer();
     server.use(
       http.post(
         IMAGES,
@@ -280,7 +314,7 @@ describe("runImport", () => {
   });
 
   it("ends stopped once aborted, leaving the rest unsent", async () => {
-    const fake = fakeVisitServer();
+    const fake = fakeMealRecordServer();
     const controller = new AbortController();
 
     const outcome = await runImport(
@@ -306,7 +340,7 @@ describe("runImport", () => {
     });
 
     it("sends each photo shrunk to 2048 px on its long edge", async () => {
-      fakeVisitServer();
+      fakeMealRecordServer();
       vi.stubGlobal("createImageBitmap", async () => ({
         width: 4032,
         height: 3024,
