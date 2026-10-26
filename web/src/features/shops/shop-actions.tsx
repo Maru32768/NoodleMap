@@ -71,13 +71,18 @@ export function ShopActions({
   mapsLabel: string;
   onAdminClick?: () => void;
 }) {
+  const actionBtnProps = {
+    ...actionBtnBase,
+    flexBasis: onAdminClick ? "auto" : "0",
+  };
+
   return (
     <>
       <Link
         href={mapsUrl}
         target="_blank"
         rel="noopener noreferrer"
-        {...actionBtnBase}
+        {...actionBtnProps}
         bg="nm.bg"
         color="nm.ink"
         border="1px solid"
@@ -91,7 +96,7 @@ export function ShopActions({
       <LoadableButton
         onClick={() => shareShop(shop)}
         variant="plain"
-        {...actionBtnBase}
+        {...actionBtnProps}
         bg="nm.bg"
         color="nm.ink"
         border="1px solid"
@@ -105,7 +110,7 @@ export function ShopActions({
         <Button
           onClick={onAdminClick}
           variant="plain"
-          {...actionBtnBase}
+          {...actionBtnProps}
           bg="nm.ink"
           color="nm.paper"
           textDecoration="none"
