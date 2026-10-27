@@ -253,8 +253,11 @@ export function PhotoImportModal({
               shops={shops}
               readOnly={state.kind !== "review"}
               excluded={state.review.excluded}
+              details={state.review.details}
               onChoose={imp.choose}
               onTogglePhoto={imp.togglePhoto}
+              onMovePhoto={imp.movePhoto}
+              onSetDetails={imp.setDetails}
               PlaceFinder={PlaceFinder}
             />
           </>

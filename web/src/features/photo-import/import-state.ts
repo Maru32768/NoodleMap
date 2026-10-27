@@ -1,6 +1,7 @@
 import type { PhotoGroup } from "@/features/photo-import/grouping.ts";
 import type {
   ImportPlan,
+  MealRecordDetails,
   MealRecordKey,
   ReviewState,
   ServerMealRecords,
@@ -58,7 +59,12 @@ export const runProgressOf = (plan: ImportPlan): RunProgress => ({
   current: null,
 });
 
-const EMPTY_REVIEW: ReviewState = { choices: new Map(), excluded: new Set() };
+const EMPTY_REVIEW: ReviewState = {
+  choices: new Map(),
+  excluded: new Set(),
+  order: new Map(),
+  details: new Map(),
+};
 
 export type ImportState =
   | { readonly kind: "select" }
@@ -94,6 +100,16 @@ export type ImportAction =
       readonly choice: ShopChoice;
     }
   | { readonly type: "togglePhoto"; readonly photoIndex: number }
+  | {
+      readonly type: "setOrder";
+      readonly key: MealRecordKey;
+      readonly order: readonly number[];
+    }
+  | {
+      readonly type: "setDetails";
+      readonly key: MealRecordKey;
+      readonly details: MealRecordDetails;
+    }
   | { readonly type: "start"; readonly plan: ImportPlan }
   | { readonly type: "progress"; readonly progress: RunProgress }
   | { readonly type: "finished"; readonly outcome: RunOutcome }
@@ -143,6 +159,22 @@ export function importReducer(
         excluded.add(action.photoIndex);
       }
       return { ...state, review: { ...state.review, excluded } };
+    }
+    case "setOrder": {
+      if (state.kind !== "review") {
+        return state;
+      }
+      const order = new Map(state.review.order);
+      order.set(action.key, action.order);
+      return { ...state, review: { ...state.review, order } };
+    }
+    case "setDetails": {
+      if (state.kind !== "review") {
+        return state;
+      }
+      const details = new Map(state.review.details);
+      details.set(action.key, action.details);
+      return { ...state, review: { ...state.review, details } };
     }
     case "start":
       return state.kind === "review"

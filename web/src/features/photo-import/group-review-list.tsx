@@ -1,8 +1,14 @@
+import { ModalDialog } from "@/components/modal-dialog.tsx";
 import { SegmentedPicker } from "@/components/segmented-picker.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { AddModal } from "@/features/admin/add-modal.tsx";
+import { MealRecordForm } from "@/features/meal-records/meal-record-form.tsx";
 import type { PhotoGroup } from "@/features/photo-import/grouping.ts";
-import type { ShopChoice } from "@/features/photo-import/import-plan.ts";
+import type {
+  MealRecordDetails,
+  MealRecordKey,
+  ShopChoice,
+} from "@/features/photo-import/import-plan.ts";
 import type { Photo } from "@/features/photo-import/photos.ts";
 import type {
   GroupRow,
@@ -13,6 +19,7 @@ import { createQueryMatcher } from "@/features/search/utils.ts";
 import type { Shop } from "@/features/shops/api/use-shops.ts";
 import { MEAL_RECORD_IMAGES_MAX } from "@/utils/toast.ts";
 import { Box, Image, Input } from "@chakra-ui/react";
+import { omit } from "es-toolkit";
 import { ComponentProps, useState } from "react";
 import { Virtuoso } from "react-virtuoso";
 
@@ -47,26 +54,46 @@ const smallButton = {
   _hover: { borderColor: "nm.ink" },
 } as const;
 
+const moveButton = {
+  variant: "plain",
+  p: "0",
+  w: "30px",
+  h: "22px",
+  minW: "30px",
+  minH: "auto",
+  fontSize: "12px",
+  color: "nm.inkMuted",
+  rounded: "nmSm",
+  _hover: { bg: "nm.bgSoft", color: "nm.ink" },
+} as const;
+
 /** Review rows behind filter tabs, virtualized: an import can hold thousands. */
 export function GroupReviewList({
   rows,
   shops,
   readOnly,
   excluded,
+  details,
   onChoose,
   onTogglePhoto,
+  onMovePhoto,
+  onSetDetails,
   PlaceFinder,
 }: {
   rows: readonly GroupRow[];
   shops: readonly Shop[];
   readOnly: boolean;
   excluded: ReadonlySet<number>;
+  details: ReadonlyMap<MealRecordKey, MealRecordDetails>;
   onChoose: (groupId: number, choice: ShopChoice) => void;
   onTogglePhoto: (photoIndex: number) => void;
+  onMovePhoto: (row: GroupRow, photoIndex: number, delta: -1 | 1) => void;
+  onSetDetails: (key: MealRecordKey, details: MealRecordDetails) => void;
   PlaceFinder?: ComponentProps<typeof AddModal>["PlaceFinder"];
 }) {
   // Held here, not in the row: Virtuoso unmounts rows scrolled out of view.
   const [addingFor, setAddingFor] = useState<PhotoGroup | null>(null);
+  const [editingKey, setEditingKey] = useState<MealRecordKey | null>(null);
   const [filter, setFilter] = useState<Filter>(() =>
     rows.some((r) => r.tab === "undecided") ? "undecided" : "all",
   );
@@ -105,9 +132,16 @@ export function GroupReviewList({
                 shops={shops}
                 readOnly={readOnly}
                 excluded={excluded}
+                details={
+                  row.detailsKey ? details.get(row.detailsKey) : undefined
+                }
                 onChoose={onChoose}
                 onTogglePhoto={onTogglePhoto}
+                onMovePhoto={(photoIndex, delta) =>
+                  onMovePhoto(row, photoIndex, delta)
+                }
                 onAddShop={() => setAddingFor(row.group)}
+                onEditDetails={() => setEditingKey(row.detailsKey)}
               />
             )}
           />
@@ -129,8 +163,77 @@ export function GroupReviewList({
           PlaceFinder={PlaceFinder}
         />
       )}
+      {editingKey && (
+        <DetailsModal
+          recordKey={editingKey}
+          shopName={shopById.get(editingKey.split("|")[0])?.name}
+          details={details.get(editingKey)}
+          onSave={(next) => onSetDetails(editingKey, next)}
+          onClose={() => setEditingKey(null)}
+        />
+      )}
     </Box>
   );
+}
+
+/** The meal record's fields beyond the shop and day, in the same form as a hand-written record. */
+function DetailsModal({
+  recordKey,
+  shopName,
+  details,
+  onSave,
+  onClose,
+}: {
+  recordKey: MealRecordKey;
+  shopName: string | undefined;
+  details: MealRecordDetails | undefined;
+  onSave: (details: MealRecordDetails) => void;
+  onClose: () => void;
+}) {
+  const [shopId, day] = recordKey.split("|");
+  return (
+    <ModalDialog
+      open
+      onOpenChange={(o) => !o && onClose()}
+      width="100%"
+      maxWidth="720px"
+      title="食べた記録の内容"
+      subtitle={`${shopName ?? ""} ${day}`}
+    >
+      <MealRecordForm
+        shopId={shopId}
+        importDraft={{ shopIds: [shopId], ...details, eatenOn: day }}
+        onCancel={onClose}
+        onSave={async (input) => {
+          onSave(omit(input, ["eatenOn"]));
+          onClose();
+          return null;
+        }}
+      />
+    </ModalDialog>
+  );
+}
+
+/** What the admin wrote, in one line; empty when nothing. */
+function detailsSummary(
+  details: MealRecordDetails | undefined,
+  shopById: ReadonlyMap<string, Shop>,
+) {
+  if (!details) {
+    return "";
+  }
+  const collaborators = details.shopIds
+    .slice(1)
+    .map((id) => shopById.get(id)?.name ?? "削除された店舗");
+  return [
+    collaborators.length > 0 && `共同: ${collaborators.join("・")}`,
+    details.menuItems?.map((m) => m.name).join("・"),
+    details.rate !== undefined && `お気に入り度 ${details.rate}`,
+    details.venueName,
+    (details.publicNote || details.privateNote) && "メモあり",
+  ]
+    .filter(Boolean)
+    .join(" / ");
 }
 
 function GroupRowView({
@@ -139,18 +242,24 @@ function GroupRowView({
   shops,
   readOnly,
   excluded,
+  details,
   onChoose,
   onTogglePhoto,
+  onMovePhoto,
   onAddShop,
+  onEditDetails,
 }: {
   row: GroupRow;
   shopById: ReadonlyMap<string, Shop>;
   shops: readonly Shop[];
   readOnly: boolean;
   excluded: ReadonlySet<number>;
+  details: MealRecordDetails | undefined;
   onChoose: (groupId: number, choice: ShopChoice) => void;
   onTogglePhoto: (photoIndex: number) => void;
+  onMovePhoto: (photoIndex: number, delta: -1 | 1) => void;
   onAddShop: () => void;
+  onEditDetails: () => void;
 }) {
   const [searching, setSearching] = useState(false);
   const { group, choice } = row;
@@ -218,15 +327,37 @@ function GroupRowView({
       </Box>
 
       <Box display="flex" flexWrap="wrap" gap="6px">
-        {group.photos.map((photo, i) => (
-          <Thumbnail
-            key={photo.index}
-            photo={photo}
-            label={`写真${i + 1}`}
-            excluded={excluded.has(photo.index)}
-            disabled={readOnly}
-            onToggle={() => onTogglePhoto(photo.index)}
-          />
+        {row.photos.map((photo, i) => (
+          <Box key={photo.index} display="grid" gap="2px">
+            <Thumbnail
+              photo={photo}
+              label={`写真${i + 1}`}
+              excluded={excluded.has(photo.index)}
+              disabled={readOnly}
+              onToggle={() => onTogglePhoto(photo.index)}
+            />
+            {/* Only before the meal record has images: resuming counts along this order. */}
+            {row.detailsKey && !readOnly && row.photos.length > 1 && (
+              <Box display="flex" justifyContent="space-between">
+                <Button
+                  {...moveButton}
+                  aria-label={`写真${i + 1}を前に移動`}
+                  disabled={i === 0}
+                  onClick={() => onMovePhoto(photo.index, -1)}
+                >
+                  ←
+                </Button>
+                <Button
+                  {...moveButton}
+                  aria-label={`写真${i + 1}を後ろに移動`}
+                  disabled={i === row.photos.length - 1}
+                  onClick={() => onMovePhoto(photo.index, 1)}
+                >
+                  →
+                </Button>
+              </Box>
+            )}
+          </Box>
         ))}
       </Box>
 
@@ -263,6 +394,16 @@ function GroupRowView({
         >
           スキップ
         </Button>
+        {row.detailsKey && (
+          <Button {...smallButton} disabled={readOnly} onClick={onEditDetails}>
+            記録の内容
+          </Button>
+        )}
+        {row.detailsKey && (
+          <Box fontSize="12px" color="nm.inkMuted">
+            {detailsSummary(details, shopById)}
+          </Box>
+        )}
       </Box>
 
       {searching && !readOnly && (

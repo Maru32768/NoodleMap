@@ -2,10 +2,11 @@ import { FormField } from "@/components/form-field.tsx";
 import { LoadableButton } from "@/components/loadable-button.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { useRevealFirstError } from "@/components/use-reveal-first-error.ts";
-import type {
+import {
   MealRecord,
   MealRecordField,
   MealRecordInput,
+  mealRecordInputOf,
   SaveMealRecordErrorBody,
 } from "@/features/meal-records/api/use-meal-records.ts";
 import { useVenues } from "@/features/meal-records/api/use-venues.ts";
@@ -92,18 +93,21 @@ function toDraft(
       privateNote: "",
     };
   }
+  return draftOf(mealRecordInputOf(mealRecord));
+}
+
+function draftOf(input: MealRecordInput): MealRecordDraft {
   return {
-    shopIds: mealRecord.shops.map((shop) => shop.id),
-    eatenOn: mealRecord.eatenOn ?? "",
+    shopIds: input.shopIds,
+    eatenOn: input.eatenOn ?? "",
     // An empty row to type into when the meal record has no menu yet.
-    menuItems:
-      mealRecord.menuItems.length > 0
-        ? mealRecord.menuItems.map(newMenuItemRow)
-        : [newMenuItemRow()],
-    rate: mealRecord.rate?.toString() ?? "",
-    venueName: mealRecord.venue?.name ?? "",
-    publicNote: mealRecord.publicNote ?? "",
-    privateNote: mealRecord.privateNote ?? "",
+    menuItems: input.menuItems?.length
+      ? input.menuItems.map(newMenuItemRow)
+      : [newMenuItemRow()],
+    rate: input.rate?.toString() ?? "",
+    venueName: input.venueName ?? "",
+    publicNote: input.publicNote ?? "",
+    privateNote: input.privateNote ?? "",
   };
 }
 
@@ -179,12 +183,15 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
 export function MealRecordForm({
   shopId,
   mealRecord,
+  importDraft,
   onSave,
   onCancel,
   onDirtyChange,
 }: {
   shopId: string;
   mealRecord?: MealRecord;
+  /** A meal record the photo import will make: its day and first shop come from the photos, so neither is edited. */
+  importDraft?: MealRecordInput;
   // Resolves to the API result, or null when the caller handled it.
   onSave: (
     input: MealRecordInput,
@@ -201,7 +208,7 @@ export function MealRecordForm({
   } = useShops();
   const venues = useVenues();
   const [initialDraft] = useState<MealRecordDraft>(() =>
-    toDraft(mealRecord, shopId),
+    importDraft ? draftOf(importDraft) : toDraft(mealRecord, shopId),
   );
   const [draft, setDraft] = useState<MealRecordDraft>(initialDraft);
   // Compared as saved, so e.g. adding and removing a blank menu row is no change.
@@ -342,7 +349,13 @@ export function MealRecordForm({
     <Box
       ref={ref}
       role="group"
-      aria-label={mealRecord ? "食べた記録を編集" : "食べた記録を追加"}
+      aria-label={
+        importDraft
+          ? "取り込む食べた記録の内容"
+          : mealRecord
+            ? "食べた記録を編集"
+            : "食べた記録を追加"
+      }
       bg="nm.bg"
       borderRadius="nmMd"
       p="16px"
@@ -352,7 +365,13 @@ export function MealRecordForm({
     >
       <Box gridColumn={{ md: "span 2" }}>
         <FormField
-          label={<FieldLabel>提供した店舗（複数選択可）</FieldLabel>}
+          label={
+            <FieldLabel>
+              {importDraft
+                ? "提供した店舗（複数選択可、写真の店舗は外せません）"
+                : "提供した店舗（複数選択可）"}
+            </FieldLabel>
+          }
           error={errorOf("shopIds")}
         >
           <Select
@@ -368,11 +387,13 @@ export function MealRecordForm({
             placeholder="店舗名で検索"
             noOptionsMessage={() => "該当する店舗がありません"}
             onChange={(selected) => {
-              if (selected.length > 0) {
-                set(
-                  "shopIds",
-                  selected.map((option) => option.value),
-                );
+              const ids = selected.map((option) => option.value);
+              // The photos' shop keys the imported meal record, so it stays.
+              if (
+                ids.length > 0 &&
+                (!importDraft || ids.includes(importDraft.shopIds[0]))
+              ) {
+                set("shopIds", ids);
               }
             }}
           />
@@ -386,20 +407,22 @@ export function MealRecordForm({
           </Box>
         )}
       </Box>
-      <FormField
-        label={<FieldLabel>食べた日（空欄で日付不明）</FieldLabel>}
-        error={errorOf("eatenOn")}
-      >
-        <Input
-          {...inputProps}
-          type="date"
-          fontFamily="mono"
-          aria-label="食べた日"
-          ref={eatenOnRef}
-          value={draft.eatenOn}
-          onChange={(e) => set("eatenOn", e.target.value)}
-        />
-      </FormField>
+      {!importDraft && (
+        <FormField
+          label={<FieldLabel>食べた日（空欄で日付不明）</FieldLabel>}
+          error={errorOf("eatenOn")}
+        >
+          <Input
+            {...inputProps}
+            type="date"
+            fontFamily="mono"
+            aria-label="食べた日"
+            ref={eatenOnRef}
+            value={draft.eatenOn}
+            onChange={(e) => set("eatenOn", e.target.value)}
+          />
+        </FormField>
+      )}
       <FormField
         label={<FieldLabel>お気に入り度（0〜100、空欄で未設定）</FieldLabel>}
         error={errorOf("rate")}
@@ -501,7 +524,7 @@ export function MealRecordForm({
         flexWrap="wrap"
         gap="8px"
       >
-        {!mealRecord && (
+        {!mealRecord && !importDraft && (
           <Box as="span" mr="auto" fontSize="11px" color="nm.inkMuted">
             画像は食べた記録を保存した後に追加できます
           </Box>
@@ -524,7 +547,10 @@ export function MealRecordForm({
           キャンセル
         </Button>
         <LoadableButton
-          disabled={draft.shopIds.length === 0 || (!mealRecord && !shops)}
+          disabled={
+            draft.shopIds.length === 0 ||
+            (!mealRecord && !importDraft && !shops)
+          }
           variant="plain"
           px="18px"
           py="8px"
@@ -538,7 +564,7 @@ export function MealRecordForm({
           _hover={{ bg: "nm.inkSoft" }}
           onClick={handleSave}
         >
-          食べた記録を保存
+          {importDraft ? "この内容にする" : "食べた記録を保存"}
         </LoadableButton>
       </Box>
     </Box>

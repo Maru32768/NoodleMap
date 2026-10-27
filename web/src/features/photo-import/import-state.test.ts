@@ -1,4 +1,8 @@
-import type { ImportPlan } from "@/features/photo-import/import-plan.ts";
+import type { IsoDate } from "@/features/meal-records/eaten-date.ts";
+import {
+  ImportPlan,
+  mealRecordKey,
+} from "@/features/photo-import/import-plan.ts";
 import {
   Analysis,
   ImportAction,
@@ -8,6 +12,8 @@ import {
   runProgressOf,
 } from "@/features/photo-import/import-state.ts";
 import { describe, expect, it } from "vitest";
+
+const key = mealRecordKey("shop", "2023-04-01" as IsoDate);
 
 const analysis: Analysis = {
   photos: [],
@@ -52,18 +58,21 @@ describe("importReducer", () => {
     });
   });
 
-  it("records the admin's choices and toggles a photo's exclusion", () => {
+  it("records the admin's choices, details and toggles a photo's exclusion", () => {
     const state = run(
       review,
       { type: "choose", groupId: 4, choice: { kind: "skip" } },
       { type: "togglePhoto", photoIndex: 7 },
       { type: "togglePhoto", photoIndex: 8 },
       { type: "togglePhoto", photoIndex: 7 },
+      { type: "setDetails", key, details: { shopIds: ["shop"], rate: 80 } },
     );
 
     expect(state.kind === "review" && state.review).toEqual({
       choices: new Map([[4, { kind: "skip" }]]),
       excluded: new Set([8]),
+      order: new Map(),
+      details: new Map([[key, { shopIds: ["shop"], rate: 80 }]]),
     });
   });
 

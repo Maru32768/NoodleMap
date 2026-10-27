@@ -171,6 +171,67 @@ describe("PhotoImportModal", () => {
     expect(onShopsChanged).toHaveBeenCalledTimes(1);
   });
 
+  it("moves a photo of a meal record still to be made", async () => {
+    // A URL per file, so the thumbnails tell which photo sits where.
+    URL.createObjectURL = (file) => `blob:${(file as File).name}`;
+    const user = userEvent.setup();
+    fakeMealRecordServer();
+    renderModal();
+    await selectPhotos(user);
+    await user.click(screen.getByRole("radio", { name: /取り込み予定/ }));
+    const row = await screen.findByRole("group", { name: /^2023-04-01 / });
+    const order = () =>
+      // alt="" leaves the thumbnails out of the accessibility tree.
+      [...row.querySelectorAll("img")].map((img) => img.getAttribute("src"));
+    await waitFor(() =>
+      expect(order()).toEqual(["blob:alone-1.jpg", "blob:alone-2.jpg"]),
+    );
+    expect(
+      within(row).getByRole("button", { name: "写真1を前に移動" }),
+    ).toBeDisabled();
+
+    await user.click(
+      within(row).getByRole("button", { name: "写真1を後ろに移動" }),
+    );
+
+    await waitFor(() =>
+      expect(order()).toEqual(["blob:alone-2.jpg", "blob:alone-1.jpg"]),
+    );
+  });
+
+  it("creates a meal record with the details written for it", async () => {
+    const user = userEvent.setup();
+    const fake = fakeMealRecordServer();
+    server.use(
+      http.get("/api/v1/venues", () => HttpResponse.json({ venues: [] })),
+    );
+    renderModal();
+    await selectPhotos(user);
+    await user.click(screen.getByRole("radio", { name: /取り込み予定/ }));
+
+    const row = await screen.findByRole("group", { name: /^2023-04-01 / });
+    await user.click(within(row).getByRole("button", { name: "記録の内容" }));
+    const form = await screen.findByRole("group", {
+      name: "取り込む食べた記録の内容",
+    });
+    expect(
+      within(form).queryByRole("combobox", { name: "提供した店舗" }),
+    ).not.toBeInTheDocument();
+    expect(within(form).queryByLabelText("食べた日")).not.toBeInTheDocument();
+    await user.type(within(form).getByLabelText("お気に入り度"), "80");
+    await user.type(within(form).getByLabelText("メモ（公開）"), "濃厚");
+    await user.click(
+      within(form).getByRole("button", { name: "この内容にする" }),
+    );
+    expect(row).toHaveTextContent("お気に入り度 80 / メモあり");
+
+    await user.click(screen.getByRole("button", { name: "取り込む" }));
+    await screen.findByText("取り込みが完了しました");
+    expect(fake.mealRecordsOf(ALONE.id)).toMatchObject([
+      { eatenOn: "2023-04-01", rate: 80, publicNote: "濃厚" },
+    ]);
+  });
+
   it("asks for each filename photo's shop and imports the filename date once for the same shop", async () => {
     const user = userEvent.setup();
     const fake = fakeMealRecordServer();

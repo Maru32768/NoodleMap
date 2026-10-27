@@ -36,6 +36,7 @@ function entry(shopId: string, day: string, photoCount: number): PlanEntry {
     photos: Array.from({ length: photoCount }, () => photo()),
     overflow: 0,
     claimsDateless: true,
+    details: undefined,
   };
 }
 
@@ -186,6 +187,71 @@ describe("runImport", () => {
     ]);
     expect(fake.mealRecordsOf(SHOP_A)).toHaveLength(1);
     expect(outcome.progress).toMatchObject({ claimed: 1, created: 0 });
+  });
+
+  it("creates a meal record with the details the admin wrote", async () => {
+    const fake = fakeMealRecordServer();
+
+    await run(
+      plan({
+        ...entry(SHOP_A, "2023-04-01", 1),
+        details: {
+          shopIds: [SHOP_A],
+          menuItems: [{ name: "つけ麺", price: 1000 }],
+          rate: 80,
+          publicNote: "濃厚",
+        },
+      }),
+    );
+
+    expect(fake.mealRecordsOf(SHOP_A)).toMatchObject([
+      {
+        eatenOn: "2023-04-01",
+        menuItems: [{ name: "つけ麺", isLimited: false, price: 1000 }],
+        rate: 80,
+        publicNote: "濃厚",
+      },
+    ]);
+  });
+
+  it("creates a collaboration once, apart from the shop's own meal record that day", async () => {
+    const fake = fakeMealRecordServer({
+      [SHOP_A]: [mealRecordWithImages("2023-04-01", 1)],
+    });
+    const p = plan({
+      ...entry(SHOP_A, "2023-04-01", 1),
+      details: { shopIds: [SHOP_A, SHOP_B] },
+    });
+
+    await run(p);
+    const again = await run(p);
+
+    expect(fake.log).toEqual(["create 2023-04-01", "image 1"]);
+    expect(fake.mealRecordsOf(SHOP_A)[1].shops.map((s) => s.id)).toEqual([
+      SHOP_A,
+      SHOP_B,
+    ]);
+    expect(again.progress).toMatchObject({ alreadyDone: 1 });
+  });
+
+  it("dates a dateless meal record keeping the fields the admin left blank", async () => {
+    const dateless: MealRecord = {
+      ...mealRecordWithImages(undefined),
+      rate: 70,
+      publicNote: "旧アプリ",
+    };
+    const fake = fakeMealRecordServer({ [SHOP_A]: [dateless] });
+
+    await run(
+      plan({
+        ...entry(SHOP_A, "2023-04-01", 1),
+        details: { shopIds: [SHOP_A], rate: 90, publicNote: undefined },
+      }),
+    );
+
+    expect(fake.mealRecordsOf(SHOP_A)).toMatchObject([
+      { eatenOn: "2023-04-01", rate: 90, publicNote: "旧アプリ" },
+    ]);
   });
 
   it("looks again after an upload cut off at status 0 and does not resend a photo the server saved", async () => {

@@ -70,6 +70,7 @@ function entry({
     photos: g.photos,
     overflow: 0,
     claimsDateless,
+    details: undefined,
   };
 }
 
@@ -146,6 +147,8 @@ describe("buildPlan", () => {
       [noon, morning],
       () => pick(SHOP_A.id),
       new Set(),
+      new Map(),
+      new Map(),
     );
 
     expect(entries).toHaveLength(1);
@@ -170,10 +173,56 @@ describe("buildPlan", () => {
       [kept, allExcluded, skipped, undecided],
       (g) => choices.get(g.id) ?? pick(SHOP_A.id),
       new Set([kept.photos[1].index, allExcluded.photos[0].index]),
+      new Map(),
+      new Map(),
     );
 
     expect(entries.map((e) => [e.day, e.photos.map((p) => p.index)])).toEqual([
       ["2023-04-01", [kept.photos[0].index]],
+    ]);
+  });
+
+  it("uploads an entry's photos in the admin's order, capture order for the rest, then caps", () => {
+    const g = group("2023-04-01", 12);
+    const [first, second, third] = g.photos.map((p) => p.index);
+    const last = g.photos[11].index;
+
+    const { entries } = buildPlan(
+      [g],
+      () => pick(SHOP_A.id),
+      new Set(),
+      new Map(),
+      new Map([[mealRecordKey(SHOP_A.id, g.day), [last, third]]]),
+    );
+
+    expect(entries[0].photos.slice(0, 4).map((p) => p.index)).toEqual([
+      last,
+      third,
+      first,
+      second,
+    ]);
+    expect(entries[0].photos.map((p) => p.index)).not.toContain(
+      g.photos[10].index,
+    );
+    expect(entries[0].overflow).toBe(2);
+  });
+
+  it("gives each entry the details written for its meal record", () => {
+    const april = group("2023-04-01");
+    const may = group("2023-05-01");
+    const details = { shopIds: [SHOP_A.id], rate: 80 };
+
+    const { entries } = buildPlan(
+      [april, may],
+      () => pick(SHOP_A.id),
+      new Set(),
+      new Map([[mealRecordKey(SHOP_A.id, "2023-04-01" as IsoDate), details]]),
+      new Map(),
+    );
+
+    expect(entries.map((e) => [e.day, e.details])).toEqual([
+      ["2023-04-01", details],
+      ["2023-05-01", undefined],
     ]);
   });
 
@@ -191,6 +240,8 @@ describe("buildPlan", () => {
       [may, april, atB],
       (g) => pick(shopOf.get(g.id)!),
       new Set(),
+      new Map(),
+      new Map(),
     );
 
     expect(entries.map((e) => [e.key, e.claimsDateless])).toEqual([
@@ -209,6 +260,8 @@ describe("buildPlan", () => {
       [early, late, middle],
       (g) => pick(SHOP_A.id, g === late ? "admin" : "auto"),
       new Set(),
+      new Map(),
+      new Map(),
     );
 
     expect(entries.map((e) => e.day)).toEqual([

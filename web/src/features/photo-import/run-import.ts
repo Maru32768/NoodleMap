@@ -14,6 +14,7 @@ import {
 import { prepareImageForUpload } from "@/features/meal-records/prepare-image.ts";
 import {
   decideAction,
+  entryShopIds,
   ImportPlan,
   PlanEntry,
 } from "@/features/photo-import/import-plan.ts";
@@ -31,6 +32,7 @@ import {
   MEAL_RECORD_IMAGE_UPLOAD_UNCONFIRMED_MESSAGE,
   mealRecordImageUploadErrorMessage,
 } from "@/utils/toast.ts";
+import { isUndefined, omitBy } from "es-toolkit";
 
 /** The server's own output size: no pixel beyond it survives the upload anyway. */
 export const IMPORT_MAX_EDGE = 2048;
@@ -155,7 +157,8 @@ async function runEntry(
       case "create": {
         counted ??= "created";
         const result = await postMealRecord({
-          shopIds: [entry.shopId],
+          ...entry.details,
+          shopIds: [...entryShopIds(entry)],
           eatenOn: entry.day,
         });
         if (!result.ok) {
@@ -173,6 +176,8 @@ async function runEntry(
         counted ??= "claimed";
         const result = await putMealRecord(action.mealRecord.id, {
           ...mealRecordInputOf(action.mealRecord),
+          // Only what the admin wrote replaces the dateless record's own fields.
+          ...omitBy(entry.details ?? {}, isUndefined),
           eatenOn: entry.day,
         });
         if (!result.ok) {

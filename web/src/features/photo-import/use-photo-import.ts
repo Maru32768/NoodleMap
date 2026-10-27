@@ -9,7 +9,10 @@ import {
   decideAction,
   defaultChoice,
   EntryAction,
+  MealRecordDetails,
+  MealRecordKey,
   mealRecordKey,
+  photoOrder,
   PlanEntry,
   ServerMealRecords,
   ShopChoice,
@@ -24,7 +27,7 @@ import {
   Match,
   matchShop,
 } from "@/features/photo-import/matching.ts";
-import { readPhotos } from "@/features/photo-import/photos.ts";
+import { Photo, readPhotos } from "@/features/photo-import/photos.ts";
 import { runImport } from "@/features/photo-import/run-import.ts";
 import type { Shop } from "@/features/shops/api/use-shops.ts";
 import { forEachConcurrently } from "@/utils/concurrency.ts";
@@ -37,6 +40,8 @@ export type RowTab = "undecided" | "ready" | "imported" | "skip";
 /** One review row. Derived each render from analysis + review + current shops; never stored. */
 export interface GroupRow {
   readonly group: PhotoGroup;
+  /** The group's photos in the order they upload, which the admin may change while detailsKey is set. */
+  readonly photos: readonly Photo[];
   readonly match: Match;
   readonly candidates: readonly Candidate[];
   /** review.choices.get(id) ?? defaultChoice(...) */
@@ -46,6 +51,8 @@ export interface GroupRow {
   readonly existingImages: number | null;
   /** Photos of its (shop, day) beyond the per-mealRecord cap. */
   readonly overflow: number;
+  /** The (shop, day) meal record the import makes or claims, whose details the admin may write; null otherwise. */
+  readonly detailsKey: MealRecordKey | null;
 }
 
 export type PlanSummary = Record<EntryAction["kind"], number> &
@@ -116,7 +123,12 @@ export function usePhotoImport(shops: readonly Shop[]) {
 
   const derived = useMemo(() => {
     if (!analysis || !review) {
-      return { rows: [], summary: null, plan: { entries: [] } };
+      return {
+        rows: [],
+        summary: null,
+        plan: { entries: [] },
+        photosByKey: new Map<MealRecordKey, Photo[]>(),
+      };
     }
     const { groups, serverMealRecords } = analysis;
     const choices = groups.map(
@@ -129,7 +141,24 @@ export function usePhotoImport(shops: readonly Shop[]) {
       groups,
       (g) => choiceByGroup.get(g)!,
       review.excluded,
+      review.details,
+      review.order,
     );
+    // Every photo of each (shop, day), excluded ones too, in upload order: what a move reorders.
+    const photosByKey = new Map<MealRecordKey, Photo[]>();
+    groups.forEach((group, i) => {
+      const choice = choices[i];
+      if (choice.kind === "shop") {
+        const key = mealRecordKey(choice.shopId, group.day);
+        photosByKey.set(key, [
+          ...(photosByKey.get(key) ?? []),
+          ...group.photos,
+        ]);
+      }
+    });
+    for (const [key, photos] of photosByKey) {
+      photos.sort(photoOrder(review.order.get(key)));
+    }
     const entries = new Map<string, PlanEntry>(
       plan.entries.map((e) => [e.key, e]),
     );
@@ -143,32 +172,39 @@ export function usePhotoImport(shops: readonly Shop[]) {
       if (choice.kind !== "shop") {
         return {
           group,
+          photos: group.photos,
           match,
           candidates,
           choice,
           tab: choice.kind === "undecided" ? "undecided" : "skip",
           existingImages: null,
           overflow: 0,
+          detailsKey: null,
         };
       }
-      const entry = entries.get(mealRecordKey(choice.shopId, group.day));
+      const key = mealRecordKey(choice.shopId, group.day);
+      const entry = entries.get(key);
+      const own = new Set(group.photos);
+      const action = entry && actionOf(entry);
       const sameDay = (serverMealRecords.get(choice.shopId) ?? []).filter(
         (v) => v.eatenOn === group.day,
       );
       return {
         group,
+        photos: photosByKey.get(key)!.filter((p) => own.has(p)),
         match,
         candidates,
         choice,
-        tab: !entry
-          ? "skip"
-          : actionOf(entry).kind === "done"
-            ? "imported"
-            : "ready",
+        tab: !action ? "skip" : action.kind === "done" ? "imported" : "ready",
         existingImages: sameDay.length
           ? Math.max(...sameDay.map((v) => v.images.length))
           : null,
         overflow: entry?.overflow ?? 0,
+        // An existing same-day record is only added to, so what it says stays as it is.
+        detailsKey:
+          action?.kind === "create" || action?.kind === "claim"
+            ? entry!.key
+            : null,
       };
     });
 
@@ -182,7 +218,7 @@ export function usePhotoImport(shops: readonly Shop[]) {
     for (const entry of plan.entries) {
       summary[actionOf(entry).kind]++;
     }
-    return { rows, summary, plan };
+    return { rows, summary, plan, photosByKey };
   }, [analysis, review, matches]);
 
   async function selectFiles(files: readonly File[]) {
@@ -327,6 +363,23 @@ export function usePhotoImport(shops: readonly Shop[]) {
       dispatch({ type: "choose", groupId, choice }),
     togglePhoto: (photoIndex: number) =>
       dispatch({ type: "togglePhoto", photoIndex }),
+    /** Swaps a photo with the row's next (delta 1) or previous (-1) one, in its meal record's order. */
+    movePhoto: (row: GroupRow, photoIndex: number, delta: -1 | 1) => {
+      const shown = row.photos.map((p) => p.index);
+      const target = shown[shown.indexOf(photoIndex) + delta];
+      if (!row.detailsKey || target === undefined) {
+        return;
+      }
+      const order = derived.photosByKey
+        .get(row.detailsKey)!
+        .map((p) => p.index);
+      const to = order.indexOf(target);
+      order.splice(order.indexOf(photoIndex), 1);
+      order.splice(to, 0, photoIndex);
+      dispatch({ type: "setOrder", key: row.detailsKey, order });
+    },
+    setDetails: (key: MealRecordKey, details: MealRecordDetails) =>
+      dispatch({ type: "setDetails", key, details }),
     run,
     refresh,
     /** Aborts reading or the upload in flight. */

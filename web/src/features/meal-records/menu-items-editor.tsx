@@ -1,9 +1,6 @@
 import { FieldError, FormField } from "@/components/form-field.tsx";
 import { Button } from "@/components/ui/button.tsx";
-import type {
-  MenuItem,
-  MenuItemInput,
-} from "@/features/meal-records/api/use-meal-records.ts";
+import type { MenuItemInput } from "@/features/meal-records/api/use-meal-records.ts";
 import { mealRecordInputProps } from "@/features/meal-records/meal-record-input-props.ts";
 import { formatPrice } from "@/features/meal-records/meal-record-list.tsx";
 import type { FieldErrorType } from "@/features/shops/shop-field-errors.ts";
@@ -28,7 +25,7 @@ export interface MenuItemRow {
 export type MenuItemErrors = Partial<Record<"name" | "price", FieldErrorType>>;
 
 let nextRowId = 0;
-export const newMenuItemRow = (item?: MenuItem): MenuItemRow => ({
+export const newMenuItemRow = (item?: MenuItemInput): MenuItemRow => ({
   rowId: nextRowId++,
   name: item?.name ?? "",
   isLimited: item?.isLimited ?? false,

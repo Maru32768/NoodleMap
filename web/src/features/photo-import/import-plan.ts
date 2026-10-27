@@ -1,4 +1,7 @@
-import type { MealRecord } from "@/features/meal-records/api/use-meal-records.ts";
+import type {
+  MealRecord,
+  MealRecordInput,
+} from "@/features/meal-records/api/use-meal-records.ts";
 import type { IsoDate } from "@/features/meal-records/eaten-date.ts";
 import { byCapture, PhotoGroup } from "@/features/photo-import/grouping.ts";
 import type { Match } from "@/features/photo-import/matching.ts";
@@ -20,7 +23,17 @@ export interface ReviewState {
   readonly choices: ReadonlyMap<number, ShopChoice>;
   /** Photo indexes. */
   readonly excluded: ReadonlySet<number>;
+  /** Photo indexes of a meal record the import will make, in the order the admin put them. */
+  readonly order: ReadonlyMap<MealRecordKey, readonly number[]>;
+  /** What the admin wrote for a meal record the import will make. */
+  readonly details: ReadonlyMap<MealRecordKey, MealRecordDetails>;
 }
+
+/**
+ * A meal record's fields beyond its day, which comes from the photos. shopIds always holds the
+ * key's shop; any other is a collaborating shop.
+ */
+export type MealRecordDetails = Omit<MealRecordInput, "eatenOn">;
 
 /** The server's mealRecords of each shop that matters to the import, by shop id. */
 export type ServerMealRecords = ReadonlyMap<string, readonly MealRecord[]>;
@@ -36,13 +49,34 @@ export interface PlanEntry {
   readonly key: MealRecordKey;
   readonly shopId: string;
   readonly day: IsoDate;
-  /** At most MEAL_RECORD_IMAGES_MAX, capturedAt asc then index, across every merged group. */
+  /** At most MEAL_RECORD_IMAGES_MAX across every merged group, in {@link photoOrder}. */
   readonly photos: readonly Photo[];
   /** Photos beyond the cap; never uploaded, shown as a warning. */
   readonly overflow: number;
   /** The earliest entry of its shop in this plan; only it may date the shop's dateless mealRecord. */
   readonly claimsDateless: boolean;
+  /** Written when the meal record is created or claimed; an existing same-day record keeps its own. */
+  readonly details: MealRecordDetails | undefined;
 }
+
+/**
+ * The order an entry's photos upload in: the admin's first, then capture order for photos it
+ * does not list. Resuming counts uploaded photos along it, so the review only lets it change
+ * before the meal record has images.
+ */
+// shortcut: an order lost with its tab mid-run resumes in capture order and uploads the wrong rest; upgrade by remembering the order outside the tab.
+export function photoOrder(order: readonly number[] | undefined) {
+  const rank = (p: Photo) => {
+    const i = order?.indexOf(p.index) ?? -1;
+    return i === -1 ? Infinity : i;
+  };
+  // Infinity - Infinity is NaN, which falls through to capture order.
+  return (a: Photo, b: Photo) => rank(a) - rank(b) || byCapture(a, b);
+}
+
+/** The shops the entry's meal record is served by: its own, plus any collaborating one. */
+export const entryShopIds = (entry: PlanEntry): readonly string[] =>
+  entry.details?.shopIds ?? [entry.shopId];
 
 /** Entries in run order: admin-decided first, then the rest; each tier by day. */
 export interface ImportPlan {
@@ -112,6 +146,8 @@ export function buildPlan(
   groups: readonly PhotoGroup[],
   choiceOf: (group: PhotoGroup) => ShopChoice,
   excluded: ReadonlySet<number>,
+  details: ReadonlyMap<MealRecordKey, MealRecordDetails>,
+  order: ReadonlyMap<MealRecordKey, readonly number[]>,
 ): ImportPlan {
   const merged = new Map<
     MealRecordKey,
@@ -151,7 +187,7 @@ export function buildPlan(
         ka.localeCompare(kb),
     )
     .map(([key, { shopId, day, photos }]) => {
-      const sorted = photos.sort(byCapture);
+      const sorted = photos.sort(photoOrder(order.get(key)));
       return {
         key,
         shopId,
@@ -159,6 +195,7 @@ export function buildPlan(
         photos: sorted.slice(0, MEAL_RECORD_IMAGES_MAX),
         overflow: Math.max(0, sorted.length - MEAL_RECORD_IMAGES_MAX),
         claimsDateless: earliestDay.get(shopId) === day,
+        details: details.get(key),
       };
     });
   return { entries };
@@ -172,10 +209,15 @@ export function decideAction(
   entry: PlanEntry,
   mealRecords: readonly MealRecord[],
 ): EntryAction {
-  const singleShopMealRecords = mealRecords.filter(
-    (v) => v.shops.length === 1 && v.shops[0].id === entry.shopId,
+  // Only a meal record of exactly these shops is this entry's: a collaboration is another meal.
+  // shortcut: a collaboration made by an earlier run is not recognized once the tab that held its shops is gone, so running the photos again makes a separate meal record; upgrade by remembering details outside the tab.
+  const shopIds = entryShopIds(entry);
+  const sameShopsMealRecords = mealRecords.filter(
+    (v) =>
+      v.shops.length === shopIds.length &&
+      v.shops.every((shop) => shopIds.includes(shop.id)),
   );
-  const sameDay = singleShopMealRecords.filter((v) => v.eatenOn === entry.day);
+  const sameDay = sameShopsMealRecords.filter((v) => v.eatenOn === entry.day);
   if (sameDay.length > 0) {
     const target = sameDay.reduce((best, v) =>
       v.images.length > best.images.length ? v : best,
@@ -188,7 +230,7 @@ export function decideAction(
   }
   if (entry.claimsDateless) {
     // A dateless meal record with images is left alone: its images would break the count-as-cursor rule.
-    const dateless = singleShopMealRecords.find(
+    const dateless = sameShopsMealRecords.find(
       (v) => v.eatenOn === undefined && v.images.length === 0,
     );
     if (dateless) {
