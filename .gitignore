@@ -13,3 +13,4 @@ db/.seed-*/
 # The jev-lint verdict cache, which would change with most commits
 .jev-lint/baseline.json
 .claude/worktrees
+*.log
