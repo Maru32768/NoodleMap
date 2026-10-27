@@ -225,6 +225,19 @@ test("guest scrolls details without dismissal and pulls down from the top", asyn
     await expect(share).toBeAttached();
     await expect(share).not.toBeInViewport();
 
+    // Grabbing the sheet while its snap animation still runs leaves it collapsed.
+    let previousY: number | undefined;
+    await expect
+      .poll(
+        async () => {
+          const y = (await header.boundingBox())?.y;
+          const settled = y !== undefined && y === previousY;
+          previousY = y;
+          return settled;
+        },
+        { intervals: [100] },
+      )
+      .toBe(true);
     const collapsed = await header.boundingBox();
     await page.mouse.move(195, collapsed!.y + collapsed!.height / 2);
     await page.mouse.down();
