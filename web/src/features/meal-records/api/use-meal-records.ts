@@ -124,6 +124,8 @@ export function mealRecordInputOf(mealRecord: MealRecord): MealRecordInput {
         price,
       })),
       rate: mealRecord.rate,
+      // Keeping a record leaves the shops' own お気に入り度 alone.
+      rateShopIds: undefined,
       venueName: mealRecord.venue?.name,
       publicNote: mealRecord.publicNote,
       privateNote: mealRecord.privateNote,

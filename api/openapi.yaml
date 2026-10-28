@@ -959,6 +959,72 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/InternalErrorBody'
+  /api/v1/auth/shops/{id}/rate:
+    put:
+      operationId: setShopRate
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '204':
+          description: 'There is no content to send for this request, but the headers may be useful. '
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvalidRequestErrorBody'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthenticationRequiredErrorBody'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionDeniedErrorBody'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorBody'
+        '408':
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestBodyTimeoutErrorBody'
+        '413':
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestBodyTooLargeErrorBody'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalErrorBody'
+        '503':
+          description: Service unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestBodyBusyErrorBody'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetShopRateRequest'
   /api/v1/auth/shops/{id}/representative-meal-record:
     put:
       operationId: setRepresentativeMealRecord
@@ -1520,6 +1586,7 @@ components:
         - eatenOn
         - menuItems
         - rate
+        - rateShopIds
         - venueName
         - publicNote
         - privateNote
@@ -1662,6 +1729,11 @@ components:
           minimum: 0
           maximum: 100
           description: 0 to 100. Omit when not rated.
+        rateShopIds:
+          type: array
+          items:
+            $ref: '#/components/schemas/uuid'
+          description: Shops among shopIds whose own お気に入り度 is set to this rate on save. Ignored when rate is omitted.
         venueName:
           type: string
           maxLength: 100
@@ -1879,6 +1951,15 @@ components:
           allOf:
             - $ref: '#/components/schemas/uuid'
           description: A meal record linked to this shop. Omit to return to automatic selection.
+    SetShopRateRequest:
+      type: object
+      properties:
+        rate:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 100
+          description: 0 to 100. Omit to clear.
     Shop:
       type: object
       required:
@@ -1889,7 +1970,6 @@ components:
         - postalCode
         - address
         - eaten
-        - rate
         - favorite
         - mealRecordCount
         - category
@@ -1928,10 +2008,10 @@ components:
         rate:
           type: number
           format: double
-          description: 'Derived on the server: the rate of the latest meal record that has one, or 0 when none has. Read-only.'
+          description: The shop's own お気に入り度, 0 to 100, set apart from its meal records' rates. Absent when not set.
         favorite:
           type: boolean
-          description: "Derived on the server: true when the shop's rate comes from a meal record and is 80 or more. Read-only."
+          description: "Derived on the server: true when the shop's rate is 80 or more. Read-only."
         mealRecordCount:
           type: integer
           format: int32
@@ -2196,7 +2276,7 @@ components:
         rate:
           type: number
           format: double
-          description: "Deprecated and ignored by the server: the shop's rate is derived from meal records. Older clients still send it."
+          description: "Deprecated and ignored by the server: the shop's rate is set with setShopRate. Older clients still send it."
         tagIds:
           type: array
           items:

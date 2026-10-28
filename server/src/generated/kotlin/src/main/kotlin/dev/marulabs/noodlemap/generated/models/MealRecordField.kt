@@ -18,6 +18,8 @@ public enum class MealRecordField(
   MENU_ITEMS("menuItems"),
   @SerialName("rate")
   RATE("rate"),
+  @SerialName("rateShopIds")
+  RATE_SHOP_IDS("rateShopIds"),
   @SerialName("venueName")
   VENUE_NAME("venueName"),
   @SerialName("publicNote")

@@ -28,7 +28,7 @@ class OgCardTest {
         card.mealRecordCountLabel shouldBe "3回訪問"
         card.area shouldBe "東京都新宿区"
         card.description() shouldBe "ラーメン・家系・食べた・新店・3回訪問・東京都新宿区"
-        val wish = shop.copy(eaten = false, rate = 0.0, mealRecordCount = 0, wishLevel = "high", category = CategorySlug.UDON)
+        val wish = shop.copy(eaten = false, rate = null, mealRecordCount = 0, wishLevel = "high", category = CategorySlug.UDON)
         OgCard.of(wish, null, today).let {
             it.category shouldBe "うどん"
             // The 気になる度 replaces the plain 気になる status.
@@ -74,7 +74,7 @@ class OgCardTest {
             shop.copy(closedAt = "2026-10-01"),
             shop.copy(mealRecordCount = 4),
         ).forEach { hash(it) shouldNotBe base }
-        val wish = shop.copy(eaten = false, rate = 0.0, mealRecordCount = 0)
+        val wish = shop.copy(eaten = false, rate = null, mealRecordCount = 0)
         listOf(wish.copy(wishLevel = "low"), wish.copy(wishLevel = "high"), wish).map { hash(it) }.toSet().size shouldBe 3
         // Medium is drawn as the plain 気になる, so it shares the unset shop's image.
         hash(wish.copy(wishLevel = "medium")) shouldBe hash(wish)

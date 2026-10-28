@@ -42,8 +42,8 @@ public data class UpdateShopRequest(
   @SerialName("eaten")
   public val eaten: Boolean? = null,
   /**
-   * Deprecated and ignored by the server: the shop's rate is derived from meal records. Older
-   * clients still send it.
+   * Deprecated and ignored by the server: the shop's rate is set with setShopRate. Older clients
+   * still send it.
    */
   @SerialName("rate")
   public val rate: Double? = null,

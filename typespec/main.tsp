@@ -104,6 +104,7 @@ union MealRecordField {
   "eatenOn",
   "menuItems",
   "rate",
+  "rateShopIds",
   "venueName",
   "publicNote",
   "privateNote",
@@ -408,10 +409,10 @@ model Shop {
   @doc("Derived on the server: true when the shop has at least one meal record. Read-only.")
   eaten: boolean;
 
-  @doc("Derived on the server: the rate of the latest meal record that has one, or 0 when none has. Read-only.")
-  rate: float64;
+  @doc("The shop's own お気に入り度, 0 to 100, set apart from its meal records' rates. Absent when not set.")
+  rate?: float64;
 
-  @doc("Derived on the server: true when the shop's rate comes from a meal record and is 80 or more. Read-only.")
+  @doc("Derived on the server: true when the shop's rate is 80 or more. Read-only.")
   favorite: boolean;
 
   @doc("Number of meal records of the shop. Read-only.")
@@ -431,6 +432,13 @@ model Shop {
 
   @doc("First image of the selected representative meal record, falling back to the latest record with images. Absent when none has.")
   coverPhotoUrl?: string;
+}
+
+model SetShopRateRequest {
+  @doc("0 to 100. Omit to clear.")
+  @minValue(0)
+  @maxValue(100)
+  rate?: float64;
 }
 
 model SetRepresentativeMealRecordRequest {
@@ -553,6 +561,9 @@ model MealRecordInput {
   @maxValue(100)
   rate?: float64;
 
+  @doc("Shops among shopIds whose own お気に入り度 is set to this rate on save. Ignored when rate is omitted.")
+  rateShopIds?: uuid[];
+
   @maxLength(100)
   venueName?: string;
 
@@ -672,7 +683,7 @@ model UpdateShopRequest {
   @doc("Deprecated and ignored by the server: 食べた is derived from meal records. Older clients still send it.")
   eaten?: boolean;
 
-  @doc("Deprecated and ignored by the server: the shop's rate is derived from meal records. Older clients still send it.")
+  @doc("Deprecated and ignored by the server: the shop's rate is set with setShopRate. Older clients still send it.")
   rate?: float64;
 
   tagIds: uuid[];
@@ -776,6 +787,13 @@ op updateShop(
 op deleteShop(
   @path id: uuid,
 ): NoContentResponse | BadRequestResponse<InvalidRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | NotFoundResponse<NotFoundErrorBody> | ConflictResponse<ShopHasMealRecordsErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
+
+@put
+@route("/auth/shops/{id}/rate")
+op setShopRate(
+  @path id: uuid,
+  @body body: SetShopRateRequest,
+): RequestBodyErrorResponse | NoContentResponse | BadRequestResponse<InvalidRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | NotFoundResponse<NotFoundErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
 
 @put
 @route("/auth/shops/{id}/representative-meal-record")

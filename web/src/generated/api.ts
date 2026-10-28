@@ -276,6 +276,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/shops/{id}/rate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["setShopRate"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/shops/{id}/representative-meal-record": {
         parameters: {
             query?: never;
@@ -529,7 +545,7 @@ export interface components {
          * @description `menuItems` covers the list and each item; the message names the item (`menuItems[0].name`).
          * @enum {string}
          */
-        MealRecordField: "shopIds" | "eatenOn" | "menuItems" | "rate" | "venueName" | "publicNote" | "privateNote";
+        MealRecordField: "shopIds" | "eatenOn" | "menuItems" | "rate" | "rateShopIds" | "venueName" | "publicNote" | "privateNote";
         MealRecordFieldError: {
             field: components["schemas"]["MealRecordField"];
             type: components["schemas"]["FieldErrorType"];
@@ -598,6 +614,8 @@ export interface components {
              * @description 0 to 100. Omit when not rated.
              */
             rate?: number;
+            /** @description Shops among shopIds whose own お気に入り度 is set to this rate on save. Ignored when rate is omitted. */
+            rateShopIds?: components["schemas"]["uuid"][];
             venueName?: string;
             publicNote?: string;
             privateNote?: string;
@@ -696,6 +714,13 @@ export interface components {
             /** @description A meal record linked to this shop. Omit to return to automatic selection. */
             mealRecordId?: components["schemas"]["uuid"];
         };
+        SetShopRateRequest: {
+            /**
+             * Format: double
+             * @description 0 to 100. Omit to clear.
+             */
+            rate?: number;
+        };
         Shop: {
             id: components["schemas"]["uuid"];
             name: string;
@@ -717,10 +742,10 @@ export interface components {
             eaten: boolean;
             /**
              * Format: double
-             * @description Derived on the server: the rate of the latest meal record that has one, or 0 when none has. Read-only.
+             * @description The shop's own お気に入り度, 0 to 100, set apart from its meal records' rates. Absent when not set.
              */
-            rate: number;
-            /** @description Derived on the server: true when the shop's rate comes from a meal record and is 80 or more. Read-only. */
+            rate?: number;
+            /** @description Derived on the server: true when the shop's rate is 80 or more. Read-only. */
             favorite: boolean;
             /**
              * Format: int32
@@ -831,7 +856,7 @@ export interface components {
             eaten?: boolean;
             /**
              * Format: double
-             * @description Deprecated and ignored by the server: the shop's rate is derived from meal records. Older clients still send it.
+             * @description Deprecated and ignored by the server: the shop's rate is set with setShopRate. Older clients still send it.
              */
             rate?: number;
             tagIds: components["schemas"]["uuid"][];
@@ -2225,6 +2250,102 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InternalErrorBody"];
+                };
+            };
+        };
+    };
+    setShopRate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetShopRateRequest"];
+            };
+        };
+        responses: {
+            /** @description There is no content to send for this request, but the headers may be useful. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvalidRequestErrorBody"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthenticationRequiredErrorBody"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PermissionDeniedErrorBody"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotFoundErrorBody"];
+                };
+            };
+            /** @description Client error */
+            408: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestBodyTimeoutErrorBody"];
+                };
+            };
+            /** @description Client error */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestBodyTooLargeErrorBody"];
+                };
+            };
+            /** @description Server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InternalErrorBody"];
+                };
+            };
+            /** @description Service unavailable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestBodyBusyErrorBody"];
                 };
             };
         };

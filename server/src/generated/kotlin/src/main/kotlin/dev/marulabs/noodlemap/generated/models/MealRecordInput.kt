@@ -29,6 +29,11 @@ public data class MealRecordInput(
    */
   @SerialName("rate")
   public val rate: Double? = null,
+  /**
+   * Shops among shopIds whose own お気に入り度 is set to this rate on save. Ignored when rate is omitted.
+   */
+  @SerialName("rateShopIds")
+  public val rateShopIds: List<String>? = null,
   @SerialName("venueName")
   public val venueName: String? = null,
   @SerialName("publicNote")

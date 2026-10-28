@@ -1,6 +1,7 @@
 import { FormField } from "@/components/form-field.tsx";
 import { LoadableButton } from "@/components/loadable-button.tsx";
 import { Button } from "@/components/ui/button.tsx";
+import { Checkbox } from "@/components/ui/checkbox.tsx";
 import { useRevealFirstError } from "@/components/use-reveal-first-error.ts";
 import {
   MealRecord,
@@ -20,7 +21,7 @@ import {
   toMenuItemInputs,
   validateMenuItems,
 } from "@/features/meal-records/menu-items-editor.tsx";
-import { useShops } from "@/features/shops/api/use-shops.ts";
+import { Shop, useShops } from "@/features/shops/api/use-shops.ts";
 import { MiniHearts } from "@/features/shops/rating-hearts.tsx";
 import {
   clearShopFieldErrors,
@@ -50,6 +51,8 @@ interface MealRecordDraft {
   eatenOn: string;
   menuItems: MenuItemRow[];
   rate: string;
+  // Shops whose own お気に入り度 takes this rate; undefined until ticked by hand (see defaultRateShopIds).
+  rateShopIds?: string[];
   venueName: string;
   publicNote: string;
   privateNote: string;
@@ -162,6 +165,28 @@ function toInput(draft: MealRecordDraft): MealRecordInput {
   };
 }
 
+/**
+ * Shops ticked to take the rate until the admin ticks by hand. A new record of one shop
+ * without a 限定 item rates that shop; a collaboration or 限定 often differs from the shop's
+ * usual bowl. An edited record keeps rating the shops whose お気に入り度 it set.
+ */
+export function defaultRateShopIds(
+  draft: Pick<MealRecordDraft, "shopIds" | "menuItems">,
+  mealRecord: Pick<MealRecord, "rate"> | undefined,
+  shops: readonly Pick<Shop, "id" | "rate">[] | undefined,
+): string[] {
+  if (mealRecord) {
+    return mealRecord.rate === undefined
+      ? []
+      : draft.shopIds.filter(
+          (id) =>
+            shops?.find((shop) => shop.id === id)?.rate === mealRecord.rate,
+        );
+  }
+  const limited = draft.menuItems.some((row) => row.isLimited);
+  return draft.shopIds.length === 1 && !limited ? draft.shopIds : [];
+}
+
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
     <Box
@@ -213,6 +238,9 @@ export function MealRecordForm({
   const [draft, setDraft] = useState<MealRecordDraft>(initialDraft);
   // Compared as saved, so e.g. adding and removing a blank menu row is no change.
   const dirty = !isEqual(toInput(draft), toInput(initialDraft));
+  const rateShopIds = (
+    draft.rateShopIds ?? defaultRateShopIds(draft, mealRecord, shops)
+  ).filter((id) => draft.shopIds.includes(id));
   useEffect(() => {
     onDirtyChange?.(dirty);
   }, [dirty, onDirtyChange]);
@@ -301,7 +329,12 @@ export function MealRecordForm({
       reveal();
       return;
     }
-    const result = await onSave(toInput(draft));
+    const input = toInput(draft);
+    const result = await onSave(
+      input.rate === undefined || rateShopIds.length === 0
+        ? input
+        : { ...input, rateShopIds },
+    );
     if (!result || result.ok) {
       return;
     }
@@ -423,29 +456,63 @@ export function MealRecordForm({
           />
         </FormField>
       )}
-      <FormField
-        label={<FieldLabel>お気に入り度（0〜100、空欄で未設定）</FieldLabel>}
-        error={errorOf("rate")}
-      >
-        <Box display="flex" alignItems="center" gap="8px">
-          <Input
-            {...inputProps}
-            type="number"
-            min={0}
-            max={100}
-            step={1}
-            fontFamily="mono"
-            aria-label="お気に入り度"
-            placeholder="未設定"
-            ref={rateRef}
-            value={draft.rate}
-            onChange={(e) => set("rate", e.target.value)}
-          />
-          {rate !== undefined && !Number.isNaN(rate) && (
-            <MiniHearts rate={rate} />
-          )}
-        </Box>
-      </FormField>
+      <Box>
+        <FormField
+          label={<FieldLabel>お気に入り度（0〜100、空欄で未設定）</FieldLabel>}
+          error={errorOf("rate")}
+        >
+          <Box display="flex" alignItems="center" gap="8px">
+            <Input
+              {...inputProps}
+              type="number"
+              min={0}
+              max={100}
+              step={1}
+              fontFamily="mono"
+              aria-label="お気に入り度"
+              placeholder="未設定"
+              ref={rateRef}
+              value={draft.rate}
+              onChange={(e) => set("rate", e.target.value)}
+            />
+            {rate !== undefined && !Number.isNaN(rate) && (
+              <MiniHearts rate={rate} />
+            )}
+          </Box>
+        </FormField>
+        {/* Outside the FormField, whose field context would hand the rate input's id to these inputs. */}
+        {rate !== undefined && (
+          <Box
+            role="group"
+            aria-label="店舗のお気に入り度への反映"
+            mt="6px"
+            display="grid"
+            gap="4px"
+          >
+            {draft.shopIds.map((id) => (
+              <Checkbox
+                key={id}
+                size="sm"
+                checked={rateShopIds.includes(id)}
+                onCheckedChange={(e) =>
+                  set(
+                    "rateShopIds",
+                    e.checked === true
+                      ? [...rateShopIds, id]
+                      : rateShopIds.filter((other) => other !== id),
+                  )
+                }
+              >
+                <Box as="span" fontSize="12px">
+                  {draft.shopIds.length === 1
+                    ? "店舗のお気に入り度にも反映"
+                    : `${options.find((o) => o.value === id)?.label ?? "店舗"}のお気に入り度にも反映`}
+                </Box>
+              </Checkbox>
+            ))}
+          </Box>
+        )}
+      </Box>
       <Box
         gridColumn={{ md: "span 2" }}
         role="group"

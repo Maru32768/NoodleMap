@@ -59,13 +59,12 @@ class MealRecordApiTest {
         MealRecordInput(shopIds = listOf(shopId), eatenOn = eatenOn, rate = rate)
 
     @Test
-    fun `mealRecords are newest first with undated ones last, and the shop derives eaten, rate and favorite from them`() = testApp { t ->
+    fun `mealRecords are newest first with undated ones last, and the shop counts them as eaten`() = testApp { t ->
         val admin = t.adminToken()
         val id = addShop(admin)
         client.shops().single().let {
             it.eaten shouldBe false
             it.mealRecordCount shouldBe 0
-            it.rate shouldBe 0.0
         }
 
         val undated = client.addMealRecord(id, mealRecord(id, rate = 95.0), admin)
@@ -76,24 +75,13 @@ class MealRecordApiTest {
         client.shops().single().let {
             it.eaten shouldBe true
             it.mealRecordCount shouldBe 3
-            // The newest meal record has no rate, so the latest rated one counts; the undated 95 is older still.
-            it.rate shouldBe 60.0
+            // A meal record's rate stays its own unless rateShopIds names the shop.
+            it.rate shouldBe null
             it.favorite shouldBe false
         }
 
-        client.putJson("/api/v1/auth/meal-records/${newest.id}", encode(mealRecord(id, "2024-01-01", rate = 80.0)), admin).status shouldBe HttpStatusCode.OK
-        client.shops().single().let {
-            it.rate shouldBe 80.0
-            it.favorite shouldBe true
-        }
-
         client.deleteWithSession("/api/v1/auth/meal-records/${newest.id}", admin)
-        client.deleteWithSession("/api/v1/auth/meal-records/${older.id}", admin)
-        client.shops().single().let {
-            it.mealRecordCount shouldBe 1
-            it.rate shouldBe 95.0
-            it.favorite shouldBe true
-        }
+        client.shops().single().mealRecordCount shouldBe 2
     }
 
     @Test
@@ -107,19 +95,18 @@ class MealRecordApiTest {
         t.setCreatedAt(second.id, "2025-01-01 00:00:00.001")
 
         client.mealRecords(id).map { it.id } shouldContainExactly listOf(second.id, first.id)
-        client.shops().single().rate shouldBe 70.0
     }
 
     @Test
     fun `a shop whose mealRecords are all unrated is eaten without a rate`() = testApp { t ->
         val admin = t.adminToken()
         val id = addShop(admin)
-        client.addMealRecord(id, mealRecord(id, "2024-01-01"), admin)
+        client.addMealRecord(id, mealRecord(id, "2024-01-01").copy(rateShopIds = listOf(id)), admin)
 
         client.shops().single().let {
             it.eaten shouldBe true
             it.mealRecordCount shouldBe 1
-            it.rate shouldBe 0.0
+            it.rate shouldBe null
             it.favorite shouldBe false
         }
     }

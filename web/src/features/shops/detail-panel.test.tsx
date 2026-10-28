@@ -230,9 +230,9 @@ describe("DetailPanel meal records", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows 未設定 instead of a 0 お気に入り度 when no meal record has one", async () => {
+  it("shows 未設定 when the shop has no お気に入り度 of its own", async () => {
     serveMealRecords([mealRecords[1]]);
-    renderPanel(makeShop({ eaten: true, rate: 0, mealRecordCount: 1 }));
+    renderPanel(makeShop({ eaten: true, rate: undefined, mealRecordCount: 1 }));
 
     await screen.findByRole("list", { ...hidden, name: "食べた記録" });
     expect(screen.getByText("未設定")).toBeInTheDocument();

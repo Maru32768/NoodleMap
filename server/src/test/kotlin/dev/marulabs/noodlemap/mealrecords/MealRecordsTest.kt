@@ -1,6 +1,5 @@
 package dev.marulabs.noodlemap.mealrecords
 
-import dev.marulabs.noodlemap.db.FindAllMealRecordSummaries
 import dev.marulabs.noodlemap.errors.DomainException
 import dev.marulabs.noodlemap.errors.FieldError
 import dev.marulabs.noodlemap.errors.FieldErrorType
@@ -17,10 +16,12 @@ class MealRecordsTest {
 
     private val shop = UUID.randomUUID()
 
-    private fun row(eatenOn: String?, rate: Double?, createdAt: String, id: UUID = UUID.randomUUID()) =
-        FindAllMealRecordSummaries(id, shop, eatenOn, rate, createdAt)
+    private data class Row(val eatenOn: String?, val rate: Double?, val createdAt: String, val id: UUID)
 
-    private val order = latestFirst<FindAllMealRecordSummaries>({ it.eaten_on }, { it.created_at }, { it.id })
+    private fun row(eatenOn: String?, rate: Double?, createdAt: String, id: UUID = UUID.randomUUID()) =
+        Row(eatenOn, rate, createdAt, id)
+
+    private val order = latestFirst<Row>({ it.eatenOn }, { it.createdAt }, { it.id })
 
     @Test
     fun `latest order puts dated mealRecords first, newest date first, then the most recently created`() {
@@ -43,23 +44,6 @@ class MealRecordsTest {
 
         listOf(low, high).sortedWith(order) shouldBe listOf(high, low)
         listOf(high, low).sortedWith(order) shouldBe listOf(high, low)
-        summarize(listOf(low, high)).rate shouldBe 2.0
-        summarize(listOf(high, low)).rate shouldBe 2.0
-    }
-
-    @Test
-    fun `summary counts every mealRecord and takes the rate of the latest rated one`() {
-        summarize(emptyList()) shouldBe MealRecordSummary(0, null)
-        summarize(emptyList()).eaten shouldBe false
-        val rows = listOf(
-            row("2025-01-01", null, "2025-01-01 00:00:00.000"),
-            row(null, 90.0, "2026-01-01 00:00:00.000"),
-            row("2024-01-01", 0.0, "2024-01-01 00:00:00.000"),
-        )
-
-        summarize(rows) shouldBe MealRecordSummary(3, 0.0)
-        summarize(rows).eaten shouldBe true
-        summarize(rows.take(1)) shouldBe MealRecordSummary(1, null)
     }
 
     private val today = LocalDate.of(2026, 10, 23)

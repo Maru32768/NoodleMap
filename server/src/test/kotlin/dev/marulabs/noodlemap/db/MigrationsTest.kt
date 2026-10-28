@@ -362,6 +362,43 @@ class MigrationsTest {
     }
 
     @Test
+    fun `00019 copies each shop's rate from its latest rated meal record`() {
+        withDb { conn ->
+            migrate(conn, loadMigrations().filter { it.version <= 18 })
+            conn.createStatement().use { st ->
+                st.executeUpdate(
+                    "INSERT INTO shops (id, name, lat, lng, postal_code, address) VALUES " +
+                        "('dated', '', 0, 0, '', ''), ('undated', '', 0, 0, '', ''), ('unrated', '', 0, 0, '', ''), ('none', '', 0, 0, '', '')",
+                )
+                st.executeUpdate(
+                    """
+                    INSERT INTO meal_records (id, eaten_on, rate, created_at) VALUES
+                        ('d-old', '2024-01-01', 60, '2030-01-01'),
+                        ('d-new', '2025-01-01', 70, '2020-01-01'),
+                        ('d-unrated', '2026-01-01', NULL, '2020-01-01'),
+                        ('d-nodate', NULL, 99, '2030-01-01'),
+                        ('u-first', NULL, 40, '2020-01-01'),
+                        ('u-last', NULL, 50, '2021-01-01'),
+                        ('n', '2025-01-01', NULL, '2020-01-01')
+                    """.trimIndent(),
+                )
+                st.executeUpdate(
+                    """
+                    INSERT INTO meal_record_shops (meal_record_id, shop_id, sort_order) VALUES
+                        ('d-old', 'dated', 0), ('d-new', 'dated', 0), ('d-unrated', 'dated', 0), ('d-nodate', 'dated', 0),
+                        ('u-first', 'undated', 0), ('u-last', 'undated', 0), ('n', 'unrated', 0)
+                    """.trimIndent(),
+                )
+            }
+
+            migrate(conn, loadMigrations())
+
+            conn.strings("SELECT id || '=' || coalesce(rate, 'null') FROM shops ORDER BY id") shouldBe
+                listOf("dated=70.0", "none=null", "undated=50.0", "unrated=null")
+        }
+    }
+
+    @Test
     fun `failed migration rolls back its statements and is not recorded`() {
         withDb { conn ->
             val broken = Migration(1, listOf("CREATE TABLE half_done (id TEXT)", "NOT VALID SQL"), useTransaction = true)

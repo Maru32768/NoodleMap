@@ -167,6 +167,11 @@ test("admin records a meal record of two menu items that guests see without its 
   await secondItem.getByRole("spinbutton", { name: "価格" }).fill("1300");
   await expect(form).toContainText("合計 ¥2,500");
   await form.getByRole("spinbutton", { name: "お気に入り度" }).fill("85");
+  // A record with a 限定 item does not rate the shop unless ticked.
+  const reflect = form.getByRole("checkbox", { name: "店舗のお気に入り度にも反映" });
+  await expect(reflect).not.toBeChecked();
+  await form.getByText("店舗のお気に入り度にも反映").click();
+  await expect(reflect).toBeChecked();
   await form.getByRole("textbox", { name: "メモ（公開）" }).fill(publicNote);
   await form.getByRole("textbox", { name: "メモ（自分用）" }).fill(privateNote);
   await form.getByRole("button", { name: "食べた記録を保存" }).click();
@@ -210,7 +215,8 @@ test("deleting a shop's only meal record returns it to 気になる", async ({ p
 
   await expect(page.getByText("食べた記録を削除しました")).toBeVisible();
   await expect(dialog.getByText("まだ食べた記録がありません")).toBeVisible();
-  expect(await api.getShop(shop.id)).toMatchObject({ eaten: false, favorite: false, mealRecordCount: 0 });
+  // The shop's own お気に入り度 outlives the record.
+  expect(await api.getShop(shop.id)).toMatchObject({ eaten: false, rate: 85, mealRecordCount: 0 });
   await expect(dialog.getByRole("button", { name: "削除", exact: true })).toBeEnabled();
 
   await asGuest(async (guestPage) => {

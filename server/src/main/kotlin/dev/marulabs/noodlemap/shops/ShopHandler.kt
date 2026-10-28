@@ -10,6 +10,7 @@ import dev.marulabs.noodlemap.errors.DomainException
 import dev.marulabs.noodlemap.errors.FieldError
 import dev.marulabs.noodlemap.errors.FieldErrorType
 import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthShopsController
+import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthShopsRateController
 import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthShopsRepresentativeMealRecordController
 import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthTagsController
 import dev.marulabs.noodlemap.generated.controllers.ApiV1ShopsController
@@ -23,15 +24,15 @@ import dev.marulabs.noodlemap.generated.models.ShopLinkInput
 import dev.marulabs.noodlemap.generated.models.ShopLinkType
 import dev.marulabs.noodlemap.generated.models.SaveTagsRequest
 import dev.marulabs.noodlemap.generated.models.SetRepresentativeMealRecordRequest
+import dev.marulabs.noodlemap.generated.models.SetShopRateRequest
 import dev.marulabs.noodlemap.generated.models.ShopsResponse
 import dev.marulabs.noodlemap.generated.models.Tag
 import dev.marulabs.noodlemap.generated.models.TagsResponse
 import dev.marulabs.noodlemap.generated.models.UpdateShopRequest
 import dev.marulabs.noodlemap.generated.models.WishLevel
 import dev.marulabs.noodlemap.mealrecords.MealRecordImageStore
-import dev.marulabs.noodlemap.mealrecords.MealRecordSummary
 import dev.marulabs.noodlemap.mealrecords.coverPhotoKeysByShop
-import dev.marulabs.noodlemap.mealrecords.mealRecordSummariesByShop
+import dev.marulabs.noodlemap.mealrecords.mealRecordCountsByShop
 import java.net.IDN
 import java.util.UUID
 import org.sqlite.SQLiteErrorCode
@@ -87,7 +88,7 @@ class ShopHandler(
     private val sessions: SessionService,
     private val mealRecordImages: MealRecordImageStore,
 ) : ApiV1ShopsController, ApiV1TagsController, ApiV1AuthShopsController, ApiV1AuthTagsController,
-    ApiV1AuthShopsRepresentativeMealRecordController {
+    ApiV1AuthShopsRepresentativeMealRecordController, ApiV1AuthShopsRateController {
 
     // --- Public reads ---
 
@@ -122,6 +123,15 @@ class ShopHandler(
                 db.shopRepresentativeMealRecordsQueries.setRepresentativeMealRecord(shopId, recordId)
             }
         }
+        call.respond(HttpStatusCode.NoContent)
+    }
+
+    override suspend fun setShopRate(id: String, setShopRateRequest: SetShopRateRequest, call: ApplicationCall) {
+        sessions.requireAdmin(call)
+        val shopId = runCatching { UUID.fromString(id) }.getOrNull() ?: throw DomainException.InvalidRequest()
+        val rate = setShopRateRequest.rate
+        if (rate != null && rate !in 0.0..100.0) throw DomainException.InvalidRequest()
+        if (db.shopsQueries.setShopRate(rate, shopId).value == 0L) throw DomainException.NotFound()
         call.respond(HttpStatusCode.NoContent)
     }
 
@@ -181,7 +191,7 @@ class ShopHandler(
                 id = shopId.toString(), name = req.name, nameKana = nameKana, lat = req.lat, lng = req.lng,
                 openedAt = ShopDate.encode(req.openedAt), closedAt = ShopDate.encode(req.closedAt),
                 postalCode = req.postalCode, address = req.address, googlePlaceId = googlePlaceId,
-                eaten = false, rate = 0.0, favorite = false, mealRecordCount = 0, wishLevel = wishLevel?.value,
+                eaten = false, favorite = false, mealRecordCount = 0, wishLevel = wishLevel?.value,
                 category = req.category,
                 tags = tagsByShopIds(listOf(shopId))[shopId] ?: emptyList(),
                 links = linksByShopIds(listOf(shopId))[shopId] ?: emptyList(),
@@ -199,7 +209,7 @@ class ShopHandler(
         }
         if (!user.isAdmin) throw DomainException.PermissionDenied()
 
-        // eaten / rate are deprecated and ignored: 食べた and お気に入り度 come from meal records.
+        // eaten / rate are deprecated and ignored: 食べた comes from meal records, お気に入り度 from setShopRate.
         val req = updateShopRequest
         // Missing (older clients) keeps the stored reading; blank clears it ('' -> NULL in SQL).
         val nameKana = req.nameKana?.let { normalizeNameKana(it) ?: "" }
@@ -259,28 +269,26 @@ class ShopHandler(
 
     // --- Helpers ---
 
-    // The one place the お気に入り rule lives (GLOSSARY.md): the shop's お気に入り度 is 80 or more. A shop
-    // only gets お気に入り度 from a rated meal record, so a favorite is always eaten.
+    // The one place the お気に入り rule lives (GLOSSARY.md): the shop's お気に入り度 is 80 or more.
     private fun isFavorite(rate: Double?): Boolean = rate != null && rate >= 80.0
 
     private fun loadShops(): List<ShopRecord> {
         val rows = db.shopsQueries.findAllShops().executeAsList()
         val tagsByShop = tagsByShopIds(rows.map { it.id })
         val linksByShop = linksByShopIds(rows.map { it.id })
-        val mealRecordsByShop = mealRecordSummariesByShop(db)
+        val mealRecordCounts = mealRecordCountsByShop(db)
         val coversByShop = coverPhotoKeysByShop(db)
         val representatives = db.shopRepresentativeMealRecordsQueries.findAllRepresentativeMealRecords()
             .executeAsList().associate { it.shop_id to it.meal_record_id }
         return rows.map { r ->
-            val mealRecords = mealRecordsByShop[r.id] ?: MealRecordSummary.NONE
+            val mealRecordCount = mealRecordCounts[r.id] ?: 0
             val coverKey = coversByShop[r.id]
             val shop = Shop(
                 id = r.id.toString(), name = r.name, nameKana = r.name_kana, lat = r.lat, lng = r.lng,
                 openedAt = ShopDate.decode(r.opened_at), closedAt = ShopDate.decode(r.closed_at),
                 postalCode = r.postal_code, address = r.address, googlePlaceId = r.google_place_id,
-                // Older clients read a missing お気に入り度 as 0.
-                eaten = mealRecords.eaten, rate = mealRecords.rate ?: 0.0, favorite = isFavorite(mealRecords.rate),
-                mealRecordCount = mealRecords.mealRecordCount, wishLevel = r.wish_level,
+                eaten = mealRecordCount > 0, rate = r.rate, favorite = isFavorite(r.rate),
+                mealRecordCount = mealRecordCount, wishLevel = r.wish_level,
                 category = CategorySlug.fromValue(r.category) ?: CategorySlug.RAMEN,
                 tags = tagsByShop[r.id] ?: emptyList(),
                 links = linksByShop[r.id] ?: emptyList(),

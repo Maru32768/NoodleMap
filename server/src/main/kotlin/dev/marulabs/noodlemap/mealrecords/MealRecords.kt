@@ -1,7 +1,6 @@
 package dev.marulabs.noodlemap.mealrecords
 
 import dev.marulabs.noodlemap.db.FindAllMealRecordCovers
-import dev.marulabs.noodlemap.db.FindAllMealRecordSummaries
 import dev.marulabs.noodlemap.db.NoodleMapDb
 import java.util.UUID
 
@@ -15,25 +14,9 @@ internal fun <T> latestFirst(eatenOn: (T) -> String?, createdAt: (T) -> String, 
         .thenByDescending { createdAt(it) }
         .thenByDescending { id(it).toString() }
 
-/** What a shop derives from its meal records: 食べた and its お気に入り度. */
-data class MealRecordSummary(val mealRecordCount: Int, val rate: Double?) {
-    /** 食べた: at least one meal record. */
-    val eaten: Boolean get() = mealRecordCount > 0
-
-    companion object {
-        val NONE = MealRecordSummary(0, null)
-    }
-}
-
-private val SUMMARY_ORDER = latestFirst<FindAllMealRecordSummaries>({ it.eaten_on }, { it.created_at }, { it.id })
-
-/** The shop's お気に入り度 is the rate of its latest meal record that has one. */
-internal fun summarize(mealRecords: List<FindAllMealRecordSummaries>): MealRecordSummary =
-    MealRecordSummary(mealRecords.size, mealRecords.filter { it.rate != null }.minWithOrNull(SUMMARY_ORDER)?.rate)
-
-/** Summaries of every shop with a meal record, from one query; shops without one are absent. */
-fun mealRecordSummariesByShop(db: NoodleMapDb): Map<UUID, MealRecordSummary> =
-    db.mealRecordsQueries.findAllMealRecordSummaries().executeAsList().groupBy { it.shop_id }.mapValues { summarize(it.value) }
+/** Meal record counts of every shop with one, from one query; shops without one are absent. */
+fun mealRecordCountsByShop(db: NoodleMapDb): Map<UUID, Int> =
+    db.mealRecordsQueries.countMealRecordsByShop().executeAsList().associate { it.shop_id to it.meal_record_count.toInt() }
 
 private val COVER_ORDER = latestFirst<FindAllMealRecordCovers>({ it.eaten_on }, { it.created_at }, { it.meal_record_id })
 

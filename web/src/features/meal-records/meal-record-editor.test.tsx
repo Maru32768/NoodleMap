@@ -67,6 +67,7 @@ function renderMealRecords({
   let representativeMealRecordId = target.representativeMealRecordId;
   const representatives: components["schemas"]["SetRepresentativeMealRecordRequest"][] =
     [];
+  const rates: components["schemas"]["SetShopRateRequest"][] = [];
   // Swappable so a test can fail a later refetch.
   let mealRecordsResponse = () => HttpResponse.json({ mealRecords });
   server.use(
@@ -96,6 +97,12 @@ function renderMealRecords({
       deleted.push(params.mealRecordId as string);
       return deleteResponse();
     }),
+    http.put(`/api/v1/auth/shops/${target.id}/rate`, async ({ request }) => {
+      rates.push(
+        (await request.json()) as components["schemas"]["SetShopRateRequest"],
+      );
+      return new HttpResponse(null, { status: 204 });
+    }),
     http.put(
       `/api/v1/auth/shops/${target.id}/representative-meal-record`,
       async ({ request }) => {
@@ -124,6 +131,7 @@ function renderMealRecords({
   return {
     onDeleted,
     representatives,
+    rates,
     posted,
     put,
     deleted,
@@ -240,6 +248,78 @@ describe("MealRecordEditor", () => {
       expect(fetched.shops).toBeGreaterThan(before.shops);
     });
     expect(screen.queryByRole("group", { name: /食べた記録/ })).toBeNull();
+  });
+
+  it("rates the shop from a plain record of it unless unticked", async () => {
+    const { posted } = renderMealRecords({ mealRecords: [] });
+    const reflect = () =>
+      within(form()).getByRole("checkbox", {
+        name: "店舗のお気に入り度にも反映",
+      });
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "食べた記録を追加" }),
+    );
+    await userEvent.type(
+      within(form()).getByRole("spinbutton", { name: "お気に入り度" }),
+      "90",
+    );
+    expect(reflect()).toBeChecked();
+    await save();
+    await waitFor(() => expect(posted).toHaveLength(1));
+    expect(posted[0]).toMatchObject({ rate: 90, rateShopIds: [shop.id] });
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "食べた記録を追加" }),
+    );
+    await userEvent.type(
+      within(form()).getByRole("spinbutton", { name: "お気に入り度" }),
+      "60",
+    );
+    await userEvent.click(reflect());
+    await save();
+    await waitFor(() => expect(posted).toHaveLength(2));
+    expect(posted[1].rateShopIds).toBeUndefined();
+  });
+
+  it("keeps rating the shop from the record whose rate it has", async () => {
+    const { put } = renderMealRecords({
+      target: { ...shop, rate: mealRecord.rate },
+    });
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "食べた記録を編集" }),
+    );
+    const rate = within(form()).getByRole("spinbutton", {
+      name: "お気に入り度",
+    });
+    await userEvent.clear(rate);
+    await userEvent.type(rate, "75");
+    await save();
+
+    await waitFor(() => expect(put).toHaveLength(1));
+    expect(put[0]).toMatchObject({ rate: 75, rateShopIds: [shop.id] });
+  });
+
+  it("sets and clears the shop's own お気に入り度", async () => {
+    const { rates } = renderMealRecords();
+    const input = await screen.findByRole("spinbutton", {
+      name: "店舗のお気に入り度",
+    });
+    const saveRate = () =>
+      userEvent.click(
+        screen.getByRole("button", { name: "店舗のお気に入り度を保存" }),
+      );
+
+    expect(input).toHaveValue(shop.rate);
+    await userEvent.clear(input);
+    await userEvent.type(input, "95");
+    await saveRate();
+    await waitFor(() => expect(rates).toEqual([{ rate: 95 }]));
+
+    await userEvent.clear(input);
+    await saveRate();
+    await waitFor(() => expect(rates).toEqual([{ rate: 95 }, {}]));
   });
 
   it("omits a cleared date and a blank rate (日付不明, 未設定)", async () => {

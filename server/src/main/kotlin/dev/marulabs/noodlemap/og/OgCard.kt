@@ -70,7 +70,7 @@ data class OgCard(
             statuses = listOf(eatenChip(shop)) + lifecycleChips(shop.openedAt, shop.closedAt, today),
             tags = shop.tags.take(3).map { Chip(it.label, it.color) },
             // Down to the half heart the image can show, so rates drawn alike share one hash.
-            hearts = if (shop.rate > 0) floor(minOf(5.0, shop.rate / 20) * 2) / 2 else 0.0,
+            hearts = shop.rate?.let { floor(minOf(5.0, it / 20) * 2) / 2 } ?: 0.0,
             mealRecordCount = shop.mealRecordCount,
             area = areaOf(shop.address),
             coverPhotoKey = coverPhotoKey,

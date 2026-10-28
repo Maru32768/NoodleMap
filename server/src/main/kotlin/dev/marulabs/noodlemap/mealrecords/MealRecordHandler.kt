@@ -44,6 +44,8 @@ internal data class MealRecordFields(
     val eatenOn: String?,
     val menuItems: List<MenuItem>,
     val rate: Double?,
+    /** Shops whose own お気に入り度 becomes [rate]; empty when the record is not rated. */
+    val rateShopIds: List<UUID>,
     val venueName: String?,
     val publicNote: String?,
     val privateNote: String?,
@@ -99,11 +101,16 @@ internal fun normalizeMealRecord(input: MealRecordInput, today: LocalDate): Meal
         MenuItem(name = name, isLimited = item.isLimited == true, price = item.price)
     }
     if (input.rate != null && input.rate !in 0.0..100.0) errors += FieldError("rate", FieldErrorType.OUT_OF_RANGE)
+    val rateShopIds = input.rateShopIds.orEmpty().mapNotNull { runCatching { UUID.fromString(it) }.getOrNull() }
+    if (rateShopIds.size != input.rateShopIds.orEmpty().size || !shopIds.containsAll(rateShopIds)) {
+        errors += FieldError("rateShopIds", FieldErrorType.INVALID_FORMAT)
+    }
     val fields = MealRecordFields(
         shopIds = shopIds,
         eatenOn = eatenOn,
         menuItems = items,
         rate = input.rate,
+        rateShopIds = if (input.rate == null) emptyList() else rateShopIds.distinct(),
         venueName = text("venueName", input.venueName, EVENT_NAME_MAX_LENGTH),
         publicNote = text("publicNote", input.publicNote, NOTE_MAX_LENGTH),
         privateNote = text("privateNote", input.privateNote, NOTE_MAX_LENGTH),
@@ -149,6 +156,7 @@ class MealRecordHandler(
                 db.mealRecordsQueries.insertMealRecord(mealRecordId, venueId(v.venueName), v.eatenOn, v.rate, v.publicNote, v.privateNote)
                 insertShops(mealRecordId, v.shopIds)
                 insertMenuItems(mealRecordId, v.menuItems)
+                setShopRates(v)
             }
         }
         call.respondTyped(toApi(listOf(db.mealRecordsQueries.findMealRecord(mealRecordId).executeAsOne()), true).single())
@@ -170,6 +178,7 @@ class MealRecordHandler(
                 insertShops(id, v.shopIds)
                 db.mealRecordMenuItemsQueries.deleteMealRecordMenuItemsByMealRecordId(id)
                 insertMenuItems(id, v.menuItems)
+                setShopRates(v)
             }
         }
         call.respondTyped(toApi(listOf(db.mealRecordsQueries.findMealRecord(id).executeAsOne()), true).single())
@@ -188,6 +197,10 @@ class MealRecordHandler(
         }
         deleteStoredMealRecordImages(images, keys)
         call.respond(HttpStatusCode.NoContent)
+    }
+
+    private fun setShopRates(v: MealRecordFields) {
+        v.rateShopIds.forEach { db.shopsQueries.setShopRate(v.rate, it) }
     }
 
     private fun uuidOrNull(raw: String): UUID? = runCatching { UUID.fromString(raw) }.getOrNull()

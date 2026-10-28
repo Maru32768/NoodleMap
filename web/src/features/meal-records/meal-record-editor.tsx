@@ -13,12 +13,14 @@ import {
 } from "@/features/meal-records/api/use-meal-records.ts";
 import { MealRecordForm } from "@/features/meal-records/meal-record-form.tsx";
 import { MealRecordImageManager } from "@/features/meal-records/meal-record-image-manager.tsx";
+import { mealRecordInputProps } from "@/features/meal-records/meal-record-input-props.ts";
 import {
   formatMealRecordDate,
   MealRecordList,
   MealRecordsLoadState,
 } from "@/features/meal-records/meal-record-list.tsx";
 import { useShops } from "@/features/shops/api/use-shops.ts";
+import { MiniHearts } from "@/features/shops/rating-hearts.tsx";
 import { ApiError } from "@/utils/request.ts";
 import {
   MEAL_RECORD_ALREADY_DELETED_TITLE,
@@ -26,7 +28,7 @@ import {
   toastApiError,
   toastError,
 } from "@/utils/toast.ts";
-import { Box } from "@chakra-ui/react";
+import { Box, Input } from "@chakra-ui/react";
 import { useEffect, useState } from "react";
 
 type Editing = { mode: "add" } | { mode: "edit"; mealRecord: MealRecord };
@@ -46,6 +48,50 @@ const smallButtonProps = {
   bg: "nm.paper",
   _hover: { borderColor: "nm.ink", color: "nm.ink" },
 } as const;
+
+/** The shop's own お気に入り度, kept apart from its meal records' rates; blank clears it. */
+function ShopRateEditor({
+  rate,
+  disabled,
+  onSave,
+}: {
+  rate: number | undefined;
+  disabled: boolean;
+  onSave: (rate: number | undefined) => Promise<void>;
+}) {
+  const [draft, setDraft] = useState(rate?.toString() ?? "");
+  const value = draft.trim() === "" ? undefined : Number(draft);
+  const valid =
+    value === undefined ||
+    (Number.isFinite(value) && value >= 0 && value <= 100);
+  return (
+    <Box display="flex" alignItems="center" gap="8px" fontSize="12px">
+      <Box color="nm.inkMuted">店舗のお気に入り度（0〜100、空欄で未設定）</Box>
+      <Input
+        {...mealRecordInputProps}
+        aria-label="店舗のお気に入り度"
+        type="number"
+        min={0}
+        max={100}
+        step={1}
+        w="88px"
+        fontFamily="mono"
+        placeholder="未設定"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+      />
+      {value !== undefined && valid && <MiniHearts rate={value} />}
+      <LoadableButton
+        {...smallButtonProps}
+        aria-label="店舗のお気に入り度を保存"
+        disabled={disabled || !valid || value === rate}
+        onClick={() => onSave(value)}
+      >
+        保存
+      </LoadableButton>
+    </Box>
+  );
+}
 
 // On an edit or delete: the meal record was deleted elsewhere (the list was refetched).
 // On an add: the shop itself is gone.
@@ -72,10 +118,9 @@ export function MealRecordEditor({
   onShopGone?: () => void;
 }) {
   const { mealRecords, error, isValidating, retry } = useMealRecords(shopId);
-  const { shops, setRepresentativeMealRecord } = useShops();
-  const representativeId = shops?.find(
-    (shop) => shop.id === shopId,
-  )?.representativeMealRecordId;
+  const { shops, setRepresentativeMealRecord, setShopRate } = useShops();
+  const shop = shops?.find((shop) => shop.id === shopId);
+  const representativeId = shop?.representativeMealRecordId;
   const { addMealRecord, updateMealRecord, deleteMealRecord } =
     useMealRecordMutations();
   const [editing, setEditing] = useState<Editing | null>(null);
@@ -195,6 +240,27 @@ export function MealRecordEditor({
           食べた記録を追加
         </Button>
       </Box>
+
+      {shop && (
+        <ShopRateEditor
+          // Restarts the draft when the saved rate changes.
+          key={shop.rate ?? "unset"}
+          rate={shop.rate}
+          disabled={busy}
+          onSave={async (rate) => {
+            const result = await whileBusy(() => setShopRate(shopId, rate));
+            if (!result.ok) {
+              toastApiError(result.error, {
+                fallbackTitle: "店舗のお気に入り度を保存できませんでした",
+              });
+              return;
+            }
+            toaster.success({
+              description: "店舗のお気に入り度を保存しました",
+            });
+          }}
+        />
+      )}
 
       <Box fontSize="12px" color="nm.inkMuted">
         代表に選んだ記録の1枚目の画像を、店舗詳細と共有時のOGPに使います。未選択の場合や画像がない場合は、画像付きの最新の記録を使います。

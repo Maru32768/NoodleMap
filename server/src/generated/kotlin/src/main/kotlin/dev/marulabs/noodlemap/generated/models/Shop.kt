@@ -51,14 +51,12 @@ public data class Shop(
   @SerialName("eaten")
   public val eaten: Boolean,
   /**
-   * Derived on the server: the rate of the latest meal record that has one, or 0 when none has.
-   * Read-only.
+   * The shop's own お気に入り度, 0 to 100, set apart from its meal records' rates. Absent when not set.
    */
   @SerialName("rate")
-  public val rate: Double,
+  public val rate: Double? = null,
   /**
-   * Derived on the server: true when the shop's rate comes from a meal record and is 80 or more.
-   * Read-only.
+   * Derived on the server: true when the shop's rate is 80 or more. Read-only.
    */
   @SerialName("favorite")
   public val favorite: Boolean,

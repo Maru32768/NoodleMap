@@ -37,7 +37,7 @@ class SharedRecordsApiTest {
             client.get("/api/v1/shops/${shop.id}/meal-records") { session(admin) }.body<MealRecordsResponse>().mealRecords.first() shouldBe shared
         }
         client.shops().associate { it.id to it.mealRecordCount } shouldBe mapOf(a.id to 1, b.id to 2)
-        client.shops().all { it.eaten && it.favorite && it.rate == 90.0 } shouldBe true
+        client.shops().all { it.eaten && it.rate == null } shouldBe true
         for (token in listOf(null, t.userToken())) {
             val response = client.get("/api/v1/venues/${venue.id}/meal-records") { token?.let { session(it) } }
             response.bodyAsText() shouldNotContain "privateNote"
@@ -61,7 +61,6 @@ class SharedRecordsApiTest {
         }
         client.shops().first { it.id == a.id }.let { it.eaten shouldBe false; it.mealRecordCount shouldBe 0 }
         client.deleteWithSession("/api/v1/auth/shops/${a.id}", admin).status shouldBe HttpStatusCode.NoContent
-        client.shops().single().rate shouldBe 50.0
         client.deleteWithSession("/api/v1/auth/meal-records/${shared.id}", admin).status shouldBe HttpStatusCode.NoContent
         client.shops().single().mealRecordCount shouldBe 1
         client.deleteWithSession("/api/v1/auth/meal-records/${second.id}", admin).status shouldBe HttpStatusCode.NoContent

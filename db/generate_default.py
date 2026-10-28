@@ -52,6 +52,12 @@ def import_seed(connection):
                 "INSERT INTO meal_record_shops (meal_record_id, shop_id, sort_order) VALUES (?, ?, 0)",
                 (str(UUID(row["id"])), str(UUID(row["shop_id"]))),
             )
+            # The shop's own お気に入り度 starts from its record's, as migration 00019 does for live data.
+            if rate != 0:
+                connection.execute(
+                    "UPDATE shops SET rate = ? WHERE id = ?",
+                    (max(0, min(100, rate)), str(UUID(row["shop_id"]))),
+                )
         connection.execute("UPDATE goose_db_version SET tstamp = ?", (SEED_TIMESTAMP,))
     if connection.execute("PRAGMA integrity_check").fetchall() != [("ok",)]:
         raise RuntimeError("Seed database failed integrity_check")

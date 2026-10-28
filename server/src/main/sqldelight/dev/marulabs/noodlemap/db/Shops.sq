@@ -13,12 +13,13 @@ CREATE TABLE shops (
     opened_at       TEXT,
     closed_at       TEXT,
     name_kana       TEXT,
-    wish_level      TEXT CHECK (wish_level IN ('low', 'medium', 'high'))
+    wish_level      TEXT CHECK (wish_level IN ('low', 'medium', 'high')),
+    rate            REAL CHECK (rate BETWEEN 0 AND 100)
 );
 
 -- (modtime trigger omitted; see note in Users.sq)
 
--- 食べた / お気に入り度 are derived from meal_records (MealRecords.sq findAllMealRecordSummaries).
+-- 食べた is derived from meal_records (MealRecords.sq countMealRecordsByShop).
 findAllShops:
 SELECT r.id,
        r.name,
@@ -31,7 +32,8 @@ SELECT r.id,
        r.closed_at,
        r.google_place_id,
        r.category,
-       r.wish_level
+       r.wish_level,
+       r.rate
 FROM shops r;
 
 insertShop:
@@ -55,6 +57,9 @@ SET name            = :name,
     -- Same for the 気になる度: NULL keeps it, '' clears it.
     wish_level      = NULLIF(COALESCE(:wishLevel, wish_level), '')
 WHERE id = :id;
+
+setShopRate:
+UPDATE shops SET rate = :rate WHERE id = :id;
 
 shopExists:
 SELECT EXISTS (SELECT 1 FROM shops WHERE id = ?);

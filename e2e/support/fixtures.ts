@@ -56,7 +56,7 @@ export class Api {
     return tags.find((t) => t.slug === input.slug)!;
   }
 
-  /** Adds a shop (near the default map center unless placed) with its tags; an eaten shop gets one 食べた記録 with the rate. */
+  /** Adds a shop (near the default map center unless placed) with its tags; an eaten shop gets one 食べた記録 whose rate is also the shop's. */
   async createShop(
     spec: Pick<AddShopRequest, "name"> &
       Partial<Pick<AddShopRequest, "category" | "tagIds" | "address" | "lat" | "lng">> & {
@@ -76,7 +76,7 @@ export class Api {
     };
     const shop = await expectOkJson<Shop>(await this.request.post("/api/v1/auth/shops", { data: add }));
     if (spec.eaten) {
-      const mealRecord: MealRecordInput = { shopIds: [shop.id], rate: spec.rate };
+      const mealRecord: MealRecordInput = { shopIds: [shop.id], rate: spec.rate, rateShopIds: [shop.id] };
       await expectOkJson(await this.request.post("/api/v1/auth/meal-records", { data: mealRecord }));
     }
     return this.getShop(shop.id);

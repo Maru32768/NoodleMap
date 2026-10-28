@@ -61,7 +61,7 @@ class ShopApiTest {
         val added = res.body<Shop>()
         added.name shouldBe "Ramen Taro"
         added.eaten shouldBe false
-        added.rate shouldBe 0.0
+        added.rate shouldBe null
         added.favorite shouldBe false
         added.tags.map { it.slug } shouldContainExactly listOf("shoyu-ramen", "miso-ramen")
         client.shops() shouldContainExactly listOf(added)
@@ -306,7 +306,7 @@ class ShopApiTest {
 
         client.shops().single().let {
             it.eaten shouldBe false
-            it.rate shouldBe 0.0
+            it.rate shouldBe null
             it.favorite shouldBe false
             it.mealRecordCount shouldBe 0
             it.tags.map { tag -> tag.id } shouldContainExactly listOf(SHIO, MISO)

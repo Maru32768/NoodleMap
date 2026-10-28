@@ -264,6 +264,29 @@ export function useShops(config?: SWRConfiguration<Shop[]>) {
     [mutate],
   );
 
+  const setShopRate = useCallback(
+    (id: string, rate?: number) =>
+      withApiResult<
+        void,
+        ApiErrorBodyFor<"/api/v1/auth/shops/{id}/rate", "put">
+      >("/api/v1/auth/shops/{id}/rate", async () => {
+        const res = await apiClient.PUT("/api/v1/auth/shops/{id}/rate", {
+          params: { path: { id } },
+          body: { rate },
+        });
+        if (res.error || !res.response.ok) {
+          return apiError(
+            "/api/v1/auth/shops/{id}/rate",
+            res.response,
+            res.error,
+          );
+        }
+        await mutate();
+        return apiOk(undefined);
+      }),
+    [mutate],
+  );
+
   return {
     get shops() {
       return resp.data;
@@ -278,6 +301,7 @@ export function useShops(config?: SWRConfiguration<Shop[]>) {
     updateShop,
     deleteShop,
     setRepresentativeMealRecord,
+    setShopRate,
     mutate,
   };
 }

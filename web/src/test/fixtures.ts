@@ -25,7 +25,7 @@ export function makeTag(overrides: Partial<Tag> = {}): Tag {
 // app does after fetching, so lifecycle follows openedAt/closedAt.
 export function makeShop(overrides: Partial<ApiShop> = {}): Shop {
   const eaten = overrides.eaten ?? true;
-  const rate = overrides.rate ?? (eaten ? 80 : 0);
+  const rate = "rate" in overrides ? overrides.rate : eaten ? 80 : undefined;
   return decorateShop({
     id: fixtureUuid(),
     name: "麺屋 まる",
@@ -35,8 +35,8 @@ export function makeShop(overrides: Partial<ApiShop> = {}): Shop {
     address: "東京都新宿区新宿3-1-1",
     eaten,
     rate,
-    // The server's お気に入り rule: お気に入り度 of 80 or more, which only an eaten shop has.
-    favorite: eaten && rate >= 80,
+    // The server's お気に入り rule: the shop's お気に入り度 is 80 or more.
+    favorite: rate !== undefined && rate >= 80,
     mealRecordCount: eaten ? 1 : 0,
     category: "ramen",
     tags: [],
