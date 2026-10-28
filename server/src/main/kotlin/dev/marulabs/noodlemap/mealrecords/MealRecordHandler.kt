@@ -166,7 +166,7 @@ class MealRecordHandler(
                     privateNote = v.privateNote, id = id,
                 ).value
                 if (updated == 0L) throw DomainException.NotFound()
-                db.mealRecordShopsQueries.deleteMealRecordShops(id)
+                db.mealRecordShopsQueries.deleteRemovedMealRecordShops(id, v.shopIds)
                 insertShops(id, v.shopIds)
                 db.mealRecordMenuItemsQueries.deleteMealRecordMenuItemsByMealRecordId(id)
                 insertMenuItems(id, v.menuItems)

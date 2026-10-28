@@ -18,6 +18,7 @@ import {
   MealRecordList,
   MealRecordsLoadState,
 } from "@/features/meal-records/meal-record-list.tsx";
+import { useShops } from "@/features/shops/api/use-shops.ts";
 import { ApiError } from "@/utils/request.ts";
 import {
   MEAL_RECORD_ALREADY_DELETED_TITLE,
@@ -71,6 +72,10 @@ export function MealRecordEditor({
   onShopGone?: () => void;
 }) {
   const { mealRecords, error, isValidating, retry } = useMealRecords(shopId);
+  const { shops, setRepresentativeMealRecord } = useShops();
+  const representativeId = shops?.find(
+    (shop) => shop.id === shopId,
+  )?.representativeMealRecordId;
   const { addMealRecord, updateMealRecord, deleteMealRecord } =
     useMealRecordMutations();
   const [editing, setEditing] = useState<Editing | null>(null);
@@ -115,6 +120,23 @@ export function MealRecordEditor({
     }
     setDeleteTarget(null);
     toaster.success({ description: "食べた記録を削除しました" });
+  };
+
+  const handleRepresentative = async (mealRecordId?: string) => {
+    const result = await whileBusy(() =>
+      setRepresentativeMealRecord(shopId, mealRecordId),
+    );
+    if (!result.ok) {
+      toastApiError(result.error, {
+        fallbackTitle: "代表の食べた記録を変更できませんでした",
+      });
+      return;
+    }
+    toaster.success({
+      description: mealRecordId
+        ? "代表の食べた記録を設定しました"
+        : "代表写真を自動選択に戻しました",
+    });
   };
 
   if (editing) {
@@ -168,9 +190,24 @@ export function MealRecordEditor({
           color="white"
           _hover={{ bg: "nm.shuDeep" }}
           onClick={() => setEditing({ mode: "add" })}
+          disabled={busy}
         >
           食べた記録を追加
         </Button>
+      </Box>
+
+      <Box fontSize="12px" color="nm.inkMuted">
+        代表に選んだ記録の1枚目の画像を、店舗詳細と共有時のOGPに使います。未選択の場合や画像がない場合は、画像付きの最新の記録を使います。
+        {representativeId && (
+          <LoadableButton
+            {...smallButtonProps}
+            ml="8px"
+            disabled={busy}
+            onClick={() => handleRepresentative()}
+          >
+            自動選択に戻す
+          </LoadableButton>
+        )}
       </Box>
 
       <MealRecordsLoadState
@@ -189,17 +226,36 @@ export function MealRecordEditor({
             )}
             actions={(mealRecord) => (
               <>
+                {representativeId === mealRecord.id ? (
+                  <Box
+                    as="span"
+                    fontSize="11px"
+                    color="nm.shu"
+                    fontWeight={600}
+                  >
+                    代表に選択中
+                  </Box>
+                ) : (
+                  <LoadableButton
+                    {...smallButtonProps}
+                    disabled={busy || !shops}
+                    onClick={() => handleRepresentative(mealRecord.id)}
+                  >
+                    代表にする
+                  </LoadableButton>
+                )}
                 <Button
                   {...smallButtonProps}
                   aria-label="食べた記録を編集"
                   onClick={() => setEditing({ mode: "edit", mealRecord })}
+                  disabled={busy}
                 >
                   編集
                 </Button>
                 <Button
                   {...smallButtonProps}
                   aria-label="食べた記録を削除"
-                  disabled={uploadingMealRecordIds.has(mealRecord.id)}
+                  disabled={busy || uploadingMealRecordIds.has(mealRecord.id)}
                   onClick={() => setDeleteTarget(mealRecord)}
                 >
                   削除

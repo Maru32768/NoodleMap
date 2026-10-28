@@ -38,9 +38,13 @@ fun mealRecordSummariesByShop(db: NoodleMapDb): Map<UUID, MealRecordSummary> =
 private val COVER_ORDER = latestFirst<FindAllMealRecordCovers>({ it.eaten_on }, { it.created_at }, { it.meal_record_id })
 
 /**
- * 代表写真 of every shop that has one, as storage keys from one query: the first image of the latest meal record
- * log that has images (GLOSSARY.md). Shops without one are absent.
+ * The selected record's first image, falling back to the latest record with images.
  */
-fun coverPhotoKeysByShop(db: NoodleMapDb): Map<UUID, String> =
-    db.mealRecordImagesQueries.findAllMealRecordCovers().executeAsList().groupBy { it.shop_id }
-        .mapValues { (_, covers) -> covers.minWith(COVER_ORDER).storage_key }
+fun coverPhotoKeysByShop(db: NoodleMapDb): Map<UUID, String> {
+    val representatives = db.shopRepresentativeMealRecordsQueries.findAllRepresentativeMealRecords()
+        .executeAsList().associate { it.shop_id to it.meal_record_id }
+    return db.mealRecordImagesQueries.findAllMealRecordCovers().executeAsList().groupBy { it.shop_id }
+        .mapValues { (shopId, covers) ->
+            (covers.find { it.meal_record_id == representatives[shopId] } ?: covers.minWith(COVER_ORDER)).storage_key
+        }
+}

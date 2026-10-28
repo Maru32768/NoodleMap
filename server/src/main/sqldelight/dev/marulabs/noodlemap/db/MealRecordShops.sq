@@ -10,7 +10,14 @@ CREATE TABLE meal_record_shops (
 CREATE INDEX idx_meal_record_shops_shop_id ON meal_record_shops (shop_id);
 
 insertMealRecordShop:
-INSERT INTO meal_record_shops (meal_record_id, shop_id, sort_order) VALUES (?, ?, ?);
+INSERT INTO meal_record_shops (meal_record_id, shop_id, sort_order) VALUES (?, ?, ?)
+ON CONFLICT (meal_record_id, shop_id) DO UPDATE SET sort_order = excluded.sort_order;
+
+deleteRemovedMealRecordShops:
+DELETE FROM meal_record_shops WHERE meal_record_id = :mealRecordId AND shop_id NOT IN :shopIds;
+
+mealRecordShopExists:
+SELECT EXISTS(SELECT 1 FROM meal_record_shops WHERE meal_record_id = ? AND shop_id = ?);
 
 deleteMealRecordShops:
 DELETE FROM meal_record_shops WHERE meal_record_id = ?;

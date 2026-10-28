@@ -10,6 +10,7 @@ import dev.marulabs.noodlemap.errors.DomainException
 import dev.marulabs.noodlemap.errors.FieldError
 import dev.marulabs.noodlemap.errors.FieldErrorType
 import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthShopsController
+import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthShopsRepresentativeMealRecordController
 import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthTagsController
 import dev.marulabs.noodlemap.generated.controllers.ApiV1ShopsController
 import dev.marulabs.noodlemap.generated.controllers.ApiV1TagsController
@@ -21,6 +22,7 @@ import dev.marulabs.noodlemap.generated.models.ShopLink
 import dev.marulabs.noodlemap.generated.models.ShopLinkInput
 import dev.marulabs.noodlemap.generated.models.ShopLinkType
 import dev.marulabs.noodlemap.generated.models.SaveTagsRequest
+import dev.marulabs.noodlemap.generated.models.SetRepresentativeMealRecordRequest
 import dev.marulabs.noodlemap.generated.models.ShopsResponse
 import dev.marulabs.noodlemap.generated.models.Tag
 import dev.marulabs.noodlemap.generated.models.TagsResponse
@@ -84,7 +86,8 @@ class ShopHandler(
     private val db: NoodleMapDb,
     private val sessions: SessionService,
     private val mealRecordImages: MealRecordImageStore,
-) : ApiV1ShopsController, ApiV1TagsController, ApiV1AuthShopsController, ApiV1AuthTagsController {
+) : ApiV1ShopsController, ApiV1TagsController, ApiV1AuthShopsController, ApiV1AuthTagsController,
+    ApiV1AuthShopsRepresentativeMealRecordController {
 
     // --- Public reads ---
 
@@ -97,6 +100,30 @@ class ShopHandler(
     }
 
     // --- Admin writes ---
+
+    override suspend fun setRepresentativeMealRecord(
+        id: String,
+        setRepresentativeMealRecordRequest: SetRepresentativeMealRecordRequest,
+        call: ApplicationCall,
+    ) {
+        sessions.requireAdmin(call)
+        val shopId = runCatching { UUID.fromString(id) }.getOrNull() ?: throw DomainException.InvalidRequest()
+        val recordId = setRepresentativeMealRecordRequest.mealRecordId?.let {
+            runCatching { UUID.fromString(it) }.getOrNull() ?: throw DomainException.InvalidRequest()
+        }
+        db.transaction {
+            // Acquire SQLite's write lock before validation. A rejected selection rolls this deletion back.
+            db.shopRepresentativeMealRecordsQueries.deleteRepresentativeMealRecord(shopId)
+            if (!db.shopsQueries.shopExists(shopId).executeAsOne()) throw DomainException.NotFound()
+            if (recordId != null) {
+                if (!db.mealRecordShopsQueries.mealRecordShopExists(recordId, shopId).executeAsOne()) {
+                    throw DomainException.NotFound()
+                }
+                db.shopRepresentativeMealRecordsQueries.setRepresentativeMealRecord(shopId, recordId)
+            }
+        }
+        call.respond(HttpStatusCode.NoContent)
+    }
 
     override suspend fun saveTags(saveTagsRequest: SaveTagsRequest, call: TypedApplicationCall<TagsResponse>) {
         sessions.requireAdmin(call)
@@ -242,6 +269,8 @@ class ShopHandler(
         val linksByShop = linksByShopIds(rows.map { it.id })
         val mealRecordsByShop = mealRecordSummariesByShop(db)
         val coversByShop = coverPhotoKeysByShop(db)
+        val representatives = db.shopRepresentativeMealRecordsQueries.findAllRepresentativeMealRecords()
+            .executeAsList().associate { it.shop_id to it.meal_record_id }
         return rows.map { r ->
             val mealRecords = mealRecordsByShop[r.id] ?: MealRecordSummary.NONE
             val coverKey = coversByShop[r.id]
@@ -256,6 +285,7 @@ class ShopHandler(
                 tags = tagsByShop[r.id] ?: emptyList(),
                 links = linksByShop[r.id] ?: emptyList(),
                 coverPhotoUrl = coverKey?.let(mealRecordImages::publicUrl),
+                representativeMealRecordId = representatives[r.id]?.toString(),
             )
             ShopRecord(shop, coverKey)
         }

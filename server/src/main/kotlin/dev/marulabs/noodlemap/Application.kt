@@ -27,6 +27,7 @@ import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthMeController.Compan
 import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthSessionsController.Companion.apiV1AuthSessionsRoutes
 import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthSessionsRevokeOthersController.Companion.apiV1AuthSessionsRevokeOthersRoutes
 import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthShopsController.Companion.apiV1AuthShopsRoutes
+import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthShopsRepresentativeMealRecordController.Companion.apiV1AuthShopsRepresentativeMealRecordRoutes
 import dev.marulabs.noodlemap.generated.controllers.ApiV1VenuesController.Companion.apiV1VenuesRoutes
 import dev.marulabs.noodlemap.generated.controllers.ApiV1VenuesMealRecordsController.Companion.apiV1VenuesMealRecordsRoutes
 import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthMealRecordImagesController.Companion.apiV1AuthMealRecordImagesRoutes
@@ -122,6 +123,7 @@ fun Application.installApp(
         apiV1TagsRoutes(shopHandler)
         apiV1AuthTagsRoutes(shopHandler)
         apiV1AuthShopsRoutes(shopHandler)
+        apiV1AuthShopsRepresentativeMealRecordRoutes(shopHandler)
         apiV1ShopsMealRecordsRoutes(mealRecordHandler)
         apiV1VenuesRoutes(mealRecordHandler)
         apiV1VenuesMealRecordsRoutes(mealRecordHandler)

@@ -357,7 +357,7 @@ class MigrationsTest {
             conn.strings("SELECT updated_at = '2021' FROM meal_record_images") shouldBe listOf("0")
             conn.strings("SELECT updated_at = '2021' FROM meal_record_menu_items") shouldBe listOf("0")
             migrate(conn, loadMigrations())
-            conn.version() shouldBe 17
+            conn.version() shouldBe loadMigrations().maxOf { it.version }
         }
     }
 

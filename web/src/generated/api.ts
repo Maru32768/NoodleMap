@@ -276,6 +276,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/shops/{id}/representative-meal-record": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["setRepresentativeMealRecord"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/tags": {
         parameters: {
             query?: never;
@@ -676,6 +692,10 @@ export interface components {
         SessionsResponse: {
             sessions: components["schemas"]["AuthSession"][];
         };
+        SetRepresentativeMealRecordRequest: {
+            /** @description A meal record linked to this shop. Omit to return to automatic selection. */
+            mealRecordId?: components["schemas"]["uuid"];
+        };
         Shop: {
             id: components["schemas"]["uuid"];
             name: string;
@@ -713,7 +733,9 @@ export interface components {
             tags: components["schemas"]["Tag"][];
             /** @description External links (official site, SNS, ...) in display order. */
             links: components["schemas"]["ShopLink"][];
-            /** @description Derived on the server: URL of the first image of the latest meal record that has images. Absent when none has. */
+            /** @description The selected representative meal record of this shop. Absent for automatic selection. */
+            representativeMealRecordId?: components["schemas"]["uuid"];
+            /** @description First image of the selected representative meal record, falling back to the latest record with images. Absent when none has. */
             coverPhotoUrl?: string;
         };
         /** @description The shop has meal records, so it cannot be deleted. */
@@ -2203,6 +2225,102 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InternalErrorBody"];
+                };
+            };
+        };
+    };
+    setRepresentativeMealRecord: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetRepresentativeMealRecordRequest"];
+            };
+        };
+        responses: {
+            /** @description There is no content to send for this request, but the headers may be useful. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvalidRequestErrorBody"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthenticationRequiredErrorBody"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PermissionDeniedErrorBody"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotFoundErrorBody"];
+                };
+            };
+            /** @description Client error */
+            408: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestBodyTimeoutErrorBody"];
+                };
+            };
+            /** @description Client error */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestBodyTooLargeErrorBody"];
+                };
+            };
+            /** @description Server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InternalErrorBody"];
+                };
+            };
+            /** @description Service unavailable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestBodyBusyErrorBody"];
                 };
             };
         };

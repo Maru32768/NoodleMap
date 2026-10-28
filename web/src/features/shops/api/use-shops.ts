@@ -238,6 +238,32 @@ export function useShops(config?: SWRConfiguration<Shop[]>) {
     [mutate],
   );
 
+  const setRepresentativeMealRecord = useCallback(
+    (id: string, mealRecordId?: string) =>
+      withApiResult<
+        void,
+        ApiErrorBodyFor<
+          "/api/v1/auth/shops/{id}/representative-meal-record",
+          "put"
+        >
+      >("/api/v1/auth/shops/{id}/representative-meal-record", async () => {
+        const res = await apiClient.PUT(
+          "/api/v1/auth/shops/{id}/representative-meal-record",
+          { params: { path: { id } }, body: { mealRecordId } },
+        );
+        if (res.error || !res.response.ok) {
+          return apiError(
+            "/api/v1/auth/shops/{id}/representative-meal-record",
+            res.response,
+            res.error,
+          );
+        }
+        await mutate();
+        return apiOk(undefined);
+      }),
+    [mutate],
+  );
+
   return {
     get shops() {
       return resp.data;
@@ -251,6 +277,7 @@ export function useShops(config?: SWRConfiguration<Shop[]>) {
     addShop,
     updateShop,
     deleteShop,
+    setRepresentativeMealRecord,
     mutate,
   };
 }

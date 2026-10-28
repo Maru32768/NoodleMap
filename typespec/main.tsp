@@ -426,8 +426,16 @@ model Shop {
   @doc("External links (official site, SNS, ...) in display order.")
   links: ShopLink[];
 
-  @doc("Derived on the server: URL of the first image of the latest meal record that has images. Absent when none has.")
+  @doc("The selected representative meal record of this shop. Absent for automatic selection.")
+  representativeMealRecordId?: uuid;
+
+  @doc("First image of the selected representative meal record, falling back to the latest record with images. Absent when none has.")
   coverPhotoUrl?: string;
+}
+
+model SetRepresentativeMealRecordRequest {
+  @doc("A meal record linked to this shop. Omit to return to automatic selection.")
+  mealRecordId?: uuid;
 }
 
 @doc("One 食べた記録. Meal records are listed newest first: by eatenOn, those without one last, then by creation.")
@@ -768,6 +776,13 @@ op updateShop(
 op deleteShop(
   @path id: uuid,
 ): NoContentResponse | BadRequestResponse<InvalidRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | NotFoundResponse<NotFoundErrorBody> | ConflictResponse<ShopHasMealRecordsErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
+
+@put
+@route("/auth/shops/{id}/representative-meal-record")
+op setRepresentativeMealRecord(
+  @path id: uuid,
+  @body body: SetRepresentativeMealRecordRequest,
+): RequestBodyErrorResponse | NoContentResponse | BadRequestResponse<InvalidRequestErrorBody> | UnauthorizedResponse<AuthenticationRequiredErrorBody> | ForbiddenResponse<PermissionDeniedErrorBody> | NotFoundResponse<NotFoundErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
 
 @doc("A shop's meal records, newest first. privateNote is included only for the admin.")
 @get

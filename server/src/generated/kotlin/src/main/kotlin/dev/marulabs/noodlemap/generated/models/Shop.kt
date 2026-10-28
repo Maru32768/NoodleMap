@@ -82,8 +82,13 @@ public data class Shop(
   @SerialName("links")
   public val links: List<ShopLink>,
   /**
-   * Derived on the server: URL of the first image of the latest meal record that has images. Absent
-   * when none has.
+   * The selected representative meal record of this shop. Absent for automatic selection.
+   */
+  @SerialName("representativeMealRecordId")
+  public val representativeMealRecordId: String? = null,
+  /**
+   * First image of the selected representative meal record, falling back to the latest record with
+   * images. Absent when none has.
    */
   @SerialName("coverPhotoUrl")
   public val coverPhotoUrl: String? = null,

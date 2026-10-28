@@ -52,23 +52,30 @@ function renderMealRecords({
       venue: body.venueName ? { id: "venue", name: body.venueName } : undefined,
     }),
   deleteResponse = () => new HttpResponse(null, { status: 204 }),
+  representativeResponse = () => new HttpResponse(null, { status: 204 }),
 }: {
   target?: typeof shop;
   mealRecords?: MealRecord[];
   saveResponse?: (body: MealRecordInput) => Response | Promise<Response>;
   deleteResponse?: () => Response;
+  representativeResponse?: () => Response | Promise<Response>;
 } = {}) {
   const posted: MealRecordInput[] = [];
   const put: MealRecordInput[] = [];
   const deleted: string[] = [];
   const fetched = { mealRecords: 0, shops: 0 };
+  let representativeMealRecordId = target.representativeMealRecordId;
+  const representatives: components["schemas"]["SetRepresentativeMealRecordRequest"][] =
+    [];
   // Swappable so a test can fail a later refetch.
   let mealRecordsResponse = () => HttpResponse.json({ mealRecords });
   server.use(
     http.get("/api/v1/venues", () => HttpResponse.json({ venues: [] })),
     http.get("/api/v1/shops", () => {
       fetched.shops++;
-      return HttpResponse.json({ shops: [target] });
+      return HttpResponse.json({
+        shops: [{ ...target, representativeMealRecordId }],
+      });
     }),
     http.get("/api/v1/tags", () => HttpResponse.json({ tags: [] })),
     http.get(`/api/v1/shops/${target.id}/meal-records`, () => {
@@ -89,6 +96,19 @@ function renderMealRecords({
       deleted.push(params.mealRecordId as string);
       return deleteResponse();
     }),
+    http.put(
+      `/api/v1/auth/shops/${target.id}/representative-meal-record`,
+      async ({ request }) => {
+        const body =
+          (await request.json()) as components["schemas"]["SetRepresentativeMealRecordRequest"];
+        representatives.push(body);
+        const response = await representativeResponse();
+        if (response.ok) {
+          representativeMealRecordId = body.mealRecordId;
+        }
+        return response;
+      },
+    ),
   );
   const onClose = vi.fn();
   const onDeleted = vi.fn();
@@ -103,6 +123,7 @@ function renderMealRecords({
   );
   return {
     onDeleted,
+    representatives,
     posted,
     put,
     deleted,
@@ -122,6 +143,49 @@ const save = () =>
   );
 
 describe("MealRecordEditor", () => {
+  it("selects an older record as representative and resets to automatic selection through the API", async () => {
+    const limited = {
+      ...mealRecord,
+      id: "limited",
+      menuItems: [{ name: "限定そば", isLimited: true }],
+    };
+    const { representatives, fetched } = renderMealRecords({
+      mealRecords: [limited, mealRecord],
+    });
+    const list = await screen.findByRole("list", { name: "食べた記録" });
+    const regular = within(list)
+      .getAllByRole("listitem")
+      .find((entry) => entry.textContent?.includes("中華そば"))!;
+    const select = within(regular).getByRole("button", { name: "代表にする" });
+    await waitFor(() => expect(select).toBeEnabled());
+    const reads = fetched.shops;
+    await userEvent.click(select);
+    expect(await within(regular).findByText("代表に選択中")).toBeVisible();
+    expect(representatives).toEqual([{ mealRecordId: mealRecord.id }]);
+    expect(fetched.shops).toBeGreaterThan(reads);
+    await userEvent.click(
+      screen.getByRole("button", { name: "自動選択に戻す" }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByText("代表に選択中")).not.toBeInTheDocument(),
+    );
+    expect(representatives).toEqual([{ mealRecordId: mealRecord.id }, {}]);
+  });
+
+  it("retains the representative selection when the API rejects a reset", async () => {
+    renderMealRecords({
+      target: { ...shop, representativeMealRecordId: mealRecord.id },
+      representativeResponse: () =>
+        HttpResponse.json({ type: "not_found" }, { status: 404 }),
+    });
+    const reset = await screen.findByRole("button", { name: "自動選択に戻す" });
+    await userEvent.click(reset);
+    expect(
+      await screen.findByText("代表の食べた記録を変更できませんでした"),
+    ).toBeVisible();
+    expect(screen.getByText("代表に選択中")).toBeVisible();
+  });
+
   it("lists the shop's meal records with both notes", async () => {
     renderMealRecords();
 

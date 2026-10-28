@@ -1,0 +1,15 @@
+CREATE TABLE shop_representative_meal_records (
+    shop_id TEXT AS java.util.UUID NOT NULL PRIMARY KEY,
+    meal_record_id TEXT AS java.util.UUID NOT NULL,
+    FOREIGN KEY (meal_record_id, shop_id) REFERENCES meal_record_shops (meal_record_id, shop_id) ON DELETE CASCADE
+);
+
+findAllRepresentativeMealRecords:
+SELECT * FROM shop_representative_meal_records;
+
+deleteRepresentativeMealRecord:
+DELETE FROM shop_representative_meal_records WHERE shop_id = ?;
+
+setRepresentativeMealRecord:
+INSERT INTO shop_representative_meal_records (shop_id, meal_record_id) VALUES (?, ?)
+ON CONFLICT (shop_id) DO UPDATE SET meal_record_id = excluded.meal_record_id;

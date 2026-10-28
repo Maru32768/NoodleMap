@@ -6,6 +6,56 @@ import { expect, test, uid } from "../../support/fixtures.ts";
 // A 320 x 240 JPEG of a few KB.
 const MEAL_RECORD_IMAGE = fileURLToPath(new URL("../../fixtures/meal-record-image.jpg", import.meta.url));
 
+test("admin selects an older regular-menu record for the cover and OGP and can restore automatic selection", async ({ page, api, asGuest }) => {
+  const id = uid();
+  const shop = await api.createShop({ name: `${id} 代表の記録を選ぶ店` });
+  for (const [eatenOn, name, isLimited] of [
+    ["2025-01-01", "レギュラー中華そば", false],
+    ["2025-02-01", "イベント限定そば", true],
+  ] as const) {
+    const response = await page.request.post("/api/v1/auth/meal-records", {
+      data: { shopIds: [shop.id], eatenOn, menuItems: [{ name, isLimited }] },
+    });
+    expect(response.ok()).toBe(true);
+  }
+  const dialog = await openEditModal(page, shop.name, id);
+  await dialog.getByRole("button", { name: "食べた記録", exact: true }).click();
+  const list = dialog.getByRole("list", { name: "食べた記録" });
+  const regularEntry = list.locator(":scope > li").filter({ hasText: "レギュラー中華そば" });
+  const limitedEntry = list.locator(":scope > li").filter({ hasText: "イベント限定そば" });
+  for (const entry of [regularEntry, limitedEntry]) {
+    await entry.locator('input[type="file"]').setInputFiles(MEAL_RECORD_IMAGE);
+    await expect(entry.getByRole("list", { name: "記録の画像" }).getByRole("listitem")).toHaveCount(1);
+  }
+  const records = await api.listMealRecords(shop.id);
+  const limited = records[0];
+  const regular = records[1];
+  await expect.poll(async () => (await api.getShop(shop.id)).coverPhotoUrl).toBe(limited.images[0].url);
+  const ogUrl = async () => {
+    const html = await (await page.request.get(`/r/${shop.id}`)).text();
+    return html.match(/og:image" content="([^"]+)"/)?.[1];
+  };
+  const automaticOg = await ogUrl();
+  expect(automaticOg).toBeTruthy();
+  await regularEntry.getByRole("button", { name: "代表にする" }).click();
+  await expect(regularEntry.getByText("代表に選択中")).toBeVisible();
+  await expect.poll(async () => (await api.getShop(shop.id)).representativeMealRecordId).toBe(regular.id);
+  expect((await api.getShop(shop.id)).coverPhotoUrl).toBe(regular.images[0].url);
+  expect(await ogUrl()).not.toBe(automaticOg);
+  await page.screenshot({ path: "test-results/representative-meal-record.png", fullPage: true });
+  await asGuest(async (guestPage) => {
+    await guestPage.goto(`/search?shop=${shop.id}`);
+    const cover = guestPage.locator("#root").getByRole("img", { name: `${shop.name}の代表写真` }).filter({ visible: true });
+    await expect(cover).toHaveAttribute("src", regular.images[0].url);
+    await expect(cover).toHaveJSProperty("naturalWidth", 320);
+  });
+  await dialog.getByRole("button", { name: "自動選択に戻す" }).click();
+  await expect(regularEntry.getByText("代表に選択中")).toHaveCount(0);
+  await expect.poll(async () => (await api.getShop(shop.id)).coverPhotoUrl).toBe(limited.images[0].url);
+  expect((await api.getShop(shop.id)).representativeMealRecordId).toBeUndefined();
+  expect(await ogUrl()).toBe(automaticOg);
+});
+
 test("collaboration records share photos and a reusable venue and can be detached and deleted from either shop", async ({ page, api, asGuest }) => {
   const id = uid();
   const a = await api.createShop({ name: `${id} コラボA` });
