@@ -547,7 +547,7 @@ model MealRecordsResponse {
   On update every field is replaced, so an omitted field is cleared.
   """)
 model MealRecordInput {
-  @minItems(1)
+  @doc("提供店舗 in display order. May be empty only when venueName is set, so the record stays reachable from its venue.")
   shopIds: uuid[];
   @doc("ISO 8601 calendar date (YYYY-MM-DD), no later than tomorrow. Omit when unknown.")
   eatenOn?: string;

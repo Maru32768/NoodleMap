@@ -4,6 +4,9 @@ import dev.marulabs.noodlemap.addShopRequest
 import dev.marulabs.noodlemap.body
 import dev.marulabs.noodlemap.deleteWithSession
 import dev.marulabs.noodlemap.encode
+import dev.marulabs.noodlemap.errors.ErrorBody
+import dev.marulabs.noodlemap.errors.FieldError
+import dev.marulabs.noodlemap.errors.FieldErrorType
 import dev.marulabs.noodlemap.generated.models.*
 import dev.marulabs.noodlemap.postJson
 import dev.marulabs.noodlemap.putJson
@@ -45,7 +48,7 @@ class SharedRecordsApiTest {
             response.body<VenueMealRecordsResponse>().mealRecords.map { it.id } shouldBe listOf(shared.id, second.id)
         }
         client.get("/api/v1/venues/${venue.id}/meal-records") { session(admin) }.body<VenueMealRecordsResponse>().mealRecords.first().privateNote shouldBe "秘密"
-        for (ids in listOf(emptyList(), listOf(a.id, a.id), listOf("bad-id"))) {
+        for (ids in listOf(listOf(a.id, a.id), listOf("bad-id"))) {
             client.postJson("/api/v1/auth/meal-records", encode(input.copy(shopIds = ids)), admin).status shouldBe HttpStatusCode.BadRequest
         }
         val invalid = input.copy(shopIds = listOf(a.id, UUID.randomUUID().toString()), venueName = "作成されない会場")
@@ -88,5 +91,32 @@ class SharedRecordsApiTest {
             response.bodyAsText() shouldNotContain "秘密"
             response.body<MealRecordsResponse>().mealRecords.map { it.id } shouldBe listOf(collab, older, undated)
         }
+    }
+
+    @Test
+    fun `a record without shops needs a venue and is listed under it`() = testApp { t ->
+        val admin = t.adminToken()
+        val shop = client.postJson("/api/v1/auth/shops", encode(addShopRequest(placeId = null).copy(name = "A")), admin).body<Shop>()
+        val booth = MealRecordInput(shopIds = emptyList(), eatenOn = "2024-05-03", venueName = " 日本ご当地ラーメン総選挙 ",
+            menuItems = listOf(MenuItemInput("酒田ラーメン")), publicNote = "酒田ラーメンのブース")
+        client.postJson("/api/v1/auth/meal-records", encode(booth.copy(venueName = " ")), admin).let {
+            it.status shouldBe HttpStatusCode.BadRequest
+            it.body<ErrorBody>().fieldErrors shouldBe listOf(FieldError("venueName", FieldErrorType.REQUIRED))
+        }
+        val record = client.postJson("/api/v1/auth/meal-records", encode(booth), admin).body<MealRecord>()
+        record.shops shouldBe emptyList()
+        val venue = record.venue!!
+        venue.name shouldBe "日本ご当地ラーメン総選挙"
+        client.get("/api/v1/venues/${venue.id}/meal-records").body<VenueMealRecordsResponse>().mealRecords.map { it.id } shouldBe listOf(record.id)
+        client.get("/api/v1/meal-records").body<MealRecordsResponse>().mealRecords.map { it.id } shouldBe listOf(record.id)
+        client.shops().single().mealRecordCount shouldBe 0
+
+        val collab = client.postJson("/api/v1/auth/meal-records", encode(booth.copy(shopIds = listOf(shop.id))), admin).body<MealRecord>()
+        client.putJson("/api/v1/auth/meal-records/${collab.id}", encode(booth.copy(shopIds = emptyList())), admin).body<MealRecord>().shops shouldBe emptyList()
+        client.shops().single().let { it.mealRecordCount shouldBe 0; it.eaten shouldBe false }
+        client.putJson("/api/v1/auth/meal-records/${collab.id}", encode(booth.copy(venueName = null)), admin).status shouldBe HttpStatusCode.BadRequest
+        client.get("/api/v1/venues/${venue.id}/meal-records").body<VenueMealRecordsResponse>().mealRecords.map { it.id }.toSet() shouldBe setOf(record.id, collab.id)
+        client.deleteWithSession("/api/v1/auth/meal-records/${record.id}", admin).status shouldBe HttpStatusCode.NoContent
+        client.deleteWithSession("/api/v1/auth/shops/${shop.id}", admin).status shouldBe HttpStatusCode.NoContent
     }
 }

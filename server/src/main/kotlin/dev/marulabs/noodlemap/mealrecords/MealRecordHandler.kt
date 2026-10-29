@@ -62,7 +62,6 @@ internal fun totalPrice(items: List<MenuItem>): Int? = items.mapNotNull { it.pri
 internal fun normalizeMealRecord(input: MealRecordInput, today: LocalDate): MealRecordFields {
     val errors = mutableListOf<FieldError>()
     val shopIds = input.shopIds.mapNotNull { runCatching { UUID.fromString(it) }.getOrNull() }
-    if (input.shopIds.isEmpty()) errors += FieldError("shopIds", FieldErrorType.REQUIRED)
     if (shopIds.size != input.shopIds.size || shopIds.distinct().size != shopIds.size) {
         errors += FieldError("shopIds", FieldErrorType.INVALID_FORMAT)
     }
@@ -116,6 +115,8 @@ internal fun normalizeMealRecord(input: MealRecordInput, today: LocalDate): Meal
         publicNote = text("publicNote", input.publicNote, NOTE_MAX_LENGTH),
         privateNote = text("privateNote", input.privateNote, NOTE_MAX_LENGTH),
     )
+    // A record with no shop is reachable only from its venue.
+    if (input.shopIds.isEmpty() && fields.venueName == null) errors += FieldError("venueName", FieldErrorType.REQUIRED)
     if (errors.isNotEmpty()) throw DomainException.InvalidRequestWithFields("invalid meal record", errors)
     return fields
 }

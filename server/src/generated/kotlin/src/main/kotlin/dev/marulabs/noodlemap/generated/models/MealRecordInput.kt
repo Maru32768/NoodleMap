@@ -12,6 +12,10 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 public data class MealRecordInput(
+  /**
+   * 提供店舗 in display order. May be empty only when venueName is set, so the record stays reachable
+   * from its venue.
+   */
   @SerialName("shopIds")
   public val shopIds: List<String>,
   /**

@@ -621,6 +621,7 @@ export interface components {
          *     On update every field is replaced, so an omitted field is cleared.
          */
         MealRecordInput: {
+            /** @description 提供店舗 in display order. May be empty only when venueName is set, so the record stays reachable from its venue. */
             shopIds: components["schemas"]["uuid"][];
             /** @description ISO 8601 calendar date (YYYY-MM-DD), no later than tomorrow. Omit when unknown. */
             eatenOn?: string;
