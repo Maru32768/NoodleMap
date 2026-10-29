@@ -700,13 +700,16 @@ export function Sidebar({
           </Box>
         </Box>
         <Box ml="auto" display="flex">
-          <MealRecordsPageLink />
-          <AccountLink showLabel />
+          <AccountLink />
         </Box>
       </Box>
 
+      <Box px="1.25rem" pt="0.75rem">
+        <MealRecordsPageLink />
+      </Box>
+
       {/* Search */}
-      <Box px="1.25rem" pt="1rem" pb="0.75rem" position="relative">
+      <Box px="1.25rem" pt="0.5rem" pb="0.75rem" position="relative">
         <Box
           position="absolute"
           left="2rem"

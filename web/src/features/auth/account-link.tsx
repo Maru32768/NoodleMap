@@ -7,11 +7,8 @@ import { Link } from "react-router";
 
 const ChakraLink = chakra(Link);
 
-/**
- * Link to マイページ, an icon alone unless `showLabel`; renders nothing for guests.
- * 地図に戻る there returns to this map view.
- */
-export function AccountLink({ showLabel = false }: { showLabel?: boolean }) {
+/** Icon link to マイページ; renders nothing for guests. 地図に戻る there returns to this map view. */
+export function AccountLink() {
   const currentUser = useCurrentUser();
   const returnToSearch = useReturnToSearch();
   if (currentUser.type === "guest") {
@@ -22,25 +19,18 @@ export function AccountLink({ showLabel = false }: { showLabel?: boolean }) {
     <ChakraLink
       to={ACCOUNT_PATH}
       state={{ returnToSearch }}
-      display="flex"
-      flexDirection="column"
-      alignItems="center"
-      justifyContent="center"
-      gap="2px"
-      minW="34px"
-      h={showLabel ? undefined : "34px"}
-      px={showLabel ? "6px" : undefined}
-      py={showLabel ? "4px" : undefined}
-      rounded={showLabel ? "nmMd" : "full"}
+      display="grid"
+      placeItems="center"
+      w="34px"
+      h="34px"
+      rounded="full"
       color="nm.ink"
-      fontSize="10px"
       flexShrink={0}
       _hover={{ bg: "nm.bg" }}
-      aria-label={showLabel ? undefined : "マイページ"}
-      title={showLabel ? undefined : "マイページ"}
+      aria-label="マイページ"
+      title="マイページ"
     >
-      <LuUser size={showLabel ? 18 : 16} aria-hidden="true" />
-      {showLabel && "マイページ"}
+      <LuUser aria-hidden="true" />
     </ChakraLink>
   );
 }

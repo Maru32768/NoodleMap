@@ -1,7 +1,7 @@
 import { MEAL_RECORDS_PATH } from "@/utils/path.ts";
 import { Button, chakra } from "@chakra-ui/react";
 import { ReactNode } from "react";
-import { LuArrowLeft, LuBookOpen } from "react-icons/lu";
+import { LuArrowLeft, LuArrowRight, LuBookOpen } from "react-icons/lu";
 import { Link, type Location, useLocation } from "react-router";
 
 const ChakraLink = chakra(Link);
@@ -85,7 +85,7 @@ export function RecordVenueLink({
   );
 }
 
-/** Labeled link to the 食べた記録 page; 地図に戻る there returns to this map view. */
+/** Row link to the 食べた記録 page; 地図に戻る there returns to this map view. */
 export function MealRecordsPageLink() {
   const returnToSearch = useReturnToSearch();
   return (
@@ -93,19 +93,18 @@ export function MealRecordsPageLink() {
       to={MEAL_RECORDS_PATH}
       state={{ returnToSearch }}
       display="flex"
-      flexDirection="column"
       alignItems="center"
-      gap="2px"
-      px="6px"
-      py="4px"
+      gap="0.5rem"
+      px="0.75rem"
+      py="0.5rem"
       rounded="nmMd"
       color="nm.ink"
-      fontSize="10px"
-      flexShrink={0}
+      fontSize="0.8125rem"
       _hover={{ bg: "nm.bg" }}
     >
-      <LuBookOpen size={18} aria-hidden="true" />
-      食べた記録
+      <LuBookOpen aria-hidden="true" />
+      食べた記録をすべて見る
+      <LuArrowRight aria-hidden="true" style={{ marginLeft: "auto" }} />
     </ChakraLink>
   );
 }
