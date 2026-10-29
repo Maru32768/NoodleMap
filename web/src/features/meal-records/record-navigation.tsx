@@ -52,7 +52,7 @@ export function restoresSearchCamera(state: unknown): boolean {
 }
 
 // The search page to return to from a page opened here: this one, or the one this page was opened from.
-function useReturnToSearch(): SearchLocation | undefined {
+export function useReturnToSearch(): SearchLocation | undefined {
   const location = useLocation();
   const state: unknown = location.state;
   return location.pathname === "/search"
@@ -85,25 +85,27 @@ export function RecordVenueLink({
   );
 }
 
-/** Icon link to the 食べた記録 page; 地図に戻る there returns to this map view. */
+/** Labeled link to the 食べた記録 page; 地図に戻る there returns to this map view. */
 export function MealRecordsPageLink() {
   const returnToSearch = useReturnToSearch();
   return (
     <ChakraLink
       to={MEAL_RECORDS_PATH}
       state={{ returnToSearch }}
-      display="grid"
-      placeItems="center"
-      w="34px"
-      h="34px"
-      rounded="full"
+      display="flex"
+      flexDirection="column"
+      alignItems="center"
+      gap="2px"
+      px="6px"
+      py="4px"
+      rounded="nmMd"
       color="nm.ink"
+      fontSize="10px"
       flexShrink={0}
       _hover={{ bg: "nm.bg" }}
-      aria-label="食べた記録"
-      title="食べた記録"
     >
-      <LuBookOpen />
+      <LuBookOpen size={18} aria-hidden="true" />
+      食べた記録
     </ChakraLink>
   );
 }
@@ -136,7 +138,8 @@ export function RecordShopLink({
   );
 }
 
-export function VenueMapLink() {
+/** 地図に戻る: back to the map view this page was opened from, or the plain map. */
+export function BackToMapLink() {
   const location = useLocation();
   const returnToSearch = searchLocationIn(location.state);
   return (

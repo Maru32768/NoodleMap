@@ -20,6 +20,7 @@ import { useShops } from "@/features/shops/api/use-shops.ts";
 import { ShopEditModal } from "@/features/shops/shop-edit-modal.tsx";
 import { ShopsLoadState } from "@/features/shops/shops-load-state.tsx";
 import type { WishLevel } from "@/features/shops/status.ts";
+import { SITE_TITLE, useDocumentTitle } from "@/utils/document-title.ts";
 import { Box, Input, Span } from "@chakra-ui/react";
 import { useCallback, useDeferredValue, useState } from "react";
 import { CiLocationOn, CiSearch } from "react-icons/ci";
@@ -130,6 +131,7 @@ function AdminSearchBox({
 }
 
 export default function AdminPage() {
+  useDocumentTitle(undefined, `${SITE_TITLE} Admin`);
   const { shops, mutate: mutateShops } = useShops();
 
   const [keyword, setKeyword] = useState("");

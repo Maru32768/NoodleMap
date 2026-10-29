@@ -200,6 +200,7 @@ export function DetailPanel({ shop, onAdminEdit, onClose }: DetailPanelProps) {
       {/* Body */}
       <Box flex="1" overflowY="auto" px="1.625rem" pt="1.375rem" pb="5.625rem">
         <Box
+          as="h2"
           fontFamily="display"
           fontSize="1.5rem"
           fontWeight={700}

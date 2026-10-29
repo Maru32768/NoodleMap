@@ -1,4 +1,5 @@
 import { useAuth } from "@/features/auth/use-auth.ts";
+import { useDocumentTitle } from "@/utils/document-title.ts";
 import { SEARCH_PATH } from "@/utils/path.ts";
 import { toastApiError } from "@/utils/toast.ts";
 import { Box, Flex, VStack } from "@chakra-ui/react";
@@ -91,6 +92,7 @@ function getSafeRedirectTo(searchParams: URLSearchParams) {
 }
 
 export default function LoginPage() {
+  useDocumentTitle("ログイン");
   const { loginWithGoogle } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();

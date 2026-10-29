@@ -1,21 +1,22 @@
-import { ButtonLink } from "@/components/button-link.tsx";
 import { LoadableButton } from "@/components/loadable-button.tsx";
 import { Loading } from "@/components/loading.tsx";
 import { toaster } from "@/components/ui/toaster.tsx";
 import { useCurrentUser } from "@/features/auth/use-current-user.ts";
 import { AuthSession, useSessions } from "@/features/auth/use-sessions.ts";
 import { describeUserAgent } from "@/features/auth/user-agent.ts";
+import { BackToMapLink } from "@/features/meal-records/record-navigation.tsx";
+import { useDocumentTitle } from "@/utils/document-title.ts";
 import { SEARCH_PATH } from "@/utils/path.ts";
 import { toastApiError } from "@/utils/toast.ts";
 import { Box, Flex, Heading, Text } from "@chakra-ui/react";
 import dayjs from "dayjs";
-import { LuArrowLeft } from "react-icons/lu";
 
 function formatTime(iso: string) {
   return dayjs(iso).format("YYYY/MM/DD HH:mm");
 }
 
 export default function AccountPage() {
+  useDocumentTitle("マイページ");
   const currentUser = useCurrentUser();
   const {
     sessions,
@@ -68,10 +69,7 @@ export default function AccountPage() {
           <Heading as="h1" fontFamily="display" fontSize="24px" color="nm.ink">
             マイページ
           </Heading>
-          <ButtonLink to={SEARCH_PATH} variant="outline" size="sm">
-            <LuArrowLeft aria-hidden="true" />
-            地図に戻る
-          </ButtonLink>
+          <BackToMapLink />
         </Flex>
 
         {currentUser.type !== "guest" && (

@@ -2,7 +2,7 @@ import {
   RecordShopLink,
   RecordVenueLink,
   restoresSearchCamera,
-  VenueMapLink,
+  BackToMapLink,
 } from "@/features/meal-records/record-navigation.tsx";
 import { renderWithProviders } from "@/test/render.tsx";
 import { screen } from "@testing-library/react";
@@ -25,7 +25,7 @@ function mount(
         path: "/venues/:id",
         element: (
           <>
-            <VenueMapLink />
+            <BackToMapLink />
             <RecordVenueLink venueId="two">別の会場へ</RecordVenueLink>
             <RecordShopLink shopId="b">提供店B</RecordShopLink>
           </>

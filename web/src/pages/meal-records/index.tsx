@@ -9,8 +9,9 @@ import {
 import { useAllMealRecords } from "@/features/meal-records/api/use-meal-records.ts";
 import { MealRecordGrid } from "@/features/meal-records/meal-record-grid.tsx";
 import { MealRecordsLoadState } from "@/features/meal-records/meal-record-list.tsx";
-import { VenueMapLink } from "@/features/meal-records/record-navigation.tsx";
+import { BackToMapLink } from "@/features/meal-records/record-navigation.tsx";
 import { useShops } from "@/features/shops/api/use-shops.ts";
+import { useDocumentTitle } from "@/utils/document-title.ts";
 import { Box } from "@chakra-ui/react";
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
@@ -28,6 +29,7 @@ const ORDER_CHOICES: readonly SegmentedOption<Order>[] = [
 ];
 
 export default function MealRecordsPage() {
+  useDocumentTitle("食べた記録");
   const { data, error, isValidating, mutate } = useAllMealRecords();
   const { shops } = useShops();
   const [params, setParams] = useSearchParams();
@@ -73,8 +75,8 @@ export default function MealRecordsPage() {
 
   return (
     <Box ref={setScrollParent} h="100%" overflowY="auto" bg="nm.bg">
-      <Box maxW="1280px" mx="auto" p="40px">
-        <VenueMapLink />
+      <Box maxW="1280px" mx="auto" p={{ base: "20px", md: "40px" }}>
+        <BackToMapLink />
         <Box as="h1" fontSize="24px" fontWeight={700} mt="24px" mb="16px">
           食べた記録
         </Box>

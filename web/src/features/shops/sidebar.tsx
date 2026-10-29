@@ -701,7 +701,7 @@ export function Sidebar({
         </Box>
         <Box ml="auto" display="flex">
           <MealRecordsPageLink />
-          <AccountLink />
+          <AccountLink showLabel />
         </Box>
       </Box>
 

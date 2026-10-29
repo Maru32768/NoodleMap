@@ -28,7 +28,6 @@ function App() {
       ? "/admin-manifest.webmanifest"
       : "/manifest.webmanifest";
     const touchIconHref = isAdminPath ? "/admin-pwa-512.png" : "/pwa-512.png";
-    const title = isAdminPath ? "Maru's Noodle Map Admin" : "Maru's Noodle Map";
     let manifestLink = document.querySelector<HTMLLinkElement>(
       'link[rel="manifest"]',
     );
@@ -50,7 +49,6 @@ function App() {
     }
 
     touchIconLink.href = touchIconHref;
-    document.title = title;
   }, [location.pathname]);
 
   return isLoading ? (

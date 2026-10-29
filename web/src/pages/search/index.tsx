@@ -25,6 +25,7 @@ import { DetailPanel } from "@/features/shops/detail-panel.tsx";
 import { MobileSheet } from "@/features/shops/mobile-sheet.tsx";
 import { ShopEditModal } from "@/features/shops/shop-edit-modal.tsx";
 import { ShopFilters, Sidebar } from "@/features/shops/sidebar.tsx";
+import { useDocumentTitle } from "@/utils/document-title.ts";
 import { SHOP_PARAM } from "@/utils/path.ts";
 import { Box, Input } from "@chakra-ui/react";
 import {
@@ -214,6 +215,7 @@ export default function SearchPage() {
     () => shops?.find((r) => r.id === selectedId) ?? undefined,
     [shops, selectedId],
   );
+  useDocumentTitle(selectedShop?.name);
   // Keep the selected shop's pin even when the filters would hide it.
   const mapShops = useMemo(
     () =>

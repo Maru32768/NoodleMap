@@ -199,6 +199,7 @@ export function MobileSheet({
 
                 <Box flex="1" minWidth="0">
                   <Box
+                    as="h2"
                     fontFamily="display"
                     fontSize="1.125rem"
                     fontWeight={700}
