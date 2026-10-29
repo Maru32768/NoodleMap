@@ -80,7 +80,8 @@ test("provider links move the map and venue return preserves the route and camer
     await expect(
       guest
         .getByRole("list", { name: "食べた記録", exact: true })
-        .getByRole("link", { name: a.name, exact: true }),
+        .getByRole("listitem")
+        .filter({ hasText: a.name }),
     ).toBeVisible();
     await guest.screenshot({
       path: testInfo.outputPath("venue-provider-history.png"),

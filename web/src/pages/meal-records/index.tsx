@@ -1,4 +1,3 @@
-import { ModalDialog } from "@/components/modal-dialog.tsx";
 import {
   SegmentedOption,
   SegmentedPicker,
@@ -7,24 +6,14 @@ import {
   CATEGORY_OPTIONS,
   type CategorySlug,
 } from "@/features/categories/categories.ts";
-import {
-  type MealRecord,
-  useAllMealRecords,
-} from "@/features/meal-records/api/use-meal-records.ts";
-import {
-  MealRecordCard,
-  mealRecordShopNames,
-} from "@/features/meal-records/meal-record-card.tsx";
-import {
-  MealRecordList,
-  MealRecordsLoadState,
-} from "@/features/meal-records/meal-record-list.tsx";
+import { useAllMealRecords } from "@/features/meal-records/api/use-meal-records.ts";
+import { MealRecordGrid } from "@/features/meal-records/meal-record-grid.tsx";
+import { MealRecordsLoadState } from "@/features/meal-records/meal-record-list.tsx";
 import { VenueMapLink } from "@/features/meal-records/record-navigation.tsx";
 import { useShops } from "@/features/shops/api/use-shops.ts";
 import { Box } from "@chakra-ui/react";
-import { forwardRef, useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
-import { GridComponents, VirtuosoGrid } from "react-virtuoso";
 
 type CategoryChoice = CategorySlug | "all";
 type Order = "desc" | "asc";
@@ -38,29 +27,11 @@ const ORDER_CHOICES: readonly SegmentedOption<Order>[] = [
   { id: "asc", label: "古い順" },
 ];
 
-const gridComponents: GridComponents = {
-  List: forwardRef(function GridList({ children, style, ...props }, ref) {
-    return (
-      <Box
-        ref={ref}
-        {...props}
-        style={style}
-        display="grid"
-        gridTemplateColumns="repeat(auto-fill, minmax(220px, 1fr))"
-        gap="1rem"
-      >
-        {children}
-      </Box>
-    );
-  }),
-};
-
 export default function MealRecordsPage() {
   const { data, error, isValidating, mutate } = useAllMealRecords();
   const { shops } = useShops();
   const [params, setParams] = useSearchParams();
   const [scrollParent, setScrollParent] = useState<HTMLElement | null>(null);
-  const [opened, setOpened] = useState<MealRecord>();
 
   const rawCategory = params.get("category");
   const category: CategoryChoice =
@@ -100,8 +71,6 @@ export default function MealRecordsPage() {
     return order === "asc" ? filtered.toReversed() : filtered;
   }, [data, category, categoryOf, order]);
 
-  const open = useCallback((record: MealRecord) => setOpened(record), []);
-
   return (
     <Box ref={setScrollParent} h="100%" overflowY="auto" bg="nm.bg">
       <Box maxW="1280px" mx="auto" p="40px">
@@ -132,33 +101,11 @@ export default function MealRecordsPage() {
           isValidating={isValidating}
           onRetry={() => mutate()}
         >
-          {(records) =>
-            scrollParent && (
-              <VirtuosoGrid
-                customScrollParent={scrollParent}
-                data={records}
-                components={gridComponents}
-                computeItemKey={(_, record) => record.id}
-                itemContent={(_, record) => (
-                  <MealRecordCard
-                    mealRecord={record}
-                    category={categoryOf?.get(record.shops[0]?.id)}
-                    onOpen={open}
-                  />
-                )}
-              />
-            )
-          }
+          {(records) => (
+            <MealRecordGrid mealRecords={records} scrollParent={scrollParent} />
+          )}
         </MealRecordsLoadState>
       </Box>
-      <ModalDialog
-        open={!!opened}
-        onOpenChange={(isOpen) => !isOpen && setOpened(undefined)}
-        width="640px"
-        title={opened && mealRecordShopNames(opened)}
-      >
-        {opened && <MealRecordList mealRecords={[opened]} />}
-      </ModalDialog>
     </Box>
   );
 }

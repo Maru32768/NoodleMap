@@ -38,11 +38,13 @@ const oneLine = {
 export function MealRecordCard({
   mealRecord,
   category,
+  showVenue,
   onOpen,
 }: {
   mealRecord: MealRecord;
   // The first shop's category, for the placeholder of a record without photos.
   category: CategorySlug | undefined;
+  showVenue: boolean;
   onOpen: (mealRecord: MealRecord) => void;
 }) {
   const shopNames = mealRecordShopNames(mealRecord);
@@ -121,9 +123,11 @@ export function MealRecordCard({
         <Box h="1.125rem" fontSize="0.75rem" color="nm.inkMuted" {...oneLine}>
           {menu}
         </Box>
-        <Box h="1rem" fontSize="0.6875rem" color="nm.inkFaint" {...oneLine}>
-          {mealRecord.venue?.name}
-        </Box>
+        {showVenue && (
+          <Box h="1rem" fontSize="0.6875rem" color="nm.inkFaint" {...oneLine}>
+            {mealRecord.venue?.name}
+          </Box>
+        )}
       </Box>
     </chakra.button>
   );
