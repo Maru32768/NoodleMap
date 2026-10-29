@@ -69,6 +69,9 @@ describe("VenuePage", () => {
   it("lets the admin add a record of a booth served by no registered shop", async () => {
     const { posted } = renderVenue(admin);
     await userEvent.click(
+      await screen.findByRole("button", { name: "記録を管理" }),
+    );
+    await userEvent.click(
       await screen.findByRole("button", { name: "食べた記録を追加" }),
     );
     expect(screen.getByLabelText("催事・出店先")).toHaveValue(venue.name);
@@ -99,7 +102,7 @@ describe("VenuePage", () => {
     renderVenue({ type: "guest" });
     await screen.findByText("まだ食べた記録がありません");
     expect(
-      screen.queryByRole("button", { name: "食べた記録を追加" }),
+      screen.queryByRole("button", { name: "記録を管理" }),
     ).not.toBeInTheDocument();
   });
 });

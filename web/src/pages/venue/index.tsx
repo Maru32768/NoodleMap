@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button.tsx";
 import { useCurrentUser } from "@/features/auth/use-current-user.ts";
 import { useVenueMealRecords } from "@/features/meal-records/api/use-venues.ts";
 import { MealRecordsAdmin } from "@/features/meal-records/meal-record-editor.tsx";
@@ -16,6 +17,7 @@ export default function VenuePage() {
   const title = data?.venue.name ?? "催事・出店先";
   useDocumentTitle(title);
   const [scrollParent, setScrollParent] = useState<HTMLElement | null>(null);
+  const [managing, setManaging] = useState(false);
   return (
     <Box ref={setScrollParent} h="100%" overflowY="auto" bg="nm.bg">
       <Box maxW="1280px" mx="auto" p={{ base: "20px", md: "40px" }}>
@@ -23,11 +25,28 @@ export default function VenuePage() {
         <Box as="h1" fontSize="24px" fontWeight={700} mt="24px" mb="8px">
           {title}
         </Box>
-        <Box as="p" mb="24px" fontSize="14px">
-          ここで食べた記録
+        <Box
+          display="flex"
+          alignItems="center"
+          justifyContent="space-between"
+          gap="12px"
+          mb="24px"
+        >
+          <Box as="p" fontSize="14px">
+            ここで食べた記録
+          </Box>
+          {isAdmin && data && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setManaging((managing) => !managing)}
+            >
+              {managing ? "一覧に戻る" : "記録を管理"}
+            </Button>
+          )}
         </Box>
         {/* The admin manages the venue's records here, those served by no registered shop included. */}
-        {isAdmin && data ? (
+        {isAdmin && data && managing ? (
           <MealRecordsAdmin
             scope={{ kind: "venue", venueId, venueName: data.venue.name }}
             mealRecords={data.mealRecords}
