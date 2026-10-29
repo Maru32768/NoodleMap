@@ -23,8 +23,10 @@ import { useMemo, useSyncExternalStore } from "react";
  */
 export interface PendingUpload {
   key: number;
-  shopId: string;
-  shopIds?: readonly string[];
+  // The shop or venue whose record list queued it; see purgeFailedUploads.
+  listId: string;
+  // The record's shops, each counted as uploading meanwhile.
+  shopIds: readonly string[];
   mealRecordId: string;
   name: string;
   status: "waiting" | "preparing" | "converting" | "uploading" | "failed";
@@ -98,7 +100,7 @@ function enqueue(task: () => Promise<void>) {
  * (possibly) added, `onDrained` runs. Neither is awaited.
  */
 export function queueMealRecordUploads({
-  shopId,
+  listId,
   shopIds,
   mealRecordId,
   files,
@@ -107,8 +109,8 @@ export function queueMealRecordUploads({
   revalidateMealRecords,
   onDrained,
 }: {
-  shopId: string;
-  shopIds?: readonly string[];
+  listId: string;
+  shopIds: readonly string[];
   mealRecordId: string;
   files: readonly File[];
   slots: number;
@@ -120,7 +122,7 @@ export function queueMealRecordUploads({
     file,
     entry: {
       key: nextKey++,
-      shopId,
+      listId,
       shopIds,
       mealRecordId,
       name: file.name,
@@ -229,14 +231,14 @@ export function dismissUpload(key: number) {
   }
 }
 
-/** Drops the shop's failed files of mealRecords that no longer exist. */
+/** Drops the list's failed files of mealRecords that no longer exist. */
 export function purgeFailedUploads(
-  shopId: string,
+  listId: string,
   mealRecordIds: readonly string[],
 ) {
   const next = pending.filter(
     (p) =>
-      p.shopId !== shopId ||
+      p.listId !== listId ||
       isActive(p) ||
       mealRecordIds.includes(p.mealRecordId),
   );
@@ -262,9 +264,7 @@ export function useMealRecordUploads(mealRecordId: string): PendingUpload[] {
 /** Whether any of the shop's mealRecords has an upload queued or in flight. */
 export function useShopUploading(shopId: string): boolean {
   return useSyncExternalStore(subscribe, () =>
-    pending.some(
-      (p) => (p.shopIds ?? [p.shopId]).includes(shopId) && isActive(p),
-    ),
+    pending.some((p) => p.shopIds.includes(shopId) && isActive(p)),
   );
 }
 

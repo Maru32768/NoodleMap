@@ -80,18 +80,29 @@ function isMealRecordField(field: string): field is MealRecordField {
   return (MEAL_RECORD_FIELDS as readonly string[]).includes(field);
 }
 
+/**
+ * Where the admin adds and edits 食べた記録: a shop's edit modal, or a 催事・出店先's
+ * page, whose new records start with that venue and no shop.
+ */
+export type RecordScope =
+  | { kind: "shop"; shopId: string }
+  | { kind: "venue"; venueId: string; venueName: string };
+
+export const recordScopeId = (scope: RecordScope) =>
+  scope.kind === "shop" ? scope.shopId : scope.venueId;
+
 function toDraft(
   mealRecord: MealRecord | undefined,
-  shopId: string,
+  scope: RecordScope,
 ): MealRecordDraft {
   if (!mealRecord) {
     return {
-      shopIds: [shopId],
+      shopIds: scope.kind === "shop" ? [scope.shopId] : [],
       // Today in Japan, the default 食べた日 of a new mealRecord.
       eatenOn: japanDate(new Date()),
       menuItems: [newMenuItemRow()],
       rate: "",
-      venueName: "",
+      venueName: scope.kind === "venue" ? scope.venueName : "",
       publicNote: "",
       privateNote: "",
     };
@@ -124,8 +135,9 @@ function validate(
   unparsable: ReadonlySet<ParsedField>,
 ): ShopFieldErrors<MealRecordField> {
   const errors: ShopFieldErrors<MealRecordField> = {};
-  if (draft.shopIds.length === 0) {
-    errors.shopIds = "required";
+  // A record without shops is reachable only from its venue.
+  if (draft.shopIds.length === 0 && draft.venueName.trim() === "") {
+    errors.venueName = "required";
   }
   if (
     unparsable.has("eatenOn") ||
@@ -206,14 +218,14 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
  * appear under their inputs, anything else is toasted.
  */
 export function MealRecordForm({
-  shopId,
+  scope,
   mealRecord,
   importDraft,
   onSave,
   onCancel,
   onDirtyChange,
 }: {
-  shopId: string;
+  scope: RecordScope;
   mealRecord?: MealRecord;
   /** A meal record the photo import will make: its day and first shop come from the photos, so neither is edited. */
   importDraft?: MealRecordInput;
@@ -233,7 +245,7 @@ export function MealRecordForm({
   } = useShops();
   const venues = useVenues();
   const [initialDraft] = useState<MealRecordDraft>(() =>
-    importDraft ? draftOf(importDraft) : toDraft(mealRecord, shopId),
+    importDraft ? draftOf(importDraft) : toDraft(mealRecord, scope),
   );
   const [draft, setDraft] = useState<MealRecordDraft>(initialDraft);
   // Compared as saved, so e.g. adding and removing a blank menu row is no change.
@@ -402,7 +414,7 @@ export function MealRecordForm({
             <FieldLabel>
               {importDraft
                 ? "提供した店舗（複数選択可、写真の店舗は外せません）"
-                : "提供した店舗（複数選択可）"}
+                : "提供した店舗（複数選択可、催事・出店先があれば空欄可）"}
             </FieldLabel>
           }
           error={errorOf("shopIds")}
@@ -422,10 +434,7 @@ export function MealRecordForm({
             onChange={(selected) => {
               const ids = selected.map((option) => option.value);
               // The photos' shop keys the imported meal record, so it stays.
-              if (
-                ids.length > 0 &&
-                (!importDraft || ids.includes(importDraft.shopIds[0]))
-              ) {
+              if (!importDraft || ids.includes(importDraft.shopIds[0])) {
                 set("shopIds", ids);
               }
             }}
@@ -614,10 +623,7 @@ export function MealRecordForm({
           キャンセル
         </Button>
         <LoadableButton
-          disabled={
-            draft.shopIds.length === 0 ||
-            (!mealRecord && !importDraft && !shops)
-          }
+          disabled={!mealRecord && !importDraft && !shops}
           variant="plain"
           px="18px"
           py="8px"

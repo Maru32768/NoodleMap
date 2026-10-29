@@ -2,7 +2,7 @@ import { ModalDialog } from "@/components/modal-dialog.tsx";
 import type { MealRecord } from "@/features/meal-records/api/use-meal-records.ts";
 import {
   MealRecordCard,
-  mealRecordShopNames,
+  mealRecordTitle,
 } from "@/features/meal-records/meal-record-card.tsx";
 import { MealRecordList } from "@/features/meal-records/meal-record-list.tsx";
 import { useShops } from "@/features/shops/api/use-shops.ts";
@@ -81,7 +81,7 @@ export function MealRecordGrid({
         open={!!opened}
         onOpenChange={(isOpen) => !isOpen && setOpened(undefined)}
         width="640px"
-        title={opened && mealRecordShopNames(opened)}
+        title={opened && mealRecordTitle(opened)}
       >
         {opened && <MealRecordList mealRecords={[opened]} />}
       </ModalDialog>

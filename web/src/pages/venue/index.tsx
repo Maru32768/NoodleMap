@@ -1,4 +1,6 @@
+import { useCurrentUser } from "@/features/auth/use-current-user.ts";
 import { useVenueMealRecords } from "@/features/meal-records/api/use-venues.ts";
+import { MealRecordsAdmin } from "@/features/meal-records/meal-record-editor.tsx";
 import { MealRecordGrid } from "@/features/meal-records/meal-record-grid.tsx";
 import { MealRecordsLoadState } from "@/features/meal-records/meal-record-list.tsx";
 import { BackToMapLink } from "@/features/meal-records/record-navigation.tsx";
@@ -10,6 +12,7 @@ import { useParams } from "react-router";
 export default function VenuePage() {
   const { venueId = "" } = useParams();
   const { data, error, isValidating, mutate } = useVenueMealRecords(venueId);
+  const isAdmin = useCurrentUser().type === "admin";
   const title = data?.venue.name ?? "催事・出店先";
   useDocumentTitle(title);
   const [scrollParent, setScrollParent] = useState<HTMLElement | null>(null);
@@ -23,20 +26,31 @@ export default function VenuePage() {
         <Box as="p" mb="24px" fontSize="14px">
           ここで食べた記録
         </Box>
-        <MealRecordsLoadState
-          mealRecords={data?.mealRecords}
-          error={error}
-          isValidating={isValidating}
-          onRetry={() => mutate()}
-        >
-          {(mealRecords) => (
-            <MealRecordGrid
-              mealRecords={mealRecords}
-              scrollParent={scrollParent}
-              showVenue={false}
-            />
-          )}
-        </MealRecordsLoadState>
+        {/* The admin manages the venue's records here, those served by no registered shop included. */}
+        {isAdmin && data ? (
+          <MealRecordsAdmin
+            scope={{ kind: "venue", venueId, venueName: data.venue.name }}
+            mealRecords={data.mealRecords}
+            error={error}
+            isValidating={isValidating}
+            onRetry={() => mutate()}
+          />
+        ) : (
+          <MealRecordsLoadState
+            mealRecords={data?.mealRecords}
+            error={error}
+            isValidating={isValidating}
+            onRetry={() => mutate()}
+          >
+            {(mealRecords) => (
+              <MealRecordGrid
+                mealRecords={mealRecords}
+                scrollParent={scrollParent}
+                showVenue={false}
+              />
+            )}
+          </MealRecordsLoadState>
+        )}
       </Box>
     </Box>
   );

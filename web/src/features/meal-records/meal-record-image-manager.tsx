@@ -121,10 +121,11 @@ const isTextInput = (element: Element | null) =>
  * outlast it (the editor marks itself busy from that store).
  */
 export function MealRecordImageManager({
-  shopId,
+  listId,
   mealRecord,
 }: {
-  shopId: string;
+  // The shop or venue whose record list shows it.
+  listId: string;
   mealRecord: MealRecord;
 }) {
   const {
@@ -162,7 +163,7 @@ export function MealRecordImageManager({
 
   const addFiles = (files: File[]) =>
     queueMealRecordUploads({
-      shopId,
+      listId,
       shopIds: mealRecord.shops.map((shop) => shop.id),
       mealRecordId: mealRecord.id,
       files,

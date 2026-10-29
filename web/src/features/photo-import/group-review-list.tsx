@@ -201,7 +201,7 @@ function DetailsModal({
       subtitle={`${shopName ?? ""} ${day}`}
     >
       <MealRecordForm
-        shopId={shopId}
+        scope={{ kind: "shop", shopId }}
         importDraft={{ shopIds: [shopId], ...details, eatenOn: day }}
         onCancel={onClose}
         onSave={async (input) => {

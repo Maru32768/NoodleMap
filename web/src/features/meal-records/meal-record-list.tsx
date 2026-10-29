@@ -137,8 +137,10 @@ function MealRecordEntry({
   navigation: boolean;
   contextShopId?: string;
 }) {
-  const showProviders =
-    mealRecord.shops.length !== 1 || mealRecord.shops[0].id !== contextShopId;
+  // Hidden when the only shop is the one whose list this is, or there is none.
+  const showProviders = mealRecord.shops.some(
+    (shop) => shop.id !== contextShopId,
+  );
   return (
     <Box as="li" bg="nm.bg" borderRadius="nmMd" px="0.875rem" py="0.625rem">
       <Box display="flex" alignItems="center" gap="0.5rem" flexWrap="wrap">

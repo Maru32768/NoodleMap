@@ -12,8 +12,12 @@ const PLACEHOLDER_BG: Record<CategorySlug | "unknown", string> = {
   unknown: "#e4ddd0",
 };
 
-export function mealRecordShopNames(mealRecord: MealRecord): string {
-  return mealRecord.shops.map((shop) => shop.name).join(" × ");
+/** The shops' names, or the venue's for a record served by no registered shop. */
+export function mealRecordTitle(mealRecord: MealRecord): string {
+  return (
+    mealRecord.shops.map((shop) => shop.name).join(" × ") ||
+    (mealRecord.venue?.name ?? "")
+  );
 }
 
 // The first 食べたメニュー, then how many more there are.
@@ -47,7 +51,7 @@ export function MealRecordCard({
   showVenue: boolean;
   onOpen: (mealRecord: MealRecord) => void;
 }) {
-  const shopNames = mealRecordShopNames(mealRecord);
+  const title = mealRecordTitle(mealRecord);
   const photo = mealRecord.images?.[0];
   const [failedUrl, setFailedUrl] = useState<string>();
   const menu = menuSummary(mealRecord);
@@ -84,7 +88,7 @@ export function MealRecordCard({
         {showPhoto ? (
           <Image
             src={photo.url}
-            alt={`${shopNames}の写真`}
+            alt={`${title}の写真`}
             loading="lazy"
             decoding="async"
             w="full"
@@ -122,9 +126,9 @@ export function MealRecordCard({
           color="nm.ink"
           {...oneLine}
           // The whole name when it is cut off.
-          title={shopNames}
+          title={title}
         >
-          {shopNames}
+          {title}
         </Box>
         <Box h="1.125rem" fontSize="0.75rem" color="nm.inkMuted" {...oneLine}>
           {menu}

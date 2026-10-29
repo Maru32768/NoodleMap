@@ -31,7 +31,7 @@ describe("record associations", () => {
     const save = vi.fn(async () => apiOk(mealRecord));
     renderWithProviders(
       <MealRecordForm
-        shopId={a.id}
+        scope={{ kind: "shop", shopId: a.id }}
         mealRecord={mealRecord}
         onSave={save}
         onCancel={() => {}}
@@ -56,7 +56,7 @@ describe("record associations", () => {
     );
   });
 
-  it("allows removing the preselected shop while keeping at least one provider", async () => {
+  it("allows removing the preselected shop", async () => {
     const a = makeShop({ name: "A" });
     const b = makeShop({ name: "B" });
     server.use(
@@ -65,19 +65,56 @@ describe("record associations", () => {
     );
     const save = vi.fn(async () => null);
     renderWithProviders(
-      <MealRecordForm shopId={a.id} onSave={save} onCancel={() => {}} />,
+      <MealRecordForm
+        scope={{ kind: "shop", shopId: a.id }}
+        onSave={save}
+        onCancel={() => {}}
+      />,
     );
     const select = screen.getByLabelText("提供した店舗");
     await waitFor(() => expect(select).toBeEnabled());
     await userEvent.type(select, "B");
     await userEvent.click(screen.getByRole("option", { name: "B" }));
     await userEvent.click(screen.getByRole("button", { name: "Remove A" }));
-    await userEvent.click(screen.getByRole("button", { name: "Remove B" }));
     await userEvent.click(
       screen.getByRole("button", { name: "食べた記録を保存" }),
     );
     expect(save).toHaveBeenCalledWith(
       expect.objectContaining({ shopIds: [b.id] }),
+    );
+  });
+
+  it("saves a record without shops only when it names a venue", async () => {
+    const a = makeShop({ name: "A" });
+    server.use(
+      http.get("/api/v1/shops", () => HttpResponse.json({ shops: [a] })),
+      http.get("/api/v1/venues", () => HttpResponse.json({ venues: [] })),
+    );
+    const save = vi.fn(async () => null);
+    renderWithProviders(
+      <MealRecordForm
+        scope={{ kind: "shop", shopId: a.id }}
+        onSave={save}
+        onCancel={() => {}}
+      />,
+    );
+    const select = screen.getByLabelText("提供した店舗");
+    await waitFor(() => expect(select).toBeEnabled());
+    await userEvent.click(screen.getByRole("button", { name: "Remove A" }));
+    const saveButton = screen.getByRole("button", { name: "食べた記録を保存" });
+    await userEvent.click(saveButton);
+    expect(save).not.toHaveBeenCalled();
+    expect(await screen.findByText("入力してください")).toBeInTheDocument();
+    await userEvent.type(
+      screen.getByLabelText("催事・出店先"),
+      "日本ご当地ラーメン総選挙",
+    );
+    await userEvent.click(saveButton);
+    expect(save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        shopIds: [],
+        venueName: "日本ご当地ラーメン総選挙",
+      }),
     );
   });
 });

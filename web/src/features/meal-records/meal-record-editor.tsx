@@ -11,7 +11,11 @@ import {
   useMealRecordMutations,
   useMealRecords,
 } from "@/features/meal-records/api/use-meal-records.ts";
-import { MealRecordForm } from "@/features/meal-records/meal-record-form.tsx";
+import {
+  MealRecordForm,
+  RecordScope,
+  recordScopeId,
+} from "@/features/meal-records/meal-record-form.tsx";
 import { MealRecordImageManager } from "@/features/meal-records/meal-record-image-manager.tsx";
 import { mealRecordInputProps } from "@/features/meal-records/meal-record-input-props.ts";
 import {
@@ -29,7 +33,7 @@ import {
   toastError,
 } from "@/utils/toast.ts";
 import { Box, Input } from "@chakra-ui/react";
-import { useEffect, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 
 type Editing = { mode: "add" } | { mode: "edit"; mealRecord: MealRecord };
 
@@ -94,13 +98,20 @@ function ShopRateEditor({
 }
 
 // On an edit or delete: the meal record was deleted elsewhere (the list was refetched).
-// On an add: the shop itself is gone.
+// On an add: a chosen shop is gone.
 function isGone(error: ApiError) {
   return error.type === "not_found";
 }
 
+/** Busy state shared by the editor and the shop's own controls, so one write runs at a time. */
+interface BusyControl {
+  busy: boolean;
+  whileBusy: <T>(task: () => Promise<T>) => Promise<T>;
+}
+
 /**
- * The edit modal's 食べた記録 tab: the shop's meal records with add, edit and delete.
+ * The edit modal's 食べた記録 tab: the shop's meal records with add, edit and delete,
+ * plus the shop's own お気に入り度 and 代表写真.
  * `onDirtyChange` reports whether an open meal record form has unsaved changes,
  * `onBusyChange` whether a meal record save or delete is in flight (image uploads
  * are read from their store by the modal), and `onShopGone` that adding
@@ -117,10 +128,130 @@ export function MealRecordEditor({
   onBusyChange?: (busy: boolean) => void;
   onShopGone?: () => void;
 }) {
-  const { mealRecords, error, isValidating, retry } = useMealRecords(shopId);
+  const records = useMealRecords(shopId);
   const { shops, setRepresentativeMealRecord, setShopRate } = useShops();
   const shop = shops?.find((shop) => shop.id === shopId);
   const representativeId = shop?.representativeMealRecordId;
+
+  const handleRepresentative = async (
+    { whileBusy }: BusyControl,
+    mealRecordId?: string,
+  ) => {
+    const result = await whileBusy(() =>
+      setRepresentativeMealRecord(shopId, mealRecordId),
+    );
+    if (!result.ok) {
+      toastApiError(result.error, {
+        fallbackTitle: "代表の食べた記録を変更できませんでした",
+      });
+      return;
+    }
+    toaster.success({
+      description: mealRecordId
+        ? "代表の食べた記録を設定しました"
+        : "代表写真を自動選択に戻しました",
+    });
+  };
+
+  return (
+    <MealRecordsAdmin
+      scope={{ kind: "shop", shopId }}
+      mealRecords={records.mealRecords}
+      error={records.error}
+      isValidating={records.isValidating}
+      onRetry={records.retry}
+      onDirtyChange={onDirtyChange}
+      onBusyChange={onBusyChange}
+      onAddGone={onShopGone}
+      tools={(control) => (
+        <>
+          {shop && (
+            <ShopRateEditor
+              // Restarts the draft when the saved rate changes.
+              key={shop.rate ?? "unset"}
+              rate={shop.rate}
+              disabled={control.busy}
+              onSave={async (rate) => {
+                const result = await control.whileBusy(() =>
+                  setShopRate(shopId, rate),
+                );
+                if (!result.ok) {
+                  toastApiError(result.error, {
+                    fallbackTitle: "店舗のお気に入り度を保存できませんでした",
+                  });
+                  return;
+                }
+                toaster.success({
+                  description: "店舗のお気に入り度を保存しました",
+                });
+              }}
+            />
+          )}
+
+          <Box fontSize="12px" color="nm.inkMuted">
+            代表に選んだ記録の1枚目の画像を、店舗詳細と共有時のOGPに使います。未選択の場合や画像がない場合は、画像付きの最新の記録を使います。
+            {representativeId && (
+              <LoadableButton
+                {...smallButtonProps}
+                ml="8px"
+                disabled={control.busy}
+                onClick={() => handleRepresentative(control)}
+              >
+                自動選択に戻す
+              </LoadableButton>
+            )}
+          </Box>
+        </>
+      )}
+      recordActions={(mealRecord, control) =>
+        representativeId === mealRecord.id ? (
+          <Box as="span" fontSize="11px" color="nm.shu" fontWeight={600}>
+            代表に選択中
+          </Box>
+        ) : (
+          <LoadableButton
+            {...smallButtonProps}
+            disabled={control.busy || !shops}
+            onClick={() => handleRepresentative(control, mealRecord.id)}
+          >
+            代表にする
+          </LoadableButton>
+        )
+      }
+    />
+  );
+}
+
+/**
+ * The admin's 食べた記録 of one shop or venue: add, edit, delete and images.
+ * `tools` renders above the list and `recordActions` before each record's
+ * edit and delete, both sharing the busy state. `onAddGone` handles an add
+ * the server answered with not_found; without it the form shows the error.
+ */
+export function MealRecordsAdmin({
+  scope,
+  mealRecords,
+  error,
+  isValidating,
+  onRetry,
+  onDirtyChange,
+  onBusyChange,
+  onAddGone,
+  tools,
+  recordActions,
+}: {
+  scope: RecordScope;
+  mealRecords: readonly MealRecord[] | undefined;
+  error: unknown;
+  isValidating: boolean;
+  onRetry: () => Promise<unknown>;
+  onDirtyChange?: (dirty: boolean) => void;
+  onBusyChange?: (busy: boolean) => void;
+  onAddGone?: () => void;
+  tools?: (control: BusyControl) => ReactNode;
+  recordActions?: (mealRecord: MealRecord, control: BusyControl) => ReactNode;
+}) {
+  const listId = recordScopeId(scope);
   const { addMealRecord, updateMealRecord, deleteMealRecord } =
     useMealRecordMutations();
   const [editing, setEditing] = useState<Editing | null>(null);
@@ -135,11 +266,11 @@ export function MealRecordEditor({
   useEffect(() => {
     if (mealRecords) {
       purgeFailedUploads(
-        shopId,
+        listId,
         mealRecords.map((mealRecord) => mealRecord.id),
       );
     }
-  }, [shopId, mealRecords]);
+  }, [listId, mealRecords]);
 
   const whileBusy = async <T,>(task: () => Promise<T>): Promise<T> => {
     setBusy(true);
@@ -149,6 +280,7 @@ export function MealRecordEditor({
       setBusy(false);
     }
   };
+  const control: BusyControl = { busy, whileBusy };
 
   const handleDelete = async (mealRecord: MealRecord) => {
     const result = await whileBusy(() => deleteMealRecord(mealRecord.id));
@@ -167,28 +299,11 @@ export function MealRecordEditor({
     toaster.success({ description: "食べた記録を削除しました" });
   };
 
-  const handleRepresentative = async (mealRecordId?: string) => {
-    const result = await whileBusy(() =>
-      setRepresentativeMealRecord(shopId, mealRecordId),
-    );
-    if (!result.ok) {
-      toastApiError(result.error, {
-        fallbackTitle: "代表の食べた記録を変更できませんでした",
-      });
-      return;
-    }
-    toaster.success({
-      description: mealRecordId
-        ? "代表の食べた記録を設定しました"
-        : "代表写真を自動選択に戻しました",
-    });
-  };
-
   if (editing) {
     const mealRecord = editing.mode === "edit" ? editing.mealRecord : undefined;
     return (
       <MealRecordForm
-        shopId={shopId}
+        scope={scope}
         // A fresh form per target so its draft starts from that mealRecord.
         key={mealRecord?.id ?? "new"}
         mealRecord={mealRecord}
@@ -200,12 +315,12 @@ export function MealRecordEditor({
               ? updateMealRecord(mealRecord.id, input)
               : addMealRecord(input),
           );
-          if (!result.ok && isGone(result.error)) {
+          if (!result.ok && isGone(result.error) && (mealRecord || onAddGone)) {
             setEditing(null);
             if (mealRecord) {
               toastError({ title: MEAL_RECORD_ALREADY_DELETED_TITLE });
             } else {
-              onShopGone?.();
+              onAddGone?.();
             }
             return null;
           }
@@ -241,75 +356,25 @@ export function MealRecordEditor({
         </Button>
       </Box>
 
-      {shop && (
-        <ShopRateEditor
-          // Restarts the draft when the saved rate changes.
-          key={shop.rate ?? "unset"}
-          rate={shop.rate}
-          disabled={busy}
-          onSave={async (rate) => {
-            const result = await whileBusy(() => setShopRate(shopId, rate));
-            if (!result.ok) {
-              toastApiError(result.error, {
-                fallbackTitle: "店舗のお気に入り度を保存できませんでした",
-              });
-              return;
-            }
-            toaster.success({
-              description: "店舗のお気に入り度を保存しました",
-            });
-          }}
-        />
-      )}
-
-      <Box fontSize="12px" color="nm.inkMuted">
-        代表に選んだ記録の1枚目の画像を、店舗詳細と共有時のOGPに使います。未選択の場合や画像がない場合は、画像付きの最新の記録を使います。
-        {representativeId && (
-          <LoadableButton
-            {...smallButtonProps}
-            ml="8px"
-            disabled={busy}
-            onClick={() => handleRepresentative()}
-          >
-            自動選択に戻す
-          </LoadableButton>
-        )}
-      </Box>
+      {tools?.(control)}
 
       <MealRecordsLoadState
         mealRecords={mealRecords}
         error={error}
         isValidating={isValidating}
-        onRetry={retry}
+        onRetry={onRetry}
       >
         {(mealRecords) => (
           <MealRecordList
             mealRecords={mealRecords}
-            contextShopId={shopId}
+            contextShopId={scope.kind === "shop" ? scope.shopId : undefined}
             navigation={false}
             images={(mealRecord) => (
-              <MealRecordImageManager shopId={shopId} mealRecord={mealRecord} />
+              <MealRecordImageManager listId={listId} mealRecord={mealRecord} />
             )}
             actions={(mealRecord) => (
               <>
-                {representativeId === mealRecord.id ? (
-                  <Box
-                    as="span"
-                    fontSize="11px"
-                    color="nm.shu"
-                    fontWeight={600}
-                  >
-                    代表に選択中
-                  </Box>
-                ) : (
-                  <LoadableButton
-                    {...smallButtonProps}
-                    disabled={busy || !shops}
-                    onClick={() => handleRepresentative(mealRecord.id)}
-                  >
-                    代表にする
-                  </LoadableButton>
-                )}
+                {recordActions?.(mealRecord, control)}
                 <Button
                   {...smallButtonProps}
                   aria-label="食べた記録を編集"

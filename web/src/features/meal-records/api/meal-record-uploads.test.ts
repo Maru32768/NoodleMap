@@ -48,7 +48,8 @@ function queue(
 ) {
   act(() =>
     queueMealRecordUploads({
-      shopId: "shop",
+      listId: "shop",
+      shopIds: ["shop"],
       mealRecordId,
       files,
       slots: 10,
@@ -80,7 +81,7 @@ describe("queueMealRecordUploads", () => {
       });
     act(() =>
       queueMealRecordUploads({
-        shopId: "A",
+        listId: "A",
         shopIds: ["A", "B"],
         mealRecordId: "shared",
         files: [jpeg("a.jpg")],
