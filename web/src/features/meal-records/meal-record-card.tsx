@@ -33,7 +33,7 @@ const oneLine = {
 
 /**
  * One 食べた記録 in the grid, opening its details on click. Every card has the
- * same size (a 4:3 photo and fixed text lines), as the virtualized grid needs.
+ * same size (a 3:4 photo frame and fixed text lines), as the virtualized grid needs.
  */
 export function MealRecordCard({
   mealRecord,
@@ -51,6 +51,7 @@ export function MealRecordCard({
   const photo = mealRecord.images?.[0];
   const [failedUrl, setFailedUrl] = useState<string>();
   const menu = menuSummary(mealRecord);
+  const showPhoto = photo && photo.url !== failedUrl;
   return (
     <chakra.button
       type="button"
@@ -70,13 +71,17 @@ export function MealRecordCard({
       _focusVisible={{ outline: "2px solid", outlineColor: "nm.shu" }}
     >
       <Box
-        aspectRatio="4 / 3"
+        aspectRatio="3 / 4"
         w="full"
-        background={PLACEHOLDER_BG[category ?? "unknown"]}
+        // Without it a photo taller than the frame stretches the frame.
+        overflow="hidden"
+        background={
+          showPhoto ? "nm.bgSoft" : PLACEHOLDER_BG[category ?? "unknown"]
+        }
         display="grid"
         placeItems="center"
       >
-        {photo && photo.url !== failedUrl ? (
+        {showPhoto ? (
           <Image
             src={photo.url}
             alt={`${shopNames}の写真`}
@@ -84,7 +89,8 @@ export function MealRecordCard({
             decoding="async"
             w="full"
             h="full"
-            objectFit="cover"
+            // The whole photo, with bands above and below a landscape one.
+            objectFit="contain"
             onError={() => setFailedUrl(photo.url)}
           />
         ) : (
