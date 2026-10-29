@@ -67,4 +67,26 @@ class SharedRecordsApiTest {
         client.get("/api/v1/venues/${venue.id}/meal-records").body<VenueMealRecordsResponse>().mealRecords shouldBe emptyList()
         t.dataSource.connection.use { c -> c.createStatement().use { st -> st.executeQuery("PRAGMA foreign_key_check").use { it.next() shouldBe false } } }
     }
+
+    @Test
+    fun `every meal record is listed newest first with the undated last and privateNote only for the admin`() = testApp { t ->
+        val admin = t.adminToken()
+        val a = client.postJson("/api/v1/auth/shops", encode(addShopRequest(placeId = null).copy(name = "A")), admin).body<Shop>()
+        val b = client.postJson("/api/v1/auth/shops", encode(addShopRequest(placeId = null).copy(name = "B")), admin).body<Shop>()
+        suspend fun add(shopIds: List<String>, eatenOn: String?) = client.postJson(
+            "/api/v1/auth/meal-records", encode(MealRecordInput(shopIds = shopIds, eatenOn = eatenOn, privateNote = "秘密")), admin,
+        ).body<MealRecord>().id
+        val undated = add(listOf(a.id), null)
+        val older = add(listOf(b.id), "2024-01-01")
+        val collab = add(listOf(a.id, b.id), "2024-02-01")
+        client.get("/api/v1/meal-records") { session(admin) }.body<MealRecordsResponse>().mealRecords.let { records ->
+            records.map { it.id } shouldBe listOf(collab, older, undated)
+            records.all { it.privateNote == "秘密" } shouldBe true
+        }
+        for (token in listOf(null, t.userToken())) {
+            val response = client.get("/api/v1/meal-records") { token?.let { session(it) } }
+            response.bodyAsText() shouldNotContain "秘密"
+            response.body<MealRecordsResponse>().mealRecords.map { it.id } shouldBe listOf(collab, older, undated)
+        }
+    }
 }

@@ -1150,6 +1150,24 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/SaveTagsRequest'
+  /api/v1/meal-records:
+    get:
+      operationId: listAllMealRecords
+      description: Every meal record, newest first. privateNote is included only for the admin.
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MealRecordsResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalErrorBody'
   /api/v1/shops:
     get:
       operationId: listShops

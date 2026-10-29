@@ -42,6 +42,9 @@ SELECT * FROM meal_records WHERE id = ?;
 findMealRecordsByVenueId:
 SELECT * FROM meal_records WHERE venue_id = ?;
 
+findMealRecords:
+SELECT * FROM meal_records;
+
 -- Only what the shop list derives 食べた and お気に入り度 from, for every shop in one query.
 countMealRecordsByShop:
 SELECT shop_id, COUNT(*) AS meal_record_count FROM meal_record_shops GROUP BY shop_id;

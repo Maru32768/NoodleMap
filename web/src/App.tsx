@@ -10,6 +10,7 @@ import {
   ACCOUNT_PATH,
   ADMIN_PATH,
   LOGIN_PATH,
+  MEAL_RECORDS_PATH,
   SEARCH_PATH,
 } from "@/utils/path.ts";
 import { AbsoluteCenter, Box } from "@chakra-ui/react";
@@ -79,6 +80,7 @@ function App() {
           }
         >
           <Route path="/venues/:venueId" element={<LazyVenuePage />} />
+          <Route path={MEAL_RECORDS_PATH} element={<LazyMealRecordsPage />} />
           <Route
             path={`${ADMIN_PATH}/*`}
             element={
@@ -114,5 +116,6 @@ const LazyAdminPage = React.lazy(() => import("./pages/admin"));
 const LazyLoginPage = React.lazy(() => import("./pages/login"));
 const LazyAccountPage = React.lazy(() => import("./pages/account"));
 const LazyVenuePage = React.lazy(() => import("./pages/venue"));
+const LazyMealRecordsPage = React.lazy(() => import("./pages/meal-records"));
 
 export default App;

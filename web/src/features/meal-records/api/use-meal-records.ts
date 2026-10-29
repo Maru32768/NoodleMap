@@ -55,9 +55,33 @@ export const mealRecordsKey = (
 // Every cached meal records entry of the shop, whoever it was fetched for.
 export const VENUES_PATH = "/api/v1/venues";
 export const VENUE_MEAL_RECORDS_PATH = "/api/v1/venues/{venueId}/meal-records";
+const ALL_MEAL_RECORDS_PATH = "/api/v1/meal-records";
 const isRecordKey = (key: unknown) =>
   Array.isArray(key) &&
-  [MEAL_RECORDS_PATH, VENUES_PATH, VENUE_MEAL_RECORDS_PATH].includes(key[0]);
+  [
+    MEAL_RECORDS_PATH,
+    VENUES_PATH,
+    VENUE_MEAL_RECORDS_PATH,
+    ALL_MEAL_RECORDS_PATH,
+  ].includes(key[0]);
+
+/** Every 食べた記録, newest first; privateNote only for the admin. */
+export function useAllMealRecords() {
+  const user = useCurrentUser();
+  const owner = useId();
+  return useSWR(
+    [ALL_MEAL_RECORDS_PATH, mealRecordsKey("", user, owner)[2]],
+    () =>
+      withApiError(ALL_MEAL_RECORDS_PATH, async () => {
+        const res = await apiClient.GET(ALL_MEAL_RECORDS_PATH);
+        if (res.error || !res.response.ok) {
+          throwApiError(ALL_MEAL_RECORDS_PATH, res.response, res.error);
+        }
+        return res.data.mealRecords;
+      }),
+    { revalidateOnFocus: false, revalidateOnReconnect: false },
+  );
+}
 
 /** A shop's 食べた記録, newest first; privateNote only for the admin. Throws `ApiError`. */
 export function fetchMealRecords(shopId: string): Promise<MealRecord[]> {

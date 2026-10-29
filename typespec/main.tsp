@@ -809,6 +809,11 @@ op listMealRecords(
   @path id: uuid,
 ): OkResponse<MealRecordsResponse> | NotFoundResponse<NotFoundErrorBody> | InternalServerErrorResponse<InternalErrorBody>;
 
+@doc("Every meal record, newest first. privateNote is included only for the admin.")
+@get
+@route("/meal-records")
+op listAllMealRecords(): OkResponse<MealRecordsResponse> | InternalServerErrorResponse<InternalErrorBody>;
+
 @post
 @route("/auth/meal-records")
 op addMealRecord(

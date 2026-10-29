@@ -1,6 +1,7 @@
 import { ShopThumb } from "@/components/shop-thumb.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { AccountLink } from "@/features/auth/account-link.tsx";
+import { MealRecordsPageLink } from "@/features/meal-records/record-navigation.tsx";
 import {
   favToHearts,
   SearchFilters,
@@ -698,7 +699,8 @@ export function Sidebar({
             Ramen &amp; Udon Log
           </Box>
         </Box>
-        <Box ml="auto">
+        <Box ml="auto" display="flex">
+          <MealRecordsPageLink />
           <AccountLink />
         </Box>
       </Box>

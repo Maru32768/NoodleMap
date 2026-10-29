@@ -10,6 +10,7 @@ import dev.marulabs.noodlemap.errors.FieldErrorType
 import dev.marulabs.noodlemap.generated.controllers.ApiV1VenuesController
 import dev.marulabs.noodlemap.generated.controllers.ApiV1VenuesMealRecordsController
 import dev.marulabs.noodlemap.generated.controllers.ApiV1AuthMealRecordsController
+import dev.marulabs.noodlemap.generated.controllers.ApiV1MealRecordsController
 import dev.marulabs.noodlemap.generated.controllers.ApiV1ShopsMealRecordsController
 import dev.marulabs.noodlemap.generated.controllers.TypedApplicationCall
 import dev.marulabs.noodlemap.generated.models.MenuItem
@@ -124,7 +125,7 @@ class MealRecordHandler(
     private val db: NoodleMapDb,
     private val sessions: SessionService,
     private val images: MealRecordImageStore,
-) : ApiV1ShopsMealRecordsController, ApiV1AuthMealRecordsController, ApiV1VenuesController, ApiV1VenuesMealRecordsController {
+) : ApiV1ShopsMealRecordsController, ApiV1MealRecordsController, ApiV1AuthMealRecordsController, ApiV1VenuesController, ApiV1VenuesMealRecordsController {
 
     override suspend fun listMealRecords(id: String, call: TypedApplicationCall<MealRecordsResponse>) {
         val shopId = uuidOrNull(id) ?: throw DomainException.NotFound()
@@ -133,6 +134,11 @@ class MealRecordHandler(
         if (!db.shopsQueries.shopExists(shopId).executeAsOne()) throw DomainException.NotFound()
         val rows = db.mealRecordsQueries.findMealRecordsByShopId(shopId).executeAsList().sortedWith(MEAL_RECORD_ORDER)
         call.respondTyped(MealRecordsResponse(mealRecords = toApi(rows, includePrivateNote)))
+    }
+
+    override suspend fun listAllMealRecords(call: TypedApplicationCall<MealRecordsResponse>) {
+        val rows = db.mealRecordsQueries.findMealRecords().executeAsList().sortedWith(MEAL_RECORD_ORDER)
+        call.respondTyped(MealRecordsResponse(mealRecords = toApi(rows, sessions.authenticate(call)?.isAdmin == true)))
     }
 
     override suspend fun listVenues(call: TypedApplicationCall<VenuesResponse>) {

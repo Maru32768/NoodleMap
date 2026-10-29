@@ -1,5 +1,10 @@
+import { MEAL_RECORDS_PATH } from "@/utils/path.ts";
+import { chakra } from "@chakra-ui/react";
 import { ReactNode } from "react";
+import { LuBookOpen } from "react-icons/lu";
 import { Link, type Location, useLocation } from "react-router";
+
+const ChakraLink = chakra(Link);
 
 type SearchLocation = Pick<
   Location<unknown>,
@@ -46,6 +51,22 @@ export function restoresSearchCamera(state: unknown): boolean {
   );
 }
 
+// The search page to return to from a page opened here: this one, or the one this page was opened from.
+function useReturnToSearch(): SearchLocation | undefined {
+  const location = useLocation();
+  const state: unknown = location.state;
+  return location.pathname === "/search"
+    ? {
+        pathname: location.pathname,
+        search: location.search,
+        hash: location.hash,
+        state: restoresSearchCamera(state)
+          ? searchLocationIn(state)?.state
+          : state,
+      }
+    : searchLocationIn(state);
+}
+
 export function RecordVenueLink({
   venueId,
   children,
@@ -53,19 +74,7 @@ export function RecordVenueLink({
   venueId: string;
   children: ReactNode;
 }) {
-  const location = useLocation();
-  const state: unknown = location.state;
-  const returnToSearch =
-    location.pathname === "/search"
-      ? {
-          pathname: location.pathname,
-          search: location.search,
-          hash: location.hash,
-          state: restoresSearchCamera(state)
-            ? searchLocationIn(state)?.state
-            : state,
-        }
-      : searchLocationIn(state);
+  const returnToSearch = useReturnToSearch();
   return (
     <Link
       to={`/venues/${encodeURIComponent(venueId)}`}
@@ -73,6 +82,29 @@ export function RecordVenueLink({
     >
       {children}
     </Link>
+  );
+}
+
+/** Icon link to the 食べた記録 page; 地図に戻る there returns to this map view. */
+export function MealRecordsPageLink() {
+  const returnToSearch = useReturnToSearch();
+  return (
+    <ChakraLink
+      to={MEAL_RECORDS_PATH}
+      state={{ returnToSearch }}
+      display="grid"
+      placeItems="center"
+      w="34px"
+      h="34px"
+      rounded="full"
+      color="nm.ink"
+      flexShrink={0}
+      _hover={{ bg: "nm.bg" }}
+      aria-label="食べた記録"
+      title="食べた記録"
+    >
+      <LuBookOpen />
+    </ChakraLink>
   );
 }
 
