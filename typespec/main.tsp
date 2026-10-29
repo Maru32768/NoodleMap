@@ -91,7 +91,7 @@ union UpdateShopField {
   "wishLevel",
 }
 
-@doc("気になる度 of a shop not eaten yet: low = ちょっと気になる, medium = 気になる, high = 絶対行きたい.")
+@doc("気になる度 of a shop not eaten yet: low = ちょっと行きたい, medium = 行きたい, high = 絶対行きたい.")
 union WishLevel {
   "low",
   "medium",

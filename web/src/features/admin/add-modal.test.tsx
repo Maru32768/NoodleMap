@@ -142,7 +142,7 @@ describe("AddModal", () => {
       within(wishLevel).getByRole("radio", { name: "未設定" }),
     ).toBeChecked();
     await userEvent.click(
-      within(wishLevel).getByRole("radio", { name: "ちょっと気になる" }),
+      within(wishLevel).getByRole("radio", { name: "ちょっと行きたい" }),
     );
     await userEvent.click(screen.getByRole("button", { name: "追加" }));
     await waitFor(() => expect(bodies).toHaveLength(2));

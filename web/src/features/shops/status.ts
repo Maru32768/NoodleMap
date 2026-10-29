@@ -90,8 +90,8 @@ export type WishLevel = components["schemas"]["WishLevel"];
 export const WISH_LEVELS: readonly WishLevel[] = ["low", "medium", "high"];
 
 export const WISH_LEVEL_LABEL: Record<WishLevel, string> = {
-  low: "ちょっと気になる",
-  medium: "気になる",
+  low: "ちょっと行きたい",
+  medium: "行きたい",
   high: "絶対行きたい",
 };
 

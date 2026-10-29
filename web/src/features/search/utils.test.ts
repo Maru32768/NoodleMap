@@ -110,7 +110,7 @@ describe("filterShops", () => {
       ]);
     });
 
-    it("counts an unset level as 気になる", () => {
+    it("counts an unset level as 行きたい", () => {
       expect(filterNames(shops, { wishLevels: ["medium"] })).toEqual([
         "unset",
         "medium",

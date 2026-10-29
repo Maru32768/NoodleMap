@@ -45,7 +45,7 @@ test("guest searches, filters and opens a shop on the search page", async ({
   await chip("食べた").click();
 
   // 絶対行きたい alone keeps only the eaten shop (eaten shops are never
-  // narrowed); adding 気になる ORs in the unset ones, which count as 気になる.
+  // narrowed); adding 気になる ORs in the unset ones, which count as 行きたい.
   // Every step changes the count, so a stale render cannot pass.
   const wishLevel = sidebar.getByRole("group", { name: "気になる度" });
   const level = (label: string) =>
@@ -60,9 +60,9 @@ test("guest searches, filters and opens a shop on the search page", async ({
   await toggleLevel("絶対行きたい", true);
   await expect(countLabel(1)).toBeVisible();
   await expect(card(eatenRamen.name)).toBeVisible();
-  await toggleLevel("気になる", true);
+  await toggleLevel("行きたい", true);
   await expect(countLabel(3)).toBeVisible();
-  await toggleLevel("気になる", false);
+  await toggleLevel("行きたい", false);
   await expect(countLabel(1)).toBeVisible();
   await toggleLevel("絶対行きたい", false);
   await expect(countLabel(3)).toBeVisible();

@@ -25,15 +25,15 @@ test("admin narrows by 気になる度 and × クリア clears every level", asy
   await expect(row).toHaveCount(1);
 
   const level = (label: string) => page.getByRole("button", { name: `気になる度: ${label}`, exact: true });
-  const levels = ["ちょっと気になる", "気になる", "絶対行きたい"];
+  const levels = ["ちょっと行きたい", "行きたい", "絶対行きたい"];
   await level("絶対行きたい").click();
   await expect(row).toHaveCount(0);
-  // An unset 気になる度 counts as 気になる.
-  await level("気になる").click();
+  // An unset 気になる度 counts as 行きたい.
+  await level("行きたい").click();
   await expect(row).toHaveCount(1);
   await level("絶対行きたい").click();
-  await level("気になる").click();
-  await level("ちょっと気になる").click();
+  await level("行きたい").click();
+  await level("ちょっと行きたい").click();
   await expect(row).toHaveCount(0);
 
   await page.getByRole("button", { name: "× クリア" }).click();
@@ -44,7 +44,7 @@ test("admin narrows by 気になる度 and × クリア clears every level", asy
 
   // 食べた clears the levels, so returning to 全て does not restore them.
   const mealRecord = page.getByRole("radiogroup", { name: "状態" });
-  await level("ちょっと気になる").click();
+  await level("ちょっと行きたい").click();
   await expect(row).toHaveCount(0);
   await mealRecord.getByRole("radio", { name: "食べた", exact: true }).click();
   await mealRecord.getByRole("radio", { name: "全て", exact: true }).click();

@@ -30,7 +30,7 @@ export type SearchFilters = FilterToggles & {
 
 /**
  * Narrows only shops not eaten yet, and only once a level is selected. An unset
- * 気になる度 counts as 気になる, the label such a shop shows.
+ * 気になる度 counts as the middle level, 行きたい.
  */
 export function matchesWishLevels(
   shop: Pick<Shop, "eatenStatus" | "wishLevel">,

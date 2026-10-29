@@ -88,8 +88,8 @@ private fun eatenChip(shop: Shop): Chip =
 
 /** 気になる度 as the web shows it (GLOSSARY.md). */
 internal fun wishLevelLabel(level: WishLevel): String = when (level) {
-    WishLevel.LOW -> "ちょっと気になる"
-    WishLevel.MEDIUM -> "気になる"
+    WishLevel.LOW -> "ちょっと行きたい"
+    WishLevel.MEDIUM -> "行きたい"
     WishLevel.HIGH -> "絶対行きたい"
 }
 

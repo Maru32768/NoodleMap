@@ -70,8 +70,8 @@ describe("AdminFilters", () => {
       within(wishGroup)
         .getAllByRole("button")
         .map((button) => button.textContent),
-    ).toEqual(["ちょっと気になる", "気になる", "絶対行きたい"]);
-    for (const name of ["ちょっと気になる", "気になる", "絶対行きたい"]) {
+    ).toEqual(["ちょっと行きたい", "行きたい", "絶対行きたい"]);
+    for (const name of ["ちょっと行きたい", "行きたい", "絶対行きたい"]) {
       expect(level(name)).toHaveAttribute("aria-pressed", "false");
     }
 
@@ -83,7 +83,7 @@ describe("AdminFilters", () => {
     const { level, setWishLevels } = renderFilters({ wishLevels: ["high"] });
     expect(level("絶対行きたい")).toHaveAttribute("aria-pressed", "true");
 
-    await userEvent.click(level("ちょっと気になる"));
+    await userEvent.click(level("ちょっと行きたい"));
     expect(setWishLevels).toHaveBeenLastCalledWith(["low", "high"]);
     await userEvent.click(level("絶対行きたい"));
     expect(setWishLevels).toHaveBeenLastCalledWith([]);
@@ -113,13 +113,13 @@ describe("AdminFilters", () => {
     const { option } = renderFilters();
     expect(option("状態", "気になる")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "気になる度: 気になる" }),
-    ).toHaveTextContent("気になる");
+      screen.getByRole("button", { name: "気になる度: 行きたい" }),
+    ).toHaveTextContent("行きたい");
   });
 
   it("disables 気になる度 while 状態 is 食べた", () => {
     const { wishGroup, level } = renderFilters({ mealRecordFilter: "eaten" });
     expect(wishGroup).toHaveAttribute("aria-disabled", "true");
-    expect(level("気になる")).toBeDisabled();
+    expect(level("行きたい")).toBeDisabled();
   });
 });

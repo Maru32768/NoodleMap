@@ -31,8 +31,8 @@ describe("ShopFilters 気になる度", () => {
       within(group)
         .getAllByRole("button")
         .map((button) => button.textContent),
-    ).toEqual(["ちょっと気になる", "気になる", "絶対行きたい"]);
-    for (const name of ["ちょっと気になる", "気になる", "絶対行きたい"]) {
+    ).toEqual(["ちょっと行きたい", "行きたい", "絶対行きたい"]);
+    for (const name of ["ちょっと行きたい", "行きたい", "絶対行きたい"]) {
       expect(level(name)).toHaveAttribute("aria-pressed", "false");
     }
   });
@@ -41,24 +41,24 @@ describe("ShopFilters 気になる度", () => {
     const { onFilterChange, level } = renderFilters({
       wishLevels: ["medium", "high"],
     });
-    expect(level("ちょっと気になる")).toHaveAttribute("aria-pressed", "false");
-    expect(level("気になる")).toHaveAttribute("aria-pressed", "true");
+    expect(level("ちょっと行きたい")).toHaveAttribute("aria-pressed", "false");
+    expect(level("行きたい")).toHaveAttribute("aria-pressed", "true");
     expect(level("絶対行きたい")).toHaveAttribute("aria-pressed", "true");
 
-    await userEvent.click(level("ちょっと気になる"));
+    await userEvent.click(level("ちょっと行きたい"));
     expect(onFilterChange).toHaveBeenLastCalledWith("wishLevels", [
       "low",
       "medium",
       "high",
     ]);
-    await userEvent.click(level("気になる"));
+    await userEvent.click(level("行きたい"));
     expect(onFilterChange).toHaveBeenLastCalledWith("wishLevels", ["high"]);
   });
 
   it("is disabled while the 気になる meal record filter is off", () => {
     const { group, level } = renderFilters({ wish: false });
     expect(group).toHaveAttribute("aria-disabled", "true");
-    expect(level("気になる")).toBeDisabled();
+    expect(level("行きたい")).toBeDisabled();
   });
 
   it("clears the levels when the 気になる meal record filter is turned off", async () => {
@@ -85,7 +85,7 @@ describe("ShopFilters 気になる度", () => {
     expect(mealRecordChip("食べた")).toHaveAttribute("aria-pressed", "true");
     expect(mealRecordChip("気になる")).toHaveAttribute("aria-pressed", "false");
     expect(
-      screen.getByRole("button", { name: "気になる度: 気になる" }),
-    ).toHaveTextContent("気になる");
+      screen.getByRole("button", { name: "気になる度: 行きたい" }),
+    ).toHaveTextContent("行きたい");
   });
 });

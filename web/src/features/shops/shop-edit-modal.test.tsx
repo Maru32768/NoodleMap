@@ -493,7 +493,7 @@ describe("ShopEditModal 気になる度", () => {
       makeShop({ eaten: false, wishLevel: "medium" }),
     );
 
-    expect(wishOption("気になる")).toBeChecked();
+    expect(wishOption("行きたい")).toBeChecked();
     expect(
       within(wishLevel()).getAllByRole("radio", { checked: true }),
     ).toHaveLength(1);
@@ -539,8 +539,8 @@ describe("ShopEditModal 気になる度 keyboard", () => {
     const [unset, low, medium, high] = radios;
     expect(radios.map((r) => r.textContent)).toEqual([
       "未設定",
-      "ちょっと気になる",
-      "気になる",
+      "ちょっと行きたい",
+      "行きたい",
       "絶対行きたい",
     ]);
     // Only the chosen option is in the Tab order.

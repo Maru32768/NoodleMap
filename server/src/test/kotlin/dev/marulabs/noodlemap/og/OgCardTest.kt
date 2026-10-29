@@ -38,9 +38,9 @@ class OgCardTest {
             it.description() shouldBe "うどん・家系・絶対行きたい・東京都新宿区"
         }
         fun status(s: Shop) = OgCard.of(s, null, today).statuses.first().label
-        status(wish.copy(wishLevel = "medium")) shouldBe "気になる"
-        OgCard.of(wish.copy(wishLevel = "medium"), null, today).description() shouldBe "うどん・家系・気になる・東京都新宿区"
-        status(wish.copy(wishLevel = "low")) shouldBe "ちょっと気になる"
+        status(wish.copy(wishLevel = "medium")) shouldBe "行きたい"
+        OgCard.of(wish.copy(wishLevel = "medium"), null, today).description() shouldBe "うどん・家系・行きたい・東京都新宿区"
+        status(wish.copy(wishLevel = "low")) shouldBe "ちょっと行きたい"
         status(wish.copy(wishLevel = null)) shouldBe "気になる"
         // 気になる度 only means something before the shop is eaten.
         status(shop.copy(wishLevel = "high")) shouldBe "食べた"
@@ -75,9 +75,7 @@ class OgCardTest {
             shop.copy(mealRecordCount = 4),
         ).forEach { hash(it) shouldNotBe base }
         val wish = shop.copy(eaten = false, rate = null, mealRecordCount = 0)
-        listOf(wish.copy(wishLevel = "low"), wish.copy(wishLevel = "high"), wish).map { hash(it) }.toSet().size shouldBe 3
-        // Medium is drawn as the plain 気になる, so it shares the unset shop's image.
-        hash(wish.copy(wishLevel = "medium")) shouldBe hash(wish)
+        listOf("low", "medium", "high", null).map { hash(wish.copy(wishLevel = it)) }.toSet().size shouldBe 4
     }
 
     @Test
