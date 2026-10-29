@@ -21,6 +21,7 @@ export function AccountLink() {
       rounded="full"
       color="nm.ink"
       flexShrink={0}
+      _hover={{ bg: "nm.bg" }}
       aria-label="マイページ"
       title="マイページ"
     >
