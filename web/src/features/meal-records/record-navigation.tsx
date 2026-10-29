@@ -1,7 +1,7 @@
 import { MEAL_RECORDS_PATH } from "@/utils/path.ts";
-import { chakra } from "@chakra-ui/react";
+import { Button, chakra } from "@chakra-ui/react";
 import { ReactNode } from "react";
-import { LuBookOpen } from "react-icons/lu";
+import { LuArrowLeft, LuBookOpen } from "react-icons/lu";
 import { Link, type Location, useLocation } from "react-router";
 
 const ChakraLink = chakra(Link);
@@ -140,15 +140,18 @@ export function VenueMapLink() {
   const location = useLocation();
   const returnToSearch = searchLocationIn(location.state);
   return (
-    <Link
-      to={returnToSearch ?? "/search"}
-      state={
-        returnToSearch
-          ? { returnToSearch, restoreSearchCamera: true }
-          : undefined
-      }
-    >
-      地図に戻る
-    </Link>
+    <Button asChild variant="outline" size="sm">
+      <Link
+        to={returnToSearch ?? "/search"}
+        state={
+          returnToSearch
+            ? { returnToSearch, restoreSearchCamera: true }
+            : undefined
+        }
+      >
+        <LuArrowLeft aria-hidden="true" />
+        地図に戻る
+      </Link>
+    </Button>
   );
 }

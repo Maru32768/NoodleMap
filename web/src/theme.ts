@@ -82,6 +82,24 @@ const config = defineConfig({
         },
       },
     },
+    recipes: {
+      button: {
+        variants: {
+          variant: {
+            // The noodle palette has no semantic shades, so the default outline drew almost no border.
+            outline: {
+              bg: "nm.paper",
+              color: "nm.ink",
+              borderWidth: "1px",
+              borderColor: "nm.lineStrong",
+              boxShadow: "nmSm",
+              _hover: { bg: "nm.bg", borderColor: "nm.ink" },
+              _expanded: { bg: "nm.bg" },
+            },
+          },
+        },
+      },
+    },
   },
 
   globalCss: {

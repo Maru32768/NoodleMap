@@ -9,6 +9,7 @@ import { SEARCH_PATH } from "@/utils/path.ts";
 import { toastApiError } from "@/utils/toast.ts";
 import { Box, Flex, Heading, Text } from "@chakra-ui/react";
 import dayjs from "dayjs";
+import { LuArrowLeft } from "react-icons/lu";
 
 function formatTime(iso: string) {
   return dayjs(iso).format("YYYY/MM/DD HH:mm");
@@ -68,6 +69,7 @@ export default function AccountPage() {
             マイページ
           </Heading>
           <ButtonLink to={SEARCH_PATH} variant="outline" size="sm">
+            <LuArrowLeft aria-hidden="true" />
             地図に戻る
           </ButtonLink>
         </Flex>
