@@ -1,6 +1,9 @@
 import { ModalDialog } from "@/components/modal-dialog.tsx";
 import { Button } from "@/components/ui/button.tsx";
-import { GroupReviewList } from "@/features/photo-import/group-review-list.tsx";
+import {
+  GroupReviewList,
+  targetName,
+} from "@/features/photo-import/group-review-list.tsx";
 import type { MealRecordKey } from "@/features/photo-import/import-plan.ts";
 import type {
   ImportState,
@@ -255,6 +258,7 @@ export function PhotoImportModal({
               excluded={state.review.excluded}
               details={state.review.details}
               onChoose={imp.choose}
+              onChooseVenue={imp.chooseVenue}
               onTogglePhoto={imp.togglePhoto}
               onMovePhoto={imp.movePhoto}
               onSetDetails={imp.setDetails}
@@ -352,9 +356,14 @@ function ImportHeader({
   adding: { done: number; total: number } | null;
   onAdd: (files: File[]) => void;
 }) {
+  // Keys in progress are the plan's, so the lookup finds each one.
   const shopName = (key: MealRecordKey) => {
-    const [shopId, day] = key.split("|");
-    return `${shops.find((s) => s.id === shopId)?.name ?? "削除された店舗"} ${day}`;
+    const entry = ("plan" in state ? state.plan.entries : []).find(
+      (e) => e.key === key,
+    );
+    return entry
+      ? `${targetName(entry.target, new Map(shops.map((s) => [s.id, s])))} ${entry.day}`
+      : "";
   };
   const rejectedBy = new Map<PhotoRejection["reason"], number>();
   for (const { reason } of state.analysis.rejected) {

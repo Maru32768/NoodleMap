@@ -13,7 +13,7 @@ export interface Analysis {
   readonly photos: readonly Photo[];
   readonly rejected: readonly PhotoRejection[];
   readonly groups: readonly PhotoGroup[];
-  /** MealRecords of every candidate shop with mealRecordCount > 0, fetched once per analysis. */
+  /** MealRecords of every candidate shop with mealRecordCount > 0 and of every chosen venue. */
   readonly serverMealRecords: ServerMealRecords;
 }
 
@@ -118,6 +118,11 @@ export type ImportAction =
       readonly type: "refreshed";
       readonly serverMealRecords: ServerMealRecords;
     }
+  /** MealRecords read during review, such as a venue's the admin just chose. */
+  | {
+      readonly type: "loaded";
+      readonly serverMealRecords: ServerMealRecords;
+    }
   /** More photos joined the selection; the admin's decisions stay. */
   | { readonly type: "appended"; readonly analysis: Analysis }
   | { readonly type: "reset" };
@@ -209,6 +214,19 @@ export function importReducer(
               serverMealRecords: action.serverMealRecords,
             },
             review: state.review,
+          }
+        : state;
+    case "loaded":
+      return state.kind === "review"
+        ? {
+            ...state,
+            analysis: {
+              ...state.analysis,
+              serverMealRecords: new Map([
+                ...state.analysis.serverMealRecords,
+                ...action.serverMealRecords,
+              ]),
+            },
           }
         : state;
     case "appended":

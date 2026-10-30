@@ -8,6 +8,7 @@ import {
   mealRecordKey,
   PlanEntry,
   ShopChoice,
+  targetKey,
 } from "@/features/photo-import/import-plan.ts";
 import { matchShop } from "@/features/photo-import/matching.ts";
 import type { Photo } from "@/features/photo-import/photos.ts";
@@ -17,6 +18,8 @@ import { describe, expect, it } from "vitest";
 const SHOP_A = makeShop({ name: "A", lat: 35.6895, lng: 139.7005 });
 // About 11 m north of A, so a group at A is always ambiguous between them.
 const SHOP_B = makeShop({ name: "B", lat: 35.6896, lng: 139.7005 });
+
+const atShop = (shopId: string) => ({ kind: "shop", shopId }) as const;
 
 let nextIndex = 0;
 function group(on: string, photoCount = 1, minute = 0): PhotoGroup {
@@ -64,8 +67,8 @@ function entry({
 }: { photoCount?: number; claimsDateless?: boolean } = {}): PlanEntry {
   const g = group("2023-04-01", photoCount);
   return {
-    key: mealRecordKey(SHOP_A.id, g.day),
-    shopId: SHOP_A.id,
+    key: mealRecordKey(atShop(SHOP_A.id), g.day),
+    target: atShop(SHOP_A.id),
     day: g.day,
     photos: g.photos,
     overflow: 0,
@@ -115,7 +118,7 @@ describe("defaultChoice", () => {
     const choice = defaultChoice(
       g,
       autoA,
-      new Map([[nearB.id, [mealRecord("2023-04-01")]]]),
+      new Map([[targetKey(atShop(nearB.id)), [mealRecord("2023-04-01")]]]),
     );
 
     expect(choice).toEqual({
@@ -128,8 +131,8 @@ describe("defaultChoice", () => {
   it("asks when two candidates have a meal record on that day", () => {
     const g = group("2023-04-01");
     const mealRecords = new Map([
-      [SHOP_A.id, [mealRecord("2023-04-01")]],
-      [SHOP_B.id, [mealRecord("2023-04-01")]],
+      [targetKey(atShop(SHOP_A.id)), [mealRecord("2023-04-01")]],
+      [targetKey(atShop(SHOP_B.id)), [mealRecord("2023-04-01")]],
     ]);
 
     expect(
@@ -152,7 +155,7 @@ describe("buildPlan", () => {
     );
 
     expect(entries).toHaveLength(1);
-    expect(entries[0].key).toBe(`${SHOP_A.id}|2023-04-01`);
+    expect(entries[0].key).toBe(`shop:${SHOP_A.id}|2023-04-01`);
     expect(entries[0].photos.map((p) => p.index)).toEqual(
       [...morning.photos, ...noon.photos].slice(0, 10).map((p) => p.index),
     );
@@ -192,7 +195,7 @@ describe("buildPlan", () => {
       () => pick(SHOP_A.id),
       new Set(),
       new Map(),
-      new Map([[mealRecordKey(SHOP_A.id, g.day), [last, third]]]),
+      new Map([[mealRecordKey(atShop(SHOP_A.id), g.day), [last, third]]]),
     );
 
     expect(entries[0].photos.slice(0, 4).map((p) => p.index)).toEqual([
@@ -216,7 +219,9 @@ describe("buildPlan", () => {
       [april, may],
       () => pick(SHOP_A.id),
       new Set(),
-      new Map([[mealRecordKey(SHOP_A.id, "2023-04-01" as IsoDate), details]]),
+      new Map([
+        [mealRecordKey(atShop(SHOP_A.id), "2023-04-01" as IsoDate), details],
+      ]),
       new Map(),
     );
 
@@ -245,9 +250,9 @@ describe("buildPlan", () => {
     );
 
     expect(entries.map((e) => [e.key, e.claimsDateless])).toEqual([
-      [`${SHOP_A.id}|2023-04-01`, true],
-      [`${SHOP_B.id}|2023-04-15`, true],
-      [`${SHOP_A.id}|2023-05-01`, false],
+      [`shop:${SHOP_A.id}|2023-04-01`, true],
+      [`shop:${SHOP_B.id}|2023-04-15`, true],
+      [`shop:${SHOP_A.id}|2023-05-01`, false],
     ]);
   });
 
@@ -325,5 +330,82 @@ describe("decideAction", () => {
     expect(decideAction(entry({ photoCount: 3 }), [partial, complete])).toEqual(
       { kind: "done", mealRecordId: complete.id },
     );
+  });
+});
+
+describe("a venue without a shop", () => {
+  const FESTIVAL = "日本ご当地ラーメン総選挙";
+  const atVenue = (venueName: string): ShopChoice => ({
+    kind: "venue",
+    venueName,
+  });
+  const festivalRecord = (eatenOn: string | undefined, images = 0) =>
+    mealRecord(eatenOn, images, {
+      shops: [],
+      venue: { id: "venue-1", name: FESTIVAL },
+    });
+
+  it("merges the venue's groups of one day into one entry and keeps other days apart", () => {
+    const booth1 = group("2023-05-20", 2, 0);
+    const booth2 = group("2023-05-20", 1, 40);
+    const nextDay = group("2023-05-21");
+
+    const { entries } = buildPlan(
+      [booth2, nextDay, booth1],
+      () => atVenue(FESTIVAL),
+      new Set(),
+      new Map(),
+      new Map(),
+    );
+
+    expect(
+      entries.map((e) => [e.target, e.day, e.photos.length, e.claimsDateless]),
+    ).toEqual([
+      [{ kind: "venue", venueName: FESTIVAL }, "2023-05-20", 3, true],
+      [{ kind: "venue", venueName: FESTIVAL }, "2023-05-21", 1, false],
+    ]);
+  });
+
+  it("keeps a venue's meal record apart from a shop's on the same day", () => {
+    const booth = group("2023-05-20");
+    const shop = group("2023-05-20", 1, 30);
+
+    const { entries } = buildPlan(
+      [booth, shop],
+      (g) => (g === booth ? atVenue(FESTIVAL) : pick(SHOP_A.id)),
+      new Set(),
+      new Map(),
+      new Map(),
+    );
+
+    expect(entries.map((e) => e.key).sort()).toEqual([
+      `shop:${SHOP_A.id}|2023-05-20`,
+      `venue:${FESTIVAL}|2023-05-20`,
+    ]);
+  });
+
+  it("finds only the venue's shop-less meal record of that day and resumes from its image count", () => {
+    const [entry] = buildPlan(
+      [group("2023-05-20", 3)],
+      () => atVenue(FESTIVAL),
+      new Set(),
+      new Map(),
+      new Map(),
+    ).entries;
+    const shopAtVenue = mealRecord("2023-05-20", 5, {
+      venue: { id: "venue-1", name: FESTIVAL },
+    });
+    const own = festivalRecord("2023-05-20", 1);
+
+    expect(decideAction(entry, [shopAtVenue])).toEqual({ kind: "create" });
+    expect(decideAction(entry, [shopAtVenue, own])).toEqual({
+      kind: "resume",
+      mealRecordId: own.id,
+      uploaded: 1,
+    });
+    expect(decideAction(entry, [festivalRecord("2023-05-20", 3)])).toEqual({
+      kind: "done",
+      mealRecordId: expect.any(String),
+    });
   });
 });

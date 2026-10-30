@@ -230,11 +230,18 @@ export function MealRecordForm({
   onSave,
   onCancel,
   onDirtyChange,
-}: {
-  scope: RecordScope;
+}: (
+  | { scope: RecordScope; importDraft?: undefined }
+  | {
+      scope?: undefined;
+      /**
+       * A meal record the photo import will make: its day and its first shop (or, with no shop,
+       * its venue) come from the photos, so none of them is edited.
+       */
+      importDraft: MealRecordInput;
+    }
+) & {
   mealRecord?: MealRecord;
-  /** A meal record the photo import will make: its day and first shop come from the photos, so neither is edited. */
-  importDraft?: MealRecordInput;
   // Resolves to the API result, or null when the caller handled it.
   onSave: (
     input: MealRecordInput,
@@ -418,7 +425,7 @@ export function MealRecordForm({
         <FormField
           label={
             <FieldLabel>
-              {importDraft
+              {importDraft?.shopIds.length
                 ? "提供した店舗（複数選択可、写真の店舗は外せません）"
                 : "提供した店舗（複数選択可、催事・出店先があれば空欄可）"}
             </FieldLabel>
@@ -430,7 +437,8 @@ export function MealRecordForm({
             isMulti
             isClearable={false}
             isLoading={!shops && shopsLoading}
-            isDisabled={!shops}
+            // An imported meal record without a shop stays without one: its venue keys it.
+            isDisabled={!shops || importDraft?.shopIds.length === 0}
             options={options}
             value={options.filter((option) =>
               draft.shopIds.includes(option.value),
@@ -551,6 +559,8 @@ export function MealRecordForm({
           aria-label="催事・出店先"
           maxLength={100}
           list="mealRecord-venue-names"
+          // The photos' venue keys an imported meal record without a shop.
+          readOnly={importDraft?.shopIds.length === 0}
           value={draft.venueName}
           onChange={(e) => set("venueName", e.target.value)}
         />

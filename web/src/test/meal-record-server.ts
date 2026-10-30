@@ -7,7 +7,8 @@ import { http, HttpResponse } from "msw";
 
 /**
  * A stateful fake of the meal record endpoints the photo import calls: list a shop's
- * meal records, add one, replace one, add an image. `log` records every write.
+ * or a venue's meal records, add one, replace one, add an image. `log` records every write.
+ * `initial` and `mealRecordsOf` key a record by its first shop, or by `venue:<name>` without one.
  */
 export function fakeMealRecordServer(
   initial: Record<string, MealRecord[]> = {},
@@ -21,6 +22,16 @@ export function fakeMealRecordServer(
     `00000000-0000-4000-9000-${(nextId++).toString(16).padStart(12, "0")}`;
   const find = (mealRecordId: string) =>
     [...mealRecords.values()].flat().find((v) => v.id === mealRecordId);
+  const venueIds = new Map<string, string>();
+  const venueOf = (name: string) => {
+    venueIds.set(name, venueIds.get(name) ?? newId());
+    return { id: venueIds.get(name)!, name };
+  };
+  for (const record of [...mealRecords.values()].flat()) {
+    if (record.venue) {
+      venueIds.set(record.venue.name, record.venue.id);
+    }
+  }
   const fields = (input: MealRecordInput) => ({
     eatenOn: input.eatenOn,
     menuItems: (input.menuItems ?? []).map((item) => ({
@@ -30,9 +41,7 @@ export function fakeMealRecordServer(
     })),
     rate: input.rate,
     shops: input.shopIds.map((id) => ({ id, name: id })),
-    venue: input.venueName
-      ? { id: "venue-1", name: input.venueName }
-      : undefined,
+    venue: input.venueName ? venueOf(input.venueName) : undefined,
     publicNote: input.publicNote,
     privateNote: input.privateNote,
   });
@@ -63,6 +72,20 @@ export function fakeMealRecordServer(
         ),
       }),
     ),
+    http.get("/api/v1/venues", () =>
+      HttpResponse.json({
+        venues: [...venueIds].map(([name, id]) => ({ id, name })),
+      }),
+    ),
+    http.get("/api/v1/venues/:venueId/meal-records", ({ params }) => {
+      const records = [...mealRecords.values()]
+        .flat()
+        .filter((v) => v.venue?.id === params.venueId);
+      return HttpResponse.json({
+        venue: records[0]?.venue,
+        mealRecords: structuredClone(records),
+      });
+    }),
     http.post("/api/v1/auth/meal-records", async ({ request }) => {
       const input = (await request.json()) as MealRecordInput;
       const mealRecord: MealRecord = {
@@ -70,8 +93,8 @@ export function fakeMealRecordServer(
         images: [],
         ...fields(input),
       };
-      const shopId = input.shopIds[0];
-      mealRecords.set(shopId, [...(mealRecords.get(shopId) ?? []), mealRecord]);
+      const bucket = input.shopIds[0] ?? `venue:${input.venueName}`;
+      mealRecords.set(bucket, [...(mealRecords.get(bucket) ?? []), mealRecord]);
       log.push(`create ${input.eatenOn}`);
       return HttpResponse.json(mealRecord);
     }),

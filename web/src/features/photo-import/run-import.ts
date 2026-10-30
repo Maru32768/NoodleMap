@@ -11,12 +11,14 @@ import {
   postMealRecord,
   putMealRecord,
 } from "@/features/meal-records/api/use-meal-records.ts";
+import { fetchVenueMealRecordsByName } from "@/features/meal-records/api/use-venues.ts";
 import { prepareImageForUpload } from "@/features/meal-records/prepare-image.ts";
 import {
   decideAction,
   entryShopIds,
   ImportPlan,
   PlanEntry,
+  RecordTarget,
 } from "@/features/photo-import/import-plan.ts";
 import {
   RunOutcome,
@@ -52,6 +54,16 @@ type Stop =
   | { readonly kind: "unauthorized" };
 /** Look at the server again: the request may or may not have taken effect. */
 const REENTER = "reenter";
+
+/** The target's meal records as the server has them now. Throws `ApiError`. */
+export const fetchTargetMealRecords = (target: RecordTarget) =>
+  target.kind === "shop"
+    ? fetchMealRecords(target.shopId)
+    : fetchVenueMealRecordsByName(target.venueName);
+
+/** The fields that make a meal record the entry's: its venue's name, when the entry is a venue's. */
+const targetFields = (entry: PlanEntry) =>
+  entry.target.kind === "venue" ? { venueName: entry.target.venueName } : {};
 
 const failed = (message: string, unconfirmed = false): Stop => ({
   kind: "failed",
@@ -134,7 +146,7 @@ async function runEntry(
   for (let reads = 0; reads <= MAX_REENTRIES; reads++) {
     let mealRecords: MealRecord[];
     try {
-      mealRecords = await fetchMealRecords(entry.shopId);
+      mealRecords = await fetchTargetMealRecords(entry.target);
     } catch (error) {
       const stop = stopOf(error as ApiError, signal);
       if (stop === REENTER) {
@@ -158,6 +170,7 @@ async function runEntry(
         counted ??= "created";
         const result = await postMealRecord({
           ...entry.details,
+          ...targetFields(entry),
           shopIds: [...entryShopIds(entry)],
           eatenOn: entry.day,
         });
@@ -178,6 +191,7 @@ async function runEntry(
           ...mealRecordInputOf(action.mealRecord),
           // Only what the admin wrote replaces the dateless record's own fields.
           ...omitBy(entry.details ?? {}, isUndefined),
+          ...targetFields(entry),
           eatenOn: entry.day,
         });
         if (!result.ok) {

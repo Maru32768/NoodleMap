@@ -14,6 +14,8 @@ export type ShopChoice =
       readonly shopId: string;
       readonly source: "auto" | "existing" | "admin";
     }
+  /** No registered shop, such as a festival booth: always the admin's. venueName is trimmed and non-empty. */
+  | { readonly kind: "venue"; readonly venueName: string }
   | { readonly kind: "skip" }
   | { readonly kind: "undecided" };
 
@@ -31,29 +33,52 @@ export interface ReviewState {
 
 /**
  * A meal record's fields beyond its day, which comes from the photos. shopIds always holds the
- * key's shop; any other is a collaborating shop.
+ * key's shop; any other is a collaborating shop. A venue key's record has no shop, and its
+ * venueName is the key's venue.
  */
 export type MealRecordDetails = Omit<MealRecordInput, "eatenOn">;
 
-/** The server's mealRecords of each shop that matters to the import, by shop id. */
-export type ServerMealRecords = ReadonlyMap<string, readonly MealRecord[]>;
+/** What a meal record the import makes belongs to: a registered shop, or a 催事・出店先 without one. */
+export type RecordTarget =
+  | { readonly kind: "shop"; readonly shopId: string }
+  | { readonly kind: "venue"; readonly venueName: string };
 
-/** The mealRecord's identity on the server: one shop, one JST day. */
+export type TargetKey = `shop:${string}` | `venue:${string}`;
+
+export const targetKey = (target: RecordTarget): TargetKey =>
+  target.kind === "shop"
+    ? `shop:${target.shopId}`
+    : `venue:${target.venueName}`;
+
+export const targetOf = (choice: ShopChoice): RecordTarget | null =>
+  choice.kind === "shop" || choice.kind === "venue" ? choice : null;
+
+/** The server's mealRecords of each shop or venue that matters to the import. */
+export type ServerMealRecords = ReadonlyMap<TargetKey, readonly MealRecord[]>;
+
+export const recordsOf = (
+  serverMealRecords: ServerMealRecords,
+  target: RecordTarget,
+) => serverMealRecords.get(targetKey(target)) ?? [];
+
+/** The mealRecord's identity on the server: one shop (or shop-less venue), one JST day. */
 // shortcut: two real meal records to one shop on one day become one meal record, upgrade by keying on capture time if that ever matters.
-export type MealRecordKey = `${string}|${IsoDate}`;
+export type MealRecordKey = `${TargetKey}|${IsoDate}`;
 
-export const mealRecordKey = (shopId: string, day: IsoDate): MealRecordKey =>
-  `${shopId}|${day}`;
+export const mealRecordKey = (
+  target: RecordTarget,
+  day: IsoDate,
+): MealRecordKey => `${targetKey(target)}|${day}`;
 
 export interface PlanEntry {
   readonly key: MealRecordKey;
-  readonly shopId: string;
+  readonly target: RecordTarget;
   readonly day: IsoDate;
   /** At most MEAL_RECORD_IMAGES_MAX across every merged group, in {@link photoOrder}. */
   readonly photos: readonly Photo[];
   /** Photos beyond the cap; never uploaded, shown as a warning. */
   readonly overflow: number;
-  /** The earliest entry of its shop in this plan; only it may date the shop's dateless mealRecord. */
+  /** The earliest entry of its target in this plan; only it may date the target's dateless mealRecord. */
   readonly claimsDateless: boolean;
   /** Written when the meal record is created or claimed; an existing same-day record keeps its own. */
   readonly details: MealRecordDetails | undefined;
@@ -74,9 +99,11 @@ export function photoOrder(order: readonly number[] | undefined) {
   return (a: Photo, b: Photo) => rank(a) - rank(b) || byCapture(a, b);
 }
 
-/** The shops the entry's meal record is served by: its own, plus any collaborating one. */
+/** The shops the entry's meal record is served by: its own plus any collaborating one; none for a venue. */
 export const entryShopIds = (entry: PlanEntry): readonly string[] =>
-  entry.details?.shopIds ?? [entry.shopId];
+  entry.target.kind === "shop"
+    ? (entry.details?.shopIds ?? [entry.target.shopId])
+    : [];
 
 /** Entries in run order: admin-decided first, then the rest; each tier by day. */
 export interface ImportPlan {
@@ -84,7 +111,7 @@ export interface ImportPlan {
   readonly entries: readonly PlanEntry[];
 }
 
-/** What a fresh look at the shop's server mealRecords says to do for one entry. */
+/** What a fresh look at the target's server mealRecords says to do for one entry. */
 export type EntryAction =
   | { readonly kind: "create" }
   /** PUT its fields back plus eatenOn. */
@@ -117,7 +144,9 @@ export function defaultChoice(
     return { kind: "skip" };
   }
   const candidatesWithRecords = match.candidates.filter((c) =>
-    serverMealRecords.get(c.shop.id)?.some((v) => v.eatenOn === group.day),
+    recordsOf(serverMealRecords, { kind: "shop", shopId: c.shop.id }).some(
+      (v) => v.eatenOn === group.day,
+    ),
   );
   if (candidatesWithRecords.length === 1) {
     return {
@@ -137,9 +166,9 @@ export function defaultChoice(
 }
 
 /**
- * Every group whose effective choice is a shop, minus excluded photos, merged by (shopId, day).
- * Photos are sorted (capturedAt, index) and capped at MEAL_RECORD_IMAGES_MAX. claimsDateless marks the
- * earliest day per shop. Order: entries containing an admin-decided group first (a crash then
+ * Every group whose effective choice is a shop or venue, minus excluded photos, merged by
+ * (target, day). Photos are sorted (capturedAt, index) and capped at MEAL_RECORD_IMAGES_MAX.
+ * claimsDateless marks the earliest day per target. Order: entries containing an admin-decided group first (a crash then
  * loses mostly auto picks, which re-matching reproduces), then the rest, each by day.
  */
 export function buildPlan(
@@ -151,31 +180,32 @@ export function buildPlan(
 ): ImportPlan {
   const merged = new Map<
     MealRecordKey,
-    { shopId: string; day: IsoDate; photos: Photo[]; admin: boolean }
+    { target: RecordTarget; day: IsoDate; photos: Photo[]; admin: boolean }
   >();
   for (const group of groups) {
     const choice = choiceOf(group);
+    const target = targetOf(choice);
     const photos = group.photos.filter((p) => !excluded.has(p.index));
-    if (choice.kind !== "shop" || photos.length === 0) {
+    if (!target || photos.length === 0) {
       continue;
     }
-    const key = mealRecordKey(choice.shopId, group.day);
+    const key = mealRecordKey(target, group.day);
     const entry = merged.get(key) ?? {
-      shopId: choice.shopId,
+      target,
       day: group.day,
       photos: [],
       admin: false,
     };
     entry.photos.push(...photos);
-    entry.admin ||= choice.source === "admin";
+    entry.admin ||= choice.kind !== "shop" || choice.source === "admin";
     merged.set(key, entry);
   }
 
-  const earliestDay = new Map<string, IsoDate>();
-  for (const { shopId, day } of merged.values()) {
-    const earliest = earliestDay.get(shopId);
+  const earliestDay = new Map<TargetKey, IsoDate>();
+  for (const { target, day } of merged.values()) {
+    const earliest = earliestDay.get(targetKey(target));
     if (!earliest || day < earliest) {
-      earliestDay.set(shopId, day);
+      earliestDay.set(targetKey(target), day);
     }
   }
 
@@ -186,15 +216,15 @@ export function buildPlan(
         a.day.localeCompare(b.day) ||
         ka.localeCompare(kb),
     )
-    .map(([key, { shopId, day, photos }]) => {
+    .map(([key, { target, day, photos }]) => {
       const sorted = photos.sort(photoOrder(order.get(key)));
       return {
         key,
-        shopId,
+        target,
         day,
         photos: sorted.slice(0, MEAL_RECORD_IMAGES_MAX),
         overflow: Math.max(0, sorted.length - MEAL_RECORD_IMAGES_MAX),
-        claimsDateless: earliestDay.get(shopId) === day,
+        claimsDateless: earliestDay.get(targetKey(target)) === day,
         details: details.get(key),
       };
     });
@@ -202,8 +232,9 @@ export function buildPlan(
 }
 
 /**
- * Decides one entry from the shop's current server mealRecords. Pure; the runner calls it right
- * after a fresh GET, so the decision never trusts anything remembered from an earlier run.
+ * Decides one entry from its target's current server mealRecords. A venue's mealRecords all carry
+ * that venue, so the exact-shops rule below leaves only its shop-less ones for a venue entry.
+ * Pure; the runner calls it right after a fresh GET, so the decision never trusts anything remembered from an earlier run.
  */
 export function decideAction(
   entry: PlanEntry,

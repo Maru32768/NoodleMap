@@ -30,8 +30,8 @@ const photo = (
 
 function entry(shopId: string, day: string, photoCount: number): PlanEntry {
   return {
-    key: mealRecordKey(shopId, day as IsoDate),
-    shopId,
+    key: mealRecordKey({ kind: "shop", shopId }, day as IsoDate),
+    target: { kind: "shop", shopId },
     day: day as IsoDate,
     photos: Array.from({ length: photoCount }, () => photo()),
     overflow: 0,
@@ -344,7 +344,7 @@ describe("runImport", () => {
         created: 1,
         failures: [
           {
-            key: `${SHOP_A}|2023-04-01`,
+            key: `shop:${SHOP_A}|2023-04-01`,
             message:
               "サーバーで問題が発生しました。時間をおいてもう一度お試しください。",
             unconfirmed: false,
@@ -432,6 +432,70 @@ describe("runImport", () => {
       );
 
       expect(drawn).toEqual([[2048, 1536]]);
+    });
+  });
+
+  describe("a venue without a shop", () => {
+    const FESTIVAL = "日本ご当地ラーメン総選挙";
+    const venueEntry = (day: string, photoCount: number): PlanEntry => ({
+      ...entry(SHOP_A, day, photoCount),
+      key: mealRecordKey(
+        { kind: "venue", venueName: FESTIVAL },
+        day as IsoDate,
+      ),
+      target: { kind: "venue", venueName: FESTIVAL },
+    });
+
+    it("creates a meal record with no shop at the venue, then uploads its photos in order", async () => {
+      const fake = fakeMealRecordServer();
+      const posted: unknown[] = [];
+      // Returns nothing, so the fake still answers.
+      server.use(
+        http.post("/api/v1/auth/meal-records", async ({ request }) => {
+          posted.push(await request.clone().json());
+        }),
+      );
+
+      const outcome = await run(plan(venueEntry("2023-05-20", 2)));
+
+      expect(posted).toEqual([
+        { shopIds: [], venueName: FESTIVAL, eatenOn: "2023-05-20" },
+      ]);
+      expect(fake.log).toEqual(["create 2023-05-20", "image 1", "image 2"]);
+      expect(fake.mealRecordsOf(`venue:${FESTIVAL}`)).toMatchObject([
+        { shops: [], venue: { name: FESTIVAL }, eatenOn: "2023-05-20" },
+      ]);
+      expect(outcome.progress).toMatchObject({ created: 1, uploadedImages: 2 });
+    });
+
+    it("creates and uploads nothing more when the same plan runs again", async () => {
+      const fake = fakeMealRecordServer();
+      const p = plan(venueEntry("2023-05-20", 2));
+      await run(p);
+      const writes = [...fake.log];
+
+      const again = await run(p);
+
+      expect(fake.log).toEqual(writes);
+      expect(again.progress).toMatchObject({ alreadyDone: 1, created: 0 });
+    });
+
+    it("uploads only the missing photos to the venue's meal record of that day, not to a shop's there", async () => {
+      const venue = {
+        id: "00000000-0000-4000-8000-0000000000ff",
+        name: FESTIVAL,
+      };
+      const fake = fakeMealRecordServer({
+        [SHOP_A]: [{ ...mealRecordWithImages("2023-05-20", 3), venue }],
+        [`venue:${FESTIVAL}`]: [
+          { ...mealRecordWithImages("2023-05-20", 1), shops: [], venue },
+        ],
+      });
+
+      const outcome = await run(plan(venueEntry("2023-05-20", 2)));
+
+      expect(fake.log).toEqual(["image 2"]);
+      expect(outcome.progress).toMatchObject({ resumed: 1, uploadedImages: 1 });
     });
   });
 });
