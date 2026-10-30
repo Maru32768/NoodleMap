@@ -62,6 +62,7 @@ function AddMealRecordDialog({
   onChange: (adding: Adding | null) => void;
 }) {
   const { addMealRecord } = useMealRecordMutations();
+  const [dirty, setDirty] = useState(false);
   const saved =
     adding?.step === "images"
       ? mealRecords?.find((record) => record.id === adding.mealRecordId)
@@ -69,7 +70,8 @@ function AddMealRecordDialog({
   return (
     <ModalDialog
       open={!!adding}
-      onOpenChange={(open) => !open && onChange(null)}
+      // A backdrop click or Esc leaves an edited draft open; キャンセル discards it.
+      onOpenChange={(open) => !open && !dirty && onChange(null)}
       width="100%"
       maxWidth="640px"
       title={adding?.step === "images" ? "画像を追加" : "食べた記録を追加"}
@@ -77,6 +79,7 @@ function AddMealRecordDialog({
       {adding?.step === "form" && (
         <MealRecordForm
           scope={ALL}
+          onDirtyChange={setDirty}
           onCancel={() => onChange(null)}
           onSave={async (input) => {
             const result = await addMealRecord(input);

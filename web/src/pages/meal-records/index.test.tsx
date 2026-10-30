@@ -210,6 +210,9 @@ describe("MealRecordsPage", () => {
       within(dialog).getByLabelText("催事・出店先"),
       "新宿ラーメン博",
     );
+    // Esc does not throw away the edited draft.
+    await user.keyboard("{Escape}");
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
     const save = within(dialog).getByRole("button", {
       name: "食べた記録を保存",
     });
