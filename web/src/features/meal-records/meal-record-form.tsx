@@ -81,15 +81,21 @@ function isMealRecordField(field: string): field is MealRecordField {
 }
 
 /**
- * Where the admin adds and edits 食べた記録: a shop's edit modal, or a 催事・出店先's
- * page, whose new records start with that venue and no shop.
+ * Where the admin adds and edits 食べた記録: a shop's edit modal, a 催事・出店先's
+ * page, whose new records start with that venue and no shop, or the page of
+ * every record, whose new records start with neither.
  */
 export type RecordScope =
   | { kind: "shop"; shopId: string }
-  | { kind: "venue"; venueId: string; venueName: string };
+  | { kind: "venue"; venueId: string; venueName: string }
+  | { kind: "all" };
 
 export const recordScopeId = (scope: RecordScope) =>
-  scope.kind === "shop" ? scope.shopId : scope.venueId;
+  scope.kind === "shop"
+    ? scope.shopId
+    : scope.kind === "venue"
+      ? scope.venueId
+      : "all";
 
 function toDraft(
   mealRecord: MealRecord | undefined,

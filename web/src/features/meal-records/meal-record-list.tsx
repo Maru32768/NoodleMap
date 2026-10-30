@@ -313,12 +313,14 @@ export function MealRecordsLoadState({
   error,
   isValidating,
   onRetry,
+  emptyMessage = "まだ食べた記録がありません",
   children,
 }: {
   mealRecords: readonly MealRecord[] | undefined;
   error: unknown;
   isValidating: boolean;
   onRetry: () => Promise<unknown>;
+  emptyMessage?: string;
   children: (mealRecords: readonly MealRecord[]) => ReactNode;
 }) {
   if (!mealRecords) {
@@ -347,7 +349,7 @@ export function MealRecordsLoadState({
       )}
       {mealRecords.length === 0 ? (
         <Box fontSize="0.8125rem" color="nm.inkMuted">
-          まだ食べた記録がありません
+          {emptyMessage}
         </Box>
       ) : (
         children(mealRecords)
