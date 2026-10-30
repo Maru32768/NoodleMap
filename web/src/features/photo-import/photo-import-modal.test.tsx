@@ -338,6 +338,110 @@ describe("PhotoImportModal", () => {
     expect(fake.log).toEqual(["create 2023-04-01", "image 1"]);
   });
 
+  it("imports a photo far from every shop as a meal record without a shop at the venue the admin names", async () => {
+    const user = userEvent.setup();
+    const fake = fakeMealRecordServer();
+    renderModal();
+    await selectPhotos(user);
+
+    await user.click(screen.getByRole("radio", { name: "スキップ (1)" }));
+    const far = screen.getByRole("group", { name: /2023-04-03/ });
+    await user.click(
+      within(far).getByRole("button", { name: "店舗なし（催事・出店先）" }),
+    );
+    await user.type(
+      within(far).getByRole("combobox", { name: "催事・出店先" }),
+      " 日本ご当地ラーメン総選挙 ",
+    );
+    await user.click(
+      within(far).getByRole("button", { name: "この出店先にする" }),
+    );
+
+    await user.click(
+      await screen.findByRole("radio", { name: /取り込み予定 \(2\)/ }),
+    );
+    const booth = screen.getByRole("group", { name: /2023-04-03/ });
+    expect(booth).toHaveTextContent("店舗なし · 日本ご当地ラーメン総選挙");
+    await user.click(within(booth).getByRole("button", { name: "記録の内容" }));
+    const form = await screen.findByRole("group", {
+      name: "取り込む食べた記録の内容",
+    });
+    expect(within(form).getByLabelText("催事・出店先")).toHaveAttribute(
+      "readonly",
+    );
+    await user.type(
+      within(form).getByLabelText("メモ（公開）"),
+      "酒田ラーメン",
+    );
+    await user.click(
+      within(form).getByRole("button", { name: "この内容にする" }),
+    );
+    await user.click(screen.getByRole("button", { name: "取り込む" }));
+
+    await screen.findByText("取り込みが完了しました");
+    expect(fake.mealRecordsOf("venue:日本ご当地ラーメン総選挙")).toMatchObject([
+      {
+        shops: [],
+        venue: { name: "日本ご当地ラーメン総選挙" },
+        eatenOn: "2023-04-03",
+        publicNote: "酒田ラーメン",
+        images: [{}],
+      },
+    ]);
+  });
+
+  it("shows the venue's meal record of that day as already imported", async () => {
+    const user = userEvent.setup();
+    const venue = {
+      id: "00000000-0000-4000-8000-0000000000ff",
+      name: "大つけ麺博",
+    };
+    const fake = fakeMealRecordServer({
+      "venue:大つけ麺博": [
+        {
+          id: "00000000-0000-4000-8000-0000000000fe",
+          eatenOn: "2023-04-03",
+          shops: [],
+          venue,
+          menuItems: [],
+          images: [
+            {
+              id: "image-1",
+              url: "https://img.example/1.jpg",
+              width: 1,
+              height: 1,
+            },
+          ],
+        },
+      ],
+    });
+    renderModal();
+    await selectPhotos(user);
+
+    await user.click(screen.getByRole("radio", { name: "スキップ (1)" }));
+    const far = screen.getByRole("group", { name: /2023-04-03/ });
+    await user.click(
+      within(far).getByRole("button", { name: "店舗なし（催事・出店先）" }),
+    );
+    await user.type(
+      within(far).getByRole("combobox", { name: "催事・出店先" }),
+      "大つけ麺博",
+    );
+    await user.click(
+      within(far).getByRole("button", { name: "この出店先にする" }),
+    );
+
+    await user.click(
+      await screen.findByRole("radio", { name: /取り込み済み \(1\)/ }),
+    );
+    await user.click(screen.getByRole("button", { name: "取り込む" }));
+    await screen.findByText("取り込みが完了しました");
+    expect(fake.log).not.toContain("create 2023-04-03");
+    expect(fake.mealRecordsOf("venue:大つけ麺博")).toMatchObject([
+      { images: [{ id: "image-1" }] },
+    ]);
+  });
+
   it("adds the shop of a photo far from every shop, at the photo's position, and imports to it", async () => {
     const user = userEvent.setup();
     const fake = fakeMealRecordServer();

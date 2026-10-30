@@ -41,3 +41,27 @@ export function useVenueMealRecords(venueId: string) {
     { revalidateOnFocus: false, revalidateOnReconnect: false },
   );
 }
+
+/**
+ * The 食べた記録 at the venue named exactly `venueName`, newest first; none when no venue has
+ * that name yet. Throws `ApiError`.
+ */
+export function fetchVenueMealRecordsByName(venueName: string) {
+  return withApiError(VENUE_MEAL_RECORDS_PATH, async () => {
+    const venuesRes = await apiClient.GET("/api/v1/venues");
+    if (venuesRes.error || !venuesRes.response.ok) {
+      throwApiError(VENUES_PATH, venuesRes.response, venuesRes.error);
+    }
+    const venue = venuesRes.data.venues.find((v) => v.name === venueName);
+    if (!venue) {
+      return [];
+    }
+    const res = await apiClient.GET("/api/v1/venues/{venueId}/meal-records", {
+      params: { path: { venueId: venue.id } },
+    });
+    if (res.error || !res.response.ok) {
+      throwApiError(VENUE_MEAL_RECORDS_PATH, res.response, res.error);
+    }
+    return res.data.mealRecords;
+  });
+}

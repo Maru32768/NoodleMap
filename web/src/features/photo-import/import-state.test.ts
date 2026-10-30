@@ -13,7 +13,10 @@ import {
 } from "@/features/photo-import/import-state.ts";
 import { describe, expect, it } from "vitest";
 
-const key = mealRecordKey("shop", "2023-04-01" as IsoDate);
+const key = mealRecordKey(
+  { kind: "shop", shopId: "shop" },
+  "2023-04-01" as IsoDate,
+);
 
 const analysis: Analysis = {
   photos: [],
@@ -82,7 +85,7 @@ describe("importReducer", () => {
       groupId: 4,
       choice: { kind: "skip" },
     });
-    const serverMealRecords = new Map([["shop", []]]);
+    const serverMealRecords = new Map([[`shop:shop` as const, []]]);
 
     const state = run(
       chosen,

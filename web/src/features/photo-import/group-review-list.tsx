@@ -1,13 +1,18 @@
+import { LoadableButton } from "@/components/loadable-button.tsx";
 import { ModalDialog } from "@/components/modal-dialog.tsx";
 import { SegmentedPicker } from "@/components/segmented-picker.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { AddModal } from "@/features/admin/add-modal.tsx";
+import { useVenues } from "@/features/meal-records/api/use-venues.ts";
+import type { IsoDate } from "@/features/meal-records/eaten-date.ts";
 import { MealRecordForm } from "@/features/meal-records/meal-record-form.tsx";
 import type { PhotoGroup } from "@/features/photo-import/grouping.ts";
-import type {
+import {
   MealRecordDetails,
   MealRecordKey,
+  RecordTarget,
   ShopChoice,
+  targetOf,
 } from "@/features/photo-import/import-plan.ts";
 import type { Photo } from "@/features/photo-import/photos.ts";
 import type {
@@ -20,7 +25,7 @@ import type { Shop } from "@/features/shops/api/use-shops.ts";
 import { MEAL_RECORD_IMAGES_MAX } from "@/utils/toast.ts";
 import { Box, Image, Input } from "@chakra-ui/react";
 import { omit } from "es-toolkit";
-import { ComponentProps, useState } from "react";
+import { ComponentProps, useId, useState } from "react";
 import { Virtuoso } from "react-virtuoso";
 
 type Filter = RowTab | "all";
@@ -40,6 +45,15 @@ const JST_TIME = new Intl.DateTimeFormat("ja-JP", {
   hour: "2-digit",
   minute: "2-digit",
 });
+
+/** What the review and the run call a meal record's shop or venue. */
+export const targetName = (
+  target: RecordTarget,
+  shopById: ReadonlyMap<string, Shop>,
+) =>
+  target.kind === "venue"
+    ? target.venueName
+    : (shopById.get(target.shopId)?.name ?? "削除された店舗");
 
 const smallButton = {
   variant: "plain",
@@ -75,6 +89,7 @@ export function GroupReviewList({
   excluded,
   details,
   onChoose,
+  onChooseVenue,
   onTogglePhoto,
   onMovePhoto,
   onSetDetails,
@@ -86,6 +101,7 @@ export function GroupReviewList({
   excluded: ReadonlySet<number>;
   details: ReadonlyMap<MealRecordKey, MealRecordDetails>;
   onChoose: (groupId: number, choice: ShopChoice) => void;
+  onChooseVenue: (groupId: number, venueName: string) => Promise<void>;
   onTogglePhoto: (photoIndex: number) => void;
   onMovePhoto: (row: GroupRow, photoIndex: number, delta: -1 | 1) => void;
   onSetDetails: (key: MealRecordKey, details: MealRecordDetails) => void;
@@ -93,7 +109,11 @@ export function GroupReviewList({
 }) {
   // Held here, not in the row: Virtuoso unmounts rows scrolled out of view.
   const [addingFor, setAddingFor] = useState<PhotoGroup | null>(null);
-  const [editingKey, setEditingKey] = useState<MealRecordKey | null>(null);
+  const [editing, setEditing] = useState<{
+    key: MealRecordKey;
+    target: RecordTarget;
+    day: IsoDate;
+  } | null>(null);
   const [filter, setFilter] = useState<Filter>(() =>
     rows.some((r) => r.tab === "undecided") ? "undecided" : "all",
   );
@@ -136,12 +156,19 @@ export function GroupReviewList({
                   row.detailsKey ? details.get(row.detailsKey) : undefined
                 }
                 onChoose={onChoose}
+                onChooseVenue={onChooseVenue}
                 onTogglePhoto={onTogglePhoto}
                 onMovePhoto={(photoIndex, delta) =>
                   onMovePhoto(row, photoIndex, delta)
                 }
                 onAddShop={() => setAddingFor(row.group)}
-                onEditDetails={() => setEditingKey(row.detailsKey)}
+                onEditDetails={() =>
+                  setEditing({
+                    key: row.detailsKey!,
+                    target: targetOf(row.choice)!,
+                    day: row.group.day,
+                  })
+                }
               />
             )}
           />
@@ -163,34 +190,36 @@ export function GroupReviewList({
           PlaceFinder={PlaceFinder}
         />
       )}
-      {editingKey && (
+      {editing && (
         <DetailsModal
-          recordKey={editingKey}
-          shopName={shopById.get(editingKey.split("|")[0])?.name}
-          details={details.get(editingKey)}
-          onSave={(next) => onSetDetails(editingKey, next)}
-          onClose={() => setEditingKey(null)}
+          target={editing.target}
+          day={editing.day}
+          name={targetName(editing.target, shopById)}
+          details={details.get(editing.key)}
+          onSave={(next) => onSetDetails(editing.key, next)}
+          onClose={() => setEditing(null)}
         />
       )}
     </Box>
   );
 }
 
-/** The meal record's fields beyond the shop and day, in the same form as a hand-written record. */
+/** The meal record's fields beyond the shop (or venue) and day, in the same form as a hand-written record. */
 function DetailsModal({
-  recordKey,
-  shopName,
+  target,
+  day,
+  name,
   details,
   onSave,
   onClose,
 }: {
-  recordKey: MealRecordKey;
-  shopName: string | undefined;
+  target: RecordTarget;
+  day: IsoDate;
+  name: string;
   details: MealRecordDetails | undefined;
   onSave: (details: MealRecordDetails) => void;
   onClose: () => void;
 }) {
-  const [shopId, day] = recordKey.split("|");
   return (
     <ModalDialog
       open
@@ -198,11 +227,19 @@ function DetailsModal({
       width="100%"
       maxWidth="720px"
       title="食べた記録の内容"
-      subtitle={`${shopName ?? ""} ${day}`}
+      subtitle={`${name} ${day}`}
     >
       <MealRecordForm
-        scope={{ kind: "shop", shopId }}
-        importDraft={{ shopIds: [shopId], ...details, eatenOn: day }}
+        importDraft={
+          target.kind === "shop"
+            ? { shopIds: [target.shopId], ...details, eatenOn: day }
+            : {
+                ...details,
+                shopIds: [],
+                venueName: target.venueName,
+                eatenOn: day,
+              }
+        }
         onCancel={onClose}
         onSave={async (input) => {
           onSave(omit(input, ["eatenOn"]));
@@ -244,6 +281,7 @@ function GroupRowView({
   excluded,
   details,
   onChoose,
+  onChooseVenue,
   onTogglePhoto,
   onMovePhoto,
   onAddShop,
@@ -256,12 +294,14 @@ function GroupRowView({
   excluded: ReadonlySet<number>;
   details: MealRecordDetails | undefined;
   onChoose: (groupId: number, choice: ShopChoice) => void;
+  onChooseVenue: (groupId: number, venueName: string) => Promise<void>;
   onTogglePhoto: (photoIndex: number) => void;
   onMovePhoto: (photoIndex: number, delta: -1 | 1) => void;
   onAddShop: () => void;
   onEditDetails: () => void;
 }) {
   const [searching, setSearching] = useState(false);
+  const [namingVenue, setNamingVenue] = useState(false);
   const { group, choice } = row;
   const first = group.photos[0].capturedAt;
   const last = group.photos[group.photos.length - 1].capturedAt;
@@ -270,7 +310,18 @@ function GroupRowView({
   const choose = (next: ShopChoice) => {
     onChoose(group.id, next);
     setSearching(false);
+    setNamingVenue(false);
   };
+  const venueButton = (
+    <Button
+      {...smallButton}
+      disabled={readOnly}
+      aria-expanded={namingVenue}
+      onClick={() => setNamingVenue((v) => !v)}
+    >
+      店舗なし（催事・出店先）
+    </Button>
+  );
 
   return (
     <Box
@@ -302,11 +353,13 @@ function GroupRowView({
         <Box fontSize="13px" fontWeight={600} color="nm.ink">
           {chosen
             ? chosen.name
-            : choice.kind === "skip"
-              ? "スキップ"
-              : choice.kind === "undecided"
-                ? "要確認"
-                : "選んだ店舗が見つかりません"}
+            : choice.kind === "venue"
+              ? `店舗なし · ${choice.venueName}`
+              : choice.kind === "skip"
+                ? "スキップ"
+                : choice.kind === "undecided"
+                  ? "要確認"
+                  : "選んだ店舗が見つかりません"}
         </Box>
         {row.tab === "imported" && (
           <Box fontSize="12px" color="nm.inkMuted">
@@ -362,6 +415,8 @@ function GroupRowView({
       </Box>
 
       <Box display="flex" flexWrap="wrap" alignItems="center" gap="8px">
+        {/* First when no registered shop is near, as at a ramen festival. */}
+        {row.candidates.length === 0 && venueButton}
         {row.candidates.length > 0 && (
           <SegmentedPicker
             variant="outline"
@@ -387,6 +442,7 @@ function GroupRowView({
         <Button {...smallButton} disabled={readOnly} onClick={onAddShop}>
           {group.center ? "この場所の店を追加" : "店舗を追加"}
         </Button>
+        {row.candidates.length > 0 && venueButton}
         <Button
           {...smallButton}
           disabled={readOnly || choice.kind === "skip"}
@@ -410,6 +466,15 @@ function GroupRowView({
         <ShopSearch
           shops={shops}
           onPick={(shopId) => choose({ kind: "shop", shopId, source: "admin" })}
+        />
+      )}
+      {namingVenue && !readOnly && (
+        <VenueNameInput
+          initial={choice.kind === "venue" ? choice.venueName : ""}
+          onPick={async (venueName) => {
+            await onChooseVenue(group.id, venueName);
+            setNamingVenue(false);
+          }}
         />
       )}
     </Box>
@@ -472,6 +537,49 @@ function Thumbnail({
         </Box>
       )}
     </Button>
+  );
+}
+
+/** A 催事・出店先 for a group without a shop, with the venues already recorded as suggestions. */
+function VenueNameInput({
+  initial,
+  onPick,
+}: {
+  initial: string;
+  onPick: (venueName: string) => Promise<void>;
+}) {
+  const [name, setName] = useState(initial);
+  const venues = useVenues();
+  const listId = useId();
+  return (
+    <Box display="flex" gap="6px" maxW="420px">
+      <Input
+        autoFocus
+        aria-label="催事・出店先"
+        placeholder="例: 日本ご当地ラーメン総選挙"
+        maxLength={100}
+        list={listId}
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        size="sm"
+        bg="nm.bg"
+        borderColor="nm.line"
+        rounded="nmMd"
+        fontSize="13px"
+      />
+      <datalist id={listId}>
+        {venues.data?.map((venue) => (
+          <option key={venue.id} value={venue.name} />
+        ))}
+      </datalist>
+      <LoadableButton
+        {...smallButton}
+        disabled={name.trim() === ""}
+        onClick={() => onPick(name)}
+      >
+        この出店先にする
+      </LoadableButton>
+    </Box>
   );
 }
 

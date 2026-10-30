@@ -1,5 +1,4 @@
 import {
-  fetchMealRecords,
   MealRecord,
   useRevalidateAllMealRecords,
 } from "@/features/meal-records/api/use-meal-records.ts";
@@ -14,8 +13,13 @@ import {
   mealRecordKey,
   photoOrder,
   PlanEntry,
-  ServerMealRecords,
+  recordsOf,
+  RecordTarget,
+  ReviewState,
   ShopChoice,
+  TargetKey,
+  targetKey,
+  targetOf,
 } from "@/features/photo-import/import-plan.ts";
 import {
   Analysis,
@@ -28,7 +32,10 @@ import {
   matchShop,
 } from "@/features/photo-import/matching.ts";
 import { Photo, readPhotos } from "@/features/photo-import/photos.ts";
-import { runImport } from "@/features/photo-import/run-import.ts";
+import {
+  fetchTargetMealRecords,
+  runImport,
+} from "@/features/photo-import/run-import.ts";
 import type { Shop } from "@/features/shops/api/use-shops.ts";
 import { forEachConcurrently } from "@/utils/concurrency.ts";
 import { isApiError } from "@/utils/request.ts";
@@ -47,7 +54,7 @@ export interface GroupRow {
   /** review.choices.get(id) ?? defaultChoice(...) */
   readonly choice: ShopChoice;
   readonly tab: RowTab;
-  /** Images already on that (shop, day) mealRecord; null when it has none. */
+  /** Images already on that (target, day) mealRecord; null when it has none. */
   readonly existingImages: number | null;
   /** Photos of its (shop, day) beyond the per-mealRecord cap. */
   readonly overflow: number;
@@ -64,30 +71,43 @@ const LOAD_CONCURRENCY = 4;
 // left out: a photo exported to two folders carries two different ones.
 const fileKey = (file: File) => `${file.name}|${file.size}`;
 
-/** Every listed shop's mealRecords; a failure rejects, since a plan on partial truth would duplicate. */
+/** Every listed target's mealRecords; a failure rejects, since a plan on partial truth would duplicate. */
 async function loadServerMealRecords(
-  shopIds: readonly string[],
+  targets: readonly RecordTarget[],
   signal: AbortSignal,
-): Promise<ServerMealRecords> {
-  const mealRecords = new Map<string, readonly MealRecord[]>();
-  await forEachConcurrently(shopIds, LOAD_CONCURRENCY, signal, async (id) => {
-    mealRecords.set(id, await fetchMealRecords(id));
+): Promise<Map<TargetKey, readonly MealRecord[]>> {
+  const mealRecords = new Map<TargetKey, readonly MealRecord[]>();
+  await forEachConcurrently(targets, LOAD_CONCURRENCY, signal, async (t) => {
+    mealRecords.set(targetKey(t), await fetchTargetMealRecords(t));
   });
   return mealRecords;
 }
 
-/** Shops with mealRecords among the candidates of any group: the only ones decideAction needs. */
-function shopsToLoad(groups: readonly PhotoGroup[], shops: readonly Shop[]) {
-  const ids = new Set<string>();
+/**
+ * Shops with mealRecords among the candidates of any group, and the venues the admin chose:
+ * the only ones decideAction needs.
+ */
+function targetsToLoad(
+  groups: readonly PhotoGroup[],
+  shops: readonly Shop[],
+  review?: ReviewState,
+) {
+  const targets = new Map<TargetKey, RecordTarget>();
   for (const group of groups) {
     const match = matchShop(group.center, shops);
     for (const c of "candidates" in match ? match.candidates : []) {
       if (c.shop.mealRecordCount > 0) {
-        ids.add(c.shop.id);
+        const target = { kind: "shop", shopId: c.shop.id } as const;
+        targets.set(targetKey(target), target);
       }
     }
   }
-  return [...ids];
+  for (const choice of review?.choices.values() ?? []) {
+    if (choice.kind === "venue") {
+      targets.set(targetKey(choice), choice);
+    }
+  }
+  return [...targets.values()];
 }
 
 function toastFailure(error: unknown) {
@@ -144,12 +164,12 @@ export function usePhotoImport(shops: readonly Shop[]) {
       review.details,
       review.order,
     );
-    // Every photo of each (shop, day), excluded ones too, in upload order: what a move reorders.
+    // Every photo of each (target, day), excluded ones too, in upload order: what a move reorders.
     const photosByKey = new Map<MealRecordKey, Photo[]>();
     groups.forEach((group, i) => {
-      const choice = choices[i];
-      if (choice.kind === "shop") {
-        const key = mealRecordKey(choice.shopId, group.day);
+      const target = targetOf(choices[i]);
+      if (target) {
+        const key = mealRecordKey(target, group.day);
         photosByKey.set(key, [
           ...(photosByKey.get(key) ?? []),
           ...group.photos,
@@ -163,13 +183,14 @@ export function usePhotoImport(shops: readonly Shop[]) {
       plan.entries.map((e) => [e.key, e]),
     );
     const actionOf = (entry: PlanEntry) =>
-      decideAction(entry, serverMealRecords.get(entry.shopId) ?? []);
+      decideAction(entry, recordsOf(serverMealRecords, entry.target));
 
     const rows: GroupRow[] = groups.map((group, i) => {
       const match = matches[i];
       const choice = choices[i];
       const candidates = "candidates" in match ? match.candidates : [];
-      if (choice.kind !== "shop") {
+      const target = targetOf(choice);
+      if (!target) {
         return {
           group,
           photos: group.photos,
@@ -182,11 +203,11 @@ export function usePhotoImport(shops: readonly Shop[]) {
           detailsKey: null,
         };
       }
-      const key = mealRecordKey(choice.shopId, group.day);
+      const key = mealRecordKey(target, group.day);
       const entry = entries.get(key);
       const own = new Set(group.photos);
       const action = entry && actionOf(entry);
-      const sameDay = (serverMealRecords.get(choice.shopId) ?? []).filter(
+      const sameDay = recordsOf(serverMealRecords, target).filter(
         (v) => v.eatenOn === group.day,
       );
       return {
@@ -232,7 +253,7 @@ export function usePhotoImport(shops: readonly Shop[]) {
       });
       const groups = groupPhotos(photos);
       const serverMealRecords = await loadServerMealRecords(
-        shopsToLoad(groups, shops),
+        targetsToLoad(groups, shops),
         signal,
       );
       dispatch({
@@ -265,8 +286,8 @@ export function usePhotoImport(shops: readonly Shop[]) {
       // After a run the meal records read before it are out of date: read them all again.
       const stale = state.kind === "finished";
       const loaded = await loadServerMealRecords(
-        shopsToLoad(groups, shops).filter(
-          (id) => stale || !analysis.serverMealRecords.has(id),
+        targetsToLoad(groups, shops, review).filter(
+          (t) => stale || !analysis.serverMealRecords.has(targetKey(t)),
         ),
         signal,
       );
@@ -341,7 +362,7 @@ export function usePhotoImport(shops: readonly Shop[]) {
     const { signal } = (controller.current = new AbortController());
     try {
       const serverMealRecords = await loadServerMealRecords(
-        shopsToLoad(state.analysis.groups, shops),
+        targetsToLoad(state.analysis.groups, shops, state.review),
         signal,
       );
       dispatch({ type: "refreshed", serverMealRecords });
@@ -361,6 +382,23 @@ export function usePhotoImport(shops: readonly Shop[]) {
     adding,
     choose: (groupId: number, choice: ShopChoice) =>
       dispatch({ type: "choose", groupId, choice }),
+    /**
+     * Takes the group as a shop-less record at `venueName` once that venue's records are read,
+     * so the row knows whether the day's record already exists before it says what will happen.
+     */
+    chooseVenue: async (groupId: number, venueName: string) => {
+      const choice = { kind: "venue", venueName: venueName.trim() } as const;
+      try {
+        const serverMealRecords = await loadServerMealRecords(
+          [choice],
+          new AbortController().signal,
+        );
+        dispatch({ type: "loaded", serverMealRecords });
+        dispatch({ type: "choose", groupId, choice });
+      } catch (error) {
+        toastFailure(error);
+      }
+    },
     togglePhoto: (photoIndex: number) =>
       dispatch({ type: "togglePhoto", photoIndex }),
     /** Swaps a photo with the row's next (delta 1) or previous (-1) one, in its meal record's order. */
