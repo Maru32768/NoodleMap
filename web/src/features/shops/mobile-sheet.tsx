@@ -35,8 +35,11 @@ export interface MobileSheetProps {
 
 // Peek heights are clamped so short and tall screens stay usable.
 const PEEK = { minPx: 132, ratio: 0.205, maxPx: 144 };
-const PEEK_SNAP = 1;
-const FULL_SNAP = 2;
+// Collapsed: the drag handle and the 件 / SHOPS count row only.
+const COLLAPSED_PX = 56;
+const COLLAPSED_SNAP = 1;
+const PEEK_SNAP = 2;
+const FULL_SNAP = 3;
 
 // The peek stays this tall above the footer, which covers the sheet's bottom.
 function getPeekRatio(
@@ -146,10 +149,52 @@ export function MobileSheet({
 
   const handleClose = useCallback(() => {
     onClose();
-    sheetRef.current?.snapTo(PEEK_SNAP);
+    sheetRef.current?.snapTo(COLLAPSED_SNAP);
   }, [onClose]);
 
-  const snapPoints = [0, getPeekRatio(viewportHeight, PEEK, footerHeight), 1];
+  // A shop picked while the sheet is collapsed would show only its first line.
+  const shopId = shop?.id;
+  const shopSelectedRef = useRef(false);
+  useEffect(() => {
+    shopSelectedRef.current = shopId !== undefined;
+    const sheet = sheetRef.current;
+    if (
+      shopId !== undefined &&
+      sheet &&
+      sheet.snapPoints.length > 0 &&
+      (sheet.currentSnap ?? 0) < PEEK_SNAP
+    ) {
+      sheet.snapTo(PEEK_SNAP);
+    }
+  }, [shopId]);
+
+  // The sheet opens before it has measured itself, which makes initialSnap
+  // fall back to fully open; settle once the snap points exist.
+  const handleOpenEnd = useCallback(() => {
+    const settle = () => {
+      const sheet = sheetRef.current;
+      if (!sheet) {
+        return;
+      }
+      if (sheet.snapPoints.length === 0) {
+        requestAnimationFrame(settle);
+        return;
+      }
+      sheet.snapTo(shopSelectedRef.current ? PEEK_SNAP : COLLAPSED_SNAP);
+    };
+    settle();
+  }, []);
+
+  const snapPoints = [
+    0,
+    getPeekRatio(
+      viewportHeight,
+      { minPx: COLLAPSED_PX, ratio: 0, maxPx: COLLAPSED_PX },
+      footerHeight,
+    ),
+    getPeekRatio(viewportHeight, PEEK, footerHeight),
+    1,
+  ];
 
   if (isPc) {
     return null;
@@ -169,7 +214,8 @@ export function MobileSheet({
         isOpen
         snapPoints={snapPoints}
         onClose={onClose}
-        initialSnap={PEEK_SNAP}
+        initialSnap={COLLAPSED_SNAP}
+        onOpenEnd={handleOpenEnd}
         disableDismiss
         style={{ zIndex: 800 }}
       >
