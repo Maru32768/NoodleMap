@@ -141,7 +141,8 @@ function formatMapCoordinate(n: number) {
   return n.toFixed(6);
 }
 
-export default function SearchPage() {
+/** `active` is false while the page stays mounted, hidden, behind another page. */
+export default function SearchPage({ active = true }: { active?: boolean }) {
   const {
     filters,
     handleFilterChange,
@@ -234,7 +235,7 @@ export default function SearchPage() {
     () => shops?.find((r) => r.id === selectedId) ?? undefined,
     [shops, selectedId],
   );
-  useDocumentTitle(selectedShop?.name);
+  useDocumentTitle(selectedShop?.name, undefined, active);
   // Keep the selected shop's pin even when the filters would hide it.
   const mapShops = useMemo(
     () =>
@@ -253,6 +254,11 @@ export default function SearchPage() {
       return;
     }
     if (handledLocationKeyRef.current === location.key) {
+      return;
+    }
+    // Back from another page: the kept map is already where the user left it.
+    if (restoresSearchCamera(location.state)) {
+      handledLocationKeyRef.current = location.key;
       return;
     }
     const pending = pendingSelectionRef.current;
@@ -275,6 +281,7 @@ export default function SearchPage() {
     handleMapViewChange,
     mapView.zoom,
     location.key,
+    location.state,
   ]);
 
   const editShop = useMemo(
@@ -438,6 +445,7 @@ export default function SearchPage() {
 
       {/* Mobile bottom sheet */}
       <MobileSheet
+        hidden={!active}
         shop={selectedShop}
         sortedShops={sortedShops}
         onAdminEdit={handleEditOpen}
@@ -446,7 +454,7 @@ export default function SearchPage() {
       />
 
       <DrawerRoot
-        open={mobileFiltersOpen}
+        open={active && mobileFiltersOpen}
         onOpenChange={(details) => setMobileFiltersOpen(details.open)}
         placement="bottom"
       >
@@ -465,7 +473,7 @@ export default function SearchPage() {
         </DrawerContent>
       </DrawerRoot>
 
-      {editShop && (
+      {active && editShop && (
         <ShopEditModal
           shop={editShop}
           open={!!editId}

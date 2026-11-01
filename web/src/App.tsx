@@ -1,4 +1,3 @@
-import { Layout } from "@/components/layout/layout.tsx";
 import { MobileFooter } from "@/components/layout/mobile-footer.tsx";
 import { Loading } from "@/components/loading.tsx";
 import { ProtectedRoute } from "@/features/auth/protected-route.tsx";
@@ -15,13 +14,22 @@ import {
   SEARCH_PATH,
 } from "@/utils/path.ts";
 import { AbsoluteCenter, Box } from "@chakra-ui/react";
-import React, { Suspense, useEffect } from "react";
+import React, { Suspense, useEffect, useState } from "react";
 import { Navigate, Outlet, Route, Routes, useLocation } from "react-router";
 
 function App() {
   const { currentUser: authUser, isLoading, error: authError } = useAuth();
   const currentUser = toCurrentUser(authUser, !!authError);
   const location = useLocation();
+  // Rebuilding the map is slow, so the search page stays mounted (hidden)
+  // while the user is on a page the footer or a record links to.
+  const onSearch = location.pathname === SEARCH_PATH;
+  const [searchMounted, setSearchMounted] = useState(onSearch);
+  if (onSearch && !searchMounted) {
+    setSearchMounted(true);
+  }
+  const showSearch =
+    onSearch || (searchMounted && keepsSearchAlive(location.pathname));
 
   useEffect(() => {
     const isAdminPath = location.pathname.startsWith(ADMIN_PATH);
@@ -60,10 +68,23 @@ function App() {
     </Box>
   ) : (
     <CurrentUserProvider value={currentUser}>
+      {/* Before <Routes> so a page's title effect runs after the hidden map's. */}
+      {showSearch && (
+        <Box boxSize="full" display={onSearch ? undefined : "none"}>
+          <Suspense
+            fallback={
+              <AbsoluteCenter>
+                <Loading size="xl" />
+              </AbsoluteCenter>
+            }
+          >
+            <LazySearchPage active={onSearch} />
+          </Suspense>
+        </Box>
+      )}
       <Routes>
-        <Route element={<Layout />}>
-          <Route path={SEARCH_PATH} element={<LazySearchPage />} />
-        </Route>
+        {/* Rendered above, so the map survives a trip to another page. */}
+        <Route path={SEARCH_PATH} element={null} />
 
         <Route
           element={
@@ -109,6 +130,14 @@ function App() {
       {!location.pathname.startsWith(ADMIN_PATH) &&
         location.pathname !== LOGIN_PATH && <MobileFooter />}
     </CurrentUserProvider>
+  );
+}
+
+function keepsSearchAlive(pathname: string) {
+  return (
+    pathname === MEAL_RECORDS_PATH ||
+    pathname === ACCOUNT_PATH ||
+    pathname.startsWith("/venues/")
   );
 }
 

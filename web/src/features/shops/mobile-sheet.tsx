@@ -26,6 +26,8 @@ import { Sheet, type SheetRef } from "react-modal-sheet";
 import { Virtuoso } from "react-virtuoso";
 
 export interface MobileSheetProps {
+  /** Kept mounted but hidden behind another page, so it keeps its height. */
+  hidden?: boolean;
   shop: Shop | undefined;
   sortedShops: Shop[];
   onAdminEdit: (id: string) => void;
@@ -120,6 +122,7 @@ function MobileListItem({
 }
 
 export function MobileSheet({
+  hidden = false,
   shop,
   sortedShops,
   onAdminEdit,
@@ -217,7 +220,9 @@ export function MobileSheet({
         initialSnap={COLLAPSED_SNAP}
         onOpenEnd={handleOpenEnd}
         disableDismiss
-        style={{ zIndex: 800 }}
+        // The sheet is portalled, so hiding the page does not hide it.
+        disableScrollLocking={hidden}
+        style={{ zIndex: 800, display: hidden ? "none" : undefined }}
       >
         <Sheet.Container
           style={{
