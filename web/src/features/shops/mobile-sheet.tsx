@@ -464,8 +464,11 @@ export function MobileSheet({
                   </Box>
                 ) : (
                   <Virtuoso
+                    // The open sheet's height (react-modal-sheet's default) less
+                    // the drag handle and count row above, and the footer below.
                     style={{
-                      height: "calc(88svh - 100px - var(--nm-footer-h))",
+                      height:
+                        "calc(100dvh - env(safe-area-inset-top) - 34px - 50px - var(--nm-footer-h))",
                     }}
                     data={sortedShops}
                     itemContent={(_, r) => (
