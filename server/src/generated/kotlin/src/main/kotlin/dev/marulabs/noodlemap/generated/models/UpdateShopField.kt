@@ -23,6 +23,8 @@ public enum class UpdateShopField(
   OPENED_AT("openedAt"),
   @SerialName("closedAt")
   CLOSED_AT("closedAt"),
+  @SerialName("temporaryClosure")
+  TEMPORARY_CLOSURE("temporaryClosure"),
   @SerialName("googlePlaceId")
   GOOGLE_PLACE_ID("googlePlaceId"),
   @SerialName("category")

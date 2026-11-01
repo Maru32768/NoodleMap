@@ -1,4 +1,5 @@
 import { MEAL_RECORDS_PATH } from "@/utils/path.ts";
+import { useIsPc } from "@/utils/use-is-pc.ts";
 import { Button, chakra } from "@chakra-ui/react";
 import { ReactNode } from "react";
 import { LuArrowLeft, LuArrowRight, LuBookOpen } from "react-icons/lu";
@@ -137,20 +138,27 @@ export function RecordShopLink({
   );
 }
 
-/** 地図に戻る: back to the map view this page was opened from, or the plain map. */
-export function BackToMapLink() {
+/** Where 地図に戻る leads: the map view this page was opened from, or the plain map. */
+export function useBackToMapTarget() {
   const location = useLocation();
   const returnToSearch = searchLocationIn(location.state);
+  return {
+    to: returnToSearch ?? "/search",
+    state: returnToSearch
+      ? { returnToSearch, restoreSearchCamera: true }
+      : undefined,
+  };
+}
+
+/** 地図に戻る, PC only: on phones the footer's 地図 tab does the same. */
+export function BackToMapLink() {
+  const { to, state } = useBackToMapTarget();
+  if (!useIsPc()) {
+    return null;
+  }
   return (
     <Button asChild variant="outline" size="sm">
-      <Link
-        to={returnToSearch ?? "/search"}
-        state={
-          returnToSearch
-            ? { returnToSearch, restoreSearchCamera: true }
-            : undefined
-        }
-      >
+      <Link to={to} state={state}>
         <LuArrowLeft aria-hidden="true" />
         地図に戻る
       </Link>

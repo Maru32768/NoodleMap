@@ -17,6 +17,7 @@ import {
   shopDisplaySystemTags,
   ShopEatenStatus,
   shopStatusLabel,
+  temporaryClosureLabel,
 } from "@/features/shops/status.ts";
 import { SystemTagChips, TagChips } from "@/features/shops/tag-chips.tsx";
 import { Box, Image } from "@chakra-ui/react";
@@ -77,6 +78,7 @@ export function DetailPanel({ shop, onAdminEdit, onClose }: DetailPanelProps) {
   const hasTagsBelow = displaySystemTags.length > 0 || showTags;
   const openedAtLabel = formatShopDate(shop.openedAt);
   const closedAtLabel = formatShopDate(shop.closedAt);
+  const closureLabel = temporaryClosureLabel(shop);
 
   return (
     <Box
@@ -280,6 +282,7 @@ export function DetailPanel({ shop, onAdminEdit, onClose }: DetailPanelProps) {
             ...(closedAtLabel
               ? [{ label: "Closed", value: closedAtLabel }]
               : []),
+            ...(closureLabel ? [{ label: "休業", value: closureLabel }] : []),
           ].map(({ label, value }) => (
             <Box
               key={label}

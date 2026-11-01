@@ -36,6 +36,12 @@ public data class Shop(
    */
   @SerialName("closedAt")
   public val closedAt: String? = null,
+  /**
+   * 臨時休業, past, current or upcoming. Absent when none is set. Clients judge it against today; a
+   * closed shop is closed, not on 臨時休業.
+   */
+  @SerialName("temporaryClosure")
+  public val temporaryClosure: TemporaryClosure? = null,
   @SerialName("postalCode")
   public val postalCode: String,
   @SerialName("address")

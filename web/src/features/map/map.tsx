@@ -128,6 +128,7 @@ function toGeoJson(shops: Shop[]) {
         state === "eaten"
           ? shop.favorite
           : state === "wish" && shop.wishLevel === "high";
+      const paused = shop.closureStatus === "temporarilyClosed";
 
       return {
         type: "Feature" as const,
@@ -139,7 +140,7 @@ function toGeoJson(shops: Shop[]) {
           catType: shop.category,
           state,
           accent,
-          icon: getPinImageId(state, shop.category, accent),
+          icon: getPinImageId(state, shop.category, accent, paused),
         },
         geometry: {
           type: "Point" as const,
@@ -186,8 +187,13 @@ function toUserLocationGeoJson(userLocation: UserLocation | null) {
   };
 }
 
-function getPinImageId(state: State, catType: string, accent: boolean) {
-  return `shop-pin-${state}-${catType}-${accent ? "accent" : "normal"}`;
+function getPinImageId(
+  state: State,
+  catType: string,
+  accent: boolean,
+  paused: boolean,
+) {
+  return `shop-pin-${state}-${catType}-${accent ? "accent" : "normal"}${paused ? "-paused" : ""}`;
 }
 
 function getPinStyle(state: State, catType: string) {
@@ -220,6 +226,7 @@ function createPinImage(
   state: State,
   catType: string,
   accent: boolean,
+  paused: boolean,
   glyphImage: HTMLImageElement | null,
 ) {
   const canvas = document.createElement("canvas");
@@ -232,7 +239,7 @@ function createPinImage(
   }
 
   ctx.scale(PIN_IMAGE_PIXEL_RATIO, PIN_IMAGE_PIXEL_RATIO);
-  drawPinImage(ctx, state, catType, accent, glyphImage);
+  drawPinImage(ctx, state, catType, accent, paused, glyphImage);
   return ctx.getImageData(0, 0, canvas.width, canvas.height);
 }
 
@@ -288,6 +295,7 @@ function drawPinImage(
   state: State,
   catType: string,
   accent: boolean,
+  paused: boolean,
   glyphImage: HTMLImageElement | null,
 ) {
   const { bodyColor, ringColor, glyphColor } = getPinStyle(state, catType);
@@ -346,6 +354,22 @@ function drawPinImage(
     ctx.strokeStyle = "#fffaf0";
     ctx.lineWidth = 1;
     ctx.stroke();
+  }
+
+  // 臨時休業: a 休 badge on the other shoulder.
+  if (paused) {
+    ctx.beginPath();
+    ctx.arc(x - 10, top + 8, 6.5, 0, Math.PI * 2);
+    ctx.fillStyle = "#3f4c59";
+    ctx.fill();
+    ctx.strokeStyle = "#fffaf0";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.fillStyle = "#fffaf0";
+    ctx.font = "bold 8px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("休", x - 10, top + 8.5);
   }
 
   ctx.restore();
@@ -408,16 +432,24 @@ async function ensurePinImages(map: MapLibreMap) {
   for (const state of ["closed", "eaten", "wish"] as const) {
     for (const catType of ["ramen", "udon"]) {
       for (const accent of [false, true]) {
-        const id = getPinImageId(state, catType, accent);
-        const { glyphColor } = getPinStyle(state, catType);
-        const glyphImage = glyphs[`${catType}:${glyphColor}`] ?? null;
-        const image = createPinImage(state, catType, accent, glyphImage);
-        if (map.hasImage(id)) {
-          map.updateImage(id, image);
-        } else {
-          map.addImage(id, image, {
-            pixelRatio: PIN_IMAGE_PIXEL_RATIO,
-          });
+        for (const paused of [false, true]) {
+          const id = getPinImageId(state, catType, accent, paused);
+          const { glyphColor } = getPinStyle(state, catType);
+          const glyphImage = glyphs[`${catType}:${glyphColor}`] ?? null;
+          const image = createPinImage(
+            state,
+            catType,
+            accent,
+            paused,
+            glyphImage,
+          );
+          if (map.hasImage(id)) {
+            map.updateImage(id, image);
+          } else {
+            map.addImage(id, image, {
+              pixelRatio: PIN_IMAGE_PIXEL_RATIO,
+            });
+          }
         }
       }
     }

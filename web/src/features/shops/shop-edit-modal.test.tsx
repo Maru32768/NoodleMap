@@ -472,6 +472,35 @@ describe("ShopEditModal links", () => {
     expect(requests[0].googlePlaceId).toBe("");
   });
 
+  it("sends the stored 臨時休業 back on save", async () => {
+    const { requests } = await renderEditor(
+      makeShop({
+        temporaryClosure: { startsOn: "2026-11-10", reopensOn: "2026-11-20" },
+      }),
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "保存" }));
+    await waitFor(() => expect(requests).toHaveLength(1));
+    expect(requests[0].temporaryClosure).toEqual({
+      startsOn: "2026-11-10",
+      reopensOn: "2026-11-20",
+    });
+  });
+
+  it("sends no start after 休業をクリア so the server clears it", async () => {
+    const { requests } = await renderEditor(
+      makeShop({ temporaryClosure: { startsOn: "2026-11-10" } }),
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "休業をクリア" }));
+    expect(
+      screen.queryByRole("button", { name: "休業をクリア" }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "保存" }));
+    await waitFor(() => expect(requests).toHaveLength(1));
+    expect(requests[0].temporaryClosure).toEqual({});
+  });
+
   it("omits links for a shop cached without them so saving keeps them", async () => {
     const { requests } = await renderEditor(makeShop({ links: undefined }));
 

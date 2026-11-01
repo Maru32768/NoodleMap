@@ -16,6 +16,7 @@ import { ShopsLoadState } from "@/features/shops/shops-load-state.tsx";
 import {
   shopDisplaySystemTags,
   shopStatusLabel,
+  temporaryClosureLabel,
 } from "@/features/shops/status.ts";
 import { SystemTagChips, TagChips } from "@/features/shops/tag-chips.tsx";
 import { useIsPc } from "@/utils/use-is-pc.ts";
@@ -37,9 +38,11 @@ const PEEK = { minPx: 132, ratio: 0.205, maxPx: 144 };
 const PEEK_SNAP = 1;
 const FULL_SNAP = 2;
 
+// The peek stays this tall above the footer, which covers the sheet's bottom.
 function getPeekRatio(
   viewportHeight: number,
   config: { minPx: number; ratio: number; maxPx: number },
+  footerHeight: number,
 ) {
   if (viewportHeight <= 0) {
     return config.ratio;
@@ -48,7 +51,7 @@ function getPeekRatio(
     config.maxPx,
     Math.max(config.minPx, viewportHeight * config.ratio),
   );
-  return height / viewportHeight;
+  return (height + footerHeight) / viewportHeight;
 }
 
 function MobileListItem({
@@ -127,10 +130,14 @@ export function MobileSheet({
   const [viewportHeight, setViewportHeight] = useState(() =>
     typeof window === "undefined" ? 0 : window.innerHeight,
   );
+  // --nm-footer-h includes the safe area, which only CSS knows; a probe measures it.
+  const footerProbeRef = useRef<HTMLDivElement>(null);
+  const [footerHeight, setFooterHeight] = useState(0);
 
   useEffect(() => {
     const handleResize = () => {
       setViewportHeight(window.innerHeight);
+      setFooterHeight(footerProbeRef.current?.offsetHeight ?? 0);
     };
     handleResize();
     window.addEventListener("resize", handleResize);
@@ -142,271 +149,288 @@ export function MobileSheet({
     sheetRef.current?.snapTo(PEEK_SNAP);
   }, [onClose]);
 
-  const snapPoints = [0, getPeekRatio(viewportHeight, PEEK), 1];
+  const snapPoints = [0, getPeekRatio(viewportHeight, PEEK, footerHeight), 1];
 
   if (isPc) {
     return null;
   }
 
   return (
-    <Sheet
-      ref={sheetRef}
-      isOpen
-      snapPoints={snapPoints}
-      onClose={onClose}
-      initialSnap={PEEK_SNAP}
-      disableDismiss
-      style={{ zIndex: 800 }}
-    >
-      <Sheet.Container
-        style={{
-          backgroundColor: "var(--chakra-colors-nm-paper)",
-          borderTopLeftRadius: "var(--chakra-radii-nmLg)",
-          borderTopRightRadius: "var(--chakra-radii-nmLg)",
-          boxShadow: "0 -10px 40px rgba(26,22,20,0.18)",
-          overflow: "hidden",
-        }}
+    <>
+      <Box
+        ref={footerProbeRef}
+        position="fixed"
+        h="var(--nm-footer-h)"
+        visibility="hidden"
+        pointerEvents="none"
+      />
+      <Sheet
+        ref={sheetRef}
+        isOpen
+        snapPoints={snapPoints}
+        onClose={onClose}
+        initialSnap={PEEK_SNAP}
+        disableDismiss
+        style={{ zIndex: 800 }}
       >
-        <Sheet.Header>
-          <Box display="flex" justifyContent="center" py="0.5rem" pb="0.25rem">
-            <Box w="36px" h="4px" bg="nm.inkFaint" borderRadius="2px" />
-          </Box>
-        </Sheet.Header>
-
-        <Sheet.Content
-          disableScroll={(state) => state.currentSnap !== FULL_SNAP}
+        <Sheet.Container
+          style={{
+            backgroundColor: "var(--chakra-colors-nm-paper)",
+            borderTopLeftRadius: "var(--chakra-radii-nmLg)",
+            borderTopRightRadius: "var(--chakra-radii-nmLg)",
+            boxShadow: "0 -10px 40px rgba(26,22,20,0.18)",
+            overflow: "hidden",
+          }}
         >
-          {shop ? (
+          <Sheet.Header>
             <Box
-              px="1.125rem"
-              pb="calc(1.125rem + env(safe-area-inset-bottom, 0px))"
+              display="flex"
+              justifyContent="center"
+              py="0.5rem"
+              pb="0.25rem"
             >
-              {/* Header row */}
-              <Box display="flex" gap="0.75rem" alignItems="flex-start">
-                <ShopThumb
-                  catType={shop.category}
-                  closed={shop.lifecycleStatus === "closed"}
-                  size="lg"
-                  photo={
-                    shop.coverPhotoUrl
-                      ? {
-                          url: shop.coverPhotoUrl,
-                          alt: `${shop.name}の代表写真`,
-                        }
-                      : undefined
-                  }
-                />
-
-                <Box flex="1" minWidth="0">
-                  <Box
-                    as="h2"
-                    fontFamily="display"
-                    fontSize="1.125rem"
-                    fontWeight={700}
-                    lineHeight="1.3"
-                    color="nm.ink"
-                  >
-                    {shop.name}
-                  </Box>
-                  <Box fontSize="0.6875rem" color="nm.inkMuted" mt="0.25rem">
-                    <CategoryBadge catType={shop.category} />
-                    <Box as="span" ml="0.5rem">
-                      <ShopAddressLink
-                        address={shop.address}
-                        mapsUrl={mapsUrl}
-                      />
-                    </Box>
-                  </Box>
-                  {shop.eaten && (
-                    <Box mt="0.375rem">
-                      <MiniHearts rate={shop.rate} />
-                    </Box>
-                  )}
-                  {shopDisplaySystemTags(shop).length > 0 && (
-                    <Box mt="0.5rem">
-                      <SystemTagChips
-                        tags={shopDisplaySystemTags(shop)}
-                        size="xs"
-                      />
-                    </Box>
-                  )}
-                  {currentUser.type === "admin" && shop.tags.length > 0 && (
-                    <Box mt="0.5rem">
-                      <TagChips tags={shop.tags} limit={3} size="xs" />
-                    </Box>
-                  )}
-                </Box>
-
-                <CloseButton
-                  w="30px"
-                  h="30px"
-                  minW="30px"
-                  minH="30px"
-                  p="0"
-                  borderRadius="full"
-                  bg="nm.bg"
-                  display="grid"
-                  placeItems="center"
-                  flexShrink={0}
-                  onClick={handleClose}
-                  aria-label="閉じる"
-                />
-              </Box>
-
-              {shop.eaten && (
-                <Box
-                  bg="nm.bg"
-                  borderRadius="nmMd"
-                  px="1rem"
-                  py="0.875rem"
-                  mt="0.875rem"
-                >
-                  <Box
-                    display="flex"
-                    alignItems="baseline"
-                    justifyContent="space-between"
-                    mb="0.5rem"
-                  >
-                    <Box
-                      fontFamily="mono"
-                      fontSize="0.625rem"
-                      letterSpacing="0.18em"
-                      color="nm.inkMuted"
-                      textTransform="uppercase"
-                    >
-                      お気に入り度
-                    </Box>
-                    <Box fontSize="0.6875rem" color="nm.inkMuted">
-                      {shop.mealRecordCount}件の記録
-                    </Box>
-                  </Box>
-                  <ShopRating shop={shop} compact />
-                </Box>
-              )}
-
-              <Box mt="0.875rem" fontSize="0.8125rem">
-                {[
-                  {
-                    label: "ADDRESS",
-                    value: (
-                      <ShopAddressLink
-                        address={shop.address}
-                        mapsUrl={mapsUrl}
-                      />
-                    ),
-                  },
-                  {
-                    label: "STATUS",
-                    value: shopStatusLabel(shop),
-                  },
-                ].map(({ label, value }) => (
-                  <Box
-                    key={label}
-                    py="0.625rem"
-                    borderBottom="1px dashed"
-                    borderBottomColor="nm.lineFaint"
-                    _last={{ borderBottom: "0" }}
-                  >
-                    <Box
-                      fontFamily="mono"
-                      fontSize="0.625rem"
-                      letterSpacing="0.15em"
-                      color="nm.inkMuted"
-                      mb="0.125rem"
-                    >
-                      {label}
-                    </Box>
-                    <Box color="nm.ink">{value}</Box>
-                  </Box>
-                ))}
-              </Box>
-
-              <Box mt="0.75rem">
-                <ShopLinkList links={shop.links} />
-              </Box>
-
-              {shop.eaten && (
-                <Box mt="1rem">
-                  <ShopMealRecordHistory shopId={shop.id} />
-                </Box>
-              )}
-
-              <Box display="flex" gap="0.5rem" mt="1rem">
-                <ShopActions
-                  shop={shop}
-                  mapsUrl={mapsUrl}
-                  mapsLabel="Google Maps"
-                  onAdminClick={
-                    currentUser.type === "admin"
-                      ? () => onAdminEdit(shop.id)
-                      : undefined
-                  }
-                />
-              </Box>
+              <Box w="36px" h="4px" bg="nm.inkFaint" borderRadius="2px" />
             </Box>
-          ) : (
-            <ShopsLoadState>
-              <Box
-                px="1.125rem"
-                pb="0.625rem"
-                display="flex"
-                alignItems="baseline"
-                gap="0.375rem"
-                borderBottom="1px solid"
-                borderBottomColor="nm.lineFaint"
-              >
-                <Box
-                  fontFamily="display"
-                  fontSize="1.375rem"
-                  fontWeight={700}
-                  color="nm.ink"
-                  lineHeight="1"
-                >
-                  {sortedShops.length}
+          </Sheet.Header>
+
+          <Sheet.Content
+            disableScroll={(state) => state.currentSnap !== FULL_SNAP}
+            style={{ paddingBottom: "var(--nm-footer-h)" }}
+          >
+            {shop ? (
+              <Box px="1.125rem" pb="1.125rem">
+                {/* Header row */}
+                <Box display="flex" gap="0.75rem" alignItems="flex-start">
+                  <ShopThumb
+                    catType={shop.category}
+                    closed={shop.lifecycleStatus === "closed"}
+                    size="lg"
+                    photo={
+                      shop.coverPhotoUrl
+                        ? {
+                            url: shop.coverPhotoUrl,
+                            alt: `${shop.name}の代表写真`,
+                          }
+                        : undefined
+                    }
+                  />
+
+                  <Box flex="1" minWidth="0">
+                    <Box
+                      as="h2"
+                      fontFamily="display"
+                      fontSize="1.125rem"
+                      fontWeight={700}
+                      lineHeight="1.3"
+                      color="nm.ink"
+                    >
+                      {shop.name}
+                    </Box>
+                    <Box fontSize="0.6875rem" color="nm.inkMuted" mt="0.25rem">
+                      <CategoryBadge catType={shop.category} />
+                      <Box as="span" ml="0.5rem">
+                        <ShopAddressLink
+                          address={shop.address}
+                          mapsUrl={mapsUrl}
+                        />
+                      </Box>
+                    </Box>
+                    {shop.eaten && (
+                      <Box mt="0.375rem">
+                        <MiniHearts rate={shop.rate} />
+                      </Box>
+                    )}
+                    {shopDisplaySystemTags(shop).length > 0 && (
+                      <Box mt="0.5rem">
+                        <SystemTagChips
+                          tags={shopDisplaySystemTags(shop)}
+                          size="xs"
+                        />
+                      </Box>
+                    )}
+                    {currentUser.type === "admin" && shop.tags.length > 0 && (
+                      <Box mt="0.5rem">
+                        <TagChips tags={shop.tags} limit={3} size="xs" />
+                      </Box>
+                    )}
+                  </Box>
+
+                  <CloseButton
+                    w="30px"
+                    h="30px"
+                    minW="30px"
+                    minH="30px"
+                    p="0"
+                    borderRadius="full"
+                    bg="nm.bg"
+                    display="grid"
+                    placeItems="center"
+                    flexShrink={0}
+                    onClick={handleClose}
+                    aria-label="閉じる"
+                  />
                 </Box>
-                <Box
-                  fontSize="0.6875rem"
-                  color="nm.inkMuted"
-                  letterSpacing="0.1em"
-                >
-                  件 / SHOPS
+
+                {shop.eaten && (
+                  <Box
+                    bg="nm.bg"
+                    borderRadius="nmMd"
+                    px="1rem"
+                    py="0.875rem"
+                    mt="0.875rem"
+                  >
+                    <Box
+                      display="flex"
+                      alignItems="baseline"
+                      justifyContent="space-between"
+                      mb="0.5rem"
+                    >
+                      <Box
+                        fontFamily="mono"
+                        fontSize="0.625rem"
+                        letterSpacing="0.18em"
+                        color="nm.inkMuted"
+                        textTransform="uppercase"
+                      >
+                        お気に入り度
+                      </Box>
+                      <Box fontSize="0.6875rem" color="nm.inkMuted">
+                        {shop.mealRecordCount}件の記録
+                      </Box>
+                    </Box>
+                    <ShopRating shop={shop} compact />
+                  </Box>
+                )}
+
+                <Box mt="0.875rem" fontSize="0.8125rem">
+                  {[
+                    {
+                      label: "ADDRESS",
+                      value: (
+                        <ShopAddressLink
+                          address={shop.address}
+                          mapsUrl={mapsUrl}
+                        />
+                      ),
+                    },
+                    {
+                      label: "STATUS",
+                      value: shopStatusLabel(shop),
+                    },
+                    ...[temporaryClosureLabel(shop)]
+                      .filter((label) => label !== null)
+                      .map((value) => ({ label: "休業", value })),
+                  ].map(({ label, value }) => (
+                    <Box
+                      key={label}
+                      py="0.625rem"
+                      borderBottom="1px dashed"
+                      borderBottomColor="nm.lineFaint"
+                      _last={{ borderBottom: "0" }}
+                    >
+                      <Box
+                        fontFamily="mono"
+                        fontSize="0.625rem"
+                        letterSpacing="0.15em"
+                        color="nm.inkMuted"
+                        mb="0.125rem"
+                      >
+                        {label}
+                      </Box>
+                      <Box color="nm.ink">{value}</Box>
+                    </Box>
+                  ))}
+                </Box>
+
+                <Box mt="0.75rem">
+                  <ShopLinkList links={shop.links} />
+                </Box>
+
+                {shop.eaten && (
+                  <Box mt="1rem">
+                    <ShopMealRecordHistory shopId={shop.id} />
+                  </Box>
+                )}
+
+                <Box display="flex" gap="0.5rem" mt="1rem">
+                  <ShopActions
+                    shop={shop}
+                    mapsUrl={mapsUrl}
+                    mapsLabel="Google Maps"
+                    onAdminClick={
+                      currentUser.type === "admin"
+                        ? () => onAdminEdit(shop.id)
+                        : undefined
+                    }
+                  />
                 </Box>
               </Box>
-              {sortedShops.length === 0 ? (
+            ) : (
+              <ShopsLoadState>
                 <Box
-                  textAlign="center"
-                  px="1.25rem"
-                  py="2rem"
-                  color="nm.inkFaint"
-                  fontSize="0.8125rem"
+                  px="1.125rem"
+                  pb="0.625rem"
+                  display="flex"
+                  alignItems="baseline"
+                  gap="0.375rem"
+                  borderBottom="1px solid"
+                  borderBottomColor="nm.lineFaint"
                 >
                   <Box
                     fontFamily="display"
-                    fontSize="1.125rem"
-                    color="nm.inkMuted"
-                    mb="0.375rem"
+                    fontSize="1.375rem"
+                    fontWeight={700}
+                    color="nm.ink"
+                    lineHeight="1"
                   >
-                    該当なし
+                    {sortedShops.length}
                   </Box>
-                  <Box>条件を変えて再度お試しください</Box>
+                  <Box
+                    fontSize="0.6875rem"
+                    color="nm.inkMuted"
+                    letterSpacing="0.1em"
+                  >
+                    件 / SHOPS
+                  </Box>
                 </Box>
-              ) : (
-                <Virtuoso
-                  style={{ height: "calc(88svh - 100px)" }}
-                  data={sortedShops}
-                  itemContent={(_, r) => (
-                    <MobileListItem
-                      key={r.id}
-                      shop={r}
-                      onClick={() => onSelect(r.id)}
-                    />
-                  )}
-                />
-              )}
-            </ShopsLoadState>
-          )}
-        </Sheet.Content>
-      </Sheet.Container>
-    </Sheet>
+                {sortedShops.length === 0 ? (
+                  <Box
+                    textAlign="center"
+                    px="1.25rem"
+                    py="2rem"
+                    color="nm.inkFaint"
+                    fontSize="0.8125rem"
+                  >
+                    <Box
+                      fontFamily="display"
+                      fontSize="1.125rem"
+                      color="nm.inkMuted"
+                      mb="0.375rem"
+                    >
+                      該当なし
+                    </Box>
+                    <Box>条件を変えて再度お試しください</Box>
+                  </Box>
+                ) : (
+                  <Virtuoso
+                    style={{
+                      height: "calc(88svh - 100px - var(--nm-footer-h))",
+                    }}
+                    data={sortedShops}
+                    itemContent={(_, r) => (
+                      <MobileListItem
+                        key={r.id}
+                        shop={r}
+                        onClick={() => onSelect(r.id)}
+                      />
+                    )}
+                  />
+                )}
+              </ShopsLoadState>
+            )}
+          </Sheet.Content>
+        </Sheet.Container>
+      </Sheet>
+    </>
   );
 }

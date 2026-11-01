@@ -52,6 +52,7 @@ union AddShopField {
   "address",
   "openedAt",
   "closedAt",
+  "temporaryClosure",
   "googlePlaceId",
   "category",
   "tagIds",
@@ -70,6 +71,7 @@ union ShopLinkType {
   "instagram",
   "facebook",
   "tabelog",
+  "reservation",
   "other",
 }
 
@@ -82,6 +84,7 @@ union UpdateShopField {
   "address",
   "openedAt",
   "closedAt",
+  "temporaryClosure",
   "googlePlaceId",
   "category",
   "eaten",
@@ -400,6 +403,9 @@ model Shop {
   @doc("Closing date as an ISO 8601 calendar date (YYYY-MM-DD). Absent when the shop is not closing.")
   closedAt?: string;
 
+  @doc("臨時休業, past, current or upcoming. Absent when none is set. Clients judge it against today; a closed shop is closed, not on 臨時休業.")
+  temporaryClosure?: TemporaryClosure;
+
   postalCode: string;
   address: string;
 
@@ -588,6 +594,20 @@ model MenuItemInput {
   price?: int32;
 }
 
+model TemporaryClosure {
+  @doc("First day of the closure (YYYY-MM-DD).")
+  startsOn: string;
+
+  @doc("Day the shop opens again (YYYY-MM-DD), after startsOn. Absent when not decided.")
+  reopensOn?: string;
+}
+
+@doc("A blank or missing startsOn means no 臨時休業. reopensOn needs startsOn and must come after it.")
+model TemporaryClosureInput {
+  startsOn?: string;
+  reopensOn?: string;
+}
+
 model ShopLink {
   type: ShopLinkType;
 
@@ -648,6 +668,9 @@ model AddShopRequest {
   openedAt?: string;
   closedAt?: string;
 
+  @doc("Omit when the shop has no 臨時休業.")
+  temporaryClosure?: TemporaryClosureInput;
+
   @doc("Omit (or send a blank string) for a shop entered by hand. Must be unique among shops when set.")
   googlePlaceId?: string;
 
@@ -674,6 +697,9 @@ model UpdateShopRequest {
   address: string;
   openedAt?: string;
   closedAt?: string;
+
+  @doc("Omit to keep the stored 臨時休業 (older clients); an object without startsOn clears it.")
+  temporaryClosure?: TemporaryClosureInput;
 
   @doc("Omit to keep the stored place id (older clients); a blank string clears it.")
   googlePlaceId?: string;

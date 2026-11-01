@@ -1304,6 +1304,7 @@ components:
         - address
         - openedAt
         - closedAt
+        - temporaryClosure
         - googlePlaceId
         - category
         - tagIds
@@ -1350,6 +1351,10 @@ components:
           type: string
         closedAt:
           type: string
+        temporaryClosure:
+          allOf:
+            - $ref: '#/components/schemas/TemporaryClosureInput'
+          description: Omit when the shop has no 臨時休業.
         googlePlaceId:
           type: string
           description: Omit (or send a blank string) for a shop entered by hand. Must be unique among shops when set.
@@ -2013,6 +2018,10 @@ components:
         closedAt:
           type: string
           description: Closing date as an ISO 8601 calendar date (YYYY-MM-DD). Absent when the shop is not closing.
+        temporaryClosure:
+          allOf:
+            - $ref: '#/components/schemas/TemporaryClosure'
+          description: 臨時休業, past, current or upcoming. Absent when none is set. Clients judge it against today; a closed shop is closed, not on 臨時休業.
         postalCode:
           type: string
         address:
@@ -2104,6 +2113,7 @@ components:
         - instagram
         - facebook
         - tabelog
+        - reservation
         - other
     ShopsResponse:
       type: object
@@ -2201,6 +2211,25 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Tag'
+    TemporaryClosure:
+      type: object
+      required:
+        - startsOn
+      properties:
+        startsOn:
+          type: string
+          description: First day of the closure (YYYY-MM-DD).
+        reopensOn:
+          type: string
+          description: Day the shop opens again (YYYY-MM-DD), after startsOn. Absent when not decided.
+    TemporaryClosureInput:
+      type: object
+      properties:
+        startsOn:
+          type: string
+        reopensOn:
+          type: string
+      description: A blank or missing startsOn means no 臨時休業. reopensOn needs startsOn and must come after it.
     UpdateMealRecordImageRequest:
       type: object
       properties:
@@ -2234,6 +2263,7 @@ components:
         - address
         - openedAt
         - closedAt
+        - temporaryClosure
         - googlePlaceId
         - category
         - eaten
@@ -2283,6 +2313,10 @@ components:
           type: string
         closedAt:
           type: string
+        temporaryClosure:
+          allOf:
+            - $ref: '#/components/schemas/TemporaryClosureInput'
+          description: Omit to keep the stored 臨時休業 (older clients); an object without startsOn clears it.
         googlePlaceId:
           type: string
           description: Omit to keep the stored place id (older clients); a blank string clears it.

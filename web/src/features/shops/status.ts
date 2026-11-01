@@ -17,6 +17,9 @@ export type ShopLifecycleStatus =
 
 export type ShopRecencyStatus = "new" | "regular";
 
+// 臨時休業 (GLOSSARY.md), judged against today: "none" also once the shop reopens or is closed.
+export type ShopClosureStatus = "planned" | "temporarilyClosed" | "none";
+
 export type ShopEatenStatus = "eaten" | "uneaten";
 
 // A shop counts as "new" for one year after it opens.
@@ -57,6 +60,39 @@ export function shopLifecycleStatus(
     return "closingSoon";
   }
   return "open";
+}
+
+export function shopClosureStatus(
+  shop: Pick<Shop, "temporaryClosure" | "closedAtDate">,
+  now: Dayjs = dayjs(),
+): ShopClosureStatus {
+  const startsOn = parseShopDate(shop.temporaryClosure?.startsOn);
+  const closed =
+    shop.closedAtDate !== null && !shop.closedAtDate.isAfter(now, "day");
+  if (startsOn === null || closed) {
+    return "none";
+  }
+  if (startsOn.isAfter(now, "day")) {
+    return "planned";
+  }
+  const reopensOn = parseShopDate(shop.temporaryClosure?.reopensOn);
+  return reopensOn === null || reopensOn.isAfter(now, "day")
+    ? "temporarilyClosed"
+    : "none";
+}
+
+// The 臨時休業 period while it is planned or current, e.g. "2025/6/10〜（6/20 再開）".
+export function temporaryClosureLabel(
+  shop: Pick<Shop, "temporaryClosure" | "closureStatus">,
+): string | null {
+  if (shop.closureStatus === "none") {
+    return null;
+  }
+  const start = formatShopDate(shop.temporaryClosure?.startsOn);
+  const reopen = parseShopDate(shop.temporaryClosure?.reopensOn);
+  return reopen
+    ? `${start}〜（${reopen.format("M/D")} 再開）`
+    : `${start}〜 再開日未定`;
 }
 
 export function shopRecencyStatus(
@@ -115,6 +151,8 @@ export type SystemTagSlug =
   | "system:new"
   | "system:upcoming"
   | "system:closingSoon"
+  | "system:closurePlanned"
+  | "system:temporarilyClosed"
   | "system:closed";
 
 export interface SystemTagDef {
@@ -141,6 +179,18 @@ export const SYSTEM_TAGS: SystemTagDef[] = [
     color: "#6e2117",
     showOnShop: true,
   },
+  {
+    slug: "system:closurePlanned",
+    label: "休業予定",
+    color: "#5d6b78",
+    showOnShop: true,
+  },
+  {
+    slug: "system:temporarilyClosed",
+    label: "臨時休業",
+    color: "#3f4c59",
+    showOnShop: true,
+  },
   { slug: "system:open", label: "営業店", color: "#6b7a3c", showOnShop: false },
   { slug: "system:closed", label: "閉店", color: "#1a1614", showOnShop: true },
 ];
@@ -158,20 +208,25 @@ export const DEFAULT_SYSTEM_TAG_SELECTION: SystemTagSlug[] = SYSTEM_TAGS.filter(
 ).map((tag) => tag.slug);
 
 // The system tag slugs a shop currently has: its single lifecycle status plus
-// the orthogonal `new` flag.
+// the orthogonal `new` flag and 臨時休業 state.
 export function shopSystemTagSlugs(
-  shop: Pick<Shop, "lifecycleStatus" | "recencyStatus">,
+  shop: Pick<Shop, "lifecycleStatus" | "recencyStatus" | "closureStatus">,
 ): SystemTagSlug[] {
   const slugs: SystemTagSlug[] = [`system:${shop.lifecycleStatus}`];
   if (shop.recencyStatus === "new") {
     slugs.push("system:new");
+  }
+  if (shop.closureStatus === "planned") {
+    slugs.push("system:closurePlanned");
+  } else if (shop.closureStatus === "temporarilyClosed") {
+    slugs.push("system:temporarilyClosed");
   }
   return slugs;
 }
 
 // System tags shown as chips on a shop (excludes the default 営業中 state).
 export function shopDisplaySystemTags(
-  shop: Pick<Shop, "lifecycleStatus" | "recencyStatus">,
+  shop: Pick<Shop, "lifecycleStatus" | "recencyStatus" | "closureStatus">,
 ): SystemTagDef[] {
   const slugs = new Set<string>(shopSystemTagSlugs(shop));
   return SYSTEM_TAGS.filter((tag) => tag.showOnShop && slugs.has(tag.slug));

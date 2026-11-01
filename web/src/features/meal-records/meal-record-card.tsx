@@ -6,7 +6,7 @@ import { MiniHearts } from "@/features/shops/rating-hearts.tsx";
 import { Box, chakra, Image } from "@chakra-ui/react";
 import { useState } from "react";
 
-const PLACEHOLDER_BG: Record<CategorySlug | "unknown", string> = {
+export const PLACEHOLDER_BG: Record<CategorySlug | "unknown", string> = {
   ramen: "linear-gradient(135deg, #e8d5b7, #c9a06a)",
   udon: "linear-gradient(135deg, #ede5cf, #b8a87a)",
   unknown: "#e4ddd0",

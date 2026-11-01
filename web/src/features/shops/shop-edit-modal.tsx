@@ -63,6 +63,9 @@ interface ShopEditDraft {
   category: CategorySlug;
   openedAt?: string;
   closedAt?: string;
+  // 臨時休業; no start means none.
+  closureStartsOn?: string;
+  closureReopensOn?: string;
   // "" is 未設定.
   wishLevel: WishLevel | "";
   tagIds: string[];
@@ -310,6 +313,7 @@ const FIELDS_WITH_INPUT: readonly UpdateShopField[] = [
   "address",
   "openedAt",
   "closedAt",
+  "temporaryClosure",
   "googlePlaceId",
   "category",
   "tagIds",
@@ -334,6 +338,11 @@ function toUpdateCommand(
     address: draft.address,
     openedAt: draft.openedAt,
     closedAt: draft.closedAt,
+    // Always sent: without startsOn it clears the stored 臨時休業.
+    temporaryClosure: {
+      startsOn: draft.closureStartsOn,
+      reopensOn: draft.closureStartsOn ? draft.closureReopensOn : undefined,
+    },
     // Blank clears the stored Place ID.
     googlePlaceId: draft.googlePlaceId.trim(),
     category: draft.category,
@@ -373,6 +382,8 @@ export function ShopEditModal({
     category: shop.category,
     openedAt: shop.openedAt,
     closedAt: shop.closedAt,
+    closureStartsOn: shop.temporaryClosure?.startsOn,
+    closureReopensOn: shop.temporaryClosure?.reopensOn,
     wishLevel: shop.wishLevel ?? "",
     tagIds: shop.tags.map((tag) => tag.id),
     // `links` is missing while an older server is still deployed.
@@ -443,6 +454,14 @@ export function ShopEditModal({
     if (isUpdateShopField(k)) {
       clearErrors([k]);
     }
+  };
+
+  const setClosure = (
+    k: "closureStartsOn" | "closureReopensOn",
+    v: string | undefined,
+  ) => {
+    setDraft((d) => ({ ...d, [k]: v }));
+    clearErrors(["temporaryClosure"]);
   };
 
   const draftTagIds = draft.tagIds;
@@ -851,8 +870,47 @@ export function ShopEditModal({
                     type="date"
                   />
                 </FormField>
+                <FormField
+                  label={<FieldLabel>臨時休業 開始日</FieldLabel>}
+                  error={errorOf("temporaryClosure")}
+                >
+                  <FormInput
+                    value={draft.closureStartsOn ?? ""}
+                    onChange={(v) =>
+                      setClosure("closureStartsOn", v || undefined)
+                    }
+                    mono
+                    type="date"
+                  />
+                </FormField>
+                <FormField
+                  label={<FieldLabel>再開日（未定なら空）</FieldLabel>}
+                >
+                  <Box display="flex" gap="8px" alignItems="center">
+                    <FormInput
+                      value={draft.closureReopensOn ?? ""}
+                      onChange={(v) =>
+                        setClosure("closureReopensOn", v || undefined)
+                      }
+                      mono
+                      type="date"
+                    />
+                    {(draft.closureStartsOn || draft.closureReopensOn) && (
+                      <Button
+                        {...linkButtonProps}
+                        flexShrink={0}
+                        onClick={() => {
+                          setClosure("closureStartsOn", undefined);
+                          setClosure("closureReopensOn", undefined);
+                        }}
+                      >
+                        休業をクリア
+                      </Button>
+                    )}
+                  </Box>
+                </FormField>
                 <Box gridColumn="span 2">
-                  <FieldLabel>リンク（公式サイト・SNS）</FieldLabel>
+                  <FieldLabel>リンク（公式サイト・SNS・予約）</FieldLabel>
                   <ShopLinksEditor
                     links={draft.links}
                     onChange={(links) => set("links", links)}

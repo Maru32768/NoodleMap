@@ -8,7 +8,6 @@ import {
   DrawerRoot,
   DrawerTitle,
 } from "@/components/ui/drawer.tsx";
-import { AccountLink } from "@/features/auth/account-link.tsx";
 import { FlyToLocationButton } from "@/features/map/fly-to-location-button.tsx";
 import {
   LocationTrackingMode,
@@ -39,6 +38,7 @@ import {
   useState,
 } from "react";
 import { CiFilter } from "react-icons/ci";
+import { LuX } from "react-icons/lu";
 import { useLocation, useSearchParams } from "react-router";
 
 const DEFAULT_CENTER = { lat: 35.6895315, lng: 139.700492 } as const;
@@ -97,6 +97,26 @@ function MobileSearchBar({
           onQueryChange(e.target.value);
         }}
       />
+      {query && (
+        <Button
+          variant="plain"
+          w="28px"
+          h="28px"
+          minW="28px"
+          minH="28px"
+          p="0"
+          borderRadius="full"
+          color="nm.inkMuted"
+          display="grid"
+          placeItems="center"
+          // Keeps the keyboard up: the input keeps focus.
+          onPointerDown={(e) => e.preventDefault()}
+          onClick={() => onQueryChange("")}
+          aria-label="検索語をクリア"
+        >
+          <LuX style={{ width: 18, height: 18 }} />
+        </Button>
+      )}
       <Button
         variant="plain"
         w="34px"
@@ -113,7 +133,6 @@ function MobileSearchBar({
       >
         <CiFilter style={{ width: 22, height: 22 }} />
       </Button>
-      <AccountLink />
     </Box>
   );
 }
@@ -356,7 +375,8 @@ export default function SearchPage() {
               { label: "食べた", bg: "nm.shu" },
               { label: "気になる", bg: "nm.paper", border: "nm.inkSoft" },
               { label: "閉店", bg: "nm.ink" },
-            ].map(({ label, bg, border }) => (
+              { label: "臨時休業", bg: "#3f4c59", glyph: "休" },
+            ].map(({ label, bg, border, glyph }) => (
               <Box
                 key={label}
                 display="flex"
@@ -365,14 +385,24 @@ export default function SearchPage() {
                 color="nm.inkSoft"
               >
                 <Box
-                  w="10px"
-                  h="10px"
+                  w={glyph ? "14px" : "10px"}
+                  h={glyph ? "14px" : "10px"}
                   borderRadius="full"
                   bg={bg}
-                  border={border ? "2px solid" : "2px solid white"}
+                  border={
+                    border ? "2px solid" : glyph ? "0" : "2px solid white"
+                  }
                   borderColor={border ?? "white"}
                   boxShadow={`0 0 0 1px var(--chakra-colors-nm-line-strong)`}
-                />
+                  display="grid"
+                  placeItems="center"
+                  color="white"
+                  fontSize="8px"
+                  fontWeight={700}
+                  lineHeight={1}
+                >
+                  {glyph}
+                </Box>
                 {label}
               </Box>
             ))}

@@ -1,14 +1,15 @@
 import {
+  BackToMapLink,
   RecordShopLink,
   RecordVenueLink,
   restoresSearchCamera,
-  BackToMapLink,
 } from "@/features/meal-records/record-navigation.tsx";
+import { stubPcWidth } from "@/test/media.ts";
 import { renderWithProviders } from "@/test/render.tsx";
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 function mount(
   initialEntries: NonNullable<
@@ -38,7 +39,15 @@ function mount(
   return router;
 }
 
+// 地図に戻る is PC only: on phones the footer's 地図 tab does it.
+const backToMap = () => screen.getByRole("link", { name: "地図に戻る" });
+
 describe("record navigation", () => {
+  beforeEach(() => {
+    stubPcWidth();
+    return () => vi.restoreAllMocks();
+  });
+
   it("returns through the router to the complete original search URL and preserves its camera", async () => {
     const router = mount([
       {
@@ -51,7 +60,7 @@ describe("record navigation", () => {
     await userEvent.click(screen.getByRole("link", { name: "会場へ" }));
     await userEvent.click(screen.getByRole("link", { name: "別の会場へ" }));
     expect(router.state.location.pathname).toBe("/venues/two");
-    const back = screen.getByRole("link", { name: "地図に戻る" });
+    const back = backToMap();
     expect(back).toHaveAttribute("href", "/search?shop=a&custom=one#details");
     await userEvent.click(back);
     expect(router.state.location).toMatchObject({
@@ -64,7 +73,7 @@ describe("record navigation", () => {
       returnToSearch: { state: { source: "saved" } },
     });
     await userEvent.click(screen.getByRole("link", { name: "会場へ" }));
-    expect(screen.getByRole("link", { name: "地図に戻る" })).toHaveAttribute(
+    expect(backToMap()).toHaveAttribute(
       "href",
       "/search?shop=a&custom=one#details",
     );
@@ -72,7 +81,7 @@ describe("record navigation", () => {
 
   it("uses the app search route for a direct venue URL", async () => {
     const router = mount(["/venues/one"]);
-    await userEvent.click(screen.getByRole("link", { name: "地図に戻る" }));
+    await userEvent.click(backToMap());
     expect(router.state.location.pathname).toBe("/search");
     expect(restoresSearchCamera(router.state.location.state)).toBe(false);
   });

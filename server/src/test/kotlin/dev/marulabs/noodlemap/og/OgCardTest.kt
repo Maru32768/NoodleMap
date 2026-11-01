@@ -111,6 +111,19 @@ class OgCardTest {
     }
 
     @Test
+    fun `temporary closure chips mirror the web status rules`() {
+        fun labels(startsOn: String?, reopensOn: String?, closed: String? = null) =
+            lifecycleChips(null, closed, today, startsOn, reopensOn).map { it.label }
+        val tomorrow = today.plusDays(1).toString()
+        val yesterday = today.minusDays(1).toString()
+        labels(tomorrow, null) shouldBe listOf("休業予定")
+        labels(today.toString(), null) shouldBe listOf("臨時休業")
+        labels(yesterday, tomorrow) shouldBe listOf("臨時休業")
+        labels(yesterday, today.toString()) shouldBe emptyList()
+        labels(yesterday, null, closed = today.toString()) shouldBe listOf("閉店")
+    }
+
+    @Test
     fun `area is prefecture plus municipality`() {
         mapOf(
             "東京都新宿区西新宿2-8-1" to "東京都新宿区",

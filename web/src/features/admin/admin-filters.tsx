@@ -37,6 +37,7 @@ const MEAL_RECORD_OPTIONS: readonly SegmentedOption<MealRecordFilter>[] = [
   { id: "all", label: "全て" },
   { id: "eaten", label: "食べた" },
   { id: "wish", label: "気になる" },
+  { id: "temporarilyClosed", label: "臨時休業" },
   { id: "closed", label: "閉店" },
 ];
 

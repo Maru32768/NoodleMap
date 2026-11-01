@@ -67,7 +67,10 @@ data class OgCard(
                 CategorySlug.RAMEN -> "ラーメン"
                 CategorySlug.UDON -> "うどん"
             },
-            statuses = listOf(eatenChip(shop)) + lifecycleChips(shop.openedAt, shop.closedAt, today),
+            statuses = listOf(eatenChip(shop)) + lifecycleChips(
+                shop.openedAt, shop.closedAt, today,
+                shop.temporaryClosure?.startsOn, shop.temporaryClosure?.reopensOn,
+            ),
             tags = shop.tags.take(3).map { Chip(it.label, it.color) },
             // Down to the half heart the image can show, so rates drawn alike share one hash.
             hearts = shop.rate?.let { floor(minOf(5.0, it / 20) * 2) / 2 } ?: 0.0,
@@ -96,10 +99,21 @@ internal fun wishLevelLabel(level: WishLevel): String = when (level) {
 private const val NEW_SHOP_WINDOW_DAYS = 365
 
 /** The status chips the web shows on a shop; mirrors `web/src/features/shops/status.ts` (SYSTEM_TAGS). */
-internal fun lifecycleChips(openedAt: String?, closedAt: String?, today: LocalDate): List<Chip> {
-    val opened = openedAt?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
-    val closed = closedAt?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+internal fun lifecycleChips(
+    openedAt: String?,
+    closedAt: String?,
+    today: LocalDate,
+    closureStartsOn: String? = null,
+    reopensOn: String? = null,
+): List<Chip> {
+    fun parse(date: String?) = date?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+    val opened = parse(openedAt)
+    val closed = parse(closedAt)
     val isClosed = closed != null && !closed.isAfter(today)
+    val closureStart = parse(closureStartsOn).takeIf { !isClosed }
+    val closurePlanned = closureStart != null && closureStart.isAfter(today)
+    val temporarilyClosed = closureStart != null && !closurePlanned &&
+        parse(reopensOn).let { it == null || it.isAfter(today) }
     val upcoming = !isClosed && opened != null && opened.isAfter(today)
     val closingSoon = !isClosed && !upcoming && closed != null
     val isNew = !isClosed && opened != null && !opened.isAfter(today) &&
@@ -108,6 +122,8 @@ internal fun lifecycleChips(openedAt: String?, closedAt: String?, today: LocalDa
         Chip("新店", "#8c2e21").takeIf { isNew },
         Chip("開店予定", "#8c7341").takeIf { upcoming },
         Chip("閉店予定", "#6e2117").takeIf { closingSoon },
+        Chip("休業予定", "#5d6b78").takeIf { closurePlanned },
+        Chip("臨時休業", "#3f4c59").takeIf { temporarilyClosed },
         Chip("閉店", "#1a1614").takeIf { isClosed },
     )
 }

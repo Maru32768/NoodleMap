@@ -15,6 +15,7 @@ export const SHOP_LINK_TYPE_LABEL: Readonly<Record<ShopLinkType, string>> = {
   instagram: "Instagram",
   facebook: "Facebook",
   tabelog: "食べログ",
+  reservation: "予約・整理券",
   other: "その他",
 };
 
@@ -30,6 +31,9 @@ const DOMAIN_TYPES: ReadonlyArray<[string, ShopLinkType]> = [
   ["facebook.com", "facebook"],
   ["fb.com", "facebook"],
   ["tabelog.com", "tabelog"],
+  ["tablecheck.com", "reservation"],
+  ["omakase.in", "reservation"],
+  ["airwait.jp", "reservation"],
 ];
 
 // WHATWG URL plus the server's extra rules: http(s) with a host, no userinfo,

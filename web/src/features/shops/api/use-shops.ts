@@ -1,10 +1,12 @@
 import type {
+  ShopClosureStatus,
   ShopEatenStatus,
   ShopLifecycleStatus,
   ShopRecencyStatus,
 } from "@/features/shops/status.ts";
 import {
   parseShopDate,
+  shopClosureStatus,
   shopEatenStatus,
   shopLifecycleStatus,
   shopRecencyStatus,
@@ -35,6 +37,7 @@ export type Shop = ApiShop & {
   readonly closedAtDate: Dayjs | null;
   readonly lifecycleStatus: ShopLifecycleStatus;
   readonly recencyStatus: ShopRecencyStatus;
+  readonly closureStatus: ShopClosureStatus;
   readonly eatenStatus: ShopEatenStatus;
 };
 
@@ -51,6 +54,7 @@ export function decorateShop(shop: ApiShop): Shop {
     ...datedShop,
     lifecycleStatus: shopLifecycleStatus(datedShop),
     recencyStatus: shopRecencyStatus(datedShop),
+    closureStatus: shopClosureStatus(datedShop),
     eatenStatus: shopEatenStatus(datedShop),
   };
 }
@@ -186,6 +190,16 @@ export function useShops(config?: SWRConfiguration<Shop[]>) {
                 shopFields.nameKana === undefined
                   ? current[i].nameKana
                   : shopFields.nameKana.trim() || undefined,
+              // Same: omitted keeps the 臨時休業; no startsOn clears it.
+              temporaryClosure:
+                shopFields.temporaryClosure === undefined
+                  ? current[i].temporaryClosure
+                  : shopFields.temporaryClosure.startsOn
+                    ? {
+                        startsOn: shopFields.temporaryClosure.startsOn,
+                        reopensOn: shopFields.temporaryClosure.reopensOn,
+                      }
+                    : undefined,
               googlePlaceId:
                 shopFields.googlePlaceId === undefined
                   ? current[i].googlePlaceId

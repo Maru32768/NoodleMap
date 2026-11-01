@@ -3,11 +3,13 @@ import {
   formatShopDate,
   isSystemTagSlug,
   parseShopDate,
+  shopClosureStatus,
   shopDisplaySystemTags,
   shopEatenStatus,
   shopLifecycleStatus,
   shopRecencyStatus,
   shopSystemTagSlugs,
+  temporaryClosureLabel,
 } from "@/features/shops/status.ts";
 import dayjs from "dayjs";
 import { describe, expect, it } from "vitest";
@@ -83,6 +85,81 @@ describe("shopRecencyStatus", () => {
   });
 });
 
+describe("shopClosureStatus", () => {
+  it.each([
+    ["none without a closure", undefined, undefined, undefined, "none"],
+    ["planned before it starts", "2025-06-16", undefined, undefined, "planned"],
+    [
+      "closed from its start",
+      "2025-06-15",
+      undefined,
+      undefined,
+      "temporarilyClosed",
+    ],
+    [
+      "closed until it reopens",
+      "2025-06-01",
+      "2025-06-16",
+      undefined,
+      "temporarilyClosed",
+    ],
+    [
+      "none from its reopening day",
+      "2025-06-01",
+      "2025-06-15",
+      undefined,
+      "none",
+    ],
+    [
+      "none once the shop is closed",
+      "2025-06-01",
+      undefined,
+      "2025-06-15",
+      "none",
+    ],
+    [
+      "planned before a later closing",
+      "2025-06-20",
+      undefined,
+      "2025-07-01",
+      "planned",
+    ],
+  ] as const)("%s", (_, startsOn, reopensOn, closedAt, expected) => {
+    expect(
+      shopClosureStatus(
+        {
+          temporaryClosure: startsOn ? { startsOn, reopensOn } : undefined,
+          closedAtDate: parseShopDate(closedAt),
+        },
+        now,
+      ),
+    ).toBe(expected);
+  });
+});
+
+describe("temporaryClosureLabel", () => {
+  it("shows the period only while planned or current", () => {
+    expect(
+      temporaryClosureLabel({
+        temporaryClosure: { startsOn: "2025-06-10", reopensOn: "2025-06-20" },
+        closureStatus: "temporarilyClosed",
+      }),
+    ).toBe("2025/6/10〜（6/20 再開）");
+    expect(
+      temporaryClosureLabel({
+        temporaryClosure: { startsOn: "2025-06-20" },
+        closureStatus: "planned",
+      }),
+    ).toBe("2025/6/20〜 再開日未定");
+    expect(
+      temporaryClosureLabel({
+        temporaryClosure: { startsOn: "2025-06-01", reopensOn: "2025-06-10" },
+        closureStatus: "none",
+      }),
+    ).toBeNull();
+  });
+});
+
 describe("shopEatenStatus", () => {
   it("maps the eaten flag", () => {
     expect(shopEatenStatus({ eaten: true })).toBe("eaten");
@@ -100,35 +177,57 @@ describe("system tags", () => {
   it("selects every status except closed by default", () => {
     expect([...DEFAULT_SYSTEM_TAG_SELECTION].sort()).toEqual([
       "system:closingSoon",
+      "system:closurePlanned",
       "system:new",
       "system:open",
+      "system:temporarilyClosed",
       "system:upcoming",
     ]);
   });
 
   it("gives a shop its lifecycle tag plus the new flag", () => {
     expect(
-      shopSystemTagSlugs({ lifecycleStatus: "open", recencyStatus: "new" }),
+      shopSystemTagSlugs({
+        lifecycleStatus: "open",
+        recencyStatus: "new",
+        closureStatus: "none",
+      }),
     ).toEqual(["system:open", "system:new"]);
     expect(
       shopSystemTagSlugs({
         lifecycleStatus: "closed",
         recencyStatus: "regular",
+        closureStatus: "none",
       }),
     ).toEqual(["system:closed"]);
+    expect(
+      shopSystemTagSlugs({
+        lifecycleStatus: "open",
+        recencyStatus: "regular",
+        closureStatus: "temporarilyClosed",
+      }),
+    ).toEqual(["system:open", "system:temporarilyClosed"]);
   });
 
   it("hides the default open state from shop chips", () => {
     const labels = (
       lifecycleStatus: "open" | "closingSoon",
       recencyStatus: "new" | "regular",
+      closureStatus: "planned" | "temporarilyClosed" | "none" = "none",
     ) =>
-      shopDisplaySystemTags({ lifecycleStatus, recencyStatus }).map(
-        (tag) => tag.label,
-      );
+      shopDisplaySystemTags({
+        lifecycleStatus,
+        recencyStatus,
+        closureStatus,
+      }).map((tag) => tag.label);
 
     expect(labels("open", "regular")).toEqual([]);
     expect(labels("open", "new")).toEqual(["新店"]);
     expect(labels("closingSoon", "new")).toEqual(["新店", "閉店予定"]);
+    expect(labels("open", "regular", "planned")).toEqual(["休業予定"]);
+    expect(labels("closingSoon", "regular", "temporarilyClosed")).toEqual([
+      "閉店予定",
+      "臨時休業",
+    ]);
   });
 });

@@ -24,6 +24,16 @@ describe("matchesMealRecordFilter", () => {
     ]);
   });
 
+  it("shows only shops on 臨時休業 now for 臨時休業", () => {
+    const paused = makeShop({ temporaryClosure: { startsOn: "2020-01-01" } });
+    const planned = makeShop({ temporaryClosure: { startsOn: "2999-01-01" } });
+    expect(
+      [...shops, paused, planned].filter((s) =>
+        matchesMealRecordFilter(s, "temporarilyClosed"),
+      ),
+    ).toEqual([paused]);
+  });
+
   it("shows only closed shops for 閉店", () => {
     expect(shops.filter((s) => matchesMealRecordFilter(s, "closed"))).toEqual([
       eatenClosed,

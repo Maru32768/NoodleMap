@@ -1,10 +1,15 @@
 import type { Shop } from "@/features/shops/api/use-shops.ts";
 
-export type MealRecordFilter = "all" | "eaten" | "wish" | "closed";
+export type MealRecordFilter =
+  | "all"
+  | "eaten"
+  | "wish"
+  | "temporarilyClosed"
+  | "closed";
 
-/** 食べた / 行きたい hide closed shops; 閉店 shows only them. */
+/** 食べた / 行きたい hide closed shops; 閉店 and 臨時休業 show only them. */
 export function matchesMealRecordFilter(
-  shop: Pick<Shop, "eaten" | "lifecycleStatus">,
+  shop: Pick<Shop, "eaten" | "lifecycleStatus" | "closureStatus">,
   filter: MealRecordFilter,
 ): boolean {
   switch (filter) {
@@ -14,6 +19,8 @@ export function matchesMealRecordFilter(
       return shop.eaten && shop.lifecycleStatus !== "closed";
     case "wish":
       return !shop.eaten && shop.lifecycleStatus !== "closed";
+    case "temporarilyClosed":
+      return shop.closureStatus === "temporarilyClosed";
     case "closed":
       return shop.lifecycleStatus === "closed";
   }

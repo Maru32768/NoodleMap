@@ -17,6 +17,8 @@ public enum class ShopLinkType(
   FACEBOOK("facebook"),
   @SerialName("tabelog")
   TABELOG("tabelog"),
+  @SerialName("reservation")
+  RESERVATION("reservation"),
   @SerialName("other")
   OTHER("other"),
   ;

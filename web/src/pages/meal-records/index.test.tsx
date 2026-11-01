@@ -8,6 +8,7 @@ import type {
 } from "@/features/meal-records/api/use-meal-records.ts";
 import MealRecordsPage from "@/pages/meal-records/index.tsx";
 import { makeShop } from "@/test/fixtures.ts";
+import { stubPcWidth } from "@/test/media.ts";
 import { renderWithProviders } from "@/test/render.tsx";
 import { server } from "@/test/server.ts";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -97,18 +98,51 @@ async function cardShopNames() {
     .map((element) => element.getAttribute("title"));
 }
 
-describe("MealRecordsPage", () => {
-  // jsdom has no ResizeObserver, which VirtuosoGrid uses on its custom scroll parent.
+// jsdom has no ResizeObserver, which VirtuosoGrid uses on its custom scroll parent.
+function stubResizeObserver() {
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  );
+}
+
+describe("MealRecordsPage on a phone", () => {
   beforeEach(() => {
-    vi.stubGlobal(
-      "ResizeObserver",
-      class {
-        observe() {}
-        unobserve() {}
-        disconnect() {}
-      },
-    );
+    stubResizeObserver();
     return () => vi.unstubAllGlobals();
+  });
+
+  it("shows square album tiles and keeps the filters in a drawer", async () => {
+    const user = userEvent.setup();
+    renderPage("/meal-records?venue=fes");
+
+    expect(
+      await screen.findByRole("button", { name: "ラーメン店 × うどん店" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("radio", { name: "うどん" }),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "絞り込み（1）" }));
+    const drawer = await screen.findByRole("dialog", { name: "絞り込み" });
+    expect(
+      within(drawer).getByRole("combobox", { name: "催事・出店先" }),
+    ).toHaveValue("fes");
+  });
+});
+
+describe("MealRecordsPage", () => {
+  beforeEach(() => {
+    stubResizeObserver();
+    stubPcWidth();
+    return () => {
+      vi.unstubAllGlobals();
+      vi.restoreAllMocks();
+    };
   });
 
   it("lists every record newest first and filters by any shop's category", async () => {

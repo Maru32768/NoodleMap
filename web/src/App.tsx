@@ -1,4 +1,5 @@
 import { Layout } from "@/components/layout/layout.tsx";
+import { MobileFooter } from "@/components/layout/mobile-footer.tsx";
 import { Loading } from "@/components/loading.tsx";
 import { ProtectedRoute } from "@/features/auth/protected-route.tsx";
 import { useAuth } from "@/features/auth/use-auth.ts";
@@ -105,6 +106,8 @@ function App() {
           <Route path="*" element={<Navigate to={SEARCH_PATH} replace />} />
         </Route>
       </Routes>
+      {!location.pathname.startsWith(ADMIN_PATH) &&
+        location.pathname !== LOGIN_PATH && <MobileFooter />}
     </CurrentUserProvider>
   );
 }

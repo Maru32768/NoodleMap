@@ -20,7 +20,12 @@ export default function VenuePage() {
   const [managing, setManaging] = useState(false);
   return (
     <Box ref={setScrollParent} h="100%" overflowY="auto" bg="nm.bg">
-      <Box maxW="1280px" mx="auto" p={{ base: "20px", md: "40px" }}>
+      <Box
+        maxW="1280px"
+        mx="auto"
+        p={{ base: "20px", md: "40px" }}
+        pb={{ base: "calc(20px + var(--nm-footer-h))", md: "40px" }}
+      >
         <BackToMapLink />
         <Box as="h1" fontSize="24px" fontWeight={700} mt="24px" mb="8px">
           {title}

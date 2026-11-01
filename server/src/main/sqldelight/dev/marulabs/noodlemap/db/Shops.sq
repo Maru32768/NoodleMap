@@ -14,7 +14,9 @@ CREATE TABLE shops (
     closed_at       TEXT,
     name_kana       TEXT,
     wish_level      TEXT CHECK (wish_level IN ('low', 'medium', 'high')),
-    rate            REAL CHECK (rate BETWEEN 0 AND 100)
+    rate            REAL CHECK (rate BETWEEN 0 AND 100),
+    temporary_closure_starts_on TEXT,
+    temporary_closure_reopens_on TEXT
 );
 
 -- (modtime trigger omitted; see note in Users.sq)
@@ -33,7 +35,9 @@ SELECT r.id,
        r.google_place_id,
        r.category,
        r.wish_level,
-       r.rate
+       r.rate,
+       r.temporary_closure_starts_on,
+       r.temporary_closure_reopens_on
 FROM shops r;
 
 insertShop:
@@ -56,6 +60,12 @@ SET name            = :name,
     category        = :category,
     -- Same for the 気になる度: NULL keeps it, '' clears it.
     wish_level      = NULLIF(COALESCE(:wishLevel, wish_level), '')
+WHERE id = :id;
+
+setTemporaryClosure:
+UPDATE shops
+SET temporary_closure_starts_on  = :startsOn,
+    temporary_closure_reopens_on = :reopensOn
 WHERE id = :id;
 
 setShopRate:

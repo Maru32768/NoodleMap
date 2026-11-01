@@ -1,7 +1,7 @@
 CREATE TABLE shop_links (
     id         TEXT AS java.util.UUID NOT NULL PRIMARY KEY,
     shop_id    TEXT AS java.util.UUID NOT NULL,
-    type       TEXT NOT NULL CHECK (type IN ('official', 'twitter', 'instagram', 'facebook', 'tabelog', 'other')),
+    type       TEXT NOT NULL CHECK (type IN ('official', 'twitter', 'instagram', 'facebook', 'tabelog', 'reservation', 'other')),
     label      TEXT,
     url        TEXT NOT NULL,
     sort_order INTEGER NOT NULL,

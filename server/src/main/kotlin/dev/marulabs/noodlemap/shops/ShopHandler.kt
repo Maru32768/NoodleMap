@@ -28,12 +28,15 @@ import dev.marulabs.noodlemap.generated.models.SetShopRateRequest
 import dev.marulabs.noodlemap.generated.models.ShopsResponse
 import dev.marulabs.noodlemap.generated.models.Tag
 import dev.marulabs.noodlemap.generated.models.TagsResponse
+import dev.marulabs.noodlemap.generated.models.TemporaryClosure
+import dev.marulabs.noodlemap.generated.models.TemporaryClosureInput
 import dev.marulabs.noodlemap.generated.models.UpdateShopRequest
 import dev.marulabs.noodlemap.generated.models.WishLevel
 import dev.marulabs.noodlemap.mealrecords.MealRecordImageStore
 import dev.marulabs.noodlemap.mealrecords.coverPhotoKeysByShop
 import dev.marulabs.noodlemap.mealrecords.mealRecordCountsByShop
 import java.net.IDN
+import java.time.LocalDate
 import java.util.UUID
 import org.sqlite.SQLiteErrorCode
 import org.sqlite.SQLiteException
@@ -174,6 +177,7 @@ class ShopHandler(
         val googlePlaceId = req.googlePlaceId?.trim()?.takeIf { it.isNotEmpty() }
         val links = normalizeLinks(req.links.orEmpty())
         val wishLevel = req.wishLevel?.let(::parseWishLevel)
+        val temporaryClosure = req.temporaryClosure?.let(::normalizeTemporaryClosure)
         db.transaction {
             rejectingDuplicatePlaceId {
                 db.shopsQueries.insertShop(
@@ -182,6 +186,7 @@ class ShopHandler(
                     wishLevel?.value,
                 )
             }
+            temporaryClosure?.let { db.shopsQueries.setTemporaryClosure(it.startsOn, it.reopensOn, shopId) }
             replaceShopTags(shopId, req.tagIds)
             replaceShopLinks(shopId, links)
         }
@@ -190,6 +195,7 @@ class ShopHandler(
             Shop(
                 id = shopId.toString(), name = req.name, nameKana = nameKana, lat = req.lat, lng = req.lng,
                 openedAt = ShopDate.encode(req.openedAt), closedAt = ShopDate.encode(req.closedAt),
+                temporaryClosure = temporaryClosure,
                 postalCode = req.postalCode, address = req.address, googlePlaceId = googlePlaceId,
                 eaten = false, favorite = false, mealRecordCount = 0, wishLevel = wishLevel?.value,
                 category = req.category,
@@ -219,6 +225,8 @@ class ShopHandler(
         val links = req.links?.let { normalizeLinks(it) }
         // Same for the 気になる度: missing keeps it, '' clears it.
         val wishLevel = req.wishLevel?.let { if (it.isEmpty()) "" else parseWishLevel(it).value }
+        // Missing (older clients) keeps the stored 臨時休業; an object without startsOn clears it.
+        val temporaryClosure = req.temporaryClosure?.let(::normalizeTemporaryClosure)
         db.transaction {
             // Write first and judge existence by rows affected: a SELECT before the first write
             // in a deferred WAL transaction can fail with SQLITE_BUSY_SNAPSHOT under contention.
@@ -232,6 +240,9 @@ class ShopHandler(
             if (updated == 0L) throw DomainException.NotFound()
             replaceShopTags(shopId, req.tagIds)
             links?.let { replaceShopLinks(shopId, it) }
+            if (req.temporaryClosure != null) {
+                db.shopsQueries.setTemporaryClosure(temporaryClosure?.startsOn, temporaryClosure?.reopensOn, shopId)
+            }
         }
 
         call.respond(HttpStatusCode.OK)
@@ -286,6 +297,9 @@ class ShopHandler(
             val shop = Shop(
                 id = r.id.toString(), name = r.name, nameKana = r.name_kana, lat = r.lat, lng = r.lng,
                 openedAt = ShopDate.decode(r.opened_at), closedAt = ShopDate.decode(r.closed_at),
+                temporaryClosure = r.temporary_closure_starts_on?.let {
+                    TemporaryClosure(startsOn = it, reopensOn = r.temporary_closure_reopens_on)
+                },
                 postalCode = r.postal_code, address = r.address, googlePlaceId = r.google_place_id,
                 eaten = mealRecordCount > 0, rate = r.rate, favorite = isFavorite(r.rate),
                 mealRecordCount = mealRecordCount, wishLevel = r.wish_level,
@@ -348,6 +362,26 @@ class ShopHandler(
         links.forEachIndexed { i, link ->
             db.shopLinksQueries.insertShopLink(UUID.randomUUID(), shopId, link.type.value, link.label, link.url, i.toLong())
         }
+    }
+
+    /** Null when startsOn is blank (no 臨時休業); reopensOn needs startsOn and must come after it. */
+    private fun normalizeTemporaryClosure(input: TemporaryClosureInput): TemporaryClosure? {
+        fun invalid(message: String, type: FieldErrorType): Nothing =
+            throw DomainException.InvalidRequestWithFields(message, listOf(FieldError("temporaryClosure", type)))
+        fun parse(raw: String?): LocalDate? = raw?.trim()?.takeIf { it.isNotEmpty() }?.let {
+            runCatching { LocalDate.parse(it) }.getOrNull() ?: invalid("invalid temporary closure date", FieldErrorType.INVALID_FORMAT)
+        }
+
+        val startsOn = parse(input.startsOn)
+        val reopensOn = parse(input.reopensOn)
+        if (startsOn == null) {
+            if (reopensOn != null) invalid("temporary closure reopening without a start", FieldErrorType.REQUIRED)
+            return null
+        }
+        if (reopensOn != null && !reopensOn.isAfter(startsOn)) {
+            invalid("temporary closure reopens before it starts", FieldErrorType.OUT_OF_RANGE)
+        }
+        return TemporaryClosure(startsOn = startsOn.toString(), reopensOn = reopensOn?.toString())
     }
 
     private fun parseWishLevel(raw: String): WishLevel =

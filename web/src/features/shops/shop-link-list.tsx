@@ -7,7 +7,7 @@ import {
 import { Box, Link } from "@chakra-ui/react";
 import type { IconType } from "react-icons";
 import { FaFacebook, FaInstagram, FaTwitter } from "react-icons/fa";
-import { LuGlobe, LuLink, LuUtensils } from "react-icons/lu";
+import { LuCalendarCheck, LuGlobe, LuLink, LuUtensils } from "react-icons/lu";
 
 const LINK_ICON: Readonly<
   Record<ShopLinkType, { icon: IconType; color?: string }>
@@ -17,6 +17,7 @@ const LINK_ICON: Readonly<
   instagram: { icon: FaInstagram },
   facebook: { icon: FaFacebook },
   tabelog: { icon: LuUtensils },
+  reservation: { icon: LuCalendarCheck },
   other: { icon: LuLink },
 };
 

@@ -57,7 +57,13 @@ export default function AccountPage() {
   };
 
   return (
-    <Box minH="100vh" bg="nm.bg" px="16px" py="32px">
+    <Box
+      minH="100vh"
+      bg="nm.bg"
+      px="16px"
+      pt="32px"
+      pb="calc(32px + var(--nm-footer-h))"
+    >
       <Box
         maxW="640px"
         mx="auto"

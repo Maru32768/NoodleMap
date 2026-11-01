@@ -53,6 +53,8 @@ describe("inferShopLinkType", () => {
     ["https://m.facebook.com/menya", "facebook"],
     ["https://fb.com/menya", "facebook"],
     ["https://tabelog.com/tokyo/A1304/A130401/13000000/", "tabelog"],
+    ["https://www.tablecheck.com/ja/shops/menya/reserve", "reservation"],
+    ["https://airwait.jp/WCSP/storeDetail?storeNo=1", "reservation"],
     ["  HTTPS://X.COM/menya  ", "twitter"],
     ["https://menya.example/", "other"],
     ["https://notx.com/", "other"],

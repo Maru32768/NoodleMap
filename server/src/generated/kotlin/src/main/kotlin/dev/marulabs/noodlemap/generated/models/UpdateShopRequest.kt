@@ -29,6 +29,11 @@ public data class UpdateShopRequest(
   @SerialName("closedAt")
   public val closedAt: String? = null,
   /**
+   * Omit to keep the stored 臨時休業 (older clients); an object without startsOn clears it.
+   */
+  @SerialName("temporaryClosure")
+  public val temporaryClosure: TemporaryClosureInput? = null,
+  /**
    * Omit to keep the stored place id (older clients); a blank string clears it.
    */
   @SerialName("googlePlaceId")

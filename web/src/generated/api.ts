@@ -433,7 +433,7 @@ export interface components {
             fieldErrors?: components["schemas"]["AddShopFieldError"][];
         };
         /** @enum {string} */
-        AddShopField: "name" | "nameKana" | "lat" | "lng" | "postalCode" | "address" | "openedAt" | "closedAt" | "googlePlaceId" | "category" | "tagIds" | "links" | "wishLevel";
+        AddShopField: "name" | "nameKana" | "lat" | "lng" | "postalCode" | "address" | "openedAt" | "closedAt" | "temporaryClosure" | "googlePlaceId" | "category" | "tagIds" | "links" | "wishLevel";
         AddShopFieldError: {
             field: components["schemas"]["AddShopField"];
             type: components["schemas"]["FieldErrorType"];
@@ -450,6 +450,8 @@ export interface components {
             address: string;
             openedAt?: string;
             closedAt?: string;
+            /** @description Omit when the shop has no 臨時休業. */
+            temporaryClosure?: components["schemas"]["TemporaryClosureInput"];
             /** @description Omit (or send a blank string) for a shop entered by hand. Must be unique among shops when set. */
             googlePlaceId?: string;
             category: components["schemas"]["CategorySlug"];
@@ -752,6 +754,8 @@ export interface components {
             openedAt?: string;
             /** @description Closing date as an ISO 8601 calendar date (YYYY-MM-DD). Absent when the shop is not closing. */
             closedAt?: string;
+            /** @description 臨時休業, past, current or upcoming. Absent when none is set. Clients judge it against today; a closed shop is closed, not on 臨時休業. */
+            temporaryClosure?: components["schemas"]["TemporaryClosure"];
             postalCode: string;
             address: string;
             /** @description Google Places place id. Absent when the shop was entered by hand. */
@@ -800,7 +804,7 @@ export interface components {
             url: string;
         };
         /** @enum {string} */
-        ShopLinkType: "official" | "twitter" | "instagram" | "facebook" | "tabelog" | "other";
+        ShopLinkType: "official" | "twitter" | "instagram" | "facebook" | "tabelog" | "reservation" | "other";
         ShopsResponse: {
             shops: components["schemas"]["Shop"][];
         };
@@ -838,6 +842,17 @@ export interface components {
         TagsResponse: {
             tags: components["schemas"]["Tag"][];
         };
+        TemporaryClosure: {
+            /** @description First day of the closure (YYYY-MM-DD). */
+            startsOn: string;
+            /** @description Day the shop opens again (YYYY-MM-DD), after startsOn. Absent when not decided. */
+            reopensOn?: string;
+        };
+        /** @description A blank or missing startsOn means no 臨時休業. reopensOn needs startsOn and must come after it. */
+        TemporaryClosureInput: {
+            startsOn?: string;
+            reopensOn?: string;
+        };
         /** @description Trimmed; blank or omitted clears the caption. */
         UpdateMealRecordImageRequest: {
             caption?: string;
@@ -849,7 +864,7 @@ export interface components {
             fieldErrors?: components["schemas"]["UpdateShopFieldError"][];
         };
         /** @enum {string} */
-        UpdateShopField: "name" | "nameKana" | "lat" | "lng" | "postalCode" | "address" | "openedAt" | "closedAt" | "googlePlaceId" | "category" | "eaten" | "rate" | "tagIds" | "links" | "wishLevel";
+        UpdateShopField: "name" | "nameKana" | "lat" | "lng" | "postalCode" | "address" | "openedAt" | "closedAt" | "temporaryClosure" | "googlePlaceId" | "category" | "eaten" | "rate" | "tagIds" | "links" | "wishLevel";
         UpdateShopFieldError: {
             field: components["schemas"]["UpdateShopField"];
             type: components["schemas"]["FieldErrorType"];
@@ -867,6 +882,8 @@ export interface components {
             address: string;
             openedAt?: string;
             closedAt?: string;
+            /** @description Omit to keep the stored 臨時休業 (older clients); an object without startsOn clears it. */
+            temporaryClosure?: components["schemas"]["TemporaryClosureInput"];
             /** @description Omit to keep the stored place id (older clients); a blank string clears it. */
             googlePlaceId?: string;
             category: components["schemas"]["CategorySlug"];

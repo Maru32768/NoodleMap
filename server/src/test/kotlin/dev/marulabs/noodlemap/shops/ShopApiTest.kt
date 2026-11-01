@@ -14,6 +14,8 @@ import dev.marulabs.noodlemap.generated.models.ShopLink
 import dev.marulabs.noodlemap.generated.models.ShopLinkInput
 import dev.marulabs.noodlemap.generated.models.ShopLinkType
 import dev.marulabs.noodlemap.generated.models.ShopsResponse
+import dev.marulabs.noodlemap.generated.models.TemporaryClosure
+import dev.marulabs.noodlemap.generated.models.TemporaryClosureInput
 import dev.marulabs.noodlemap.generated.models.MealRecord
 import dev.marulabs.noodlemap.postJson
 import dev.marulabs.noodlemap.putJson
@@ -149,10 +151,10 @@ class ShopApiTest {
         client.putJson("/api/v1/auth/shops/${added.id}", withoutLinks, admin).status shouldBe HttpStatusCode.OK
         client.shops().single().links shouldBe stored
 
-        val tabelog = ShopLinkInput(ShopLinkType.TABELOG, url = "https://tabelog.com/x")
-        client.putJson("/api/v1/auth/shops/${added.id}", encode(req.toUpdate().copy(links = listOf(req.links!![2], tabelog))), admin)
+        val reservation = ShopLinkInput(ShopLinkType.RESERVATION, url = "https://www.tablecheck.com/x")
+        client.putJson("/api/v1/auth/shops/${added.id}", encode(req.toUpdate().copy(links = listOf(req.links!![2], reservation))), admin)
             .status shouldBe HttpStatusCode.OK
-        client.shops().single().links shouldBe listOf(stored[2], ShopLink(ShopLinkType.TABELOG, url = "https://tabelog.com/x"))
+        client.shops().single().links shouldBe listOf(stored[2], ShopLink(ShopLinkType.RESERVATION, url = "https://www.tablecheck.com/x"))
 
         client.putJson("/api/v1/auth/shops/${added.id}", encode(req.toUpdate().copy(links = emptyList())), admin)
             .status shouldBe HttpStatusCode.OK
@@ -373,6 +375,55 @@ class ShopApiTest {
         client.shops().single().let {
             it.name shouldBe "Ramen Taro"
             it.wishLevel shouldBe "medium"
+        }
+    }
+
+    @Test
+    fun `temporary closure is set on add, kept when omitted, replaced when sent and cleared without a start`() = testApp { t ->
+        val admin = t.adminToken()
+        val req = addShopRequest().copy(temporaryClosure = TemporaryClosureInput(startsOn = " 2026-11-10 "))
+        val added = client.postJson("/api/v1/auth/shops", encode(req), admin).body<Shop>()
+        added.temporaryClosure shouldBe TemporaryClosure("2026-11-10")
+        client.shops().single().temporaryClosure shouldBe TemporaryClosure("2026-11-10")
+
+        // Older clients don't send the field; that must keep the stored closure.
+        client.putJson("/api/v1/auth/shops/${added.id}", encode(req.toUpdate()), admin).status shouldBe HttpStatusCode.OK
+        client.shops().single().temporaryClosure shouldBe TemporaryClosure("2026-11-10")
+
+        val reopening = TemporaryClosureInput(startsOn = "2026-11-10", reopensOn = "2026-11-20")
+        client.putJson("/api/v1/auth/shops/${added.id}", encode(req.toUpdate().copy(temporaryClosure = reopening)), admin)
+        client.shops().single().temporaryClosure shouldBe TemporaryClosure("2026-11-10", "2026-11-20")
+
+        client.putJson("/api/v1/auth/shops/${added.id}", encode(req.toUpdate().copy(temporaryClosure = TemporaryClosureInput(startsOn = " "))), admin)
+            .status shouldBe HttpStatusCode.OK
+        client.shops().single().temporaryClosure shouldBe null
+    }
+
+    @Test
+    fun `invalid temporary closures are field errors and nothing is written`() = testApp { t ->
+        val admin = t.adminToken()
+        fun closureError(message: String, type: FieldErrorType) =
+            ErrorBody(ErrorType.INVALID_REQUEST, message, listOf(FieldError("temporaryClosure", type)))
+        val cases = listOf(
+            TemporaryClosureInput(startsOn = "2026-13-01") to closureError("invalid temporary closure date", FieldErrorType.INVALID_FORMAT),
+            TemporaryClosureInput(reopensOn = "2026-11-20") to closureError("temporary closure reopening without a start", FieldErrorType.REQUIRED),
+            TemporaryClosureInput("2026-11-20", "2026-11-20") to closureError("temporary closure reopens before it starts", FieldErrorType.OUT_OF_RANGE),
+        )
+        for ((closure, error) in cases) {
+            client.postJson("/api/v1/auth/shops", encode(addShopRequest().copy(temporaryClosure = closure)), admin)
+                .body<ErrorBody>() shouldBe error
+        }
+        client.shops().shouldBeEmpty()
+
+        val req = addShopRequest().copy(temporaryClosure = TemporaryClosureInput(startsOn = "2026-11-10"))
+        val id = client.postJson("/api/v1/auth/shops", encode(req), admin).body<Shop>().id
+        for ((closure, error) in cases) {
+            client.putJson("/api/v1/auth/shops/$id", encode(req.toUpdate().copy(name = "Renamed", temporaryClosure = closure)), admin)
+                .body<ErrorBody>() shouldBe error
+        }
+        client.shops().single().let {
+            it.name shouldBe "Ramen Taro"
+            it.temporaryClosure shouldBe TemporaryClosure("2026-11-10")
         }
     }
 

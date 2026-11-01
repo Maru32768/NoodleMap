@@ -46,12 +46,27 @@ body {
   cursor: crosshair !important;
 }
 
+/* The mobile footer's height; pages keep this much free at their bottom. */
+:root {
+  --nm-footer-h: calc(3.5rem + env(safe-area-inset-bottom));
+}
+
+@media (min-width: 48em) {
+  :root {
+    --nm-footer-h: 0px;
+  }
+}
+
 .nm-map-shell {
-  --nm-mobile-sheet-peek: clamp(6.5rem, 14vh, 8.25rem);
+  --nm-mobile-sheet-peek: calc(
+    clamp(6.5rem, 14vh, 8.25rem) + var(--nm-footer-h)
+  );
 }
 
 .nm-map-shell--detail {
-  --nm-mobile-sheet-peek: clamp(8.25rem, 20.5vh, 9rem);
+  --nm-mobile-sheet-peek: calc(
+    clamp(8.25rem, 20.5vh, 9rem) + var(--nm-footer-h)
+  );
 }
 
 @media (max-width: 61.98em) {
