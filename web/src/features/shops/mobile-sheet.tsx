@@ -155,6 +155,28 @@ export function MobileSheet({
     sheetRef.current?.snapTo(COLLAPSED_SNAP);
   }, [onClose]);
 
+  // The map's controls ride just above the sheet, up to its peek height.
+  useEffect(() => {
+    const sheet = sheetRef.current;
+    if (!sheet) {
+      return;
+    }
+    const root = document.documentElement;
+    const update = (visible: number) => {
+      const peek = sheetRef.current?.snapPoints[PEEK_SNAP]?.snapValue;
+      root.style.setProperty(
+        "--nm-mobile-sheet-peek",
+        `${peek === undefined ? visible : Math.min(visible, peek)}px`,
+      );
+    };
+    update(sheet.yInverted.get());
+    const unsubscribe = sheet.yInverted.on("change", update);
+    return () => {
+      unsubscribe();
+      root.style.removeProperty("--nm-mobile-sheet-peek");
+    };
+  }, [isPc]);
+
   // A shop picked while the sheet is collapsed would show only its first line.
   const shopId = shop?.id;
   const shopSelectedRef = useRef(false);

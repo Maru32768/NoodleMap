@@ -342,9 +342,6 @@ export default function SearchPage({ active = true }: { active?: boolean }) {
         />
 
         <Box
-          className={
-            selectedShop ? "nm-map-shell nm-map-shell--detail" : "nm-map-shell"
-          }
           position="relative"
           bg="nm.bgSoft"
           overflow="hidden"
@@ -420,7 +417,7 @@ export default function SearchPage({ active = true }: { active?: boolean }) {
             position="absolute"
             bg="nm.bg"
             borderRadius="full"
-            bottom="calc(var(--nm-mobile-sheet-peek) + 0.75rem + env(safe-area-inset-bottom))"
+            bottom="calc(var(--nm-mobile-sheet-peek) + 0.75rem)"
             right={3}
             lg={{ bottom: 20, right: 5 }}
           >

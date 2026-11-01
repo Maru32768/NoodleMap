@@ -49,6 +49,8 @@ body {
 /* The mobile footer's height; pages keep this much free at their bottom. */
 :root {
   --nm-footer-h: calc(3.5rem + env(safe-area-inset-bottom));
+  /* How far the phone shop sheet reaches up; MobileSheet keeps it current. */
+  --nm-mobile-sheet-peek: var(--nm-footer-h);
 }
 
 @media (min-width: 48em) {
@@ -57,23 +59,9 @@ body {
   }
 }
 
-.nm-map-shell {
-  --nm-mobile-sheet-peek: calc(
-    clamp(6.5rem, 14vh, 8.25rem) + var(--nm-footer-h)
-  );
-}
-
-.nm-map-shell--detail {
-  --nm-mobile-sheet-peek: calc(
-    clamp(8.25rem, 20.5vh, 9rem) + var(--nm-footer-h)
-  );
-}
-
 @media (max-width: 61.98em) {
   .maplibregl-ctrl-bottom-left {
-    bottom: calc(
-      var(--nm-mobile-sheet-peek) + 0.25rem + env(safe-area-inset-bottom)
-    );
+    bottom: calc(var(--nm-mobile-sheet-peek) + 0.25rem);
   }
 }
 
