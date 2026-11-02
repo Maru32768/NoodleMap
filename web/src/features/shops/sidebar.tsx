@@ -28,6 +28,7 @@ import {
 import { Box, Input } from "@chakra-ui/react";
 import { isEqual } from "es-toolkit";
 import { useState } from "react";
+import { LuX } from "react-icons/lu";
 import { Virtuoso } from "react-virtuoso";
 
 const STATUS_PILL: Record<
@@ -709,80 +710,81 @@ export function Sidebar({
       </Box>
 
       {/* Search */}
-      <Box px="1.25rem" pt="0.5rem" pb="0.75rem" position="relative">
-        <Box
-          position="absolute"
-          left="2rem"
-          top="50%"
-          transform="translateY(-50%)"
-          w="16px"
-          h="16px"
-          color="nm.inkMuted"
-          pointerEvents="none"
-          zIndex={1}
-        >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2}
-            style={{ width: "100%", height: "100%" }}
-          >
-            <circle cx="11" cy="11" r="7" />
-            <path d="m20 20-3.5-3.5" />
-          </svg>
-        </Box>
-        <Input
-          w="100%"
-          pl="2.375rem"
-          pr={localQuery ? "2.25rem" : "0.875rem"}
-          py="0.6875rem"
-          h="auto"
-          bg="nm.bg"
-          border="1px solid"
-          borderColor="nm.line"
-          borderRadius="nmMd"
-          fontSize="0.875rem"
-          color="nm.ink"
-          outline="none"
-          transition="border-color 0.15s, background 0.15s"
-          _focus={{ borderColor: "nm.shu", bg: "white" }}
-          _placeholder={{ color: "nm.inkFaint" }}
-          placeholder="店名・読み・エリア・タグで検索..."
-          value={localQuery}
-          onChange={(e) => {
-            setLocalQuery(e.target.value);
-            onQueryChange(e.target.value);
-          }}
-        />
-        {localQuery && (
-          <Button
-            variant="plain"
+      <Box px="1.25rem" pt="0.5rem" pb="0.75rem">
+        <Box position="relative">
+          <Box
             position="absolute"
-            right="1.75rem"
+            left="0.75rem"
             top="50%"
             transform="translateY(-50%)"
-            w="22px"
-            h="22px"
-            minW="22px"
-            minH="22px"
-            p="0"
-            borderRadius="full"
-            bg="nm.inkFaint"
-            color="nm.paper"
-            display="grid"
-            placeItems="center"
-            fontSize="0.6875rem"
-            opacity={0.7}
-            _hover={{ opacity: 1 }}
-            onClick={() => {
-              setLocalQuery("");
-              onQueryChange("");
-            }}
+            w="16px"
+            h="16px"
+            color="nm.inkMuted"
+            pointerEvents="none"
+            zIndex={1}
           >
-            ×
-          </Button>
-        )}
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              style={{ width: "100%", height: "100%" }}
+            >
+              <circle cx="11" cy="11" r="7" />
+              <path d="m20 20-3.5-3.5" />
+            </svg>
+          </Box>
+          <Input
+            w="100%"
+            pl="2.375rem"
+            pr={localQuery ? "2.25rem" : "0.875rem"}
+            py="0.6875rem"
+            h="auto"
+            bg="nm.bg"
+            border="1px solid"
+            borderColor="nm.line"
+            borderRadius="nmMd"
+            fontSize="0.875rem"
+            color="nm.ink"
+            outline="none"
+            transition="border-color 0.15s, background 0.15s"
+            _focus={{ borderColor: "nm.shu", bg: "white" }}
+            _placeholder={{ color: "nm.inkFaint" }}
+            placeholder="店名・読み・エリア・タグで検索..."
+            value={localQuery}
+            onChange={(e) => {
+              setLocalQuery(e.target.value);
+              onQueryChange(e.target.value);
+            }}
+          />
+          {localQuery && (
+            <Button
+              variant="plain"
+              position="absolute"
+              right="0.5rem"
+              top="50%"
+              transform="translateY(-50%)"
+              w="22px"
+              h="22px"
+              minW="22px"
+              minH="22px"
+              p="0"
+              borderRadius="full"
+              bg="nm.inkFaint"
+              color="nm.paper"
+              display="grid"
+              placeItems="center"
+              opacity={0.7}
+              _hover={{ opacity: 1 }}
+              onClick={() => {
+                setLocalQuery("");
+                onQueryChange("");
+              }}
+            >
+              <LuX style={{ width: 12, height: 12 }} />
+            </Button>
+          )}
+        </Box>
       </Box>
 
       {/* Count */}
