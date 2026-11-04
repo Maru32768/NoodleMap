@@ -40,13 +40,16 @@ async function renderEditor(
     saveResponse = () => new HttpResponse(null, { status: 204 }),
     initialTab,
     tags = [],
+    rateResponse = () => new HttpResponse(null, { status: 204 }),
   }: {
     saveResponse?: () => Response | Promise<Response>;
     initialTab?: "info" | "mealRecord";
     tags?: Tag[];
+    rateResponse?: () => Response;
   } = {},
 ) {
   const requests: UpdateShopRequest[] = [];
+  const rates: components["schemas"]["SetShopRateRequest"][] = [];
   server.use(
     http.get("/api/v1/shops", () => HttpResponse.json({ shops: [target] })),
     http.get("/api/v1/tags", () => HttpResponse.json({ tags })),
@@ -56,6 +59,12 @@ async function renderEditor(
     http.put(`/api/v1/auth/shops/${target.id}`, async ({ request }) => {
       requests.push((await request.json()) as UpdateShopRequest);
       return saveResponse();
+    }),
+    http.put(`/api/v1/auth/shops/${target.id}/rate`, async ({ request }) => {
+      rates.push(
+        (await request.json()) as components["schemas"]["SetShopRateRequest"],
+      );
+      return rateResponse();
     }),
   );
   const onClose = vi.fn();
@@ -73,6 +82,7 @@ async function renderEditor(
   await screen.findByRole("dialog");
   return {
     requests,
+    rates,
     onClose,
     onDeleted,
     rerender: (shop: Shop) => rerender(modal(shop)),
@@ -153,9 +163,8 @@ describe("ShopEditModal save", () => {
     expect(requests[0]).toMatchObject({ name: "麺屋" });
   });
 
-  it("shows a field error under its input on the tab that has it", async () => {
+  it("shows a field error under its input", async () => {
     const { onClose } = await renderEditor(makeShop(), {
-      initialTab: "mealRecord",
       saveResponse: fieldErrorResponse([
         { field: "nameKana", type: "too_long" },
         { field: "googlePlaceId", type: "duplicate" },
@@ -164,7 +173,6 @@ describe("ShopEditModal save", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "保存" }));
 
-    // Switched from 食べた記録 to 店舗情報, where the first invalid field is.
     const kana = await screen.findByRole("textbox", {
       description: "100文字以内で入力してください",
     });
@@ -188,9 +196,8 @@ describe("ShopEditModal save", () => {
     ).toBeInTheDocument();
   });
 
-  it("switches to 店舗情報 for a 気になる度 error", async () => {
+  it("shows a 気になる度 error on its group", async () => {
     await renderEditor(makeShop({ eaten: false }), {
-      initialTab: "mealRecord",
       saveResponse: fieldErrorResponse([
         { field: "wishLevel", type: "invalid_format" },
       ]),
@@ -256,8 +263,6 @@ describe("ShopEditModal save", () => {
     expect(await screen.findByText("範囲外の値です")).toBeInTheDocument();
     expect(await screen.findByText("入力してください")).toBeInTheDocument();
     expect(screen.getAllByText("店舗を更新できませんでした")).toHaveLength(2);
-    // Stays on 店舗情報 rather than switching to an empty tab.
-    expect(screen.getByText("読み（ひらがな）")).toBeInTheDocument();
   });
 
   it("cannot be cancelled while saving", async () => {
@@ -652,6 +657,141 @@ describe("ShopEditModal 気になる度 across a refresh", () => {
 
     await waitFor(() => expect(requests).toHaveLength(1));
     expect(requests[0]).not.toHaveProperty("wishLevel");
+  });
+});
+
+describe("ShopEditModal 店舗のお気に入り度", () => {
+  const rateInput = () =>
+    screen.getByRole("spinbutton", { name: "店舗のお気に入り度" });
+  const save = () =>
+    userEvent.click(screen.getByRole("button", { name: "保存" }));
+
+  it("saves an edited rate with 保存, after the shop", async () => {
+    const { requests, rates, onClose } = await renderEditor(
+      makeShop({ rate: 40 }),
+    );
+    expect(rateInput()).toHaveValue(40);
+
+    await userEvent.clear(rateInput());
+    await userEvent.type(rateInput(), "95");
+    await save();
+
+    expect(await screen.findByText("保存しました")).toBeInTheDocument();
+    expect(requests).toHaveLength(1);
+    expect(rates).toEqual([{ rate: 95 }]);
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("clears the rate when left blank", async () => {
+    const { rates } = await renderEditor(makeShop({ rate: 40 }));
+
+    await userEvent.clear(rateInput());
+    await save();
+
+    await waitFor(() => expect(rates).toEqual([{}]));
+  });
+
+  it("sends no rate when it was not changed", async () => {
+    const { rates } = await renderEditor(makeShop({ rate: 40 }));
+
+    // Touched, but back to what is saved.
+    await userEvent.type(rateInput(), "1");
+    await userEvent.type(rateInput(), "{Backspace}");
+    await save();
+
+    expect(await screen.findByText("保存しました")).toBeInTheDocument();
+    expect(rates).toEqual([]);
+  });
+
+  it("refuses a rate out of range without any request", async () => {
+    const { requests, rates, onClose } = await renderEditor(makeShop());
+
+    await userEvent.clear(rateInput());
+    await userEvent.type(rateInput(), "101");
+    await save();
+
+    const input = await screen.findByRole("spinbutton", {
+      name: "店舗のお気に入り度",
+      description: "0〜100の範囲で入力してください",
+    });
+    expect(input).toHaveFocus();
+    expect(requests).toEqual([]);
+    expect(rates).toEqual([]);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("refuses a number the browser could not parse", async () => {
+    const { requests } = await renderEditor(makeShop({ rate: 40 }));
+
+    // jsdom cannot hold unparsable text in a number input; fake what a browser reports.
+    Object.defineProperty(rateInput(), "validity", {
+      value: { badInput: true },
+    });
+    await save();
+
+    expect(
+      await screen.findByText("数値で入力してください"),
+    ).toBeInTheDocument();
+    expect(requests).toEqual([]);
+  });
+
+  it("stays open when the rate fails, and saving again converges", async () => {
+    let response = () =>
+      HttpResponse.json({ type: "internal_error" }, { status: 500 });
+    const { rates, onClose } = await renderEditor(makeShop({ rate: 40 }), {
+      rateResponse: () => response(),
+    });
+
+    await userEvent.clear(rateInput());
+    await userEvent.type(rateInput(), "95");
+    await save();
+
+    expect(
+      await screen.findByText("店舗のお気に入り度を保存できませんでした"),
+    ).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+
+    response = () =>
+      new HttpResponse(null, { status: 204 }) as ReturnType<typeof response>;
+    await save();
+
+    expect(await screen.findByText("保存しました")).toBeInTheDocument();
+    expect(rates).toEqual([{ rate: 95 }, { rate: 95 }]);
+    expect(onClose).toHaveBeenCalled();
+  });
+});
+
+describe("ShopEditModal closing", () => {
+  it("closes without asking from 店舗情報's キャンセル, even with edits", async () => {
+    const { onClose } = await renderEditor(makeShop({ name: "麺屋" }));
+
+    await userEvent.type(screen.getByDisplayValue("麺屋"), "本店");
+    await userEvent.click(screen.getByRole("button", { name: "キャンセル" }));
+
+    expect(onClose).toHaveBeenCalled();
+    expect(
+      screen.queryByText("保存していない入力があります。破棄しますか？"),
+    ).toBeNull();
+  });
+
+  it("asks on Esc with edited shop info; 破棄する closes", async () => {
+    const { onClose } = await renderEditor(makeShop({ name: "麺屋" }));
+
+    await userEvent.type(screen.getByDisplayValue("麺屋"), "本店");
+    await userEvent.keyboard("{Escape}");
+    await screen.findByText("保存していない入力があります。破棄しますか？");
+    expect(onClose).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole("button", { name: "破棄する" }));
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("does not ask on Esc without edits", async () => {
+    const { onClose } = await renderEditor(makeShop());
+
+    await userEvent.keyboard("{Escape}");
+
+    expect(onClose).toHaveBeenCalled();
   });
 });
 

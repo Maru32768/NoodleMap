@@ -467,13 +467,6 @@ describe("MealRecordImageManager", () => {
               { status: 400 },
             ),
     });
-    const footerCancel = () =>
-      screen
-        .getAllByRole("button", { name: "キャンセル" })
-        .find(
-          (button) => !button.closest("[role=group]") && !button.closest("li"),
-        )!;
-
     await upload(jpeg("a.jpg"), jpeg("b.jpg"));
     // a.jpg waits out the busy server; b.jpg is queued behind it.
     const pending = await screen.findByRole("list", { name: "追加中の画像" });
@@ -505,8 +498,6 @@ describe("MealRecordImageManager", () => {
     await userEvent.click(
       screen.getByRole("button", { name: "食べた記録を追加" }),
     );
-    expect(footerCancel()).toBeDisabled();
-
     // The retry fails while the form is open; closing it shows the failure.
     expect(traffic.uploads).toBe(1);
     // The client waits out Retry-After before retrying.
@@ -515,7 +506,6 @@ describe("MealRecordImageManager", () => {
     );
     await vi.advanceTimersByTimeAsync(30_000);
     await waitFor(() => expect(traffic.uploads).toBe(2));
-    await waitFor(() => expect(footerCancel()).toBeEnabled());
     await userEvent.click(
       within(screen.getByRole("group", { name: "食べた記録を追加" })).getByRole(
         "button",

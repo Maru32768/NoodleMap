@@ -416,200 +416,215 @@ export function MealRecordForm({
       }
       bg="nm.bg"
       borderRadius="nmMd"
-      p="16px"
-      display="grid"
-      gridTemplateColumns={{ base: "1fr", md: "1fr 1fr" }}
-      gap="14px"
     >
-      <Box gridColumn={{ md: "span 2" }}>
-        <FormField
-          label={
-            <FieldLabel>
-              {importDraft?.shopIds.length
-                ? "提供した店舗（複数選択可、写真の店舗は外せません）"
-                : "提供した店舗（複数選択可、催事・出店先があれば空欄可）"}
-            </FieldLabel>
-          }
-          error={errorOf("shopIds")}
-        >
-          <Select
-            aria-label="提供した店舗"
-            isMulti
-            isClearable={false}
-            isLoading={!shops && shopsLoading}
-            // An imported meal record without a shop stays without one: its venue keys it.
-            isDisabled={!shops || importDraft?.shopIds.length === 0}
-            options={options}
-            value={options.filter((option) =>
-              draft.shopIds.includes(option.value),
-            )}
-            placeholder="店舗名で検索"
-            noOptionsMessage={() => "該当する店舗がありません"}
-            onChange={(selected) => {
-              const ids = selected.map((option) => option.value);
-              // The photos' shop keys the imported meal record, so it stays.
-              if (!importDraft || ids.includes(importDraft.shopIds[0])) {
-                set("shopIds", ids);
-              }
-            }}
-          />
-        </FormField>
-        {!!shopsError && (
-          <Box role="alert" fontSize="12px">
-            店舗一覧を読み込めませんでした。選択済みの店舗は保持しています。
-            <LoadableButton size="xs" onClick={() => retryShops()}>
-              再試行
-            </LoadableButton>
-          </Box>
+      <Box
+        p="16px"
+        display="grid"
+        gridTemplateColumns={{ base: "1fr", md: "1fr 1fr" }}
+        gap="14px"
+      >
+        <Box gridColumn={{ md: "span 2" }}>
+          <FormField
+            label={
+              <FieldLabel>
+                {importDraft?.shopIds.length
+                  ? "提供した店舗（複数選択可、写真の店舗は外せません）"
+                  : "提供した店舗（複数選択可、催事・出店先があれば空欄可）"}
+              </FieldLabel>
+            }
+            error={errorOf("shopIds")}
+          >
+            <Select
+              aria-label="提供した店舗"
+              isMulti
+              isClearable={false}
+              isLoading={!shops && shopsLoading}
+              // An imported meal record without a shop stays without one: its venue keys it.
+              isDisabled={!shops || importDraft?.shopIds.length === 0}
+              options={options}
+              value={options.filter((option) =>
+                draft.shopIds.includes(option.value),
+              )}
+              placeholder="店舗名で検索"
+              noOptionsMessage={() => "該当する店舗がありません"}
+              onChange={(selected) => {
+                const ids = selected.map((option) => option.value);
+                // The photos' shop keys the imported meal record, so it stays.
+                if (!importDraft || ids.includes(importDraft.shopIds[0])) {
+                  set("shopIds", ids);
+                }
+              }}
+            />
+          </FormField>
+          {!!shopsError && (
+            <Box role="alert" fontSize="12px">
+              店舗一覧を読み込めませんでした。選択済みの店舗は保持しています。
+              <LoadableButton size="xs" onClick={() => retryShops()}>
+                再試行
+              </LoadableButton>
+            </Box>
+          )}
+        </Box>
+        {!importDraft && (
+          <FormField
+            label={<FieldLabel>食べた日（空欄で日付不明）</FieldLabel>}
+            error={errorOf("eatenOn")}
+          >
+            <Input
+              {...inputProps}
+              type="date"
+              fontFamily="mono"
+              aria-label="食べた日"
+              ref={eatenOnRef}
+              value={draft.eatenOn}
+              onChange={(e) => set("eatenOn", e.target.value)}
+            />
+          </FormField>
         )}
-      </Box>
-      {!importDraft && (
+        <Box>
+          <FormField
+            label={
+              <FieldLabel>お気に入り度（0〜100、空欄で未設定）</FieldLabel>
+            }
+            error={errorOf("rate")}
+          >
+            <Box display="flex" alignItems="center" gap="8px">
+              <Input
+                {...inputProps}
+                type="number"
+                min={0}
+                max={100}
+                step={1}
+                fontFamily="mono"
+                aria-label="お気に入り度"
+                placeholder="未設定"
+                ref={rateRef}
+                value={draft.rate}
+                onChange={(e) => set("rate", e.target.value)}
+              />
+              {rate !== undefined && !Number.isNaN(rate) && (
+                <MiniHearts rate={rate} />
+              )}
+            </Box>
+          </FormField>
+          {/* Outside the FormField, whose field context would hand the rate input's id to these inputs. */}
+          {rate !== undefined && (
+            <Box
+              role="group"
+              aria-label="店舗のお気に入り度への反映"
+              mt="6px"
+              display="grid"
+              gap="4px"
+            >
+              {draft.shopIds.map((id) => (
+                <Checkbox
+                  key={id}
+                  size="sm"
+                  checked={rateShopIds.includes(id)}
+                  onCheckedChange={(e) =>
+                    set(
+                      "rateShopIds",
+                      e.checked === true
+                        ? [...rateShopIds, id]
+                        : rateShopIds.filter((other) => other !== id),
+                    )
+                  }
+                >
+                  <Box as="span" fontSize="12px">
+                    {draft.shopIds.length === 1
+                      ? "店舗のお気に入り度にも反映"
+                      : `${options.find((o) => o.value === id)?.label ?? "店舗"}のお気に入り度にも反映`}
+                  </Box>
+                </Checkbox>
+              ))}
+            </Box>
+          )}
+        </Box>
+        <Box
+          gridColumn={{ md: "span 2" }}
+          role="group"
+          aria-label="食べたメニュー"
+        >
+          <FieldLabel>食べたメニュー（価格は任意、円）</FieldLabel>
+          <MenuItemsEditor
+            rows={draft.menuItems}
+            errors={menuItemErrors}
+            listError={menuItemsError}
+            onChange={setMenuItems}
+            priceRef={priceRef}
+          />
+        </Box>
         <FormField
-          label={<FieldLabel>食べた日（空欄で日付不明）</FieldLabel>}
-          error={errorOf("eatenOn")}
+          label={<FieldLabel>催事・出店先</FieldLabel>}
+          error={errorOf("venueName")}
         >
           <Input
             {...inputProps}
-            type="date"
-            fontFamily="mono"
-            aria-label="食べた日"
-            ref={eatenOnRef}
-            value={draft.eatenOn}
-            onChange={(e) => set("eatenOn", e.target.value)}
+            aria-label="催事・出店先"
+            maxLength={100}
+            list="mealRecord-venue-names"
+            // The photos' venue keys an imported meal record without a shop.
+            readOnly={importDraft?.shopIds.length === 0}
+            value={draft.venueName}
+            onChange={(e) => set("venueName", e.target.value)}
           />
-        </FormField>
-      )}
-      <Box>
-        <FormField
-          label={<FieldLabel>お気に入り度（0〜100、空欄で未設定）</FieldLabel>}
-          error={errorOf("rate")}
-        >
-          <Box display="flex" alignItems="center" gap="8px">
-            <Input
-              {...inputProps}
-              type="number"
-              min={0}
-              max={100}
-              step={1}
-              fontFamily="mono"
-              aria-label="お気に入り度"
-              placeholder="未設定"
-              ref={rateRef}
-              value={draft.rate}
-              onChange={(e) => set("rate", e.target.value)}
-            />
-            {rate !== undefined && !Number.isNaN(rate) && (
-              <MiniHearts rate={rate} />
-            )}
-          </Box>
-        </FormField>
-        {/* Outside the FormField, whose field context would hand the rate input's id to these inputs. */}
-        {rate !== undefined && (
-          <Box
-            role="group"
-            aria-label="店舗のお気に入り度への反映"
-            mt="6px"
-            display="grid"
-            gap="4px"
-          >
-            {draft.shopIds.map((id) => (
-              <Checkbox
-                key={id}
-                size="sm"
-                checked={rateShopIds.includes(id)}
-                onCheckedChange={(e) =>
-                  set(
-                    "rateShopIds",
-                    e.checked === true
-                      ? [...rateShopIds, id]
-                      : rateShopIds.filter((other) => other !== id),
-                  )
-                }
-              >
-                <Box as="span" fontSize="12px">
-                  {draft.shopIds.length === 1
-                    ? "店舗のお気に入り度にも反映"
-                    : `${options.find((o) => o.value === id)?.label ?? "店舗"}のお気に入り度にも反映`}
-                </Box>
-              </Checkbox>
+          <datalist id="mealRecord-venue-names">
+            {venues.data?.map((venue) => (
+              <option key={venue.id} value={venue.name} />
             ))}
-          </Box>
-        )}
-      </Box>
-      <Box
-        gridColumn={{ md: "span 2" }}
-        role="group"
-        aria-label="食べたメニュー"
-      >
-        <FieldLabel>食べたメニュー（価格は任意、円）</FieldLabel>
-        <MenuItemsEditor
-          rows={draft.menuItems}
-          errors={menuItemErrors}
-          listError={menuItemsError}
-          onChange={setMenuItems}
-          priceRef={priceRef}
-        />
-      </Box>
-      <FormField
-        label={<FieldLabel>催事・出店先</FieldLabel>}
-        error={errorOf("venueName")}
-      >
-        <Input
-          {...inputProps}
-          aria-label="催事・出店先"
-          maxLength={100}
-          list="mealRecord-venue-names"
-          // The photos' venue keys an imported meal record without a shop.
-          readOnly={importDraft?.shopIds.length === 0}
-          value={draft.venueName}
-          onChange={(e) => set("venueName", e.target.value)}
-        />
-        <datalist id="mealRecord-venue-names">
-          {venues.data?.map((venue) => (
-            <option key={venue.id} value={venue.name} />
-          ))}
-        </datalist>
-        {!!venues.error && (
-          <Box role="alert" fontSize="12px">
-            出店先の候補を読み込めませんでした。名前の入力と保存はできます。
-            <LoadableButton size="xs" onClick={() => venues.mutate()}>
-              再試行
-            </LoadableButton>
-          </Box>
-        )}
-      </FormField>
-      <Box gridColumn={{ md: "span 2" }}>
-        <FormField
-          label={<FieldLabel>メモ（公開）</FieldLabel>}
-          error={errorOf("publicNote")}
-        >
-          <Textarea
-            {...inputProps}
-            aria-label="メモ（公開）"
-            rows={3}
-            maxLength={2000}
-            value={draft.publicNote}
-            onChange={(e) => set("publicNote", e.target.value)}
-          />
+          </datalist>
+          {!!venues.error && (
+            <Box role="alert" fontSize="12px">
+              出店先の候補を読み込めませんでした。名前の入力と保存はできます。
+              <LoadableButton size="xs" onClick={() => venues.mutate()}>
+                再試行
+              </LoadableButton>
+            </Box>
+          )}
         </FormField>
+        <Box gridColumn={{ md: "span 2" }}>
+          <FormField
+            label={<FieldLabel>メモ（公開）</FieldLabel>}
+            error={errorOf("publicNote")}
+          >
+            <Textarea
+              {...inputProps}
+              aria-label="メモ（公開）"
+              rows={3}
+              maxLength={2000}
+              value={draft.publicNote}
+              onChange={(e) => set("publicNote", e.target.value)}
+            />
+          </FormField>
+        </Box>
+        <Box gridColumn={{ md: "span 2" }}>
+          <FormField
+            label={<FieldLabel>メモ（自分用）</FieldLabel>}
+            error={errorOf("privateNote")}
+          >
+            <Textarea
+              {...inputProps}
+              aria-label="メモ（自分用）"
+              rows={3}
+              maxLength={2000}
+              value={draft.privateNote}
+              onChange={(e) => set("privateNote", e.target.value)}
+            />
+          </FormField>
+        </Box>
       </Box>
-      <Box gridColumn={{ md: "span 2" }}>
-        <FormField
-          label={<FieldLabel>メモ（自分用）</FieldLabel>}
-          error={errorOf("privateNote")}
-        >
-          <Textarea
-            {...inputProps}
-            aria-label="メモ（自分用）"
-            rows={3}
-            maxLength={2000}
-            value={draft.privateNote}
-            onChange={(e) => set("privateNote", e.target.value)}
-          />
-        </FormField>
-      </Box>
+      {/* Outside the grid: a grid item sticks only within its own row. */}
       <Box
-        gridColumn={{ md: "span 2" }}
+        position="sticky"
+        // The venue page shows the form above the phone's fixed footer; the
+        // others are in dialogs, which cover it.
+        bottom={scope?.kind === "venue" ? "var(--nm-footer-h)" : 0}
+        bg="nm.bg"
+        borderTop="1px solid"
+        borderTopColor="nm.lineFaint"
+        borderBottomRadius="nmMd"
+        px="16px"
+        py="12px"
         display="flex"
         alignItems="center"
         justifyContent="flex-end"

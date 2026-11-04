@@ -65,6 +65,8 @@ function renderMealRecords({
   const deleted: string[] = [];
   const fetched = { mealRecords: 0, shops: 0 };
   let representativeMealRecordId = target.representativeMealRecordId;
+  let rate = target.rate;
+  const shopSaves: unknown[] = [];
   const representatives: components["schemas"]["SetRepresentativeMealRecordRequest"][] =
     [];
   const rates: components["schemas"]["SetShopRateRequest"][] = [];
@@ -75,7 +77,7 @@ function renderMealRecords({
     http.get("/api/v1/shops", () => {
       fetched.shops++;
       return HttpResponse.json({
-        shops: [{ ...target, representativeMealRecordId }],
+        shops: [{ ...target, representativeMealRecordId, rate }],
       });
     }),
     http.get("/api/v1/tags", () => HttpResponse.json({ tags: [] })),
@@ -86,12 +88,19 @@ function renderMealRecords({
     http.post("/api/v1/auth/meal-records", async ({ request }) => {
       const body = (await request.json()) as MealRecordInput;
       posted.push(body);
+      if (body.rateShopIds?.includes(target.id)) {
+        rate = body.rate;
+      }
       return saveResponse(body);
     }),
     http.put("/api/v1/auth/meal-records/:mealRecordId", async ({ request }) => {
       const body = (await request.json()) as MealRecordInput;
       put.push(body);
       return saveResponse(body);
+    }),
+    http.put(`/api/v1/auth/shops/${target.id}`, async ({ request }) => {
+      shopSaves.push(await request.json());
+      return new HttpResponse(null, { status: 204 });
     }),
     http.delete("/api/v1/auth/meal-records/:mealRecordId", ({ params }) => {
       deleted.push(params.mealRecordId as string);
@@ -137,6 +146,7 @@ function renderMealRecords({
     deleted,
     fetched,
     onClose,
+    shopSaves,
     failMealRecordsRefetch: () => {
       mealRecordsResponse = () =>
         HttpResponse.json({ type: "internal_error" }, { status: 500 });
@@ -299,27 +309,6 @@ describe("MealRecordEditor", () => {
 
     await waitFor(() => expect(put).toHaveLength(1));
     expect(put[0]).toMatchObject({ rate: 75, rateShopIds: [shop.id] });
-  });
-
-  it("sets and clears the shop's own お気に入り度", async () => {
-    const { rates } = renderMealRecords();
-    const input = await screen.findByRole("spinbutton", {
-      name: "店舗のお気に入り度",
-    });
-    const saveRate = () =>
-      userEvent.click(
-        screen.getByRole("button", { name: "店舗のお気に入り度を保存" }),
-      );
-
-    expect(input).toHaveValue(shop.rate);
-    await userEvent.clear(input);
-    await userEvent.type(input, "95");
-    await saveRate();
-    await waitFor(() => expect(rates).toEqual([{ rate: 95 }]));
-
-    await userEvent.clear(input);
-    await saveRate();
-    await waitFor(() => expect(rates).toEqual([{ rate: 95 }, {}]));
   });
 
   it("omits a cleared date and a blank rate (日付不明, 未設定)", async () => {
@@ -535,15 +524,11 @@ describe("MealRecordEditor", () => {
     await userEvent.click(
       within(form()).getByRole("button", { name: "＋ メニューを追加" }),
     );
-    await userEvent.click(
-      screen
-        .getAllByRole("button", { name: "キャンセル" })
-        .find((button) => !form().contains(button))!,
-    );
+    await userEvent.keyboard("{Escape}");
 
     expect(onClose).toHaveBeenCalled();
     expect(
-      screen.queryByText("保存していない食べた記録があります。破棄しますか？"),
+      screen.queryByText("保存していない入力があります。破棄しますか？"),
     ).toBeNull();
   });
 
@@ -754,24 +739,6 @@ describe("MealRecordEditor", () => {
     expect(screen.getByRole("button", { name: "再試行" })).toBeInTheDocument();
   });
 
-  it("keeps a meal record draft across tab switches", async () => {
-    renderMealRecords();
-
-    await userEvent.click(
-      await screen.findByRole("button", { name: "食べた記録を追加" }),
-    );
-    await userEvent.type(
-      within(form()).getByRole("textbox", { name: "メニュー名" }),
-      "つけ麺",
-    );
-    await userEvent.click(screen.getByRole("button", { name: "店舗情報" }));
-    await userEvent.click(screen.getByRole("button", { name: "食べた記録" }));
-
-    expect(
-      within(form()).getByRole("textbox", { name: "メニュー名" }),
-    ).toHaveValue("つけ麺");
-  });
-
   it("asks before closing with an unsaved meal record draft", async () => {
     const { onClose } = renderMealRecords();
 
@@ -782,16 +749,10 @@ describe("MealRecordEditor", () => {
       within(form()).getByRole("textbox", { name: "メニュー名" }),
       "つけ麺",
     );
-    // The modal footer's キャンセル, not the meal record form's.
-    const footerCancel = screen
-      .getAllByRole("button", { name: "キャンセル" })
-      .find((button) => !form().contains(button))!;
-    await userEvent.click(footerCancel);
+    await userEvent.keyboard("{Escape}");
 
     expect(
-      await screen.findByText(
-        "保存していない食べた記録があります。破棄しますか？",
-      ),
+      await screen.findByText("保存していない入力があります。破棄しますか？"),
     ).toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();
 
@@ -800,42 +761,11 @@ describe("MealRecordEditor", () => {
       within(form()).getByRole("textbox", { name: "メニュー名" }),
     ).toHaveValue("つけ麺");
 
-    await userEvent.click(footerCancel);
+    await userEvent.keyboard("{Escape}");
     await userEvent.click(
       await screen.findByRole("button", { name: "破棄する" }),
     );
     expect(onClose).toHaveBeenCalled();
-  });
-
-  it("asks before saving the shop with an unsaved meal record draft", async () => {
-    const shopSaves: unknown[] = [];
-    renderMealRecords();
-    server.use(
-      http.put(`/api/v1/auth/shops/${shop.id}`, async ({ request }) => {
-        shopSaves.push(await request.json());
-        return new HttpResponse(null, { status: 200 });
-      }),
-    );
-
-    await userEvent.click(
-      await screen.findByRole("button", { name: "食べた記録を追加" }),
-    );
-    await userEvent.type(
-      within(form()).getByRole("textbox", { name: "メニュー名" }),
-      "つけ麺",
-    );
-    await userEvent.click(screen.getByRole("button", { name: "保存" }));
-
-    expect(
-      await screen.findByText(
-        "保存していない食べた記録があります。破棄しますか？",
-      ),
-    ).toBeInTheDocument();
-    expect(shopSaves).toHaveLength(0);
-
-    await userEvent.click(screen.getByRole("button", { name: "破棄する" }));
-    await waitFor(() => expect(shopSaves).toHaveLength(1));
-    expect(await screen.findByText("保存しました")).toBeInTheDocument();
   });
 
   it("closes the modal when adding finds the shop deleted elsewhere", async () => {
@@ -876,68 +806,10 @@ describe("MealRecordEditor", () => {
     expect(posted).toHaveLength(0);
   });
 
-  it("drops the discarded draft", async () => {
-    renderMealRecords();
-    // Discarding goes on to save the shop; let that finish inside the test.
-    server.use(
-      http.put(
-        `/api/v1/auth/shops/${shop.id}`,
-        () => new HttpResponse(null, { status: 200 }),
-      ),
-    );
-
-    await userEvent.click(
-      await screen.findByRole("button", { name: "食べた記録を追加" }),
-    );
-    await userEvent.type(
-      within(form()).getByRole("textbox", { name: "メニュー名" }),
-      "つけ麺",
-    );
-    await userEvent.click(screen.getByRole("button", { name: "保存" }));
-    await userEvent.click(
-      await screen.findByRole("button", { name: "破棄する" }),
-    );
-
-    // Back on the list, and nothing left to ask about.
-    expect(screen.queryByRole("group", { name: /食べた記録/ })).toBeNull();
-    expect(
-      await screen.findByRole("button", { name: "食べた記録を追加" }),
-    ).toBeInTheDocument();
-    expect(await screen.findByText("保存しました")).toBeInTheDocument();
-  });
-
-  it("asks before deleting the shop with an unsaved meal record draft", async () => {
-    renderMealRecords({
-      target: makeShop({ name: "訪問なしの店", eaten: false }),
-      mealRecords: [],
-    });
-
-    await userEvent.click(
-      await screen.findByRole("button", { name: "食べた記録を追加" }),
-    );
-    await userEvent.type(
-      within(form()).getByRole("textbox", { name: "メニュー名" }),
-      "つけ麺",
-    );
-    await userEvent.click(screen.getByRole("button", { name: "削除" }));
-
-    expect(
-      await screen.findByText(
-        "保存していない食べた記録があります。破棄しますか？",
-      ),
-    ).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "破棄する" }));
-    expect(
-      await screen.findByText(
-        "「訪問なしの店」を削除しますか？この操作は取り消せません。",
-      ),
-    ).toBeInTheDocument();
-  });
-
   it("locks closing the modal while a meal record save is in flight", async () => {
     let respond!: () => void;
     const responded = new Promise<void>((resolve) => (respond = resolve));
-    renderMealRecords({
+    const { onClose, posted } = renderMealRecords({
       saveResponse: async (body) => {
         await responded;
         return HttpResponse.json({ id: "new", ...body });
@@ -947,13 +819,94 @@ describe("MealRecordEditor", () => {
     await userEvent.click(
       await screen.findByRole("button", { name: "食べた記録を追加" }),
     );
-    const footerCancel = screen
-      .getAllByRole("button", { name: "キャンセル" })
-      .find((button) => !form().contains(button))!;
     await save();
+    await waitFor(() => expect(posted).toHaveLength(1));
 
-    await waitFor(() => expect(footerCancel).toBeDisabled());
+    await userEvent.keyboard("{Escape}");
+    expect(onClose).not.toHaveBeenCalled();
+
     respond();
-    await waitFor(() => expect(footerCancel).toBeEnabled());
+    await screen.findByText("食べた記録を保存しました");
+    await userEvent.keyboard("{Escape}");
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("shows only 閉じる in the footer on 食べた記録, and neither tabs nor footer over a form", async () => {
+    const { onClose } = renderMealRecords();
+
+    const close = await screen.findByRole("button", { name: "閉じる" });
+    expect(screen.queryByRole("button", { name: "保存" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "削除" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "キャンセル" })).toBeNull();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "食べた記録を追加" }),
+    );
+    expect(
+      screen.getByRole("heading", { name: "食べた記録を追加" }),
+    ).toBeInTheDocument();
+    expect(close).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "店舗情報" })).toBeNull();
+    // The form's own action row is all that is left.
+    expect(screen.getAllByRole("button", { name: "キャンセル" })).toHaveLength(
+      1,
+    );
+
+    await userEvent.click(
+      within(form()).getByRole("button", { name: "キャンセル" }),
+    );
+    expect(
+      await screen.findByRole("button", { name: "店舗情報" }),
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "閉じる" }));
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("does not overwrite a rate a record reflected while the modal was open", async () => {
+    const { rates, shopSaves } = renderMealRecords({
+      target: { ...shop, rate: 40 },
+      mealRecords: [],
+    });
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "食べた記録を追加" }),
+    );
+    await userEvent.type(
+      within(form()).getByRole("spinbutton", { name: "お気に入り度" }),
+      "90",
+    );
+    await save();
+    await screen.findByText("食べた記録を保存しました");
+
+    await userEvent.click(screen.getByRole("button", { name: "店舗情報" }));
+    expect(
+      screen.getByRole("spinbutton", { name: "店舗のお気に入り度" }),
+    ).toHaveValue(90);
+    await userEvent.click(screen.getByRole("button", { name: "保存" }));
+
+    await waitFor(() => expect(shopSaves).toHaveLength(1));
+    expect(await screen.findByText("保存しました")).toBeInTheDocument();
+    expect(rates).toEqual([]);
+  });
+
+  it("asks when closing from 食べた記録 would lose edited shop info, and 入力に戻る returns to it", async () => {
+    const { onClose } = renderMealRecords();
+    await userEvent.click(
+      await screen.findByRole("button", { name: "店舗情報" }),
+    );
+    await userEvent.type(screen.getByDisplayValue(shop.name), "本店");
+    await userEvent.click(screen.getByRole("button", { name: "食べた記録" }));
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "閉じる" }),
+    );
+    await screen.findByText("保存していない入力があります。破棄しますか？");
+    expect(onClose).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole("button", { name: "入力に戻る" }));
+    expect(
+      await screen.findByDisplayValue(`${shop.name}本店`),
+    ).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
   });
 });

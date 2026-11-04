@@ -17,14 +17,12 @@ import {
   recordScopeId,
 } from "@/features/meal-records/meal-record-form.tsx";
 import { MealRecordImageManager } from "@/features/meal-records/meal-record-image-manager.tsx";
-import { mealRecordInputProps } from "@/features/meal-records/meal-record-input-props.ts";
 import {
   formatMealRecordDate,
   MealRecordList,
   MealRecordsLoadState,
 } from "@/features/meal-records/meal-record-list.tsx";
 import { useShops } from "@/features/shops/api/use-shops.ts";
-import { MiniHearts } from "@/features/shops/rating-hearts.tsx";
 import { ApiError } from "@/utils/request.ts";
 import {
   MEAL_RECORD_ALREADY_DELETED_TITLE,
@@ -32,7 +30,7 @@ import {
   toastApiError,
   toastError,
 } from "@/utils/toast.ts";
-import { Box, Input } from "@chakra-ui/react";
+import { Box } from "@chakra-ui/react";
 import { ReactNode, useEffect, useState } from "react";
 
 type Editing = { mode: "add" } | { mode: "edit"; mealRecord: MealRecord };
@@ -53,57 +51,13 @@ const smallButtonProps = {
   _hover: { borderColor: "nm.ink", color: "nm.ink" },
 } as const;
 
-/** The shop's own お気に入り度, kept apart from its meal records' rates; blank clears it. */
-function ShopRateEditor({
-  rate,
-  disabled,
-  onSave,
-}: {
-  rate: number | undefined;
-  disabled: boolean;
-  onSave: (rate: number | undefined) => Promise<void>;
-}) {
-  const [draft, setDraft] = useState(rate?.toString() ?? "");
-  const value = draft.trim() === "" ? undefined : Number(draft);
-  const valid =
-    value === undefined ||
-    (Number.isFinite(value) && value >= 0 && value <= 100);
-  return (
-    <Box display="flex" alignItems="center" gap="8px" fontSize="12px">
-      <Box color="nm.inkMuted">店舗のお気に入り度（0〜100、空欄で未設定）</Box>
-      <Input
-        {...mealRecordInputProps}
-        aria-label="店舗のお気に入り度"
-        type="number"
-        min={0}
-        max={100}
-        step={1}
-        w="88px"
-        fontFamily="mono"
-        placeholder="未設定"
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-      />
-      {value !== undefined && valid && <MiniHearts rate={value} />}
-      <LoadableButton
-        {...smallButtonProps}
-        aria-label="店舗のお気に入り度を保存"
-        disabled={disabled || !valid || value === rate}
-        onClick={() => onSave(value)}
-      >
-        保存
-      </LoadableButton>
-    </Box>
-  );
-}
-
 // On an edit or delete: the meal record was deleted elsewhere (the list was refetched).
 // On an add: a chosen shop is gone.
 function isGone(error: ApiError) {
   return error.type === "not_found";
 }
 
-/** Busy state shared by the editor and the shop's own controls, so one write runs at a time. */
+/** Busy state shared by the list and the shop's own controls, so one write runs at a time. */
 interface BusyControl {
   busy: boolean;
   whileBusy: <T>(task: () => Promise<T>) => Promise<T>;
@@ -111,25 +65,27 @@ interface BusyControl {
 
 /**
  * The edit modal's 食べた記録 tab: the shop's meal records with add, edit and delete,
- * plus the shop's own お気に入り度 and 代表写真.
+ * plus the shop's 代表写真.
  * `onDirtyChange` reports whether an open meal record form has unsaved changes,
  * `onBusyChange` whether a meal record save or delete is in flight (image uploads
- * are read from their store by the modal), and `onShopGone` that adding
- * failed because the shop was deleted elsewhere.
+ * are read from their store by the modal), `onFormOpenChange` whether a form is
+ * open, and `onShopGone` that adding failed because the shop was deleted elsewhere.
  */
 export function MealRecordEditor({
   shopId,
   onDirtyChange,
   onBusyChange,
+  onFormOpenChange,
   onShopGone,
 }: {
   shopId: string;
   onDirtyChange?: (dirty: boolean) => void;
   onBusyChange?: (busy: boolean) => void;
+  onFormOpenChange?: (open: boolean) => void;
   onShopGone?: () => void;
 }) {
   const records = useMealRecords(shopId);
-  const { shops, setRepresentativeMealRecord, setShopRate } = useShops();
+  const { shops, setRepresentativeMealRecord } = useShops();
   const shop = shops?.find((shop) => shop.id === shopId);
   const representativeId = shop?.representativeMealRecordId;
 
@@ -162,46 +118,22 @@ export function MealRecordEditor({
       onRetry={records.retry}
       onDirtyChange={onDirtyChange}
       onBusyChange={onBusyChange}
+      onFormOpenChange={onFormOpenChange}
       onAddGone={onShopGone}
       tools={(control) => (
-        <>
-          {shop && (
-            <ShopRateEditor
-              // Restarts the draft when the saved rate changes.
-              key={shop.rate ?? "unset"}
-              rate={shop.rate}
+        <Box fontSize="12px" color="nm.inkMuted">
+          代表に選んだ記録の1枚目の画像を、店舗詳細と共有時のOGPに使います。未選択の場合や画像がない場合は、画像付きの最新の記録を使います。
+          {representativeId && (
+            <LoadableButton
+              {...smallButtonProps}
+              ml="8px"
               disabled={control.busy}
-              onSave={async (rate) => {
-                const result = await control.whileBusy(() =>
-                  setShopRate(shopId, rate),
-                );
-                if (!result.ok) {
-                  toastApiError(result.error, {
-                    fallbackTitle: "店舗のお気に入り度を保存できませんでした",
-                  });
-                  return;
-                }
-                toaster.success({
-                  description: "店舗のお気に入り度を保存しました",
-                });
-              }}
-            />
+              onClick={() => handleRepresentative(control)}
+            >
+              自動選択に戻す
+            </LoadableButton>
           )}
-
-          <Box fontSize="12px" color="nm.inkMuted">
-            代表に選んだ記録の1枚目の画像を、店舗詳細と共有時のOGPに使います。未選択の場合や画像がない場合は、画像付きの最新の記録を使います。
-            {representativeId && (
-              <LoadableButton
-                {...smallButtonProps}
-                ml="8px"
-                disabled={control.busy}
-                onClick={() => handleRepresentative(control)}
-              >
-                自動選択に戻す
-              </LoadableButton>
-            )}
-          </Box>
-        </>
+        </Box>
       )}
       recordActions={(mealRecord, control) =>
         representativeId === mealRecord.id ? (
@@ -236,6 +168,7 @@ export function MealRecordsAdmin({
   onRetry,
   onDirtyChange,
   onBusyChange,
+  onFormOpenChange,
   onAddGone,
   tools,
   recordActions,
@@ -247,6 +180,7 @@ export function MealRecordsAdmin({
   onRetry: () => Promise<unknown>;
   onDirtyChange?: (dirty: boolean) => void;
   onBusyChange?: (busy: boolean) => void;
+  onFormOpenChange?: (open: boolean) => void;
   onAddGone?: () => void;
   tools?: (control: BusyControl) => ReactNode;
   recordActions?: (mealRecord: MealRecord, control: BusyControl) => ReactNode;
@@ -257,9 +191,16 @@ export function MealRecordsAdmin({
   const [editing, setEditing] = useState<Editing | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<MealRecord | null>(null);
   const [busy, setBusy] = useState(false);
+  // Unmounted (the modal's other tab) nothing here is left to wait for or hide.
   useEffect(() => {
     onBusyChange?.(busy);
+    return () => onBusyChange?.(false);
   }, [busy, onBusyChange]);
+  const formOpen = editing !== null;
+  useEffect(() => {
+    onFormOpenChange?.(formOpen);
+    return () => onFormOpenChange?.(false);
+  }, [formOpen, onFormOpenChange]);
   // A meal record with uploads queued or running cannot be deleted under them.
   const uploadingMealRecordIds = useUploadingMealRecordIds();
   // Failed files of meal records deleted (here or elsewhere) have nothing to retry.
@@ -302,35 +243,44 @@ export function MealRecordsAdmin({
   if (editing) {
     const mealRecord = editing.mode === "edit" ? editing.mealRecord : undefined;
     return (
-      <MealRecordForm
-        scope={scope}
-        // A fresh form per target so its draft starts from that mealRecord.
-        key={mealRecord?.id ?? "new"}
-        mealRecord={mealRecord}
-        onCancel={() => setEditing(null)}
-        onDirtyChange={onDirtyChange}
-        onSave={async (input) => {
-          const result = await whileBusy(() =>
-            mealRecord
-              ? updateMealRecord(mealRecord.id, input)
-              : addMealRecord(input),
-          );
-          if (!result.ok && isGone(result.error) && (mealRecord || onAddGone)) {
-            setEditing(null);
-            if (mealRecord) {
-              toastError({ title: MEAL_RECORD_ALREADY_DELETED_TITLE });
-            } else {
-              onAddGone?.();
+      <Box display="flex" flexDirection="column" gap="10px">
+        <Box as="h2" fontSize="14px" fontWeight={600} color="nm.ink">
+          {mealRecord ? "食べた記録を編集" : "食べた記録を追加"}
+        </Box>
+        <MealRecordForm
+          scope={scope}
+          // A fresh form per target so its draft starts from that mealRecord.
+          key={mealRecord?.id ?? "new"}
+          mealRecord={mealRecord}
+          onCancel={() => setEditing(null)}
+          onDirtyChange={onDirtyChange}
+          onSave={async (input) => {
+            const result = await whileBusy(() =>
+              mealRecord
+                ? updateMealRecord(mealRecord.id, input)
+                : addMealRecord(input),
+            );
+            if (
+              !result.ok &&
+              isGone(result.error) &&
+              (mealRecord || onAddGone)
+            ) {
+              setEditing(null);
+              if (mealRecord) {
+                toastError({ title: MEAL_RECORD_ALREADY_DELETED_TITLE });
+              } else {
+                onAddGone?.();
+              }
+              return null;
             }
-            return null;
-          }
-          if (result.ok) {
-            setEditing(null);
-            toaster.success({ description: "食べた記録を保存しました" });
-          }
-          return result;
-        }}
-      />
+            if (result.ok) {
+              setEditing(null);
+              toaster.success({ description: "食べた記録を保存しました" });
+            }
+            return result;
+          }}
+        />
+      </Box>
     );
   }
 

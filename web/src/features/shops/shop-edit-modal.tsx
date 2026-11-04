@@ -12,14 +12,17 @@ import {
 import { CategoryIcon } from "@/features/map/category-icon.tsx";
 import { useShopUploading } from "@/features/meal-records/api/meal-record-uploads.ts";
 import { MealRecordEditor } from "@/features/meal-records/meal-record-editor.tsx";
+import { mealRecordInputProps } from "@/features/meal-records/meal-record-input-props.ts";
 import {
   Shop,
   UpdateShopCommand,
   useShops,
   useTags,
 } from "@/features/shops/api/use-shops.ts";
+import { MiniHearts } from "@/features/shops/rating-hearts.tsx";
 import {
   clearShopFieldErrors,
+  FieldErrorType,
   SHOP_NAME_KANA_MAX_LENGTH,
   ShopFieldErrors,
   toShopFieldErrors,
@@ -40,6 +43,7 @@ import { TagSelector } from "@/features/shops/tag-chips.tsx";
 import { WishLevelSelect } from "@/features/shops/wish-level-select.tsx";
 import { invalidRequestFieldErrors } from "@/utils/request.ts";
 import {
+  mealRecordFieldErrorMessage,
   SHOP_ALREADY_DELETED_TITLE,
   SHOP_UPDATE_FAILED_TITLE,
   shopFieldErrorMessage,
@@ -49,6 +53,7 @@ import {
   toastShopFieldErrors,
 } from "@/utils/toast.ts";
 import { Box, Input, NativeSelect } from "@chakra-ui/react";
+import { isEqual } from "es-toolkit";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 interface ShopEditDraft {
@@ -135,6 +140,22 @@ function FormInput({
     />
   );
 }
+
+const quietButtonProps = {
+  variant: "plain",
+  px: "14px",
+  py: "9px",
+  h: "auto",
+  minH: "auto",
+  fontSize: "13px",
+  fontWeight: 500,
+  rounded: "nmMd",
+  bg: "nm.paper",
+  color: "nm.inkMuted",
+  border: "1px solid",
+  borderColor: "nm.line",
+  _hover: { borderColor: "nm.ink", color: "nm.ink" },
+} as const;
 
 const linkButtonProps = {
   variant: "plain",
@@ -325,6 +346,34 @@ function isUpdateShopField(key: string): key is UpdateShopField {
   return (FIELDS_WITH_INPUT as readonly string[]).includes(key);
 }
 
+// A blank お気に入り度 clears it.
+const parseRate = (text: string) =>
+  text.trim() === "" ? undefined : Number(text);
+
+// `badInput`: the browser could not read the number, so its value reads as "".
+function rateProblem(
+  text: string,
+  badInput: boolean | undefined,
+): FieldErrorType | undefined {
+  if (badInput) {
+    return "invalid_format";
+  }
+  const rate = parseRate(text);
+  if (rate === undefined) {
+    return undefined;
+  }
+  if (!Number.isFinite(rate)) {
+    return "invalid_format";
+  }
+  return rate < 0 || rate > 100 ? "out_of_range" : undefined;
+}
+
+// Compared as saved, so e.g. adding and removing a blank link row is no change.
+const shopDraftAsSaved = ({ links, ...rest }: ShopEditState) => ({
+  ...rest,
+  links: savableShopLinks(links),
+});
+
 function toUpdateCommand(
   draft: ShopEditDraft,
   initialWishLevel: WishLevel | "",
@@ -370,10 +419,10 @@ export function ShopEditModal({
   onDeleted,
 }: ShopEditModalProps) {
   const [tab, setTab] = useState<Tab>(initialTab);
-  const [draft, setDraft] = useState<ShopEditState>(() => ({
+  const [initialDraft] = useState<ShopEditState>(() => ({
     id: shop.id,
     name: shop.name,
-    nameKana: shop.nameKana,
+    nameKana: shop.nameKana ?? "",
     address: shop.address,
     postalCode: shop.postalCode,
     lat: shop.lat,
@@ -389,6 +438,7 @@ export function ShopEditModal({
     // `links` is missing while an older server is still deployed.
     links: (shop.links ?? []).map(newLinkRow),
   }));
+  const [draft, setDraft] = useState(initialDraft);
   const [fieldErrors, setFieldErrors] = useState<
     ShopFieldErrors<UpdateShopField>
   >({});
@@ -398,21 +448,28 @@ export function ShopEditModal({
   const [deleting, setDeleting] = useState(false);
   // What the 気になる度 select started from: unchanged means omit (keep).
   const [initialWishLevel] = useState<WishLevel | "">(shop.wishLevel ?? "");
-  // The 食べた記録 tab stays mounted once opened so a meal record draft survives tab
-  // switches; closing or saving the shop with one unsaved asks first.
-  const [mealRecordTabOpened, setMealRecordTabOpened] = useState(
-    initialTab === "mealRecord",
-  );
+  // Undefined until touched: a record saved meanwhile can change the shop's rate.
+  const [rateDraft, setRateDraft] = useState<string>();
+  const [rateError, setRateError] = useState<FieldErrorType>();
+  const rateRef = useRef<HTMLInputElement>(null);
+  // An open meal record form replaces the tabs and the footer with its own actions.
+  const [mealRecordFormOpen, setMealRecordFormOpen] = useState(false);
   const [mealRecordDraftDirty, setMealRecordDraftDirty] = useState(false);
   // A meal record save or delete in flight locks closing like the shop save does.
   const [mealRecordBusy, setMealRecordBusy] = useState(false);
-  // Remounts the 食べた記録 tab to drop a discarded draft.
-  const [mealRecordEditorKey, setMealRecordEditorKey] = useState(0);
-  const [discardAction, setDiscardAction] = useState<
-    "close" | "save" | "delete" | null
-  >(null);
+  const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
   const { tags } = useTags();
-  const { updateShop, deleteShop, mutate: mutateShops } = useShops();
+  const {
+    shops,
+    updateShop,
+    deleteShop,
+    setShopRate,
+    mutate: mutateShops,
+  } = useShops();
+  const savedRate = (shops?.find((s) => s.id === shop.id) ?? shop).rate;
+  const rateText = rateDraft ?? savedRate?.toString() ?? "";
+  const rateToSave = parseRate(rateText);
+  const rateChanged = rateDraft !== undefined && rateToSave !== savedRate;
 
   const { ref: formRef, reveal: revealFirstError } =
     useRevealFirstError<HTMLDivElement>();
@@ -487,9 +544,17 @@ export function ShopEditModal({
     isUpdateShopField(field) && (field !== "tagIds" || !!tags);
 
   const handleSave = async () => {
+    const invalidRate = rateProblem(
+      rateText,
+      rateRef.current?.validity.badInput,
+    );
+    if (invalidRate) {
+      setRateError(invalidRate);
+      revealFirstError();
+      return;
+    }
     const problem = findShopLinkProblem(draft.links);
     if (problem) {
-      setTab("info");
       toastError(shopLinkProblemMessage(problem));
       return;
     }
@@ -536,7 +601,6 @@ export function ShopEditModal({
           const shown = errors.filter((e) => hasInput(e.field));
           if (shown.length > 0) {
             setFieldErrors(toShopFieldErrors(shown));
-            setTab("info");
             revealFirstError();
           }
           toastShopFieldErrors(
@@ -549,6 +613,16 @@ export function ShopEditModal({
           fallbackTitle: SHOP_UPDATE_FAILED_TITLE,
         });
         return;
+      }
+      if (rateChanged) {
+        const rateResult = await setShopRate(shop.id, rateToSave);
+        // Stays open: saving again converges.
+        if (!rateResult.ok) {
+          toastApiError(rateResult.error, {
+            fallbackTitle: "店舗のお気に入り度を保存できませんでした",
+          });
+          return;
+        }
       }
 
       onClose();
@@ -578,36 +652,16 @@ export function ShopEditModal({
     }
   };
 
-  const runAction = (action: "close" | "save" | "delete") => {
-    switch (action) {
-      case "close":
-        onClose();
-        return;
-      case "save":
-        void handleSave();
-        return;
-      case "delete":
-        setConfirmDeleteOpen(true);
-        return;
-    }
-  };
+  const shopDraftDirty =
+    rateChanged ||
+    !isEqual(shopDraftAsSaved(draft), shopDraftAsSaved(initialDraft));
 
-  // Asks before an action that would drop an unsaved meal record draft.
-  const guardMealRecordDraft = (action: "close" | "save" | "delete") => {
-    if (mealRecordDraftDirty) {
-      setDiscardAction(action);
-      return;
-    }
-    runAction(action);
-  };
-
-  const discardMealRecordDraft = () => {
-    const action = discardAction;
-    setDiscardAction(null);
-    setMealRecordDraftDirty(false);
-    setMealRecordEditorKey((key) => key + 1);
-    if (action) {
-      runAction(action);
+  // Asks before closing would drop an unsaved meal record or shop info draft.
+  const requestClose = () => {
+    if (mealRecordDraftDirty || shopDraftDirty) {
+      setConfirmDiscardOpen(true);
+    } else {
+      onClose();
     }
   };
 
@@ -623,13 +677,6 @@ export function ShopEditModal({
   const uploading = useShopUploading(shop.id);
   const locked = saving || deleting || mealRecordBusy || uploading;
 
-  const selectTab = (t: Tab) => {
-    setTab(t);
-    if (t === "mealRecord") {
-      setMealRecordTabOpened(true);
-    }
-  };
-
   const displayName = shop.name || "(名称未設定)";
   const hasMealRecords = shop.mealRecordCount > 0;
 
@@ -638,7 +685,7 @@ export function ShopEditModal({
       <ModalDialog
         open={open}
         // Closing while a save or delete is in flight would drop its errors.
-        onOpenChange={(o) => !o && !locked && guardMealRecordDraft("close")}
+        onOpenChange={(o) => !o && !locked && requestClose()}
         width="100%"
         maxWidth="1040px"
         height="90vh"
@@ -672,36 +719,38 @@ export function ShopEditModal({
       >
         <>
           {/* Tabs */}
-          <Box
-            display="flex"
-            borderBottom="1px solid"
-            borderBottomColor="nm.lineFaint"
-            px="22px"
-          >
-            {(["info", "mealRecord"] as Tab[]).map((t) => (
-              <Button
-                key={t}
-                variant="plain"
-                px="14px"
-                py="11px"
-                h="auto"
-                minH="auto"
-                fontSize="13px"
-                fontWeight={tab === t ? 600 : 400}
-                color={tab === t ? "nm.ink" : "nm.inkMuted"}
-                borderBottom="2px solid"
-                borderBottomColor={tab === t ? "nm.shu" : "transparent"}
-                borderRadius="0"
-                display="flex"
-                alignItems="center"
-                gap="6px"
-                _hover={{ color: "nm.ink" }}
-                onClick={() => selectTab(t)}
-              >
-                {TAB_LABELS[t]}
-              </Button>
-            ))}
-          </Box>
+          {!mealRecordFormOpen && (
+            <Box
+              display="flex"
+              borderBottom="1px solid"
+              borderBottomColor="nm.lineFaint"
+              px="22px"
+            >
+              {(["info", "mealRecord"] as Tab[]).map((t) => (
+                <Button
+                  key={t}
+                  variant="plain"
+                  px="14px"
+                  py="11px"
+                  h="auto"
+                  minH="auto"
+                  fontSize="13px"
+                  fontWeight={tab === t ? 600 : 400}
+                  color={tab === t ? "nm.ink" : "nm.inkMuted"}
+                  borderBottom="2px solid"
+                  borderBottomColor={tab === t ? "nm.shu" : "transparent"}
+                  borderRadius="0"
+                  display="flex"
+                  alignItems="center"
+                  gap="6px"
+                  _hover={{ color: "nm.ink" }}
+                  onClick={() => setTab(t)}
+                >
+                  {TAB_LABELS[t]}
+                </Button>
+              ))}
+            </Box>
+          )}
 
           {/* Content */}
           <Box
@@ -749,6 +798,41 @@ export function ShopEditModal({
                     value={draft.wishLevel}
                     onChange={(v) => set("wishLevel", v)}
                   />
+                </FormField>
+                <FormField
+                  gridColumn="span 2"
+                  label={
+                    <FieldLabel>
+                      店舗のお気に入り度（0〜100、空欄で未設定）
+                    </FieldLabel>
+                  }
+                  error={
+                    rateError && mealRecordFieldErrorMessage("rate", rateError)
+                  }
+                >
+                  <Box display="flex" alignItems="center" gap="8px">
+                    <Input
+                      {...mealRecordInputProps}
+                      aria-label="店舗のお気に入り度"
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={1}
+                      w="88px"
+                      fontFamily="mono"
+                      placeholder="未設定"
+                      ref={rateRef}
+                      value={rateText}
+                      onChange={(e) => {
+                        setRateDraft(e.target.value);
+                        setRateError(undefined);
+                      }}
+                    />
+                    {rateToSave !== undefined &&
+                      !rateProblem(rateText, false) && (
+                        <MiniHearts rate={rateToSave} />
+                      )}
+                  </Box>
                 </FormField>
                 <FormField
                   gridColumn="span 2"
@@ -920,124 +1004,117 @@ export function ShopEditModal({
               </Box>
             )}
 
-            {mealRecordTabOpened && (
-              <Box display={tab === "mealRecord" ? "block" : "none"}>
-                <MealRecordEditor
-                  key={mealRecordEditorKey}
-                  shopId={shop.id}
-                  onDirtyChange={setMealRecordDraftDirty}
-                  onBusyChange={setMealRecordBusy}
-                  onShopGone={handleShopGone}
-                />
-              </Box>
+            {tab === "mealRecord" && (
+              <MealRecordEditor
+                shopId={shop.id}
+                onDirtyChange={setMealRecordDraftDirty}
+                onBusyChange={setMealRecordBusy}
+                onFormOpenChange={setMealRecordFormOpen}
+                onShopGone={handleShopGone}
+              />
             )}
           </Box>
 
           {/* Footer */}
-          <Box
-            display="flex"
-            alignItems="center"
-            gap="8px"
-            px="22px"
-            py="14px"
-            borderTop="1px solid"
-            borderTopColor="nm.lineFaint"
-            bg="nm.bg"
-          >
-            <Button
-              variant="plain"
-              px="14px"
-              py="9px"
-              h="auto"
-              minH="auto"
-              fontSize="13px"
-              fontWeight={600}
-              rounded="nmMd"
-              bg="transparent"
-              color="nm.shu"
-              border="1px solid"
-              borderColor="nm.shu"
-              _hover={{ bg: "nm.shu", color: "white" }}
-              // The server refuses (409) to delete a shop with meal records.
-              disabled={locked || hasMealRecords}
-              onClick={() => guardMealRecordDraft("delete")}
+          {!mealRecordFormOpen && (
+            <Box
+              display="flex"
+              alignItems="center"
+              gap="8px"
+              px="22px"
+              py="14px"
+              borderTop="1px solid"
+              borderTopColor="nm.lineFaint"
+              bg="nm.bg"
             >
-              削除
-            </Button>
-            {hasMealRecords && (
-              <Box fontSize="11px" color="nm.inkMuted">
-                食べた記録がある店舗は削除できません
-              </Box>
-            )}
-            <Box flex="1" />
-            <Button
-              variant="plain"
-              px="14px"
-              py="9px"
-              h="auto"
-              minH="auto"
-              fontSize="13px"
-              fontWeight={500}
-              rounded="nmMd"
-              bg="nm.paper"
-              color="nm.inkMuted"
-              border="1px solid"
-              borderColor="nm.line"
-              _hover={{ borderColor: "nm.ink", color: "nm.ink" }}
-              disabled={locked}
-              onClick={() => guardMealRecordDraft("close")}
-            >
-              キャンセル
-            </Button>
-            <Button
-              variant="plain"
-              px="18px"
-              py="9px"
-              h="auto"
-              minH="auto"
-              fontSize="13px"
-              fontWeight={600}
-              rounded="nmMd"
-              bg="nm.ink"
-              color="nm.paper"
-              opacity={locked ? 0.6 : 1}
-              _hover={{ bg: "nm.inkSoft" }}
-              disabled={locked}
-              onClick={() => guardMealRecordDraft("save")}
-            >
-              保存{" "}
-            </Button>
-          </Box>
+              {tab === "info" ? (
+                <>
+                  <Button
+                    variant="plain"
+                    px="14px"
+                    py="9px"
+                    h="auto"
+                    minH="auto"
+                    fontSize="13px"
+                    fontWeight={600}
+                    rounded="nmMd"
+                    bg="transparent"
+                    color="nm.shu"
+                    border="1px solid"
+                    borderColor="nm.shu"
+                    _hover={{ bg: "nm.shu", color: "white" }}
+                    // The server refuses (409) to delete a shop with meal records.
+                    disabled={locked || hasMealRecords}
+                    onClick={() => setConfirmDeleteOpen(true)}
+                  >
+                    削除
+                  </Button>
+                  {hasMealRecords && (
+                    <Box fontSize="11px" color="nm.inkMuted">
+                      食べた記録がある店舗は削除できません
+                    </Box>
+                  )}
+                  <Box flex="1" />
+                  <Button
+                    {...quietButtonProps}
+                    disabled={locked}
+                    onClick={onClose}
+                  >
+                    キャンセル
+                  </Button>
+                  <Button
+                    variant="plain"
+                    px="18px"
+                    py="9px"
+                    h="auto"
+                    minH="auto"
+                    fontSize="13px"
+                    fontWeight={600}
+                    rounded="nmMd"
+                    bg="nm.ink"
+                    color="nm.paper"
+                    opacity={locked ? 0.6 : 1}
+                    _hover={{ bg: "nm.inkSoft" }}
+                    disabled={locked}
+                    onClick={handleSave}
+                  >
+                    保存{" "}
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Box flex="1" />
+                  <Button
+                    {...quietButtonProps}
+                    disabled={locked}
+                    onClick={requestClose}
+                  >
+                    閉じる
+                  </Button>
+                </>
+              )}
+            </Box>
+          )}
         </>
       </ModalDialog>
       <ModalDialog
-        open={discardAction !== null}
-        onOpenChange={(o) => !o && setDiscardAction(null)}
+        open={confirmDiscardOpen}
+        onOpenChange={(o) => !o && setConfirmDiscardOpen(false)}
         width="100%"
         maxWidth="420px"
-        title="食べた記録の入力"
+        title="入力の破棄"
       >
         <Box fontSize="13px" color="nm.ink">
-          保存していない食べた記録があります。破棄しますか？
+          保存していない入力があります。破棄しますか？
         </Box>
         <Box display="flex" justifyContent="flex-end" gap="8px" mt="20px">
           <Button
-            variant="plain"
-            px="14px"
-            py="9px"
-            h="auto"
-            minH="auto"
-            fontSize="13px"
-            fontWeight={500}
-            rounded="nmMd"
-            bg="nm.paper"
-            color="nm.inkMuted"
-            border="1px solid"
-            borderColor="nm.line"
-            _hover={{ borderColor: "nm.ink", color: "nm.ink" }}
+            {...quietButtonProps}
             onClick={() => {
-              setDiscardAction(null);
-              selectTab("mealRecord");
+              setConfirmDiscardOpen(false);
+              if (!mealRecordDraftDirty) {
+                setTab("info");
+              }
             }}
           >
             入力に戻る
@@ -1054,7 +1131,10 @@ export function ShopEditModal({
             bg="nm.shu"
             color="white"
             _hover={{ opacity: 0.9 }}
-            onClick={discardMealRecordDraft}
+            onClick={() => {
+              setConfirmDiscardOpen(false);
+              onClose();
+            }}
           >
             破棄する
           </Button>
