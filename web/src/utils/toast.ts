@@ -302,6 +302,8 @@ export const MEAL_RECORD_IMAGE_UNDECODABLE_MESSAGE =
 // The upload was aborted (timeout) or cut off: it may still have been saved.
 export const MEAL_RECORD_IMAGE_UPLOAD_UNCONFIRMED_MESSAGE =
   "アップロードの完了を確認できませんでした。一覧を確認してください";
+export const MEAL_RECORD_IMAGE_DRAFT_UPLOAD_UNCONFIRMED_MESSAGE =
+  "アップロードの完了を確認できませんでした。もう一度保存すると重複するおそれがあるため、キャンセルして記録を確認してください";
 export const MEAL_RECORD_IMAGE_NOT_IMAGE_MESSAGE =
   "画像ファイルのみ追加できます";
 export const MEAL_RECORD_IMAGE_LIMIT_MESSAGE = `1つの食べた記録に追加できる画像は${MEAL_RECORD_IMAGES_MAX}枚までです`;

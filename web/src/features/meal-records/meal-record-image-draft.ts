@@ -12,10 +12,10 @@ import {
   MEAL_RECORD_IMAGE_ALREADY_DELETED_TITLE,
   MEAL_RECORD_IMAGE_CAPTION_FAILED_TITLE,
   MEAL_RECORD_IMAGE_DELETE_FAILED_TITLE,
+  MEAL_RECORD_IMAGE_DRAFT_UPLOAD_UNCONFIRMED_MESSAGE,
   MEAL_RECORD_IMAGE_LIMIT_MESSAGE,
   MEAL_RECORD_IMAGE_REORDER_FAILED_TITLE,
   MEAL_RECORD_IMAGE_UNDECODABLE_MESSAGE,
-  MEAL_RECORD_IMAGE_UPLOAD_UNCONFIRMED_MESSAGE,
   MEAL_RECORD_IMAGES_MAX,
   mealRecordImageCaptionErrorMessage,
   mealRecordImageUploadErrorMessage,
@@ -307,7 +307,7 @@ export function useMealRecordImageDraft(images: readonly MealRecordImage[]) {
         ...item,
         status: "ready",
         error: unconfirmed
-          ? MEAL_RECORD_IMAGE_UPLOAD_UNCONFIRMED_MESSAGE
+          ? MEAL_RECORD_IMAGE_DRAFT_UPLOAD_UNCONFIRMED_MESSAGE
           : mealRecordImageUploadErrorMessage(result.error),
       }));
     }
