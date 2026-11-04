@@ -733,7 +733,9 @@ export function ShopEditModal({
           <Box
             ref={formRef}
             px="22px"
-            py="20px"
+            pt="20px"
+            // Sticky elements stop at the padding: the form's action row is the footer.
+            pb={mealRecordFormOpen ? "0" : "20px"}
             flex="1"
             minH="0"
             overflowY="auto"

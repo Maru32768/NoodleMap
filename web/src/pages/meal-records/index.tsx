@@ -73,6 +73,8 @@ function AddMealRecordDialog({
       width="100%"
       maxWidth="640px"
       title="食べた記録を追加"
+      // Sticky elements stop at the padding: the form's action row is the footer.
+      bodyProps={{ pb: 0 }}
     >
       {open && (
         <MealRecordForm

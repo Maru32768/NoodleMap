@@ -258,9 +258,8 @@ describe("MealRecordImageEditor saving", () => {
       screen.getByRole("button", { name: "画像 2 を前に移動" }),
     );
     expect(thumbs()).toEqual([image(3).url, image(2).url, "blob:preview-1"]);
-    await userEvent.type(caption(1), "  特製  ");
-    await userEvent.type(caption(3), "新しい");
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    fireEvent.change(caption(1), { target: { value: "  特製  " } });
+    fireEvent.change(caption(3), { target: { value: "新しい" } });
     expect(traffic).toEqual([]);
 
     await save();

@@ -228,6 +228,8 @@ function DetailsModal({
       maxWidth="720px"
       title="食べた記録の内容"
       subtitle={`${name} ${day}`}
+      // Sticky elements stop at the padding: the form's action row is the footer.
+      bodyProps={{ pb: 0 }}
     >
       <MealRecordForm
         importDraft={
