@@ -233,13 +233,16 @@ describe("MealRecordsPage", () => {
     ).toBeInTheDocument();
   });
 
-  it("lets the admin add a record at a new venue and then add its images", async () => {
+  it("lets the admin add a record at a new venue, its images in the same form", async () => {
     const user = userEvent.setup();
     const { posted } = renderPage("/meal-records", admin);
     await cardShopNames();
     await user.click(screen.getByRole("button", { name: "食べた記録を追加" }));
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByLabelText("催事・出店先")).toHaveValue("");
+    expect(
+      within(dialog).getByLabelText("追加する画像ファイル"),
+    ).toBeInTheDocument();
     await user.type(
       within(dialog).getByLabelText("催事・出店先"),
       "新宿ラーメン博",
@@ -256,9 +259,8 @@ describe("MealRecordsPage", () => {
       expect.objectContaining({ shopIds: [], venueName: "新宿ラーメン博" }),
     ]);
     expect(
-      await within(dialog).findByRole("group", { name: /^画像（/ }),
+      await screen.findByText("食べた記録を保存しました"),
     ).toBeInTheDocument();
-    await user.click(within(dialog).getByRole("button", { name: "閉じる" }));
     await waitFor(() =>
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
     );

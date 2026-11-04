@@ -3,10 +3,6 @@ import { ModalDialog } from "@/components/modal-dialog.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { toaster } from "@/components/ui/toaster.tsx";
 import {
-  purgeFailedUploads,
-  useUploadingMealRecordIds,
-} from "@/features/meal-records/api/meal-record-uploads.ts";
-import {
   MealRecord,
   useMealRecordMutations,
   useMealRecords,
@@ -14,9 +10,7 @@ import {
 import {
   MealRecordForm,
   RecordScope,
-  recordScopeId,
 } from "@/features/meal-records/meal-record-form.tsx";
-import { MealRecordImageManager } from "@/features/meal-records/meal-record-image-manager.tsx";
 import {
   formatMealRecordDate,
   MealRecordList,
@@ -67,9 +61,9 @@ interface BusyControl {
  * The edit modal's 食べた記録 tab: the shop's meal records with add, edit and delete,
  * plus the shop's 代表写真.
  * `onDirtyChange` reports whether an open meal record form has unsaved changes,
- * `onBusyChange` whether a meal record save or delete is in flight (image uploads
- * are read from their store by the modal), `onFormOpenChange` whether a form is
- * open, and `onShopGone` that adding failed because the shop was deleted elsewhere.
+ * `onBusyChange` whether a meal record save (images included) or delete is in
+ * flight, `onFormOpenChange` whether a form is open, and `onShopGone` that adding
+ * failed because the shop was deleted elsewhere.
  */
 export function MealRecordEditor({
   shopId,
@@ -155,7 +149,7 @@ export function MealRecordEditor({
 }
 
 /**
- * The admin's 食べた記録 of one shop or venue: add, edit, delete and images.
+ * The admin's 食べた記録 of one shop or venue: add, edit (images included) and delete.
  * `tools` renders above the list and `recordActions` before each record's
  * edit and delete, both sharing the busy state. `onAddGone` handles an add
  * the server answered with not_found; without it the form shows the error.
@@ -185,7 +179,6 @@ export function MealRecordsAdmin({
   tools?: (control: BusyControl) => ReactNode;
   recordActions?: (mealRecord: MealRecord, control: BusyControl) => ReactNode;
 }) {
-  const listId = recordScopeId(scope);
   const { addMealRecord, updateMealRecord, deleteMealRecord } =
     useMealRecordMutations();
   const [editing, setEditing] = useState<Editing | null>(null);
@@ -201,18 +194,6 @@ export function MealRecordsAdmin({
     onFormOpenChange?.(formOpen);
     return () => onFormOpenChange?.(false);
   }, [formOpen, onFormOpenChange]);
-  // A meal record with uploads queued or running cannot be deleted under them.
-  const uploadingMealRecordIds = useUploadingMealRecordIds();
-  // Failed files of meal records deleted (here or elsewhere) have nothing to retry.
-  useEffect(() => {
-    if (mealRecords) {
-      purgeFailedUploads(
-        listId,
-        mealRecords.map((mealRecord) => mealRecord.id),
-      );
-    }
-  }, [listId, mealRecords]);
-
   const whileBusy = async <T,>(task: () => Promise<T>): Promise<T> => {
     setBusy(true);
     try {
@@ -254,30 +235,26 @@ export function MealRecordsAdmin({
           mealRecord={mealRecord}
           onCancel={() => setEditing(null)}
           onDirtyChange={onDirtyChange}
-          onSave={async (input) => {
-            const result = await whileBusy(() =>
-              mealRecord
-                ? updateMealRecord(mealRecord.id, input)
-                : addMealRecord(input),
-            );
-            if (
-              !result.ok &&
-              isGone(result.error) &&
-              (mealRecord || onAddGone)
-            ) {
+          onBusyChange={setBusy}
+          onSave={async (input, savedId) => {
+            const id = savedId ?? mealRecord?.id;
+            const result = await (id
+              ? updateMealRecord(id, input)
+              : addMealRecord(input));
+            if (!result.ok && isGone(result.error) && (id || onAddGone)) {
               setEditing(null);
-              if (mealRecord) {
+              if (id) {
                 toastError({ title: MEAL_RECORD_ALREADY_DELETED_TITLE });
               } else {
                 onAddGone?.();
               }
               return null;
             }
-            if (result.ok) {
-              setEditing(null);
-              toaster.success({ description: "食べた記録を保存しました" });
-            }
             return result;
+          }}
+          onSaved={() => {
+            setEditing(null);
+            toaster.success({ description: "食べた記録を保存しました" });
           }}
         />
       </Box>
@@ -319,9 +296,6 @@ export function MealRecordsAdmin({
             mealRecords={mealRecords}
             contextShopId={scope.kind === "shop" ? scope.shopId : undefined}
             navigation={false}
-            images={(mealRecord) => (
-              <MealRecordImageManager listId={listId} mealRecord={mealRecord} />
-            )}
             actions={(mealRecord) => (
               <>
                 {recordActions?.(mealRecord, control)}
@@ -336,7 +310,7 @@ export function MealRecordsAdmin({
                 <Button
                   {...smallButtonProps}
                   aria-label="食べた記録を削除"
-                  disabled={busy || uploadingMealRecordIds.has(mealRecord.id)}
+                  disabled={busy}
                   onClick={() => setDeleteTarget(mealRecord)}
                 >
                   削除

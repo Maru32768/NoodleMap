@@ -12,6 +12,8 @@ import {
 } from "@/features/meal-records/api/use-meal-records.ts";
 import { useVenues } from "@/features/meal-records/api/use-venues.ts";
 import { japanDate } from "@/features/meal-records/eaten-date.ts";
+import { useMealRecordImageDraft } from "@/features/meal-records/meal-record-image-draft.ts";
+import { MealRecordImageEditor } from "@/features/meal-records/meal-record-image-editor.tsx";
 import { mealRecordInputProps as inputProps } from "@/features/meal-records/meal-record-input-props.ts";
 import {
   MenuItemErrors,
@@ -29,10 +31,12 @@ import {
   toShopFieldErrors,
 } from "@/features/shops/shop-field-errors.ts";
 import {
+  ApiError,
   ApiMutationResult,
   invalidRequestFieldErrors,
 } from "@/utils/request.ts";
 import {
+  MEAL_RECORD_IMAGES_PARTLY_SAVED_TITLE,
   MEAL_RECORD_INPUT_INVALID_DESCRIPTION,
   MEAL_RECORD_SAVE_FAILED_TITLE,
   mealRecordFieldErrorMessage,
@@ -40,7 +44,7 @@ import {
   toastApiError,
   toastError,
 } from "@/utils/toast.ts";
-import { Box, Input, Textarea } from "@chakra-ui/react";
+import { Box, chakra, Input, Textarea } from "@chakra-ui/react";
 import { isEqual } from "es-toolkit";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Select from "react-select";
@@ -89,13 +93,6 @@ export type RecordScope =
   | { kind: "shop"; shopId: string }
   | { kind: "venue"; venueId: string; venueName: string }
   | { kind: "all" };
-
-export const recordScopeId = (scope: RecordScope) =>
-  scope.kind === "shop"
-    ? scope.shopId
-    : scope.kind === "venue"
-      ? scope.venueId
-      : "all";
 
 function toDraft(
   mealRecord: MealRecord | undefined,
@@ -220,20 +217,27 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * Adds or edits one 食べた記録. `onSave` resolves to the API result; field errors
- * appear under their inputs, anything else is toasted.
+ * Adds or edits one 食べた記録 and its 記録の画像. `onSave` saves the fields and
+ * resolves to the API result; field errors appear under their inputs, anything
+ * else is toasted. The images follow, then `onSaved`. When some images fail the
+ * form stays open, and saving again passes `onSave` the record that now exists
+ * as `savedId` so it is not added twice.
  */
 export function MealRecordForm({
   scope,
   mealRecord,
   importDraft,
   onSave,
+  onSaved,
   onCancel,
   onDirtyChange,
+  onBusyChange,
 }: (
-  | { scope: RecordScope; importDraft?: undefined }
+  | { scope: RecordScope; importDraft?: undefined; onSaved: () => void }
   | {
       scope?: undefined;
+      // Its images come from the photos; its `onSave` resolves to null.
+      onSaved?: undefined;
       /**
        * A meal record the photo import will make: its day and its first shop (or, with no shop,
        * its venue) come from the photos, so none of them is edited.
@@ -245,10 +249,13 @@ export function MealRecordForm({
   // Resolves to the API result, or null when the caller handled it.
   onSave: (
     input: MealRecordInput,
+    savedId: string | undefined,
   ) => Promise<ApiMutationResult<MealRecord, SaveMealRecordErrorBody> | null>;
   onCancel: () => void;
   // Whether the draft differs from what the form started with.
   onDirtyChange?: (dirty: boolean) => void;
+  // Whether the whole save, images included, is running.
+  onBusyChange?: (busy: boolean) => void;
 }) {
   const {
     shops,
@@ -257,12 +264,17 @@ export function MealRecordForm({
     mutate: retryShops,
   } = useShops();
   const venues = useVenues();
-  const [initialDraft] = useState<MealRecordDraft>(() =>
+  const [initialDraft, setInitialDraft] = useState<MealRecordDraft>(() =>
     importDraft ? draftOf(importDraft) : toDraft(mealRecord, scope),
   );
   const [draft, setDraft] = useState<MealRecordDraft>(initialDraft);
+  const imageDraft = useMealRecordImageDraft(mealRecord?.images ?? []);
+  const [saving, setSaving] = useState(false);
+  // The record a save left behind when some of its images failed.
+  const [savedId, setSavedId] = useState<string>();
   // Compared as saved, so e.g. adding and removing a blank menu row is no change.
-  const dirty = !isEqual(toInput(draft), toInput(initialDraft));
+  const dirty =
+    !isEqual(toInput(draft), toInput(initialDraft)) || imageDraft.changed;
   const rateShopIds = (
     draft.rateShopIds ?? defaultRateShopIds(draft, mealRecord, shops)
   ).filter((id) => draft.shopIds.includes(id));
@@ -271,6 +283,10 @@ export function MealRecordForm({
   }, [dirty, onDirtyChange]);
   // A closed form has nothing left to lose.
   useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
+  useEffect(() => {
+    onBusyChange?.(saving);
+  }, [saving, onBusyChange]);
+  useEffect(() => () => onBusyChange?.(false), [onBusyChange]);
   const [fieldErrors, setFieldErrors] = useState<
     ShopFieldErrors<MealRecordField>
   >({});
@@ -354,18 +370,48 @@ export function MealRecordForm({
       reveal();
       return;
     }
+    setSaving(true);
+    try {
+      await save();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const save = async () => {
     const input = toInput(draft);
     const result = await onSave(
       input.rate === undefined || rateShopIds.length === 0
         ? input
         : { ...input, rateShopIds },
+      savedId,
     );
-    if (!result || result.ok) {
+    if (!result) {
       return;
     }
-    const errors = invalidRequestFieldErrors(result.error.body);
+    if (!result.ok) {
+      showSaveError(result.error);
+      return;
+    }
+    if (await imageDraft.commit(result.data.id)) {
+      onSaved?.();
+      return;
+    }
+    // The fields are saved: only the images are left, and a retry sends the
+    // same 店舗のお気に入り度 ticks even though the shops' rates have moved.
+    setSavedId(result.data.id);
+    setInitialDraft(draft);
+    set("rateShopIds", rateShopIds);
+    toastError({ title: MEAL_RECORD_IMAGES_PARTLY_SAVED_TITLE });
+    reveal();
+  };
+
+  const showSaveError = (
+    error: ApiError<SaveMealRecordErrorBody | undefined>,
+  ) => {
+    const errors = invalidRequestFieldErrors(error.body);
     if (!errors) {
-      toastApiError(result.error, {
+      toastApiError(error, {
         fallbackTitle: MEAL_RECORD_SAVE_FAILED_TITLE,
       });
       return;
@@ -417,7 +463,10 @@ export function MealRecordForm({
       bg="nm.bg"
       borderRadius="nmMd"
     >
-      <Box
+      {/* Disabled as one while saving: everything here is being sent. */}
+      <chakra.fieldset
+        disabled={saving}
+        minW="0"
         p="16px"
         display="grid"
         gridTemplateColumns={{ base: "1fr", md: "1fr 1fr" }}
@@ -440,7 +489,7 @@ export function MealRecordForm({
               isClearable={false}
               isLoading={!shops && shopsLoading}
               // An imported meal record without a shop stays without one: its venue keys it.
-              isDisabled={!shops || importDraft?.shopIds.length === 0}
+              isDisabled={!shops || importDraft?.shopIds.length === 0 || saving}
               options={options}
               value={options.filter((option) =>
                 draft.shopIds.includes(option.value),
@@ -612,7 +661,22 @@ export function MealRecordForm({
             />
           </FormField>
         </Box>
-      </Box>
+        {!importDraft && (
+          <Box
+            gridColumn={{ md: "span 2" }}
+            pt="10px"
+            borderTop="1px dashed"
+            borderTopColor="nm.lineFaint"
+          >
+            <FieldLabel>記録の画像</FieldLabel>
+            <MealRecordImageEditor
+              draft={imageDraft}
+              eatenOn={draft.eatenOn || undefined}
+              disabled={saving}
+            />
+          </Box>
+        )}
+      </chakra.fieldset>
       {/* Outside the grid: a grid item sticks only within its own row. */}
       <Box
         position="sticky"
@@ -631,11 +695,6 @@ export function MealRecordForm({
         flexWrap="wrap"
         gap="8px"
       >
-        {!mealRecord && !importDraft && (
-          <Box as="span" mr="auto" fontSize="11px" color="nm.inkMuted">
-            画像は食べた記録を保存した後に追加できます
-          </Box>
-        )}
         <Button
           variant="plain"
           px="14px"
@@ -649,12 +708,15 @@ export function MealRecordForm({
           border="1px solid"
           borderColor="nm.line"
           _hover={{ borderColor: "nm.ink", color: "nm.ink" }}
+          disabled={saving}
           onClick={onCancel}
         >
           キャンセル
         </Button>
         <LoadableButton
-          disabled={!mealRecord && !importDraft && !shops}
+          disabled={
+            (!mealRecord && !importDraft && !shops) || imageDraft.preparing
+          }
           variant="plain"
           px="18px"
           py="8px"

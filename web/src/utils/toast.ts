@@ -313,6 +313,8 @@ export const MEAL_RECORD_IMAGE_DELETE_FAILED_TITLE =
   "画像を削除できませんでした";
 export const MEAL_RECORD_IMAGE_ALREADY_DELETED_TITLE =
   "この画像はすでに削除されています";
+export const MEAL_RECORD_IMAGES_PARTLY_SAVED_TITLE =
+  "画像の一部を保存できませんでした";
 
 const MEAL_RECORD_IMAGE_FILE_MESSAGE: Partial<Record<FieldErrorType, string>> =
   {

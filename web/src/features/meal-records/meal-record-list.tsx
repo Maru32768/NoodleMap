@@ -127,13 +127,11 @@ function MenuItemList({
 function MealRecordEntry({
   mealRecord,
   actions,
-  images,
   navigation,
   contextShopId,
 }: {
   mealRecord: MealRecord;
   actions?: ReactNode;
-  images: ReactNode;
   navigation: boolean;
   contextShopId?: string;
 }) {
@@ -219,30 +217,25 @@ function MealRecordEntry({
       {mealRecord.privateNote && (
         <NoteBlock label="メモ（自分用）" text={mealRecord.privateNote} muted />
       )}
-      {images}
+      {/* `images` is absent while an older server is still deployed. */}
+      <MealRecordImageGallery images={mealRecord.images ?? []} />
     </Box>
   );
 }
 
 /**
- * 食べた記録 in server order (newest first); `actions` adds per-entry controls and
- * `images` replaces the default 記録の画像 thumbnails.
+ * 食べた記録 in server order (newest first); `actions` adds per-entry controls.
  */
 export function MealRecordList({
   mealRecords,
   actions,
   navigation = true,
   contextShopId,
-  // `images` is absent while an older server is still deployed.
-  images = (mealRecord) => (
-    <MealRecordImageGallery images={mealRecord.images ?? []} />
-  ),
 }: {
   mealRecords: readonly MealRecord[];
   actions?: (mealRecord: MealRecord) => ReactNode;
   navigation?: boolean;
   contextShopId?: string;
-  images?: (mealRecord: MealRecord) => ReactNode;
 }) {
   return (
     <Box
@@ -262,7 +255,6 @@ export function MealRecordList({
           navigation={navigation}
           contextShopId={contextShopId}
           actions={actions?.(mealRecord)}
-          images={images(mealRecord)}
         />
       ))}
     </Box>

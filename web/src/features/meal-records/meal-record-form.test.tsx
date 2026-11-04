@@ -34,6 +34,7 @@ describe("record associations", () => {
         scope={{ kind: "shop", shopId: a.id }}
         mealRecord={mealRecord}
         onSave={save}
+        onSaved={() => {}}
         onCancel={() => {}}
       />,
     );
@@ -53,6 +54,7 @@ describe("record associations", () => {
         venueName: mealRecord.venue?.name,
         publicNote: "残す",
       }),
+      undefined,
     );
   });
 
@@ -68,6 +70,7 @@ describe("record associations", () => {
       <MealRecordForm
         scope={{ kind: "shop", shopId: a.id }}
         onSave={save}
+        onSaved={() => {}}
         onCancel={() => {}}
       />,
     );
@@ -81,6 +84,7 @@ describe("record associations", () => {
     );
     expect(save).toHaveBeenCalledWith(
       expect.objectContaining({ shopIds: [b.id] }),
+      undefined,
     );
   });
 
@@ -95,6 +99,7 @@ describe("record associations", () => {
       <MealRecordForm
         scope={{ kind: "shop", shopId: a.id }}
         onSave={save}
+        onSaved={() => {}}
         onCancel={() => {}}
       />,
     );
@@ -115,6 +120,7 @@ describe("record associations", () => {
         shopIds: [],
         venueName: "日本ご当地ラーメン総選挙",
       }),
+      undefined,
     );
   });
 });

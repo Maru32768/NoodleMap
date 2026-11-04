@@ -20,17 +20,14 @@ import {
   type CategorySlug,
 } from "@/features/categories/categories.ts";
 import {
-  type MealRecord,
   useAllMealRecords,
   useMealRecordMutations,
 } from "@/features/meal-records/api/use-meal-records.ts";
 import {
   MealRecordForm,
   type RecordScope,
-  recordScopeId,
 } from "@/features/meal-records/meal-record-form.tsx";
 import { MealRecordGrid } from "@/features/meal-records/meal-record-grid.tsx";
-import { MealRecordImageManager } from "@/features/meal-records/meal-record-image-manager.tsx";
 import { mealRecordInputProps } from "@/features/meal-records/meal-record-input-props.ts";
 import { MealRecordsLoadState } from "@/features/meal-records/meal-record-list.tsx";
 import { BackToMapLink } from "@/features/meal-records/record-navigation.tsx";
@@ -57,70 +54,40 @@ const ORDER_CHOICES: readonly SegmentedOption<Order>[] = [
 const ALL: RecordScope = { kind: "all" };
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-type Adding = { step: "form" } | { step: "images"; mealRecordId: string };
-
-/**
- * The admin adds a 食べた記録 with no shop or venue preset, e.g. at a 催事 that
- * has no page yet, then adds its images without hunting for the new record.
- */
+/** The admin adds a 食べた記録 with no shop or venue preset, e.g. at a 催事 that has no page yet. */
 function AddMealRecordDialog({
-  adding,
-  mealRecords,
-  onChange,
+  open,
+  onClose,
 }: {
-  adding: Adding | null;
-  mealRecords: readonly MealRecord[] | undefined;
-  onChange: (adding: Adding | null) => void;
+  open: boolean;
+  onClose: () => void;
 }) {
-  const { addMealRecord } = useMealRecordMutations();
+  const { addMealRecord, updateMealRecord } = useMealRecordMutations();
   const [dirty, setDirty] = useState(false);
-  const saved =
-    adding?.step === "images"
-      ? mealRecords?.find((record) => record.id === adding.mealRecordId)
-      : undefined;
+  const [busy, setBusy] = useState(false);
   return (
     <ModalDialog
-      open={!!adding}
+      open={open}
       // A backdrop click or Esc leaves an edited draft open; キャンセル discards it.
-      onOpenChange={(open) => !open && !dirty && onChange(null)}
+      onOpenChange={(open) => !open && !dirty && !busy && onClose()}
       width="100%"
       maxWidth="640px"
-      title={adding?.step === "images" ? "画像を追加" : "食べた記録を追加"}
+      title="食べた記録を追加"
     >
-      {adding?.step === "form" && (
+      {open && (
         <MealRecordForm
           scope={ALL}
           onDirtyChange={setDirty}
-          onCancel={() => onChange(null)}
-          onSave={async (input) => {
-            const result = await addMealRecord(input);
-            if (result.ok) {
-              toaster.success({ description: "食べた記録を保存しました" });
-              onChange({ step: "images", mealRecordId: result.data.id });
-            }
-            return result;
+          onBusyChange={setBusy}
+          onCancel={onClose}
+          onSave={(input, savedId) =>
+            savedId ? updateMealRecord(savedId, input) : addMealRecord(input)
+          }
+          onSaved={() => {
+            onClose();
+            toaster.success({ description: "食べた記録を保存しました" });
           }}
         />
-      )}
-      {adding?.step === "images" && (
-        <Box display="flex" flexDirection="column" gap="16px">
-          {/* Read from the list, which is refetched after the save and each upload. */}
-          {saved ? (
-            <MealRecordImageManager
-              listId={recordScopeId(ALL)}
-              mealRecord={saved}
-            />
-          ) : (
-            <Box fontSize="12px" color="nm.inkMuted">
-              読み込み中…
-            </Box>
-          )}
-          <Box display="flex" justifyContent="flex-end">
-            <Button variant="outline" size="sm" onClick={() => onChange(null)}>
-              閉じる
-            </Button>
-          </Box>
-        </Box>
       )}
     </ModalDialog>
   );
@@ -130,7 +97,7 @@ export default function MealRecordsPage() {
   useDocumentTitle("食べた記録");
   const { data, error, isValidating, mutate } = useAllMealRecords();
   const isAdmin = useCurrentUser().type === "admin";
-  const [adding, setAdding] = useState<Adding | null>(null);
+  const [adding, setAdding] = useState(false);
   const { shops } = useShops();
   const [params, setParams] = useSearchParams();
   const [scrollParent, setScrollParent] = useState<HTMLElement | null>(null);
@@ -300,11 +267,7 @@ export default function MealRecordsPage() {
             食べた記録
           </Box>
           {isAdmin && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setAdding({ step: "form" })}
-            >
+            <Button variant="outline" size="sm" onClick={() => setAdding(true)}>
               食べた記録を追加
             </Button>
           )}
@@ -363,11 +326,7 @@ export default function MealRecordsPage() {
         </MealRecordsLoadState>
       </Box>
       {isAdmin && (
-        <AddMealRecordDialog
-          adding={adding}
-          mealRecords={data}
-          onChange={setAdding}
-        />
+        <AddMealRecordDialog open={adding} onClose={() => setAdding(false)} />
       )}
     </Box>
   );

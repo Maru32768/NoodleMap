@@ -25,7 +25,9 @@ export function MealRecordImageThumb({
   size = THUMB_PX,
   draggable,
 }: {
-  image: MealRecordImage;
+  // An unsaved preview has no stored size yet.
+  image: Pick<MealRecordImage, "url"> &
+    Partial<Pick<MealRecordImage, "width" | "height">>;
   alt: string;
   size?: number;
   draggable?: boolean;

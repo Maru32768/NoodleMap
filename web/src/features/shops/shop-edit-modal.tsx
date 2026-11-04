@@ -4,13 +4,13 @@ import { ModalDialog } from "@/components/modal-dialog.tsx";
 import { SegmentedPicker } from "@/components/segmented-picker.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { toaster } from "@/components/ui/toaster.tsx";
+import { useRefuseFileDrop } from "@/components/use-refuse-file-drop.ts";
 import { useRevealFirstError } from "@/components/use-reveal-first-error.ts";
 import {
   CATEGORY_OPTIONS,
   CategorySlug,
 } from "@/features/categories/categories.ts";
 import { CategoryIcon } from "@/features/map/category-icon.tsx";
-import { useShopUploading } from "@/features/meal-records/api/meal-record-uploads.ts";
 import { MealRecordEditor } from "@/features/meal-records/meal-record-editor.tsx";
 import { mealRecordInputProps } from "@/features/meal-records/meal-record-input-props.ts";
 import {
@@ -474,28 +474,7 @@ export function ShopEditModal({
   const { ref: formRef, reveal: revealFirstError } =
     useRevealFirstError<HTMLDivElement>();
 
-  // A file dropped beside a meal record's image area would make the browser open it
-  // and leave the page.
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-    const refuseFileDrop = (event: DragEvent) => {
-      if (
-        !event.defaultPrevented &&
-        event.dataTransfer?.types.includes("Files")
-      ) {
-        event.preventDefault();
-        event.dataTransfer.dropEffect = "none";
-      }
-    };
-    window.addEventListener("dragover", refuseFileDrop);
-    window.addEventListener("drop", refuseFileDrop);
-    return () => {
-      window.removeEventListener("dragover", refuseFileDrop);
-      window.removeEventListener("drop", refuseFileDrop);
-    };
-  }, [open]);
+  useRefuseFileDrop(open);
 
   const errorOf = (field: UpdateShopField) => {
     const type = fieldErrors[field];
@@ -673,9 +652,7 @@ export function ShopEditModal({
     onClose();
   };
 
-  // Image uploads run outside the 食べた記録 tab, which may not be mounted.
-  const uploading = useShopUploading(shop.id);
-  const locked = saving || deleting || mealRecordBusy || uploading;
+  const locked = saving || deleting || mealRecordBusy;
 
   const displayName = shop.name || "(名称未設定)";
   const hasMealRecords = shop.mealRecordCount > 0;
