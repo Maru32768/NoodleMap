@@ -30,6 +30,18 @@ type DeleteMealRecordImageErrorBody = ApiErrorBodyFor<
   "delete"
 >;
 
+const UPLOAD_TIMEOUT_BASE_MS = 30_000;
+// A slow mobile uplink; a request slower than this is treated as stalled.
+const UPLOAD_MIN_BYTES_PER_SECOND = 50 * 1024;
+
+/** How long one upload request of `bytes` may take before it is aborted. */
+export function uploadTimeoutMs(bytes: number): number {
+  return (
+    UPLOAD_TIMEOUT_BASE_MS +
+    Math.ceil((bytes / UPLOAD_MIN_BYTES_PER_SECOND) * 1000)
+  );
+}
+
 const DEFAULT_RETRY_AFTER_MS = 5_000;
 const MAX_RETRY_AFTER_MS = 30_000;
 

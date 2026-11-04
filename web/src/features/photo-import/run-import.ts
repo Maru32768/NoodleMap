@@ -1,8 +1,8 @@
-import { uploadTimeoutMs } from "@/features/meal-records/api/meal-record-uploads.ts";
 import {
   retryAfterMs,
   sleep,
   uploadMealRecordImage,
+  uploadTimeoutMs,
 } from "@/features/meal-records/api/use-meal-record-images.ts";
 import {
   fetchMealRecords,

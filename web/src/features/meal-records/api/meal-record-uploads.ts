@@ -1,6 +1,7 @@
-import type {
-  MealRecordImage,
-  UploadMealRecordImageErrorBody,
+import {
+  type MealRecordImage,
+  type UploadMealRecordImageErrorBody,
+  uploadTimeoutMs,
 } from "@/features/meal-records/api/use-meal-record-images.ts";
 import {
   PreparedImage,
@@ -40,18 +41,6 @@ export type UploadImage = (
 ) => Promise<
   ApiMutationResult<MealRecordImage, UploadMealRecordImageErrorBody>
 >;
-
-const UPLOAD_TIMEOUT_BASE_MS = 30_000;
-// A slow mobile uplink; a request slower than this is treated as stalled.
-const UPLOAD_MIN_BYTES_PER_SECOND = 50 * 1024;
-
-/** How long one upload request of `bytes` may take before it is aborted. */
-export function uploadTimeoutMs(bytes: number): number {
-  return (
-    UPLOAD_TIMEOUT_BASE_MS +
-    Math.ceil((bytes / UPLOAD_MIN_BYTES_PER_SECOND) * 1000)
-  );
-}
 
 let pending: readonly PendingUpload[] = [];
 const listeners = new Set<() => void>();
