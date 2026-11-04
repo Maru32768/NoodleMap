@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { expect, test, uid } from "../../support/fixtures.ts";
@@ -24,8 +24,7 @@ test("admin selects an older regular-menu record for the cover and OGP and can r
   const regularEntry = list.locator(":scope > li").filter({ hasText: "レギュラー中華そば" });
   const limitedEntry = list.locator(":scope > li").filter({ hasText: "イベント限定そば" });
   for (const entry of [regularEntry, limitedEntry]) {
-    await entry.locator('input[type="file"]').setInputFiles(MEAL_RECORD_IMAGE);
-    await expect(entry.getByRole("list", { name: "記録の画像" }).getByRole("listitem")).toHaveCount(1);
+    await addImageThroughForm(dialog, entry);
   }
   const records = await api.listMealRecords(shop.id);
   const limited = records[0];
@@ -80,13 +79,12 @@ test("collaboration records share photos and a reusable venue and can be detache
   expect(shared.shops.map((shop) => shop.id)).toEqual([a.id, b.id]);
   expect((await api.listMealRecords(b.id))[0].id).toBe(shared.id);
   const venue = shared.venue!;
-  const entry = dialog.getByRole("list", { name: "食べた記録" }).getByRole("listitem");
-  await entry.locator('input[type="file"]').setInputFiles(MEAL_RECORD_IMAGE);
-  await expect(entry.getByRole("list", { name: "記録の画像" }).getByRole("listitem")).toHaveCount(1);
+  const entry = dialog.getByRole("list", { name: "食べた記録" }).locator(":scope > li");
+  await addImageThroughForm(dialog, entry);
   await expect.poll(async () => (await api.getShop(a.id)).coverPhotoUrl).toBeTruthy();
   const cover = (await api.getShop(a.id)).coverPhotoUrl;
   expect((await api.getShop(b.id)).coverPhotoUrl).toBe(cover);
-  await dialog.getByRole("button", { name: "キャンセル", exact: true }).click();
+  await dialog.getByRole("button", { name: "閉じる", exact: true }).click();
 
   dialog = await openEditModal(page, b.name, id);
   await dialog.getByRole("button", { name: "食べた記録", exact: true }).click();
@@ -141,6 +139,15 @@ test("collaboration records share photos and a reusable venue and can be detache
   expect((await history.json()).mealRecords.map((mealRecord: { id: string }) => mealRecord.id)).not.toContain(shared.id);
 });
 
+async function addImageThroughForm(dialog: Locator, entry: Locator) {
+  await entry.getByRole("button", { name: "食べた記録を編集" }).click();
+  const form = dialog.getByRole("group", { name: "食べた記録を編集", exact: true });
+  await form.getByLabel("追加する画像ファイル").setInputFiles(MEAL_RECORD_IMAGE);
+  await expect(form.getByRole("list", { name: "記録の画像" }).getByRole("img", { name: "画像 1" })).toHaveJSProperty("naturalWidth", 320);
+  await form.getByRole("button", { name: "食べた記録を保存" }).click();
+  await expect(entry.getByRole("list", { name: "記録の画像" }).getByRole("listitem")).toHaveCount(1);
+}
+
 async function openEditModal(page: Page, name: string, filter: string) {
   await page.goto("/admin");
   await page.getByPlaceholder("店名・読み・住所・タグで絞り込み...").filter({ visible: true }).fill(filter);
@@ -188,8 +195,11 @@ test("admin records a meal record of two menu items that guests see without its 
   expect(await api.getShop(shop.id)).toMatchObject({ eaten: true, rate: 85, favorite: true, mealRecordCount: 1 });
   // The shop list was refreshed: 削除 is locked and, once the modal is closed,
   // the row counts the mealRecord.
+  await dialog.getByRole("button", { name: "店舗情報", exact: true }).click();
   await expect(dialog.getByRole("button", { name: "削除", exact: true })).toBeDisabled();
   await expect(dialog.getByText("食べた記録がある店舗は削除できません")).toBeVisible();
+  // The record reflected its rate while the modal was open.
+  await expect(dialog.getByRole("spinbutton", { name: "店舗のお気に入り度" })).toHaveValue("85");
   await dialog.getByRole("button", { name: "キャンセル", exact: true }).click();
   await expect(dialog).toBeHidden();
   await expect(page.getByRole("row").filter({ hasText: shop.name })).toContainText("1件");
@@ -221,6 +231,7 @@ test("deleting a shop's only meal record returns it to 気になる", async ({ p
   await expect(dialog.getByText("まだ食べた記録がありません")).toBeVisible();
   // The shop's own お気に入り度 outlives the record.
   expect(await api.getShop(shop.id)).toMatchObject({ eaten: false, rate: 85, mealRecordCount: 0 });
+  await dialog.getByRole("button", { name: "店舗情報", exact: true }).click();
   await expect(dialog.getByRole("button", { name: "削除", exact: true })).toBeEnabled();
 
   await asGuest(async (guestPage) => {
@@ -242,18 +253,37 @@ test("admin adds a meal record image that guests see in the meal record and as t
 
   const dialog = await openEditModal(page, shop.name, id);
   await dialog.getByRole("button", { name: "食べた記録", exact: true }).click();
-  await dialog.getByLabel("追加する画像ファイル").setInputFiles(MEAL_RECORD_IMAGE);
+  const entry = dialog.getByRole("list", { name: "食べた記録" }).locator(":scope > li");
+  await entry.getByRole("button", { name: "食べた記録を編集" }).click();
+  const form = dialog.getByRole("group", { name: "食べた記録を編集", exact: true });
+  await form.getByLabel("追加する画像ファイル").setInputFiles(MEAL_RECORD_IMAGE);
 
-  const images = dialog.getByRole("list", { name: "記録の画像" });
+  const draftImages = form.getByRole("list", { name: "記録の画像" });
+  await expect(draftImages.getByRole("listitem")).toHaveCount(1);
+  await expect(draftImages.getByText("代表")).toBeVisible();
+  // The preview loads before anything reaches the server.
+  await expect(draftImages.getByRole("img", { name: "画像 1" })).toHaveJSProperty("naturalWidth", 320);
+  await draftImages.getByRole("textbox", { name: "画像 1 のキャプション" }).fill(caption);
+  expect((await api.listMealRecords(shop.id))[0].images).toEqual([]);
+  expect((await api.getShop(shop.id)).coverPhotoUrl).toBeUndefined();
+
+  await form.getByRole("button", { name: "食べた記録を保存" }).click();
+  await expect(page.getByText("食べた記録を保存しました")).toBeVisible();
+
+  const images = entry.getByRole("list", { name: "記録の画像" });
   await expect(images.getByRole("listitem")).toHaveCount(1);
-  await expect(images.getByText("代表")).toBeVisible();
   // The stored JPEG loads (320 x 240, under the server's 2048 px limit).
-  await expect(images.getByRole("img", { name: "画像 1" })).toHaveJSProperty("naturalWidth", 320);
-  await images.getByRole("button", { name: "画像 1 のキャプションを編集" }).click();
-  await images.getByRole("textbox", { name: "キャプション" }).fill(caption);
-  await images.getByRole("button", { name: "保存", exact: true }).click();
-  await expect(images.getByText(caption)).toBeVisible();
+  await expect(images.locator("img")).toHaveJSProperty("naturalWidth", 320);
+  expect((await api.listMealRecords(shop.id))[0].images[0].caption).toBe(caption);
   expect((await api.getShop(shop.id)).coverPhotoUrl).toBeTruthy();
+
+  // The lightbox closes on its own over the modal.
+  await images.getByRole("button", { name: `画像 1 / 1: ${caption}を拡大` }).click();
+  const adminLightbox = page.getByRole("dialog").filter({ hasText: "1 / 1" });
+  await expect(adminLightbox).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(adminLightbox).toBeHidden();
+  await expect(dialog).toBeVisible();
 
   await asGuest(async (guestPage) => {
     await guestPage.goto(`/search?shop=${shop.id}`);
@@ -270,11 +300,12 @@ test("admin adds a meal record image that guests see in the meal record and as t
     await expect(cover).toBeVisible();
   });
 
-  await images.getByRole("button", { name: "画像 1 を削除" }).click();
-  const confirm = page.getByRole("dialog").filter({ hasText: "この画像を削除しますか？" });
-  await confirm.getByRole("button", { name: "削除", exact: true }).click();
-  await expect(page.getByText("画像を削除しました")).toBeVisible();
+  await entry.getByRole("button", { name: "食べた記録を編集" }).click();
+  await form.getByRole("button", { name: "画像 1 を削除" }).click();
+  expect((await api.listMealRecords(shop.id))[0].images).toHaveLength(1);
+  await form.getByRole("button", { name: "食べた記録を保存" }).click();
   await expect(images).toHaveCount(0);
+  await expect(form).toBeHidden();
   expect((await api.getShop(shop.id)).coverPhotoUrl).toBeUndefined();
 
   await asGuest(async (guestPage) => {
@@ -292,6 +323,7 @@ test("admin adds a meal record image by dropping the file onto the image area", 
 
   const dialog = await openEditModal(page, shop.name, id);
   await dialog.getByRole("button", { name: "食べた記録", exact: true }).click();
+  await dialog.getByRole("button", { name: "食べた記録を編集" }).click();
   const jpeg = (await readFile(MEAL_RECORD_IMAGE)).toString("base64");
   const dataTransfer = await page.evaluateHandle((base64) => {
     const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
@@ -307,6 +339,77 @@ test("admin adds a meal record image by dropping the file onto the image area", 
   const images = dialog.getByRole("list", { name: "記録の画像" });
   await expect(images.getByRole("listitem")).toHaveCount(1);
   await expect(images.getByRole("img", { name: "画像 1" })).toHaveJSProperty("naturalWidth", 320);
+  await dialog.getByRole("button", { name: "食べた記録を保存" }).click();
+  await expect(page.getByText("食べた記録を保存しました")).toBeVisible();
+  expect((await api.listMealRecords(shop.id))[0].images).toHaveLength(1);
+});
+
+test("admin adds a new meal record with an image in one save", async ({ page, api }) => {
+  const id = uid();
+  const shop = await api.createShop({ name: `${id} 新しい記録に写真を付ける店` });
+
+  const dialog = await openEditModal(page, shop.name, id);
+  await dialog.getByRole("button", { name: "食べた記録", exact: true }).click();
+  await dialog.getByRole("button", { name: "食べた記録を追加" }).click();
+  const form = dialog.getByRole("group", { name: "食べた記録を追加", exact: true });
+  await form.getByLabel("追加する画像ファイル").setInputFiles(MEAL_RECORD_IMAGE);
+  await expect(form.getByRole("img", { name: "画像 1" })).toHaveJSProperty("naturalWidth", 320);
+  expect(await api.listMealRecords(shop.id)).toEqual([]);
+  await form.getByRole("button", { name: "食べた記録を保存" }).click();
+
+  await expect(page.getByText("食べた記録を保存しました")).toBeVisible();
+  const [record] = await api.listMealRecords(shop.id);
+  expect(record.images).toHaveLength(1);
+  await expect.poll(async () => (await api.getShop(shop.id)).coverPhotoUrl).toBe(record.images[0].url);
+});
+
+test("the record form's action row stays in view wherever the form scrolls", async ({ page, api }) => {
+  await page.setViewportSize({ width: 390, height: 600 });
+  const id = uid();
+  const venueName = `${id} 催事`;
+  const created = await page.request.post("/api/v1/auth/meal-records", { data: { shopIds: [], venueName } });
+  expect(created.ok()).toBe(true);
+  const venue = (await created.json()).venue as { id: string };
+  const expectActionsInView = async (form: Locator, bottomEdge: (row: { y: number; height: number }) => Promise<void>) => {
+    const actions = form.getByRole("button", { name: "食べた記録を保存" });
+    await expect(actions).toBeInViewport({ ratio: 1 });
+    // Taller than the screen, so the row can share it with the form's top only by sticking.
+    expect((await form.boundingBox())!.height).toBeGreaterThan(page.viewportSize()!.height);
+    await form.getByRole("combobox", { name: "提供した店舗" }).scrollIntoViewIfNeeded();
+    await expect(actions).toBeInViewport({ ratio: 1 });
+    await bottomEdge((await actions.locator("..").boundingBox())!);
+  };
+  // Nothing scrolling shows below the row in a dialog.
+  const flushWith = (container: Locator) => async (row: { y: number; height: number }) => {
+    const box = (await container.boundingBox())!;
+    expect(Math.abs(box.y + box.height - (row.y + row.height))).toBeLessThanOrEqual(2);
+  };
+
+  // In the page, above the phone's fixed footer.
+  await page.goto(`/venues/${venue.id}`);
+  await page.getByRole("button", { name: "記録を管理" }).click();
+  await page.getByRole("button", { name: "食べた記録を追加" }).click();
+  await expectActionsInView(page.getByRole("group", { name: "食べた記録を追加", exact: true }), async (row) => {
+    const footer = (await page.getByRole("navigation", { name: "メインメニュー" }).boundingBox())!;
+    expect(row.y + row.height).toBeLessThanOrEqual(footer.y);
+  });
+
+  // In the /meal-records dialog.
+  await page.goto("/meal-records");
+  await page.getByRole("button", { name: "食べた記録を追加", exact: true }).click();
+  const addDialog = page.getByRole("dialog");
+  await expectActionsInView(addDialog.getByRole("group", { name: "食べた記録を追加", exact: true }), flushWith(addDialog));
+
+  // In the shop edit modal.
+  const shop = await api.createShop({ name: `${id} 狭い画面の店` });
+  await page.setViewportSize({ width: 1280, height: 600 });
+  const dialog = await openEditModal(page, shop.name, id);
+  await dialog.getByRole("button", { name: "食べた記録", exact: true }).click();
+  await dialog.getByRole("button", { name: "食べた記録を追加" }).click();
+  await expect(dialog.getByRole("heading", { name: "食べた記録を追加" })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "店舗情報", exact: true })).toHaveCount(0);
+  await expect(dialog.getByRole("button", { name: "閉じる", exact: true })).toHaveCount(0);
+  await expectActionsInView(dialog.getByRole("group", { name: "食べた記録を追加", exact: true }), flushWith(dialog));
 });
 
 test("admin sets 絶対行きたい and a guest sees it", async ({ page, api, asGuest }) => {
