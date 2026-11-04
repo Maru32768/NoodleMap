@@ -669,6 +669,15 @@ export interface components {
              */
             price?: number;
         };
+        NearestStation: {
+            /** @description Station name without the 駅 suffix, e.g. 渋谷. */
+            name: string;
+            /**
+             * Format: int32
+             * @description Straight-line distance from the shop, in meters.
+             */
+            distanceMeters: number;
+        };
         NotFoundErrorBody: {
             /** @enum {string} */
             type: "not_found";
@@ -760,6 +769,8 @@ export interface components {
             address: string;
             /** @description Google Places place id. Absent when the shop was entered by hand. */
             googlePlaceId?: string;
+            /** @description Derived on the server from 国土数値情報 鉄道データ: the station closest in a straight line. Absent when none is within 5 km. Read-only. */
+            nearestStation?: components["schemas"]["NearestStation"];
             /** @description Derived on the server: true when the shop has at least one meal record. Read-only. */
             eaten: boolean;
             /**

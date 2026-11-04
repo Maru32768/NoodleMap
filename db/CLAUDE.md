@@ -20,6 +20,8 @@ Schema migrations and queries live in `server/` (see `server/CLAUDE.md`): goose-
 
 Local Gradle `run` and Docker Compose copy `db/default.db` only when the destination database does not exist. Existing files are never replaced. Other launch methods seed only when `DB_SEED_PATH` is configured.
 
+`generate_stations.py` builds `server/src/main/resources/stations.csv`, the stations the server picks each shop's 最寄駅 from, out of 国土数値情報 鉄道データ (CC BY 4.0, credited in the UI). Its docstring says where to download the source.
+
 Run `python3 db/generate_default.py` from the repository root with JDK 21 to regenerate `db/default.db` after CSV or migration changes. The generator creates a fresh database using the server's migration runner, imports CSVs, validates integrity and foreign keys, and replaces only the template. Never generate it by copying a live database. Commit CSV changes with the regenerated template; do not commit WAL sidecars or authentication data.
 
 ## Testing

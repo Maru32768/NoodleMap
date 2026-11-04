@@ -22,6 +22,8 @@ export type FilterToggles = {
 // filterShops because their empty-selection meaning differs (see below).
 export type SearchFilters = FilterToggles & {
   favMin: number;
+  // 駅徒歩 cap in minutes; 0 keeps every shop, including those with no station.
+  walkMax: number;
   // 気になる度 levels kept among shops not eaten yet (OR within); empty keeps
   // every level. Eaten shops are not narrowed.
   wishLevels: WishLevel[];
@@ -48,6 +50,21 @@ export function toggleWishLevel(
   level: WishLevel,
 ): WishLevel[] {
   return WISH_LEVELS.filter((l) => (l === level) !== levels.includes(l));
+}
+
+// 不動産の表示に関する公正競争規約: 80 m per minute, any remainder rounded up.
+export function walkMinutes(distanceMeters: number): number {
+  return Math.max(1, Math.ceil(distanceMeters / 80));
+}
+
+/** 「渋谷駅 徒歩5分」, or null when no station is within reach. */
+export function stationLabel(
+  shop: Pick<Shop, "nearestStation">,
+): string | null {
+  const station = shop.nearestStation;
+  return station
+    ? `${station.name}駅 徒歩${walkMinutes(station.distanceMeters)}分`
+    : null;
 }
 
 export function favToHearts(rate: number | undefined): number {
@@ -95,6 +112,14 @@ export function filterShops(
       return false;
     }
 
+    if (
+      filters.walkMax > 0 &&
+      (!r.nearestStation ||
+        walkMinutes(r.nearestStation.distanceMeters) > filters.walkMax)
+    ) {
+      return false;
+    }
+
     // System-tag (status) facet: lifecycle is exhaustive, so a shop must match a
     // selected system tag. Deselecting all status chips intentionally shows
     // nothing. The `system:open` receiver keeps ordinary shops visible while
@@ -131,7 +156,7 @@ export function normalizeForSearch(s: string): string {
     .replace(/[ァ-ヶ]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0x60));
 }
 
-// Free-text match over name, reading (読み), address and tag labels. The query
+// Free-text match over name, reading (読み), address, nearest station and tag labels. The query
 // is split on whitespace; every token must appear within a single field, but
 // different tokens may match different fields (「中華そば 新宿」).
 export function createQueryMatcher(query: string): (shop: Shop) => boolean {
@@ -144,6 +169,8 @@ export function createQueryMatcher(query: string): (shop: Shop) => boolean {
       shop.name,
       shop.nameKana,
       shop.address,
+      // With the 駅 suffix, so 「渋谷」 and 「渋谷駅」 both match.
+      shop.nearestStation && `${shop.nearestStation.name}駅`,
       ...shop.tags.map((tag) => tag.label),
     ]
       .filter((field) => field !== undefined)

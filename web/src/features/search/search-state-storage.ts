@@ -33,6 +33,7 @@ export const DEFAULT_FILTERS: SearchFilters = {
   ramen: true,
   udon: true,
   favMin: 0,
+  walkMax: 0,
   wishLevels: [],
   // Status is filtered via system tags in tagIds; default to all but 閉店.
   tagIds: [...DEFAULT_SYSTEM_TAG_SELECTION],
@@ -64,7 +65,8 @@ function isMapView(value: unknown): value is MapView {
 // 気になる度 is checked by readWishLevels: older states lack `wishLevels`.
 function isSearchFilters(
   value: unknown,
-): value is Omit<SearchFilters, "wishLevels"> & LegacyWishFields {
+): value is Omit<SearchFilters, "wishLevels" | "walkMax"> &
+  LegacyWishFields & { walkMax?: unknown } {
   if (!value || typeof value !== "object") {
     return false;
   }
@@ -129,6 +131,11 @@ function normalizeSavedSearchState(value: unknown): SavedSearchState | null {
       ramen: candidate.filters.ramen,
       udon: candidate.filters.udon,
       favMin: candidate.filters.favMin,
+      // Absent in states saved before the 駅徒歩 filter.
+      walkMax:
+        typeof candidate.filters.walkMax === "number"
+          ? candidate.filters.walkMax
+          : 0,
       // 気になる off disables 気になる度, so no narrowing hides behind it.
       wishLevels: candidate.filters.wish
         ? readWishLevels(candidate.filters)

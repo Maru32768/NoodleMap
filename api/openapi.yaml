@@ -1822,6 +1822,19 @@ components:
           maximum: 10000000
           description: Price in yen, 0 to 10,000,000. Omit when not recorded.
       description: One 食べたメニュー as written by the admin. The name is trimmed and must not be blank.
+    NearestStation:
+      type: object
+      required:
+        - name
+        - distanceMeters
+      properties:
+        name:
+          type: string
+          description: Station name without the 駅 suffix, e.g. 渋谷.
+        distanceMeters:
+          type: integer
+          format: int32
+          description: Straight-line distance from the shop, in meters.
     NotFoundErrorBody:
       type: object
       required:
@@ -2029,6 +2042,10 @@ components:
         googlePlaceId:
           type: string
           description: Google Places place id. Absent when the shop was entered by hand.
+        nearestStation:
+          allOf:
+            - $ref: '#/components/schemas/NearestStation'
+          description: 'Derived on the server from 国土数値情報 鉄道データ: the station closest in a straight line. Absent when none is within 5 km. Read-only.'
         eaten:
           type: boolean
           description: 'Derived on the server: true when the shop has at least one meal record. Read-only.'

@@ -52,6 +52,12 @@ public data class Shop(
   @SerialName("googlePlaceId")
   public val googlePlaceId: String? = null,
   /**
+   * Derived on the server from 国土数値情報 鉄道データ: the station closest in a straight line. Absent when
+   * none is within 5 km. Read-only.
+   */
+  @SerialName("nearestStation")
+  public val nearestStation: NearestStation? = null,
+  /**
    * Derived on the server: true when the shop has at least one meal record. Read-only.
    */
   @SerialName("eaten")

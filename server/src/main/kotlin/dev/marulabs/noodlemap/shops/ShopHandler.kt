@@ -197,6 +197,7 @@ class ShopHandler(
                 openedAt = ShopDate.encode(req.openedAt), closedAt = ShopDate.encode(req.closedAt),
                 temporaryClosure = temporaryClosure,
                 postalCode = req.postalCode, address = req.address, googlePlaceId = googlePlaceId,
+                nearestStation = Stations.nearest(req.lat, req.lng),
                 eaten = false, favorite = false, mealRecordCount = 0, wishLevel = wishLevel?.value,
                 category = req.category,
                 tags = tagsByShopIds(listOf(shopId))[shopId] ?: emptyList(),
@@ -301,6 +302,7 @@ class ShopHandler(
                     TemporaryClosure(startsOn = it, reopensOn = r.temporary_closure_reopens_on)
                 },
                 postalCode = r.postal_code, address = r.address, googlePlaceId = r.google_place_id,
+                nearestStation = Stations.nearest(r.lat, r.lng),
                 eaten = mealRecordCount > 0, rate = r.rate, favorite = isFavorite(r.rate),
                 mealRecordCount = mealRecordCount, wishLevel = r.wish_level,
                 category = CategorySlug.fromValue(r.category) ?: CategorySlug.RAMEN,

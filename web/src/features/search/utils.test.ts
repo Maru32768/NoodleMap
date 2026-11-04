@@ -5,6 +5,7 @@ import {
   normalizeForSearch,
   SearchFilters,
   sortShops,
+  stationLabel,
   toggleWishLevel,
 } from "@/features/search/utils.ts";
 import { SYSTEM_TAGS } from "@/features/shops/status.ts";
@@ -20,6 +21,7 @@ const showEverything: SearchFilters = {
   ramen: true,
   udon: true,
   favMin: 0,
+  walkMax: 0,
   wishLevels: [],
   tagIds: ALL_SYSTEM_TAGS,
 };
@@ -153,6 +155,40 @@ describe("filterShops", () => {
     expect(filterNames(shops, { favMin: 0 })).toEqual(["60", "80", "0"]);
   });
 
+  it("keeps shops within walkMax minutes of a station and ignores it at 0", () => {
+    const shops = [
+      makeShop({
+        name: "400m",
+        nearestStation: { name: "渋谷", distanceMeters: 400 },
+      }),
+      makeShop({
+        name: "401m",
+        nearestStation: { name: "渋谷", distanceMeters: 401 },
+      }),
+      makeShop({ name: "none" }),
+    ];
+
+    expect(filterNames(shops, { walkMax: 5 })).toEqual(["400m"]);
+    expect(filterNames(shops, { walkMax: 0 })).toEqual([
+      "400m",
+      "401m",
+      "none",
+    ]);
+  });
+
+  it("matches the query against the nearest station with or without 駅", () => {
+    const shops = [
+      makeShop({
+        name: "A",
+        nearestStation: { name: "渋谷", distanceMeters: 300 },
+      }),
+      makeShop({ name: "B" }),
+    ];
+
+    expect(filterNames(shops, {}, "渋谷")).toEqual(["A"]);
+    expect(filterNames(shops, {}, "渋谷駅")).toEqual(["A"]);
+  });
+
   describe("system tag (status) facet", () => {
     const recentOpening = dayjs().subtract(30, "day").format("YYYY-MM-DD");
     const shops = [
@@ -235,6 +271,23 @@ describe("filterShops", () => {
     expect(filterNames(shops, {}, "イットウ")).toEqual(["麺屋 一燈"]);
     expect(filterNames(shops, {}, "らーめん")).toEqual(["Udon"]);
     expect(filterNames(shops, {}, "ﾗｰﾒﾝ")).toEqual(["Udon"]);
+  });
+});
+
+describe("stationLabel", () => {
+  it.each([
+    [1, "渋谷駅 徒歩1分"],
+    [80, "渋谷駅 徒歩1分"],
+    [81, "渋谷駅 徒歩2分"],
+    [1200, "渋谷駅 徒歩15分"],
+  ])("labels %s m as %s", (distanceMeters, label) => {
+    expect(
+      stationLabel({ nearestStation: { name: "渋谷", distanceMeters } }),
+    ).toBe(label);
+  });
+
+  it("is null without a station", () => {
+    expect(stationLabel({})).toBeNull();
   });
 });
 

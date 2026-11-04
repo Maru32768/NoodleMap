@@ -412,6 +412,9 @@ model Shop {
   @doc("Google Places place id. Absent when the shop was entered by hand.")
   googlePlaceId?: string;
 
+  @doc("Derived on the server from 国土数値情報 鉄道データ: the station closest in a straight line. Absent when none is within 5 km. Read-only.")
+  nearestStation?: NearestStation;
+
   @doc("Derived on the server: true when the shop has at least one meal record. Read-only.")
   eaten: boolean;
 
@@ -592,6 +595,14 @@ model MenuItemInput {
   @minValue(0)
   @maxValue(10000000)
   price?: int32;
+}
+
+model NearestStation {
+  @doc("Station name without the 駅 suffix, e.g. 渋谷.")
+  name: string;
+
+  @doc("Straight-line distance from the shop, in meters.")
+  distanceMeters: int32;
 }
 
 model TemporaryClosure {

@@ -5,6 +5,7 @@ import { CategorySlug } from "@/features/categories/categories.ts";
 import { CategoryIcon } from "@/features/map/category-icon.tsx";
 import { ShopMealRecordHistory } from "@/features/meal-records/shop-meal-record-history.tsx";
 import { ShopRating } from "@/features/meal-records/shop-rating.tsx";
+import { stationLabel } from "@/features/search/utils.ts";
 import { Shop } from "@/features/shops/api/use-shops.ts";
 import {
   buildGoogleMapsUrl,
@@ -77,6 +78,7 @@ export function DetailPanel({ shop, onAdminEdit, onClose }: DetailPanelProps) {
   const displaySystemTags = shopDisplaySystemTags(shop);
   const hasTagsBelow = displaySystemTags.length > 0 || showTags;
   const openedAtLabel = formatShopDate(shop.openedAt);
+  const stationText = stationLabel(shop);
   const closedAtLabel = formatShopDate(shop.closedAt);
   const closureLabel = temporaryClosureLabel(shop);
 
@@ -276,6 +278,7 @@ export function DetailPanel({ shop, onAdminEdit, onClose }: DetailPanelProps) {
                 <ShopAddressLink address={shop.address} mapsUrl={mapsUrl} />
               ),
             },
+            ...(stationText ? [{ label: "Station", value: stationText }] : []),
             ...(openedAtLabel
               ? [{ label: "Opened", value: openedAtLabel }]
               : []),

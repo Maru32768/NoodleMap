@@ -4,6 +4,7 @@ import { CloseButton } from "@/components/ui/close-button.tsx";
 import { useCurrentUser } from "@/features/auth/use-current-user.ts";
 import { ShopMealRecordHistory } from "@/features/meal-records/shop-meal-record-history.tsx";
 import { ShopRating } from "@/features/meal-records/shop-rating.tsx";
+import { stationLabel } from "@/features/search/utils.ts";
 import { Shop } from "@/features/shops/api/use-shops.ts";
 import { MiniHearts } from "@/features/shops/rating-hearts.tsx";
 import {
@@ -99,7 +100,7 @@ function MobileListItem({
         </Box>
         <Box fontSize="0.6875rem" color="nm.inkMuted" mt="0.125rem">
           {shop.category === "udon" ? "うどん" : "ラーメン"} ·{" "}
-          {shop.address.slice(0, 14)}...
+          {stationLabel(shop) ?? `${shop.address.slice(0, 14)}...`}
         </Box>
         {shop.eaten && shop.lifecycleStatus !== "closed" && (
           <Box mt="0.1875rem">
@@ -386,6 +387,9 @@ export function MobileSheet({
                         />
                       ),
                     },
+                    ...[stationLabel(shop)]
+                      .filter((label) => label !== null)
+                      .map((value) => ({ label: "STATION", value })),
                     {
                       label: "STATUS",
                       value: shopStatusLabel(shop),

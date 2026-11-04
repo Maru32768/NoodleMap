@@ -5,6 +5,7 @@ import { MealRecordsPageLink } from "@/features/meal-records/record-navigation.t
 import {
   favToHearts,
   SearchFilters,
+  stationLabel,
   toggleWishLevel,
 } from "@/features/search/utils.ts";
 import { Shop, Tag, useTags } from "@/features/shops/api/use-shops.ts";
@@ -130,7 +131,9 @@ function ShopCard({
             {shop.category === "udon" ? "うどん" : "ラーメン"}
           </Box>
           <Box as="span" w="3px" h="3px" borderRadius="full" bg="nm.inkFaint" />
-          <Box as="span">{shop.address.slice(0, 10)}...</Box>
+          <Box as="span">
+            {stationLabel(shop) ?? `${shop.address.slice(0, 10)}...`}
+          </Box>
         </Box>
         {shop.eatenStatus === "eaten" && <MiniHearts rate={shop.rate} />}
         {displaySystemTags.length > 0 && (
@@ -149,6 +152,8 @@ function ShopCard({
     </Box>
   );
 }
+
+const WALK_MAX_OPTIONS = [0, 5, 10, 15] as const;
 
 function Chip({
   active,
@@ -557,6 +562,30 @@ export function ShopFilters({ filters, onFilterChange }: ShopFiltersProps) {
           fontFamily="mono"
         >
           {filters.favMin > 0 ? `${filters.favMin} 以上のみ表示` : "指定なし"}
+        </Box>
+      </Box>
+
+      <Box pt="0.875rem" pb="0.625rem">
+        <SectionLabel>駅徒歩 — Station</SectionLabel>
+        <Box
+          role="group"
+          aria-label="駅徒歩"
+          display="flex"
+          flexWrap="wrap"
+          gap="0.375rem"
+        >
+          {WALK_MAX_OPTIONS.map((minutes) => (
+            <Chip
+              key={minutes}
+              active={filters.walkMax === minutes}
+              onClick={() => onFilterChange("walkMax", minutes)}
+            >
+              {minutes === 0 ? "指定なし" : `${minutes}分以内`}
+            </Chip>
+          ))}
+        </Box>
+        <Box mt="0.375rem" fontSize="0.6875rem" color="nm.inkMuted">
+          最寄駅からの直線距離による目安。出典: 国土数値情報（鉄道データ）を加工
         </Box>
       </Box>
 

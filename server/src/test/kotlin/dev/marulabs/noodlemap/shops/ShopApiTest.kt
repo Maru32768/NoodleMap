@@ -70,6 +70,21 @@ class ShopApiTest {
     }
 
     @Test
+    fun `nearest station follows the shop's position and is absent far from any station`() = testApp { t ->
+        val admin = t.adminToken()
+        // A block west of 渋谷駅's grouped JR, Tokyu and Metro platforms.
+        val req = addShopRequest().copy(lat = 35.6590, lng = 139.6990)
+        val added = client.postJson("/api/v1/auth/shops", encode(req), admin).body<Shop>()
+        added.nearestStation?.name shouldBe "渋谷"
+        client.shops().single().nearestStation shouldBe added.nearestStation
+        (added.nearestStation!!.distanceMeters in 100..400) shouldBe true
+
+        client.putJson("/api/v1/auth/shops/${added.id}", encode(req.toUpdate().copy(lat = 30.0, lng = 150.0)), admin)
+            .status shouldBe HttpStatusCode.OK
+        client.shops().single().nearestStation shouldBe null
+    }
+
+    @Test
     fun `shop dates are normalized and invalid dates are dropped`() = testApp { t ->
         val res = client.postJson(
             "/api/v1/auth/shops",
