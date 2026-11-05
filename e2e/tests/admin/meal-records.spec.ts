@@ -280,7 +280,8 @@ test("admin adds a meal record image that guests see in the meal record and as t
   // The lightbox closes on its own over the modal.
   await images.getByRole("button", { name: `画像 1 / 1: ${caption}を拡大` }).click();
   const adminLightbox = page.getByRole("dialog").filter({ hasText: "1 / 1" });
-  await expect(adminLightbox).toBeVisible();
+  // A dialog takes Escape a frame after it appears, when it also takes focus; until then the modal below would close.
+  await expect(adminLightbox.getByRole("button", { name: "閉じる" })).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(adminLightbox).toBeHidden();
   await expect(dialog).toBeVisible();
@@ -294,6 +295,7 @@ test("admin adds a meal record image that guests see in the meal record and as t
     const lightbox = guestPage.getByRole("dialog");
     await expect(lightbox.getByRole("img", { name: caption })).toHaveJSProperty("naturalWidth", 320);
     await expect(lightbox).toContainText(caption);
+    await expect(lightbox.getByRole("button", { name: "閉じる" })).toBeFocused();
     await guestPage.keyboard.press("Escape");
     await expect(lightbox).toBeHidden();
     // Esc closed only the lightbox.
