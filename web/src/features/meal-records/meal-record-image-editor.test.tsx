@@ -739,7 +739,7 @@ describe("MealRecordImageEditor editing", () => {
   it("disables saving while a picked image is being prepared", async () => {
     await renderModal();
     await openEditForm();
-    let finish = (_: ArrayBuffer) => {};
+    let finish: (header: ArrayBuffer) => void = () => {};
     const header = new Promise<ArrayBuffer>((resolve) => (finish = resolve));
     const slow = jpeg("slow.jpg");
     slow.slice = () => ({ arrayBuffer: () => header }) as Blob;
