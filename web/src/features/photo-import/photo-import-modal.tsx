@@ -1,3 +1,8 @@
+import {
+  FileButton,
+  outlineButton,
+  primaryButton,
+} from "@/components/file-button.tsx";
 import { ModalDialog } from "@/components/modal-dialog.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import {
@@ -33,33 +38,6 @@ const REJECTION_LABELS: Record<PhotoRejection["reason"], string> = {
   not_jpeg: "JPEG以外",
   unreadable: "読み取れない",
 };
-
-const outlineButton = {
-  variant: "plain",
-  px: "14px",
-  py: "8px",
-  h: "auto",
-  minH: "auto",
-  fontSize: "13px",
-  border: "1px solid",
-  borderColor: "nm.line",
-  rounded: "nmMd",
-  _hover: { borderColor: "nm.ink" },
-} as const;
-
-const primaryButton = {
-  variant: "plain",
-  px: "16px",
-  py: "8px",
-  h: "auto",
-  minH: "auto",
-  fontSize: "13px",
-  fontWeight: 600,
-  bg: "nm.shu",
-  color: "white",
-  rounded: "nmMd",
-  _hover: { bg: "nm.shuDeep" },
-} as const;
 
 const hasFiles = (event: DragEvent) =>
   event.dataTransfer.types.includes("Files");
@@ -299,40 +277,10 @@ function PhotoPicker({ onSelect }: { onSelect: (files: File[]) => void }) {
   );
 }
 
-/** A button that opens the file picker for JPEGs. */
-function FilesButton({
-  onFiles,
-  disabled,
-  children,
-  ...style
-}: ComponentProps<typeof Box> & {
-  onFiles: (files: File[]) => void;
-  disabled?: boolean;
-}) {
-  return (
-    <Box
-      as="label"
-      {...style}
-      cursor={disabled ? "default" : "pointer"}
-      opacity={disabled ? 0.5 : 1}
-    >
-      {children}
-      <input
-        type="file"
-        multiple
-        accept="image/jpeg,.jpg,.jpeg"
-        hidden
-        disabled={disabled}
-        onChange={(e) => {
-          const files = [...(e.target.files ?? [])];
-          e.target.value = "";
-          if (files.length > 0) {
-            onFiles(files);
-          }
-        }}
-      />
-    </Box>
-  );
+function FilesButton(
+  props: Omit<ComponentProps<typeof FileButton>, "accept" | "multiple">,
+) {
+  return <FileButton accept="image/jpeg,.jpg,.jpeg" multiple {...props} />;
 }
 
 function ImportHeader({
