@@ -16,6 +16,7 @@ import {
   createQueryMatcher,
   matchesWishLevels,
 } from "@/features/search/utils.ts";
+import { ShopEnrichmentModal } from "@/features/shop-enrichment/shop-enrichment-modal.tsx";
 import { useShops } from "@/features/shops/api/use-shops.ts";
 import { ShopEditModal } from "@/features/shops/shop-edit-modal.tsx";
 import { ShopsLoadState } from "@/features/shops/shops-load-state.tsx";
@@ -24,7 +25,7 @@ import { SITE_TITLE, useDocumentTitle } from "@/utils/document-title.ts";
 import { Box, Input, Span } from "@chakra-ui/react";
 import { useCallback, useDeferredValue, useState } from "react";
 import { CiLocationOn, CiSearch } from "react-icons/ci";
-import { LuImagePlus, LuPlus, LuTags } from "react-icons/lu";
+import { LuFileCheck, LuImagePlus, LuPlus, LuTags } from "react-icons/lu";
 
 type MobileAdminView = "list" | "map";
 
@@ -149,6 +150,7 @@ export default function AdminPage() {
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [showTagManagement, setShowTagManagement] = useState(false);
   const [showPhotoImport, setShowPhotoImport] = useState(false);
+  const [showShopEnrichment, setShowShopEnrichment] = useState(false);
 
   const [addingMode, setAddingMode] = useState(false);
   const [draftLatLng, setDraftLatLng] = useState<{
@@ -326,6 +328,30 @@ export default function AdminPage() {
           >
             <LuImagePlus />
             写真から取り込み
+          </Button>
+          {/* Reviewing a whole batch is a desktop job, and the topbar has no room for this below lg. */}
+          <Button
+            variant="plain"
+            display={{ base: "none", lg: "flex" }}
+            alignItems="center"
+            gap="6px"
+            px="12px"
+            py="8px"
+            h="auto"
+            minH="auto"
+            rounded="nmMd"
+            bg="nm.bg"
+            color="nm.ink"
+            border="1px solid"
+            borderColor="nm.line"
+            fontSize="13px"
+            fontWeight={600}
+            _hover={{ borderColor: "nm.ink" }}
+            disabled={!shops}
+            onClick={() => setShowShopEnrichment(true)}
+          >
+            <LuFileCheck />
+            調査結果を取り込み
           </Button>
           <Button
             variant="plain"
@@ -727,6 +753,13 @@ export default function AdminPage() {
           onShopsChanged={() => {
             void mutateShops();
           }}
+        />
+      )}
+
+      {showShopEnrichment && (
+        <ShopEnrichmentModal
+          open={true}
+          onClose={() => setShowShopEnrichment(false)}
         />
       )}
 

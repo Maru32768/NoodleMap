@@ -70,39 +70,67 @@ export type SaveTagsErrorBody = ApiErrorBodyFor<"/api/v1/auth/tags", "put">;
 // Exported so other mutations (e.g. meal records) can revalidate the shop list.
 export const SHOPS_KEY = ["/api/v1/shops"];
 
-export function useShops(config?: SWRConfiguration<Shop[]>) {
-  const resp = useSWR(
-    SHOPS_KEY,
-    () => {
-      return withApiError("/api/v1/shops", async () => {
-        const res = await apiClient.GET("/api/v1/shops");
-        // openapi-fetch leaves `error` undefined for a non-OK response with an
-        // empty body, so the status is checked too (here and below).
-        if (res.error || !res.response.ok) {
-          throwApiError("/api/v1/shops", res.response, res.error);
-        }
+/** Production's shops as they are now. Throws `ApiError`. */
+export const fetchShops = () =>
+  withApiError("/api/v1/shops", async () => {
+    const res = await apiClient.GET("/api/v1/shops");
+    // openapi-fetch leaves `error` undefined for a non-OK response with an
+    // empty body, so the status is checked too (here and below).
+    if (res.error || !res.response.ok) {
+      throwApiError("/api/v1/shops", res.response, res.error);
+    }
 
-        return res.data.shops.map(decorateShop);
+    return res.data.shops.map(decorateShop);
+  });
+
+/** Production's tags as they are now. Throws `ApiError`. */
+export const fetchTags = () =>
+  withApiError("/api/v1/tags", async () => {
+    const res = await apiClient.GET("/api/v1/tags");
+    if (res.error || !res.response.ok) {
+      throwApiError("/api/v1/tags", res.response, res.error);
+    }
+
+    return res.data.tags;
+  });
+
+/** Sends one update and leaves the SWR cache alone, for callers that update many shops. */
+export const putShop = (id: string, command: UpdateShopCommand) =>
+  withApiResult<void, UpdateShopErrorBody>(
+    "/api/v1/auth/shops/{id}",
+    async () => {
+      const res = await apiClient.PUT("/api/v1/auth/shops/{id}", {
+        params: {
+          path: { id },
+        },
+        body: command,
       });
-    },
-    {
-      revalidateIfStale: false,
-      revalidateOnFocus: false,
-      revalidateOnReconnect: false,
-      // Without data, ShopsLoadState shows the failure inline; toast only when
-      // a revalidation fails behind stale data that stays on screen.
-      onError: (err: ApiError) => {
-        if (resp.data) {
-          // Fixed id so SWR's automatic retries replace the toast, not stack it.
-          toastApiError(err, {
-            id: "shops-revalidate-error",
-            fallbackTitle: "店舗一覧を読み込めませんでした",
-          });
-        }
-      },
-      ...config,
+      if (res.error || !res.response.ok) {
+        return apiError("/api/v1/auth/shops/{id}", res.response, res.error);
+      }
+
+      return apiOk(undefined);
     },
   );
+
+export function useShops(config?: SWRConfiguration<Shop[]>) {
+  const resp = useSWR(SHOPS_KEY, fetchShops, {
+    revalidateIfStale: false,
+    revalidateOnFocus: false,
+    revalidateOnReconnect: false,
+    // Without data, ShopsLoadState shows the failure inline; toast only when
+    // a revalidation fails behind stale data that stays on screen.
+    onError: (err: ApiError) => {
+      if (resp.data) {
+        // Fixed id so SWR's automatic retries replace the toast, not stack it.
+        toastApiError(err, {
+          id: "shops-revalidate-error",
+          fallbackTitle: "店舗一覧を読み込めませんでした",
+        });
+      }
+    },
+    ...config,
+  });
   const { mutate } = resp;
 
   const addShop = useCallback(
@@ -134,93 +162,83 @@ export function useShops(config?: SWRConfiguration<Shop[]>) {
   );
 
   const updateShop = useCallback(
-    (id: string, command: UpdateShopCommand) => {
-      return withApiResult<void, UpdateShopErrorBody>(
-        "/api/v1/auth/shops/{id}",
-        async () => {
-          const res = await apiClient.PUT("/api/v1/auth/shops/{id}", {
-            params: {
-              path: { id },
-            },
-            body: command,
-          });
-          if (res.error || !res.response.ok) {
-            if (res.error?.type === "not_found") {
-              // Deleted elsewhere: drop it so the edit modal and selection close.
-              mutate((current) => current?.filter((x) => x.id !== id), false);
-            }
-            return apiError("/api/v1/auth/shops/{id}", res.response, res.error);
-          }
+    async (id: string, command: UpdateShopCommand) => {
+      const result = await putShop(id, command);
+      if (!result.ok) {
+        if (result.error.type === "not_found") {
+          // Deleted elsewhere: drop it so the edit modal and selection close.
+          mutate((current) => current?.filter((x) => x.id !== id), false);
+        }
+        return result;
+      }
 
-          mutate((current) => {
-            if (!current) {
-              return current;
-            }
+      mutate((current) => {
+        if (!current) {
+          return current;
+        }
 
-            const i = current.findIndex((x) => x.id === id);
-            const target = current[i];
-            if (!target) {
-              return current;
-            }
-            // tagIds is not part of the Shop shape and tags cannot be derived
-            // from ids here; the revalidation triggered below refreshes tags.
-            // eaten/rate are ignored by the server (derived from meal records).
-            const {
-              // eslint-disable-next-line @typescript-eslint/no-unused-vars
-              tagIds: _tagIds,
-              // eslint-disable-next-line @typescript-eslint/no-unused-vars
-              eaten: _eaten,
-              // eslint-disable-next-line @typescript-eslint/no-unused-vars
-              rate: _rate,
-              ...shopFields
-            } = command;
-            const copy = [...current];
-            // Re-decorate so the cached date timestamps reflect the edited
-            // openedAt/closedAt values, not the previous shop's.
-            copy[i] = decorateShop({
-              ...current[i],
-              ...shopFields,
-              // Mirror the server: omitted keeps the 気になる度, "" clears it.
-              wishLevel:
-                shopFields.wishLevel === undefined
-                  ? current[i].wishLevel
-                  : shopFields.wishLevel || undefined,
-              // Mirror the server: omitted keeps the reading, blank clears it.
-              nameKana:
-                shopFields.nameKana === undefined
-                  ? current[i].nameKana
-                  : shopFields.nameKana.trim() || undefined,
-              // Same: omitted keeps the 臨時休業; no startsOn clears it.
-              temporaryClosure:
-                shopFields.temporaryClosure === undefined
-                  ? current[i].temporaryClosure
-                  : shopFields.temporaryClosure.startsOn
-                    ? {
-                        startsOn: shopFields.temporaryClosure.startsOn,
-                        reopensOn: shopFields.temporaryClosure.reopensOn,
-                      }
-                    : undefined,
-              googlePlaceId:
-                shopFields.googlePlaceId === undefined
-                  ? current[i].googlePlaceId
-                  : shopFields.googlePlaceId.trim() || undefined,
-              // Same: omitted keeps the links; sent links are trimmed and a
-              // blank label is dropped.
-              links:
-                shopFields.links === undefined
-                  ? current[i].links
-                  : shopFields.links.map((link) => ({
-                      type: link.type,
-                      label: link.label?.trim() || undefined,
-                      url: link.url.trim(),
-                    })),
-            });
-            return copy;
-          }, true);
+        const i = current.findIndex((x) => x.id === id);
+        const target = current[i];
+        if (!target) {
+          return current;
+        }
+        // tagIds is not part of the Shop shape and tags cannot be derived
+        // from ids here; the revalidation triggered below refreshes tags.
+        // eaten/rate are ignored by the server (derived from meal records).
+        const {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          tagIds: _tagIds,
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          eaten: _eaten,
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          rate: _rate,
+          ...shopFields
+        } = command;
+        const copy = [...current];
+        // Re-decorate so the cached date timestamps reflect the edited
+        // openedAt/closedAt values, not the previous shop's.
+        copy[i] = decorateShop({
+          ...current[i],
+          ...shopFields,
+          // Mirror the server: omitted keeps the 気になる度, "" clears it.
+          wishLevel:
+            shopFields.wishLevel === undefined
+              ? current[i].wishLevel
+              : shopFields.wishLevel || undefined,
+          // Mirror the server: omitted keeps the reading, blank clears it.
+          nameKana:
+            shopFields.nameKana === undefined
+              ? current[i].nameKana
+              : shopFields.nameKana.trim() || undefined,
+          // Same: omitted keeps the 臨時休業; no startsOn clears it.
+          temporaryClosure:
+            shopFields.temporaryClosure === undefined
+              ? current[i].temporaryClosure
+              : shopFields.temporaryClosure.startsOn
+                ? {
+                    startsOn: shopFields.temporaryClosure.startsOn,
+                    reopensOn: shopFields.temporaryClosure.reopensOn,
+                  }
+                : undefined,
+          googlePlaceId:
+            shopFields.googlePlaceId === undefined
+              ? current[i].googlePlaceId
+              : shopFields.googlePlaceId.trim() || undefined,
+          // Same: omitted keeps the links; sent links are trimmed and a
+          // blank label is dropped.
+          links:
+            shopFields.links === undefined
+              ? current[i].links
+              : shopFields.links.map((link) => ({
+                  type: link.type,
+                  label: link.label?.trim() || undefined,
+                  url: link.url.trim(),
+                })),
+        });
+        return copy;
+      }, true);
 
-          return apiOk(undefined);
-        },
-      );
+      return result;
     },
     [mutate],
   );
@@ -324,14 +342,7 @@ export function useTags(config?: SWRConfiguration<Tag[]>) {
   const resp = useSWR(
     ["/api/v1/tags"],
     () => {
-      return withApiError("/api/v1/tags", async () => {
-        const res = await apiClient.GET("/api/v1/tags");
-        if (res.error || !res.response.ok) {
-          throwApiError("/api/v1/tags", res.response, res.error);
-        }
-
-        return res.data.tags;
-      }).catch((err: ApiError) => {
+      return fetchTags().catch((err: ApiError) => {
         toastApiError(err, {
           fallbackTitle: "タグ一覧を読み込めませんでした",
         });
