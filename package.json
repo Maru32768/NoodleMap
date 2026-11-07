@@ -7,6 +7,7 @@
     "api:generate:server": "node scripts/gen-kt.mjs",
     "api:check": "npm run tsp:check && openapi-typescript api/openapi.yaml -o web/src/generated/api.ts --check",
     "sync-agents": "node scripts/sync-agents.mjs",
+    "test:enrichment": "node --test scripts/enrichment/export-batch.test.mjs .claude/skills/shop-research/scripts/validate-results.test.mjs",
     "tsp:compile": "tsp compile typespec",
     "tsp:check": "tsp compile typespec --no-emit"
   },
