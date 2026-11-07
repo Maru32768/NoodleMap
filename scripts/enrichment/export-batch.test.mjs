@@ -1,32 +1,63 @@
 import assert from 'node:assert/strict';
-import { DatabaseSync } from 'node:sqlite';
+import { createServer } from 'node:http';
 import { test } from 'node:test';
-import { BATCH_COUNT, batchOf, batchProgress, exportBatch } from './export-batch.mjs';
+import { BATCH_COUNT, batchOf, batchProgress, exportBatch, fetchCatalog } from './export-batch.mjs';
 
-function makeDb() {
-  const db = new DatabaseSync(':memory:');
-  db.exec(`
-    CREATE TABLE shops (id TEXT, name TEXT, name_kana TEXT, address TEXT, category TEXT, opened_at TEXT, closed_at TEXT,
-      temporary_closure_starts_on TEXT, temporary_closure_reopens_on TEXT,
-      lat REAL, lng REAL, postal_code TEXT, google_place_id TEXT, rate INTEGER, wish_level TEXT);
-    CREATE TABLE tags (id TEXT, slug TEXT, label TEXT, category TEXT, sort_order INTEGER, color TEXT);
-    CREATE TABLE shops_tags (shop_id TEXT, tag_id TEXT);
-    CREATE TABLE shop_links (shop_id TEXT, type TEXT, label TEXT, url TEXT, sort_order INTEGER);
-    INSERT INTO shops VALUES
-      ('a', '営業中の店', NULL, '東京都港区', 'ramen', NULL, NULL, '2026-11-01', NULL, 35.6, 139.7, '106-0032', 'place-a', 95, 'high'),
-      ('b', '閉店した店', 'へいてん', '東京都杉並区', 'udon', '2020-01-01', '2026-09-22 09:08:40', NULL, NULL, 35.7, 139.6, '166-0004', 'place-b', 10, NULL);
-    INSERT INTO tags VALUES ('t1', 'shoyu-ramen', '醤油', 'ramen', 10, '#000'), ('t2', 'queue', '行列', NULL, 20, '#111');
-    INSERT INTO shops_tags VALUES ('a', 't2'), ('a', 't1');
-    INSERT INTO shop_links VALUES ('a', 'twitter', NULL, 'https://x.com/a', 1), ('a', 'official', '公式', 'https://a.example/', 0);
-  `);
-  return db;
+const shoyu = { id: 't1', slug: 'shoyu-ramen', label: '醤油', category: 'ramen', sortOrder: 10, color: '#000' };
+const queue = { id: 't2', slug: 'queue', label: '行列', sortOrder: 20, color: '#111' };
+
+function makeCatalog() {
+  return {
+    tags: [queue, shoyu],
+    shops: [
+      {
+        id: 'b',
+        name: '閉店した店',
+        nameKana: 'へいてん',
+        address: '東京都杉並区',
+        category: 'udon',
+        openedAt: '2020-01-01',
+        closedAt: '2026-09-22',
+        lat: 35.7,
+        lng: 139.6,
+        postalCode: '166-0004',
+        googlePlaceId: 'place-b',
+        rate: 10,
+        eaten: true,
+        favorite: false,
+        mealRecordCount: 2,
+        tags: [],
+        links: [],
+      },
+      {
+        id: 'a',
+        name: '営業中の店',
+        address: '東京都港区',
+        category: 'ramen',
+        temporaryClosure: { startsOn: '2026-11-01' },
+        lat: 35.6,
+        lng: 139.7,
+        postalCode: '106-0032',
+        googlePlaceId: 'place-a',
+        rate: 95,
+        wishLevel: 'high',
+        eaten: false,
+        favorite: true,
+        mealRecordCount: 0,
+        tags: [queue, shoyu],
+        links: [
+          { type: 'official', label: '公式', url: 'https://a.example/' },
+          { type: 'twitter', url: 'https://x.com/a' },
+        ],
+      },
+    ],
+  };
 }
 
 const options = { runId: 'run-1', fields: ['name', 'tag'] };
-const asJson = (value) => JSON.parse(JSON.stringify(value));
 
 test('a batch carries exactly the public shop fields', () => {
-  const batch = asJson(exportBatch(makeDb(), options));
+  const batch = exportBatch(makeCatalog(), options);
   assert.deepEqual(Object.keys(batch.shops[0]).sort(), [
     'address',
     'category',
@@ -41,26 +72,30 @@ test('a batch carries exactly the public shop fields', () => {
   ]);
   assert.deepEqual(Object.keys(batch.tags[0]).sort(), ['category', 'label', 'slug']);
   const text = JSON.stringify(batch);
-  for (const secret of ['place-a', '106-0032', '35.6', '"rate"', '"high"', 'wish']) {
+  for (const secret of ['place-a', '106-0032', '35.6', '"rate"', '"high"', 'wish', 'favorite', 'mealRecordCount']) {
     assert.ok(!text.includes(secret), secret);
   }
 });
 
-test('tags and links keep their display order', () => {
-  const [shop] = asJson(exportBatch(makeDb(), { ...options, shopIds: ['a'] })).shops;
-  assert.deepEqual(shop.tags, ['shoyu-ramen', 'queue']);
-  assert.deepEqual(shop.links.map((link) => link.type), ['official', 'twitter']);
-  assert.deepEqual(shop.temporaryClosure, { startsOn: '2026-11-01', reopensOn: null });
+test('tags keep their sort order and links their display order', () => {
+  const batch = exportBatch(makeCatalog(), { ...options, shopIds: ['a'] });
+  assert.deepEqual(batch.tags.map((tag) => tag.slug), ['shoyu-ramen', 'queue']);
+  assert.deepEqual(batch.shops[0].tags, ['shoyu-ramen', 'queue']);
+  assert.deepEqual(batch.shops[0].links.map((link) => link.type), ['official', 'twitter']);
 });
 
-test('dates reach the batch as calendar dates, as the API returns them', () => {
-  const closed = exportBatch(makeDb(), { ...options, shopIds: ['b'] }).shops[0];
-  assert.equal(closed.closedAt, '2026-09-22');
-  assert.equal(closed.openedAt, '2020-01-01');
+test('a value the API leaves out reaches the batch as null', () => {
+  const [shop] = exportBatch(makeCatalog(), { ...options, shopIds: ['a'] }).shops;
+  assert.equal(shop.nameKana, null);
+  assert.equal(shop.openedAt, null);
+  assert.equal(shop.closedAt, null);
+  assert.deepEqual(shop.temporaryClosure, { startsOn: '2026-11-01', reopensOn: null });
+  assert.deepEqual(shop.links[1], { type: 'twitter', label: null, url: 'https://x.com/a' });
+  assert.equal(exportBatch(makeCatalog(), options).tags[1].category, null);
 });
 
 test('the selection options narrow the shops', () => {
-  const ids = (extra) => exportBatch(makeDb(), { ...options, ...extra }).shops.map((shop) => shop.id);
+  const ids = (extra) => exportBatch(makeCatalog(), { ...options, ...extra }).shops.map((shop) => shop.id);
   assert.deepEqual(ids({}), ['a', 'b']);
   assert.deepEqual(ids({ shopIds: ['b'] }), ['b']);
   assert.deepEqual(ids({ skipShopIds: new Set(['a']) }), ['b']);
@@ -68,16 +103,16 @@ test('the selection options narrow the shops', () => {
 });
 
 test('every shop falls in exactly one batch, and a new shop moves no other shop', () => {
-  const db = makeDb();
-  const batches = (database) =>
+  const catalog = makeCatalog();
+  const batches = () =>
     Array.from({ length: BATCH_COUNT }, (_, batch) =>
-      exportBatch(database, { ...options, batch }).shops.map((shop) => shop.id),
+      exportBatch(catalog, { ...options, batch }).shops.map((shop) => shop.id),
     );
-  const before = batches(db);
+  const before = batches();
   assert.deepEqual(before.flat().sort(), ['a', 'b']);
 
-  db.exec(`INSERT INTO shops (id, name, address, category) VALUES ('c', '新しい店', '東京都', 'ramen')`);
-  const after = batches(db);
+  catalog.shops.push({ id: 'c', name: '新しい店', address: '東京都', category: 'ramen', tags: [], links: [] });
+  const after = batches();
   assert.deepEqual(after.flat().sort(), ['a', 'b', 'c']);
   after.forEach((ids, batch) => assert.deepEqual(ids.filter((id) => id !== 'c'), before[batch]));
 });
@@ -97,5 +132,37 @@ test('progress counts the shops of each batch and the ones already researched', 
 });
 
 test('an unknown field stops the export', () => {
-  assert.throws(() => exportBatch(makeDb(), { ...options, fields: ['rate'] }), /Unknown field/);
+  assert.throws(() => exportBatch(makeCatalog(), { ...options, fields: ['rate'] }), /Unknown field/);
+});
+
+async function withServer(handler, run) {
+  const server = createServer(handler);
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  try {
+    await run(`http://127.0.0.1:${server.address().port}`);
+  } finally {
+    server.close();
+  }
+}
+
+test('the catalog comes from the public shop and tag endpoints', async () => {
+  const bodies = { '/api/v1/shops': { shops: [{ id: 'a' }] }, '/api/v1/tags': { tags: [shoyu] } };
+  await withServer(
+    (request, response) => response.end(JSON.stringify(bodies[request.url])),
+    async (origin) => assert.deepEqual(await fetchCatalog(origin), { shops: [{ id: 'a' }], tags: [shoyu] }),
+  );
+});
+
+test('a failed or malformed response stops the export instead of writing a short batch', async () => {
+  await withServer(
+    (_request, response) => {
+      response.statusCode = 500;
+      response.end('{}');
+    },
+    (origin) => assert.rejects(fetchCatalog(origin), /answered 500/),
+  );
+  await withServer(
+    (_request, response) => response.end('{}'),
+    (origin) => assert.rejects(fetchCatalog(origin), /returned no (shops|tags) list/),
+  );
 });

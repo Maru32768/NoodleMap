@@ -1,10 +1,11 @@
 import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
 import { parseArgs } from 'node:util';
 import { pathToFileURL } from 'node:url';
 import { CHECK_FIELDS, todayInJapan } from '../../.claude/skills/shop-research/scripts/validate-results.mjs';
+
+const PRODUCTION_ORIGIN = 'https://noodle-map.marulabs.dev';
 
 // Changing this reassigns almost every shop, and the results on disk are filed by batch, so it stays fixed.
 export const BATCH_COUNT = 36;
@@ -13,49 +14,52 @@ export const batchOf = (shopId) => createHash('sha256').update(shopId).digest().
 
 const dirNameOf = (batch) => String(batch).padStart(2, '0');
 
+/** Reads the shops and tags as production serves them to anyone, so no credential is needed. */
+export async function fetchCatalog(api) {
+  const read = async (name) => {
+    const url = new URL(`/api/v1/${name}`, api);
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`GET ${url} answered ${response.status}`);
+    const list = (await response.json())[name];
+    if (!Array.isArray(list)) throw new Error(`GET ${url} returned no ${name} list`);
+    return list;
+  };
+  const [shops, tags] = await Promise.all([read('shops'), read('tags')]);
+  return { shops, tags };
+}
+
+const bySortOrder = (a, b) => a.sortOrder - b.sortOrder;
+
 /**
- * Builds the file that enters the isolated environment. Each SELECT names its columns so that rate,
- * wish_level, coordinates, and everything about meal records and users stay out of the batch.
+ * Builds the file that enters the isolated environment. The API also serves rate, wishLevel, and
+ * coordinates, so each field is picked by name to keep the research from seeing them.
  */
-export function exportBatch(db, { runId, fields, batch = null, shopIds = null, skipShopIds = new Set() }) {
+export function exportBatch(catalog, { runId, fields, batch = null, shopIds = null, skipShopIds = new Set() }) {
   for (const field of fields) if (!CHECK_FIELDS.includes(field)) throw new Error(`Unknown field: ${field}`);
 
-  const rows = db
-    .prepare(
-      `SELECT id, name, name_kana, address, category, opened_at, closed_at,
-              temporary_closure_starts_on, temporary_closure_reopens_on
-       FROM shops ORDER BY id`,
-    )
-    .all();
   const wanted = shopIds ? new Set(shopIds) : null;
-  const selected = rows.filter(
-    (row) => (batch === null || batchOf(row.id) === batch) && (!wanted || wanted.has(row.id)) && !skipShopIds.has(row.id),
-  );
-
-  const tagsOf = db.prepare(
-    `SELECT t.slug FROM shops_tags st JOIN tags t ON t.id = st.tag_id WHERE st.shop_id = ? ORDER BY t.sort_order`,
-  );
-  const linksOf = db.prepare(`SELECT type, label, url FROM shop_links WHERE shop_id = ? ORDER BY sort_order`);
+  const selected = catalog.shops
+    .filter((shop) => (batch === null || batchOf(shop.id) === batch) && (!wanted || wanted.has(shop.id)) && !skipShopIds.has(shop.id))
+    .sort((a, b) => (a.id < b.id ? -1 : 1));
 
   return {
     schemaVersion: 1,
     runId,
     fields,
-    tags: db.prepare('SELECT slug, label, category FROM tags ORDER BY sort_order').all(),
-    shops: selected.map((row) => ({
-      id: row.id,
-      name: row.name,
-      nameKana: row.name_kana,
-      address: row.address,
-      category: row.category,
-      // Calendar dates, as the API returns them: the review screen compares these with production.
-      openedAt: row.opened_at?.slice(0, 10) ?? null,
-      closedAt: row.closed_at?.slice(0, 10) ?? null,
-      temporaryClosure: row.temporary_closure_starts_on
-        ? { startsOn: row.temporary_closure_starts_on, reopensOn: row.temporary_closure_reopens_on }
+    tags: catalog.tags.toSorted(bySortOrder).map((tag) => ({ slug: tag.slug, label: tag.label, category: tag.category ?? null })),
+    shops: selected.map((shop) => ({
+      id: shop.id,
+      name: shop.name,
+      nameKana: shop.nameKana ?? null,
+      address: shop.address,
+      category: shop.category,
+      openedAt: shop.openedAt ?? null,
+      closedAt: shop.closedAt ?? null,
+      temporaryClosure: shop.temporaryClosure
+        ? { startsOn: shop.temporaryClosure.startsOn, reopensOn: shop.temporaryClosure.reopensOn ?? null }
         : null,
-      tags: tagsOf.all(row.id).map((tag) => tag.slug),
-      links: linksOf.all(row.id),
+      tags: shop.tags.toSorted(bySortOrder).map((tag) => tag.slug),
+      links: shop.links.map((link) => ({ type: link.type, label: link.label ?? null, url: link.url })),
     })),
   };
 }
@@ -87,8 +91,8 @@ function parseBatchNumber(raw) {
   return batch;
 }
 
-function printProgress(db, resultsRoot) {
-  const ids = db.prepare('SELECT id FROM shops').all().map((row) => row.id);
+function printProgress(shops, resultsRoot) {
+  const ids = shops.map((shop) => shop.id);
   const researchedByBatch = Array.from({ length: BATCH_COUNT }, (_, batch) =>
     researchedShopIds(join(resultsRoot, dirNameOf(batch))),
   );
@@ -97,10 +101,10 @@ function printProgress(db, resultsRoot) {
   }
 }
 
-function main() {
+async function main() {
   const { values } = parseArgs({
     options: {
-      db: { type: 'string' },
+      api: { type: 'string', default: PRODUCTION_ORIGIN },
       out: { type: 'string' },
       'run-id': { type: 'string' },
       fields: { type: 'string', default: CHECK_FIELDS.join(',') },
@@ -110,17 +114,16 @@ function main() {
       progress: { type: 'string' },
     },
   });
-  if (values.db && values.progress) {
-    const db = new DatabaseSync(values.db, { readOnly: true });
-    printProgress(db, values.progress);
-    db.close();
+  if (values.progress) {
+    const { shops } = await fetchCatalog(values.api);
+    printProgress(shops, values.progress);
     return;
   }
   // A selection is required so that a forgotten option cannot start research on every shop.
-  if (!values.db || !values.out || (values.batch === undefined && !values['shop-ids'])) {
+  if (!values.out || (values.batch === undefined && !values['shop-ids'])) {
     throw new Error(
-      'Usage: export-batch.mjs --db <copy.db> --out <batch.json> (--batch <n> | --shop-ids <file>) [--run-id <id>] [--fields a,b] [--skip-researched <results-dir>]\n' +
-        '       export-batch.mjs --db <copy.db> --progress <results-root>',
+      'Usage: export-batch.mjs --out <batch.json> (--batch <n> | --shop-ids <file>) [--run-id <id>] [--fields a,b] [--skip-researched <results-dir>] [--api <origin>]\n' +
+        '       export-batch.mjs --progress <results-root> [--api <origin>]',
     );
   }
   const batch = values.batch === undefined ? null : parseBatchNumber(values.batch);
@@ -128,19 +131,17 @@ function main() {
   const runId = values['run-id'] ?? (batch === null ? null : `b${dirNameOf(batch)}-${today}`);
   if (!runId) throw new Error('--run-id is required with --shop-ids');
 
-  const db = new DatabaseSync(values.db, { readOnly: true });
-  const exported = exportBatch(db, {
+  const exported = exportBatch(await fetchCatalog(values.api), {
     runId,
     fields: values.fields.split(','),
     batch,
     shopIds: values['shop-ids'] ? readFileSync(values['shop-ids'], 'utf8').split(/\s+/).filter(Boolean) : null,
     skipShopIds: values['skip-researched'] ? researchedShopIds(values['skip-researched']) : new Set(),
   });
-  db.close();
   writeFileSync(values.out, `${JSON.stringify(exported, null, 2)}\n`);
   console.log(`run=${exported.runId} shops=${exported.shops.length} fields=${exported.fields.length} tags=${exported.tags.length}`);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
-  main();
+  await main();
 }
