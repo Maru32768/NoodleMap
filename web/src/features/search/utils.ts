@@ -1,10 +1,12 @@
 import { Shop } from "@/features/shops/api/use-shops.ts";
+import { isOpenAt } from "@/features/shops/business-hours.ts";
 import {
   isSystemTagSlug,
   shopSystemTagSlugs,
   WISH_LEVELS,
   WishLevel,
 } from "@/features/shops/status.ts";
+import dayjs from "dayjs";
 
 export type CategoryType = "all" | "ramen" | "udon";
 
@@ -28,6 +30,9 @@ export type SearchFilters = FilterToggles & {
   // every level. Eaten shops are not narrowed.
   wishLevels: WishLevel[];
   tagIds: string[];
+  // 営業中 at this moment: null keeps every shop, "now" is the time of filtering,
+  // otherwise a datetime-local value (YYYY-MM-DDTHH:mm). Never restored from storage.
+  openAt: "now" | string | null;
 };
 
 /**
@@ -92,8 +97,19 @@ export function filterShops(
 ): Shop[] {
   const { query, filters } = opts;
   const matchesQuery = createQueryMatcher(query);
+  const openAt =
+    filters.openAt === null
+      ? null
+      : filters.openAt === "now"
+        ? dayjs()
+        : dayjs(filters.openAt);
 
   return shops.filter((r) => {
+    // Only shops known to be 営業中; 不定休 and unknown hours drop out.
+    if (openAt && !isOpenAt(r, openAt)) {
+      return false;
+    }
+
     const mealRecordMatch =
       (r.eatenStatus === "eaten" && filters.eaten) ||
       (r.eatenStatus === "uneaten" && filters.wish);

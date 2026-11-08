@@ -37,6 +37,7 @@ export const DEFAULT_FILTERS: SearchFilters = {
   wishLevels: [],
   // Status is filtered via system tags in tagIds; default to all but 閉店.
   tagIds: [...DEFAULT_SYSTEM_TAG_SELECTION],
+  openAt: null,
 };
 
 function isMapCenter(value: unknown): value is MapCenter {
@@ -65,7 +66,7 @@ function isMapView(value: unknown): value is MapView {
 // 気になる度 is checked by readWishLevels: older states lack `wishLevels`.
 function isSearchFilters(
   value: unknown,
-): value is Omit<SearchFilters, "wishLevels" | "walkMax"> &
+): value is Omit<SearchFilters, "wishLevels" | "walkMax" | "openAt"> &
   LegacyWishFields & { walkMax?: unknown } {
   if (!value || typeof value !== "object") {
     return false;
@@ -141,6 +142,8 @@ function normalizeSavedSearchState(value: unknown): SavedSearchState | null {
         ? readWishLevels(candidate.filters)
         : [],
       tagIds: candidate.filters.tagIds,
+      // A date and time from an earlier visit would hide shops without saying why.
+      openAt: null,
     },
     mapView: candidate.mapView,
   };

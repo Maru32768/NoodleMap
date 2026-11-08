@@ -27,6 +27,7 @@ import {
   TagChips,
 } from "@/features/shops/tag-chips.tsx";
 import { Box, Input } from "@chakra-ui/react";
+import dayjs from "dayjs";
 import { isEqual } from "es-toolkit";
 import { useState } from "react";
 import { LuX } from "react-icons/lu";
@@ -587,6 +588,58 @@ export function ShopFilters({ filters, onFilterChange }: ShopFiltersProps) {
         <Box mt="0.375rem" fontSize="0.6875rem" color="nm.inkMuted">
           最寄駅からの直線距離による目安。出典: 国土数値情報（鉄道データ）を加工
         </Box>
+      </Box>
+
+      <Box pt="0.875rem" pb="0.625rem">
+        <SectionLabel>営業時間 — Hours</SectionLabel>
+        <Box
+          role="group"
+          aria-label="営業時間"
+          display="flex"
+          flexWrap="wrap"
+          gap="0.375rem"
+        >
+          <Chip
+            active={filters.openAt === null}
+            onClick={() => onFilterChange("openAt", null)}
+          >
+            指定なし
+          </Chip>
+          <Chip
+            active={filters.openAt === "now"}
+            onClick={() => onFilterChange("openAt", "now")}
+          >
+            今営業中
+          </Chip>
+          <Chip
+            active={filters.openAt !== null && filters.openAt !== "now"}
+            onClick={() =>
+              onFilterChange("openAt", dayjs().format("YYYY-MM-DDTHH:mm"))
+            }
+          >
+            日時を指定
+          </Chip>
+        </Box>
+        {filters.openAt !== null && filters.openAt !== "now" && (
+          <Input
+            aria-label="営業中か調べる日時"
+            type="datetime-local"
+            value={filters.openAt}
+            onChange={(e) =>
+              e.target.value && onFilterChange("openAt", e.target.value)
+            }
+            mt="0.5rem"
+            size="sm"
+            fontFamily="mono"
+            bg="nm.bg"
+            borderColor="nm.line"
+          />
+        )}
+        {filters.openAt !== null && (
+          <Box mt="0.375rem" fontSize="0.6875rem" color="nm.inkMuted">
+            営業時間が分かっていて、その時刻に開いている店だけを表示します
+          </Box>
+        )}
       </Box>
 
       <Box pt="0.875rem" pb="0.625rem">

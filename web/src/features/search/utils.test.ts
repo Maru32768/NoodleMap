@@ -24,6 +24,7 @@ const showEverything: SearchFilters = {
   walkMax: 0,
   wishLevels: [],
   tagIds: ALL_SYSTEM_TAGS,
+  openAt: null,
 };
 
 function names(shops: { name: string }[]) {
@@ -173,6 +174,36 @@ describe("filterShops", () => {
       "400m",
       "401m",
       "none",
+    ]);
+  });
+
+  it("keeps only shops 営業中 at openAt and ignores it when null", () => {
+    const lunch = { opensAt: "11:00", closesAt: "15:00" };
+    const shops = [
+      makeShop({
+        name: "lunch",
+        businessHours: {
+          kind: "weekly",
+          days: (
+            ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const
+          ).map((day) => ({ day, periods: [lunch] })),
+        },
+      }),
+      makeShop({
+        name: "irregular",
+        businessHours: { kind: "irregular", days: [] },
+      }),
+      makeShop({ name: "unknown" }),
+    ];
+
+    expect(filterNames(shops, { openAt: "2026-11-04T12:00" })).toEqual([
+      "lunch",
+    ]);
+    expect(filterNames(shops, { openAt: "2026-11-04T16:00" })).toEqual([]);
+    expect(filterNames(shops, { openAt: null })).toEqual([
+      "lunch",
+      "irregular",
+      "unknown",
     ]);
   });
 
