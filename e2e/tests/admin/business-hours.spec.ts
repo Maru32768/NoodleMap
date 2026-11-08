@@ -14,10 +14,9 @@ const allDay: BusinessHours = {
   checkedOn: "2026-11-01",
 };
 
-function localDate(): string {
-  const now = new Date();
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+// The browser runs in Asia/Tokyo (playwright.config.ts) while CI runs Node in UTC, so today is taken in Japan.
+function todayInJapan(): string {
+  return new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Tokyo" }).format(new Date());
 }
 
 async function openEditModal(page: Page, name: string, filter: string) {
@@ -56,7 +55,7 @@ test("admin enters 営業時間 in the edit modal and today's 確認日 is store
       { day: "sat", periods: [] },
       { day: "sun", periods: [] },
     ],
-    checkedOn: localDate(),
+    checkedOn: todayInJapan(),
   });
 });
 
