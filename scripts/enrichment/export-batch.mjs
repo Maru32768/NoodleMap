@@ -58,6 +58,7 @@ export function exportBatch(catalog, { runId, fields, batch = null, shopIds = nu
       temporaryClosure: shop.temporaryClosure
         ? { startsOn: shop.temporaryClosure.startsOn, reopensOn: shop.temporaryClosure.reopensOn ?? null }
         : null,
+      businessHours: shop.businessHours ?? null,
       tags: shop.tags.toSorted(bySortOrder).map((tag) => tag.slug),
       links: shop.links.map((link) => ({ type: link.type, label: link.label ?? null, url: link.url })),
     })),

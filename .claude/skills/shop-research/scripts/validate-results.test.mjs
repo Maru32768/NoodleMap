@@ -77,6 +77,67 @@ const outcomeOf = (output, field) =>
   output.accepted.find((record) => record.kind === 'check' && record.field === field).outcome;
 const reasons = (output) => output.rejected.map((record) => record.reason);
 
+const lunch = [{ opensAt: '11:00', closesAt: '15:00' }];
+const week = (overrides = {}) =>
+  ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map((day) => ({ day, periods: lunch, ...overrides[day] }));
+const hoursProposal = (value, evidence = [officialEvidence]) => ({ field: 'business_hours', value, evidence });
+
+test('business hours come back in day order with the newest evidence date as the 確認日, always for a person', () => {
+  const days = week({ wed: { closedWeeks: [4, 2] } });
+  const output = runProposal(
+    hoursProposal({ kind: 'weekly', days: [{ day: 'holiday', periods: [] }, ...days.toReversed()], note: '売り切れ次第終了' }, [
+      { ...officialEvidence, observedAt: '2026-11-01' },
+      { ...officialEvidence, url: 'https://toho-seiso.example/', observedAt: '2026-11-05' },
+    ]),
+    { business_hours: 'found' },
+  );
+  assert.deepEqual(output.rejected, []);
+  const [proposal] = proposals(output);
+  assert.deepEqual(proposal.proposedValue, {
+    kind: 'weekly',
+    days: [...week({ wed: { closedWeeks: [2, 4] } }), { day: 'holiday', periods: [] }],
+    note: '売り切れ次第終了',
+    checkedOn: '2026-11-05',
+  });
+  assert.equal(proposal.baseValue, null);
+  assert.deepEqual(proposal.reviewReasons, ['high_impact_field']);
+});
+
+test('the same hours seen again only matter when they move the 確認日 forward', () => {
+  const stored = { kind: 'weekly', days: week(), checkedOn: '2026-10-01' };
+  const sameHours = hoursProposal({ kind: 'weekly', days: week(), note: null });
+  const older = runProposal(sameHours, { business_hours: 'found' }, makeShop({ businessHours: stored }));
+  assert.deepEqual(proposals(older)[0].proposedValue, { ...stored, note: null, checkedOn: TODAY });
+  const current = makeShop({ businessHours: { ...stored, checkedOn: TODAY } });
+  assert.equal(proposals(runProposal(sameHours, { business_hours: 'found' }, current)).length, 0);
+});
+
+test('business hours follow the schedule rules and need a shop page', () => {
+  const weekly = (days) => hoursProposal({ kind: 'weekly', days, note: null });
+  const overlapping = [
+    { opensAt: '11:00', closesAt: '15:00' },
+    { opensAt: '14:00', closesAt: '20:00' },
+  ];
+  const cases = [
+    [weekly(week().slice(0, 6)), 'missing_weekday'],
+    [weekly([...week(), { day: 'mon', periods: [] }]), 'duplicate_business_day'],
+    [weekly(week({ tue: { periods: overlapping } })), 'business_periods_overlap'],
+    [weekly(week({ tue: { periods: [{ opensAt: '18:00', closesAt: '11:00' }] } })), 'business_period_out_of_range'],
+    [weekly(week({ tue: { periods: [{ opensAt: '9:00', closesAt: '15:00' }] } })), 'invalid_business_time'],
+    [weekly(week({ tue: { periods: [], closedWeeks: [2] } })), 'closed_weeks_without_hours'],
+    [weekly(week({ tue: { closedWeeks: [6] } })), 'invalid_closed_weeks'],
+    [hoursProposal({ kind: 'irregular', days: week(), note: null }), 'irregular_with_schedule'],
+    [hoursProposal({ kind: 'irregular', days: [], note: null }, [tabelogEvidence()]), 'source_not_allowed_for_field'],
+    [hoursProposal({ kind: 'weekly', days: week() }), 'missing_key'],
+  ];
+  for (const [proposal, reason] of cases) {
+    assert.deepEqual(reasons(runProposal(proposal, { business_hours: 'found' })), [reason], reason);
+  }
+  const irregular = hoursProposal({ kind: 'irregular', days: [], note: null });
+  const closed = runProposal(irregular, { business_hours: 'found' }, makeShop({ closedAt: '2026-09-22' }));
+  assert.deepEqual(reasons(closed), ['hours_on_closed_shop']);
+});
+
 test('a clean result records one check per requested field and no proposal', () => {
   const output = run({ shopId: SHOP_ID, checks: noEvidence(), proposals: [], notices: [], tagCandidates: [] });
   assert.deepEqual(output.rejected, []);

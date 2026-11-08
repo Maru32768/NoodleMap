@@ -4,7 +4,17 @@ import { expect, type Shop, type Tag, test, uid } from "../../support/fixtures.t
 import { validateResults } from "../../../.claude/skills/shop-research/scripts/validate-results.mjs";
 
 const TODAY = "2026-11-06";
-const FIELDS = ["name", "name_kana", "opened_at", "closed_at", "temporary_closure", "tag", "link.tabelog", "link.official"];
+const FIELDS = [
+  "name",
+  "name_kana",
+  "opened_at",
+  "closed_at",
+  "temporary_closure",
+  "business_hours",
+  "tag",
+  "link.tabelog",
+  "link.official",
+];
 
 const tabelogEvidence = {
   url: "https://tabelog.com/tokyo/A1319/A131905/13000000/",
@@ -30,6 +40,7 @@ function batchShop(shop: Shop) {
     openedAt: shop.openedAt ?? null,
     closedAt: shop.closedAt ?? null,
     temporaryClosure: null,
+    businessHours: shop.businessHours ?? null,
     tags: shop.tags.map((tag) => tag.slug),
     links: shop.links,
   };
@@ -154,6 +165,40 @@ test("applies the chosen proposals from a validated file and leaves the rest of 
   await expect(again.getByRole("radio", { name: "適用済み (4)" })).toBeVisible();
   await expect(again.getByRole("radio", { name: "未適用 (1)" })).toBeVisible();
   expect(await api.getShop(shop.id)).toEqual(after);
+});
+
+test("applies 営業時間 one by one with the evidence date as the 確認日", async ({ page, api }) => {
+  const id = uid();
+  const shop = await api.createShop({ name: `${id} 店` });
+  await api.updateShop(shop, { businessHours: { kind: "irregular", days: [] } });
+  const before = await api.getShop(shop.id);
+  const week = (["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const).map((day) => ({
+    day,
+    periods: day === "sun" ? [] : [{ opensAt: "11:00", closesAt: "15:00" }],
+  }));
+
+  const jsonl = acceptedJsonl(
+    [before],
+    await api.listTags(),
+    new Map([[shop.id, resultFor(before, [{ field: "business_hours", value: { kind: "weekly", days: week, note: "ラストオーダー14:30" } }])]]),
+  );
+  const dialog = await openWith(page, jsonl);
+  const row = dialog.getByRole("group", { name: "営業時間" });
+  await expect(row.getByText("影響の大きい項目")).toBeVisible();
+  await expect(row.getByText(/月 11:00〜15:00/)).toBeVisible();
+
+  await dialog.getByRole("button", { name: "表示中の一括可を選択" }).click();
+  await expect(dialog.getByLabel("営業時間を選択")).not.toBeChecked();
+  await dialog.getByLabel("営業時間を選択").locator("xpath=..").click();
+  await dialog.getByRole("button", { name: "選択した 1 件を本番へ反映" }).click();
+  await expect(dialog.getByText("反映が終わりました")).toBeVisible();
+
+  expect((await api.getShop(shop.id)).businessHours).toEqual({
+    kind: "weekly",
+    days: week,
+    note: "ラストオーダー14:30",
+    checkedOn: TODAY,
+  });
 });
 
 test("shows a shop edited after the research as a conflict and keeps the edit", async ({ page, api }) => {

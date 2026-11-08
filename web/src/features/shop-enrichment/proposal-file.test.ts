@@ -115,6 +115,48 @@ describe("parseEnrichmentFile", () => {
     expect(errorOf(proposal, bad)).toMatch(/^2 行目: /);
   });
 
+  it("reads 営業時間 with the API's base value and a proposal that carries its 確認日", () => {
+    const tuesday = {
+      day: "tue",
+      periods: [{ opensAt: "18:00", closesAt: "26:00" }],
+      closedWeeks: [2],
+    };
+    const hours = {
+      ...proposal,
+      field: "business_hours",
+      // The batch copies the API shape, which leaves out an unset note and 確認日.
+      baseValue: { kind: "irregular", days: [] },
+      proposedValue: {
+        kind: "weekly",
+        days: [tuesday],
+        note: "売り切れ次第終了",
+        checkedOn: "2026-11-05",
+      },
+    };
+    const result = parse(hours);
+    expect(result.ok && result.data.proposals[0]).toMatchObject({
+      field: "business_hours",
+      baseValue: { kind: "irregular", days: [] },
+      proposedValue: {
+        days: [tuesday],
+        note: "売り切れ次第終了",
+        checkedOn: "2026-11-05",
+      },
+    });
+
+    const { checkedOn: _, ...withoutDate } = hours.proposedValue;
+    expect(errorOf({ ...hours, proposedValue: withoutDate })).toBe(
+      "1 行目: 確認日がありません",
+    );
+    const badTime = {
+      ...hours.proposedValue,
+      days: [{ ...tuesday, periods: [{ opensAt: "9:00", closesAt: "15:00" }] }],
+    };
+    expect(errorOf({ ...hours, proposedValue: badTime })).toBe(
+      "1 行目: 時刻が正しくありません",
+    );
+  });
+
   it("refuses text that is not JSON, and an empty file", () => {
     const notJson = parseEnrichmentFile("{not json");
     expect(!notJson.ok && notJson.error).toBe("1 行目: JSON として読めません");

@@ -17,6 +17,11 @@ import {
   useShops,
   useTags,
 } from "@/features/shops/api/use-shops.ts";
+import { BusinessHoursEditor } from "@/features/shops/business-hours-editor.tsx";
+import {
+  BusinessHours,
+  businessHoursText,
+} from "@/features/shops/business-hours.ts";
 import { SHOP_LINK_TYPE_LABEL } from "@/features/shops/shop-links.ts";
 import { Box, Input, NativeSelect } from "@chakra-ui/react";
 import { groupBy } from "es-toolkit";
@@ -50,6 +55,7 @@ const FIELD_LABELS: Record<ProposalField, string> = {
   opened_at: "開店日",
   closed_at: "閉店日",
   temporary_closure: "臨時休業",
+  business_hours: "営業時間",
   link: "リンク",
   tag: "タグ",
 };
@@ -132,12 +138,14 @@ const selectable = ({ state }: Row) =>
 const closureText = (value: ClosureValue) =>
   `${value.startsOn} から ${value.reopensOn ? `${value.reopensOn} に再開` : "再開未定"}`;
 
-const textOf = (value: string | ClosureValue | null) =>
+const textOf = (value: string | ClosureValue | BusinessHours | null) =>
   value === null
     ? "未設定"
     : typeof value === "string"
       ? value
-      : closureText(value);
+      : "kind" in value
+        ? businessHoursText(value)
+        : closureText(value);
 
 function hostOf(url: string) {
   try {
@@ -746,6 +754,7 @@ function ProposedValue({
     case "opened_at":
     case "closed_at":
     case "temporary_closure":
+    case "business_hours":
       return <>{textOf(proposal.proposedValue)}</>;
   }
 }
@@ -762,6 +771,24 @@ function ValueEditor({
   const label = `${fieldLabel(proposal)}の修正`;
   let inputs: ReactNode;
   switch (proposal.field) {
+    case "business_hours":
+      inputs = (
+        <BusinessHoursEditor
+          value={proposal.proposedValue}
+          // 不明 is no proposal, so that choice is ignored here.
+          onChange={(hours) =>
+            hours &&
+            onChange({
+              ...proposal,
+              proposedValue: {
+                ...hours,
+                checkedOn: hours.checkedOn ?? proposal.proposedValue.checkedOn,
+              },
+            })
+          }
+        />
+      );
+      break;
     case "temporary_closure": {
       const value = proposal.proposedValue;
       inputs = (
@@ -920,7 +947,7 @@ function Value({ label, children }: { label: string; children: ReactNode }) {
   return (
     <Box display="grid" gridTemplateColumns="48px 1fr" fontSize="13px">
       <Box color="nm.inkMuted">{label}</Box>
-      <Box minW="0" wordBreak="break-word">
+      <Box minW="0" wordBreak="break-word" whiteSpace="pre-line">
         {children}
       </Box>
     </Box>

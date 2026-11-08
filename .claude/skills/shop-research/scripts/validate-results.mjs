@@ -10,6 +10,7 @@ export const CHECK_FIELDS = [
   'opened_at',
   'closed_at',
   'temporary_closure',
+  'business_hours',
   'tag',
   ...LINK_TYPES.map((type) => `link.${type}`),
 ];
@@ -33,6 +34,7 @@ const EVIDENCE_SOURCES = {
   opened_at: SHOP_PAGE_SOURCES,
   closed_at: OFFICIAL_SOURCES,
   temporary_closure: OFFICIAL_SOURCES,
+  business_hours: [...SHOP_PAGE_SOURCES, 'reservation_site'],
   tag: [...SHOP_PAGE_SOURCES, 'reservation_site'],
   'link.official': SHOP_PAGE_SOURCES,
   'link.tabelog': ['tabelog'],
@@ -42,9 +44,16 @@ const EVIDENCE_SOURCES = {
   'link.reservation': [...OFFICIAL_SOURCES, 'reservation_site'],
   'link.other': OFFICIAL_SOURCES,
 };
-const INDIVIDUAL_REVIEW_FIELDS = new Set(['name', 'closed_at', 'temporary_closure']);
+// Wrong 営業時間 send someone to a shut door, so every one is read by a person.
+const INDIVIDUAL_REVIEW_FIELDS = new Set(['name', 'closed_at', 'temporary_closure', 'business_hours']);
 // A shop holds one value of these, so a second proposal would silently replace the first when applied.
-const SINGLE_VALUE_FIELDS = new Set(['name', 'name_kana', 'opened_at', 'closed_at', 'temporary_closure']);
+const SINGLE_VALUE_FIELDS = new Set(['name', 'name_kana', 'opened_at', 'closed_at', 'temporary_closure', 'business_hours']);
+// Mirrors server/src/main/kotlin/dev/marulabs/noodlemap/shops/BusinessHours.kt, which has the last word.
+const WEEKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+const BUSINESS_DAYS = [...WEEKDAYS, 'holiday'];
+const PERIODS_MAX = 4;
+const HOURS_NOTE_MAX = 200;
+const DAY_MINUTES = 24 * 60;
 const INDIVIDUAL_REVIEW_LINKS = new Set(['official', 'reservation', 'other']);
 const SNS_DOMAINS = [
   'x.com',
@@ -277,6 +286,55 @@ function parseClosure(raw, today) {
   return { startsOn, reopensOn };
 }
 
+function parseMinutes(raw) {
+  const match = typeof raw === 'string' ? /^([0-9]{2}):([0-5][0-9])$/.exec(raw) : null;
+  if (!match) reject('invalid_business_time');
+  return Number(match[1]) * 60 + Number(match[2]);
+}
+
+function parseBusinessDay(raw) {
+  requireKeys(raw, ['day', 'periods'], ['closedWeeks']);
+  if (!BUSINESS_DAYS.includes(raw.day)) reject('unknown_business_day');
+  if (!Array.isArray(raw.periods) || raw.periods.length > PERIODS_MAX) reject('invalid_business_periods');
+  let previousClose = 0;
+  const periods = raw.periods.map((period) => {
+    requireKeys(period, ['opensAt', 'closesAt']);
+    const opens = parseMinutes(period.opensAt);
+    const closes = parseMinutes(period.closesAt);
+    if (opens >= DAY_MINUTES || closes <= opens || closes > opens + DAY_MINUTES) reject('business_period_out_of_range');
+    if (opens < previousClose) reject('business_periods_overlap');
+    previousClose = closes;
+    return { opensAt: period.opensAt, closesAt: period.closesAt };
+  });
+  const weeks = raw.closedWeeks ?? [];
+  if (!Array.isArray(weeks) || weeks.some((w) => !Number.isInteger(w) || w < 1 || w > 5) || new Set(weeks).size !== weeks.length) {
+    reject('invalid_closed_weeks');
+  }
+  if (weeks.length === 0) return { day: raw.day, periods };
+  if (raw.day === 'holiday' || periods.length === 0) reject('closed_weeks_without_hours');
+  return { day: raw.day, periods, closedWeeks: weeks.toSorted((a, b) => a - b) };
+}
+
+/** The 確認日 is left out here: it comes from the evidence, not from what the researcher writes. */
+function parseBusinessHours(raw) {
+  requireKeys(raw, ['kind', 'days', 'note']);
+  if (raw.kind !== 'weekly' && raw.kind !== 'irregular') reject('unknown_business_hours_kind');
+  if (!Array.isArray(raw.days)) reject('invalid_business_days');
+  const note = raw.note === null ? null : parseProse(raw.note, HOURS_NOTE_MAX);
+  if (raw.kind === 'irregular') {
+    if (raw.days.length > 0) reject('irregular_with_schedule');
+    return { kind: 'irregular', days: [], note };
+  }
+  const days = raw.days.map(parseBusinessDay);
+  const byDay = new Map(days.map((day) => [day.day, day]));
+  if (byDay.size !== days.length) reject('duplicate_business_day');
+  if (WEEKDAYS.some((day) => !byDay.has(day))) reject('missing_weekday');
+  return { kind: 'weekly', days: BUSINESS_DAYS.filter((day) => byDay.has(day)).map((day) => byDay.get(day)), note };
+}
+
+// The schedule without its 確認日, in the API's shape where an absent note is null.
+const scheduleOf = (hours) => hours && JSON.stringify([hours.kind, hours.days, hours.note ?? null]);
+
 // Shop dates are Japanese calendar dates, and a UTC date would call this morning's observation "future".
 export const todayInJapan = () => new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
@@ -301,6 +359,9 @@ function parseValue(field, raw, shop, tagsBySlug, today) {
     case 'temporary_closure':
       if (shop.closedAt) reject('closure_on_closed_shop');
       return parseClosure(raw, today);
+    case 'business_hours':
+      if (shop.closedAt) reject('hours_on_closed_shop');
+      return parseBusinessHours(raw);
     case 'link':
       return parseLink(raw);
     case 'tag': {
@@ -328,6 +389,11 @@ function isNoop(field, value, shop) {
       return (
         value.startsOn === shop.temporaryClosure?.startsOn && value.reopensOn === shop.temporaryClosure?.reopensOn
       );
+    // The same schedule seen again still moves the 確認日 forward, so only a newer 確認日 already stored is nothing new.
+    case 'business_hours':
+      return (
+        scheduleOf(value) === scheduleOf(shop.businessHours) && (shop.businessHours?.checkedOn ?? '') >= value.checkedOn
+      );
     case 'link':
       return shop.links.some((link) => link.type === value.type && link.url === value.url);
     case 'tag':
@@ -350,6 +416,8 @@ function baseValueOf(field, shop) {
       return shop.closedAt;
     case 'temporary_closure':
       return shop.temporaryClosure;
+    case 'business_hours':
+      return shop.businessHours ?? null;
     default:
       return null;
   }
@@ -430,6 +498,9 @@ function parseProposal(raw, shop, requested, tagsBySlug, today, notices) {
   const checkField = checkFieldOf(raw.field, value);
   if (!requested.has(checkField)) reject('field_not_requested');
   const evidence = parseEvidence(raw.evidence, checkField, estimated, today);
+  if (raw.field === 'business_hours') {
+    value.checkedOn = evidence.map((item) => item.observedAt).toSorted().at(-1);
+  }
   return {
     field: raw.field,
     checkField,

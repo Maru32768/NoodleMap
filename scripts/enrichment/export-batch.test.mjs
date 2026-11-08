@@ -60,6 +60,7 @@ test('a batch carries exactly the public shop fields', () => {
   const batch = exportBatch(makeCatalog(), options);
   assert.deepEqual(Object.keys(batch.shops[0]).sort(), [
     'address',
+    'businessHours',
     'category',
     'closedAt',
     'id',
@@ -89,6 +90,7 @@ test('a value the API leaves out reaches the batch as null', () => {
   assert.equal(shop.nameKana, null);
   assert.equal(shop.openedAt, null);
   assert.equal(shop.closedAt, null);
+  assert.equal(shop.businessHours, null);
   assert.deepEqual(shop.temporaryClosure, { startsOn: '2026-11-01', reopensOn: null });
   assert.deepEqual(shop.links[1], { type: 'twitter', label: null, url: 'https://x.com/a' });
   assert.equal(exportBatch(makeCatalog(), options).tags[1].category, null);

@@ -6,6 +6,7 @@ import {
   shopUpdateOf,
   stateOf,
 } from "@/features/shop-enrichment/review.ts";
+import type { BusinessHours } from "@/features/shops/business-hours.ts";
 import { makeShop, makeTag } from "@/test/fixtures.ts";
 import { describe, expect, it } from "vitest";
 
@@ -92,6 +93,33 @@ describe("stateOf", () => {
         }),
       ),
     ).toBe("applied");
+  });
+
+  it("compares 営業時間 by their week and confirms an unchanged week with a newer 確認日", () => {
+    const week = (opensAt: string): BusinessHours => ({
+      kind: "weekly",
+      days: (["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const).map(
+        (day) => ({ day, periods: [{ opensAt, closesAt: "15:00" }] }),
+      ),
+    });
+    const hours = (
+      baseValue: BusinessHours | null,
+      checkedOn = "2026-11-05",
+    ): Proposal => ({
+      ...base,
+      field: "business_hours",
+      baseValue,
+      proposedValue: { ...week("11:00"), checkedOn },
+    });
+    const stored = makeShop({
+      businessHours: { ...week("11:00"), checkedOn: "2026-10-01" },
+    });
+    expect(kind(hours(null), stored)).toBe("ready");
+    expect(kind(hours(null, "2026-10-01"), stored)).toBe("applied");
+    const older = makeShop({ businessHours: week("10:00") });
+    expect(kind(hours(week("10:00")), older)).toBe("ready");
+    expect(kind(hours(null), older)).toBe("conflict");
+    expect(kind(hours(null), makeShop())).toBe("ready");
   });
 
   it("is unavailable for a shop or tag production no longer has", () => {
@@ -200,6 +228,16 @@ describe("shopUpdateOf", () => {
           baseValue: null,
           proposedValue: { startsOn: "2026-12-01", reopensOn: null },
         },
+        {
+          ...base,
+          field: "business_hours",
+          baseValue: null,
+          proposedValue: {
+            kind: "irregular",
+            days: [],
+            checkedOn: "2026-11-05",
+          },
+        },
         tagProposal("miso"),
       ],
     );
@@ -209,6 +247,7 @@ describe("shopUpdateOf", () => {
       openedAt: "2019-05-05",
       closedAt: "2026-01-01",
       temporaryClosure: { startsOn: "2026-12-01", reopensOn: undefined },
+      businessHours: { kind: "irregular", days: [], checkedOn: "2026-11-05" },
       tagIds: [shoyu.id, miso.id],
     });
   });

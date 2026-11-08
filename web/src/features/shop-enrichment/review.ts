@@ -1,4 +1,5 @@
 import type { Tag, UpdateShopCommand } from "@/features/shops/api/use-shops.ts";
+import type { BusinessHours } from "@/features/shops/business-hours.ts";
 import { isHttpUrl, SHOP_LINK_TYPES } from "@/features/shops/shop-links.ts";
 import type { components } from "@/generated/api.ts";
 import type { ClosureValue, Proposal } from "./proposal-file.ts";
@@ -26,11 +27,24 @@ const sameClosure = (a: ClosureValue | null, b: ClosureValue | null): boolean =>
   a?.startsOn === b?.startsOn &&
   (a?.reopensOn ?? null) === (b?.reopensOn ?? null);
 
+// The schedule apart from its 確認日, with absent and empty optional values alike.
+const scheduleKey = (hours: BusinessHours | null) =>
+  hours &&
+  JSON.stringify([
+    hours.kind,
+    hours.days.map((d) => [
+      d.day,
+      d.periods.map((p) => [p.opensAt, p.closesAt]),
+      d.closedWeeks ?? [],
+    ]),
+    hours.note ?? null,
+  ]);
+
 /** What the proposal would change or sit beside in production, which is what the admin compares it with. */
 export function currentValueOf(
   proposal: Proposal,
   shop: ApiShop,
-): string | ClosureValue | null {
+): string | ClosureValue | BusinessHours | null {
   switch (proposal.field) {
     case "name":
       return shop.name;
@@ -47,6 +61,8 @@ export function currentValueOf(
             reopensOn: shop.temporaryClosure.reopensOn ?? null,
           }
         : null;
+    case "business_hours":
+      return shop.businessHours ?? null;
     case "link": {
       const urls = shop.links
         .filter((link) => link.type === proposal.proposedValue.type)
@@ -93,6 +109,18 @@ export function stateOf(
         ? { kind: "ready" }
         : { kind: "conflict" };
     }
+    case "business_hours": {
+      const current = shop.businessHours ?? null;
+      if (scheduleKey(current) === scheduleKey(proposal.proposedValue)) {
+        // Same week: only a newer 確認日 is left to apply.
+        return (current?.checkedOn ?? "") >= proposal.proposedValue.checkedOn
+          ? { kind: "applied" }
+          : { kind: "ready" };
+      }
+      return scheduleKey(current) === scheduleKey(proposal.baseValue)
+        ? { kind: "ready" }
+        : { kind: "conflict" };
+    }
     case "name":
     case "name_kana":
     case "opened_at":
@@ -132,6 +160,15 @@ export function editProblem(proposal: Proposal): string | null {
         ? "再開日は開始日より後にしてください"
         : null;
     }
+    case "business_hours":
+      // The server checks the order and overlap of periods when the shop is saved.
+      return proposal.proposedValue.days.every((d) =>
+        d.periods.every((p) =>
+          [p.opensAt, p.closesAt].every((t) => /^\d{2}:[0-5]\d$/.test(t)),
+        ),
+      )
+        ? null
+        : "時刻は 11:00 の形式で入力してください";
     case "link":
       return isHttpUrl(proposal.proposedValue.url.trim())
         ? null
@@ -191,6 +228,9 @@ export function shopUpdateOf(
           startsOn: proposal.proposedValue.startsOn,
           reopensOn: proposal.proposedValue.reopensOn ?? undefined,
         };
+        break;
+      case "business_hours":
+        command.businessHours = proposal.proposedValue;
         break;
       case "tag": {
         const tag = tags.find((t) => t.slug === proposal.proposedValue);

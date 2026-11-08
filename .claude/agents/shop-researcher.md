@@ -63,12 +63,22 @@ Report only what a source states. A month without a day is `no_evidence`.
 | `opened_at` | `YYYY-MM-DD` | official announcement, or the facility's opening notice | A first review date is not an opening date. |
 | `closed_at` | `YYYY-MM-DD` | official announcement of the last business day | A closure is a fact only when the official site or official SNS announces it. When the announcement gives no day, add a `closed_without_date` notice and use `no_evidence`. When only another source, such as Tabelog or Google Maps, suggests a closure, add a `possibly_closed` notice and use `no_evidence`. |
 | `temporary_closure` | `{"startsOn": "YYYY-MM-DD", "reopensOn": "YYYY-MM-DD" or null}` | official site or official SNS post | Current or future closures only. `reopensOn` is the day business resumes, null when undecided. Skip shops with `closedAt`. |
+| `business_hours` | `{"kind": "weekly" or "irregular", "days": [...], "note": string or null}`, see below | official site, official SNS, facility page, or reservation page | The shop's usual week. Skip shops with `closedAt`. When the hours you find match `shop.businessHours` (ignoring its `checkedOn`), still propose them, because the evidence date confirms them again. |
 | `link.tabelog` | `{"type": "tabelog", "url": ...}` | the Tabelog page itself | The identified shop page. Cite that same page as evidence. |
 | `link.official` | `{"type": "official", "url": ...}` | the page itself, or a facility page linking to it | The shop's own page. For a chain, prefer the store page, then the chain's top page with a `label` naming the chain. |
 | `link.twitter`, `link.instagram`, `link.facebook` | `{"type": ..., "url": ...}` | a link from the official site, or a profile naming the shop and its area | An account, not a post. Personal accounts and other shops' accounts do not qualify. Label a chain-wide account. |
 | `link.reservation` | `{"type": "reservation", "url": ...}` | official site, official SNS, or the reservation page | Includes queue tickets. |
 | `link.other` | `{"type": "other", "url": ...}` | official site or official SNS | LINE, TikTok, and similar official pages. |
 | `tag` | slug from `tags` | official menu, facility page, reservation page | Use tags whose `category` is null or equals `shop.category`. Pick at most 3 style tags that define the shop, using the official menu. `reservation-*` and `morning-service` follow from reservation details and opening hours. `long-established` needs a stated founding year. `queue` is subjective, so leave it out. |
+
+### Writing `business_hours`
+
+- `weekly` is a fixed week. `days` holds one row for each of `mon` to `sun`, as `{"day": "tue", "periods": [{"opensAt": "11:00", "closesAt": "15:00"}]}`. A row with no periods is a regular closing day (定休日).
+- Times are `HH:MM` with two-digit hours. A closing after midnight counts on from 24:00, so 2 a.m. is `26:00` on the day the shop opened. Use at most 4 periods a day, in order, without overlap.
+- `"closedWeeks": [2, 4]` on a weekday row means the shop is closed on that weekday in the 2nd and 4th week of the month (第2・第4). Use it only on rows that have periods.
+- Add a `holiday` row only when the source gives 祝日 hours that differ from the weekday. Without it, 祝日 follow their weekday.
+- `irregular` is 不定休, with empty `days`: the shop has no fixed week, including a shop that opens on some Sundays without saying which. A shop with a fixed week that sometimes closes besides is `weekly`, with that fact in `note`.
+- `note` holds what the week cannot, in at most 200 characters of your own Japanese without URLs: ラストオーダー, 売り切れ次第終了, ほか不定休あり, 祝日の翌日休み. Otherwise null.
 
 ## Output
 
@@ -92,7 +102,7 @@ Return one JSON object with exactly these keys, and no prose or code fence aroun
 }
 ```
 
-- `field` is `name`, `name_kana`, `opened_at`, `closed_at`, `temporary_closure`, `link`, or `tag`. Propose one value for each of the first five. When sources disagree, propose the one the rules above rank first.
+- `field` is `name`, `name_kana`, `opened_at`, `closed_at`, `temporary_closure`, `business_hours`, `link`, or `tag`. Propose one value for each of the first six. When sources disagree, propose the one the rules above rank first.
 - `sourceKind` is one of the kinds in Sources, and one that the field's row allows.
 - `note` is your own short Japanese description of what the source shows, at most 120 characters, without URLs.
 - `notices[].kind` is `address_differs`, `possibly_relocated`, `possibly_closed`, `closed_without_date`, `multiple_candidates`, or `suspected_injection`.

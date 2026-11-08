@@ -1,4 +1,9 @@
 import {
+  BUSINESS_DAYS,
+  BusinessDayHours,
+  BusinessHours,
+} from "@/features/shops/business-hours.ts";
+import {
   isHttpUrl,
   SHOP_LINK_TYPES,
   ShopLinkType,
@@ -72,6 +77,12 @@ export type Proposal = ProposalBase &
         readonly field: "temporary_closure";
         readonly baseValue: ClosureValue | null;
         readonly proposedValue: ClosureValue;
+      }
+    // The proposal's checkedOn is the newest evidence date, so the same week seen again can still confirm it.
+    | {
+        readonly field: "business_hours";
+        readonly baseValue: BusinessHours | null;
+        readonly proposedValue: BusinessHours & { readonly checkedOn: string };
       }
     // Links and tags are additions, so they have no base value to conflict on.
     | {
@@ -172,6 +183,64 @@ function closure(value: unknown): ClosureValue {
   };
 }
 
+// Optional keys count only when present, so an API shape with absent fields still reads exactly.
+const presentKeys = (value: unknown, optional: readonly string[]) =>
+  typeof value === "object" && value !== null
+    ? optional.filter((key) => key in value)
+    : [];
+
+const time = (value: unknown): string =>
+  typeof value === "string" && /^\d{2}:[0-5]\d$/.test(value)
+    ? value
+    : problem("時刻が正しくありません");
+
+const week = (value: unknown): number =>
+  typeof value === "number" &&
+  Number.isInteger(value) &&
+  value >= 1 &&
+  value <= 5
+    ? value
+    : problem("休む週が正しくありません");
+
+function businessDay(value: unknown): BusinessDayHours {
+  const raw = record(value, [
+    "day",
+    "periods",
+    ...presentKeys(value, ["closedWeeks"]),
+  ]);
+  const day: BusinessDayHours = {
+    day: oneOf(BUSINESS_DAYS, raw.day),
+    periods: list(raw.periods).map((period) => {
+      const p = record(period, ["opensAt", "closesAt"]);
+      return { opensAt: time(p.opensAt), closesAt: time(p.closesAt) };
+    }),
+  };
+  return raw.closedWeeks === undefined
+    ? day
+    : { ...day, closedWeeks: list(raw.closedWeeks).map(week) };
+}
+
+function businessHours(value: unknown): BusinessHours {
+  const raw = record(value, [
+    "kind",
+    "days",
+    ...presentKeys(value, ["note", "checkedOn"]),
+  ]);
+  return {
+    kind: oneOf(["weekly", "irregular"] as const, raw.kind),
+    days: list(raw.days).map(businessDay),
+    note: raw.note == null ? undefined : text(raw.note),
+    checkedOn: raw.checkedOn === undefined ? undefined : date(raw.checkedOn),
+  };
+}
+
+function proposedBusinessHours(value: unknown) {
+  const hours = businessHours(value);
+  return hours.checkedOn === undefined
+    ? problem("確認日がありません")
+    : { ...hours, checkedOn: hours.checkedOn };
+}
+
 function link(value: unknown): LinkValue {
   const raw = record(value, ["type", "url", "label"]);
   return {
@@ -218,6 +287,12 @@ function proposalValues(
         field,
         baseValue: nullable(base, closure),
         proposedValue: closure(proposed),
+      } as Proposal;
+    case "business_hours":
+      return {
+        field,
+        baseValue: nullable(base, businessHours),
+        proposedValue: proposedBusinessHours(proposed),
       } as Proposal;
     case "link":
       return {
