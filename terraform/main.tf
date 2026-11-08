@@ -25,6 +25,14 @@ module "og_images_r2" {
   cloudflare_zone_id    = "724b74db75b1a43f6253f8a50d384a26"
 }
 
+module "og_worker" {
+  source = "./modules/cloudflare-worker-og"
+
+  cloudflare_account_id = "27f0188849b71a6222f1aa078299a54a"
+  cloudflare_zone_id    = "724b74db75b1a43f6253f8a50d384a26"
+  script                = file("${path.root}/../edge/og-worker.js")
+}
+
 module "meal_record_images_r2" {
   source = "./modules/cloudflare-r2-meal-record-images"
 

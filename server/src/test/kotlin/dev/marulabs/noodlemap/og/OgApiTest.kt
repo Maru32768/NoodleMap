@@ -111,9 +111,11 @@ class OgApiTest {
             admin,
         ).body<Shop>()
 
-    /** The og:image path the share page points at, relative to [PUBLIC_BASE_URL]. */
+    private fun metaPath(id: String) = "/api/v1/og/shops/$id"
+
+    /** The og:image path the shop's OGP tags point at, relative to [PUBLIC_BASE_URL]. */
     private suspend fun HttpClient.imagePath(id: String): String {
-        val html = get("/r/$id").bodyAsText()
+        val html = get(metaPath(id)).bodyAsText()
         val url = Regex("""og:image" content="([^"]+)"""").find(html)!!.groupValues[1]
         return url.removePrefix(PUBLIC_BASE_URL)
     }
@@ -151,9 +153,9 @@ class OgApiTest {
     }
 
     @Test
-    fun `share page carries escaped OGP meta with absolute URLs and redirects by script`() = testApp { t ->
+    fun `meta carries escaped OGP tags with absolute URLs to the search page`() = testApp { t ->
         val shop = addShop("""<script>"麺&'屋""", t.adminToken())
-        val res = noRedirects().get("/r/${shop.id}")
+        val res = client.get(metaPath(shop.id))
 
         res.status shouldBe HttpStatusCode.OK
         res.contentType()?.withoutParameters() shouldBe ContentType.Text.Html
@@ -164,22 +166,17 @@ class OgApiTest {
         html shouldContain """<title>&lt;script&gt;&quot;麺&amp;&#x27;屋 | NoodleMap</title>"""
         html shouldContain """<meta property="og:description" content="ラーメン・"""
         html shouldContain "気になる・東京都新宿区"
-        html shouldContain """<meta property="og:url" content="$PUBLIC_BASE_URL/r/${shop.id}">"""
+        html shouldContain """<meta property="og:url" content="$PUBLIC_BASE_URL/search?shop=${shop.id}">"""
+        html shouldContain """<link rel="canonical" href="$PUBLIC_BASE_URL/search?shop=${shop.id}">"""
         html shouldContain """<meta property="og:image" content="$PUBLIC_BASE_URL/api/v1/og/shops/${shop.id}/"""
         html shouldContain """<meta property="og:type" content="website">"""
         html shouldContain """<meta name="twitter:card" content="summary_large_image">"""
-        html shouldContain """location.replace("/search?shop=${shop.id}")"""
-        html shouldContain """<a href="/search?shop=${shop.id}">"""
-        // Scrapers that follow meta refresh would leave the OGP page for the SPA.
-        html shouldNotContain "http-equiv=\"refresh\""
     }
 
     @Test
-    fun `unknown or malformed share ids redirect to search`() = testApp {
+    fun `unknown or malformed ids have no meta`() = testApp {
         for (id in listOf("00000000-0000-4000-8000-000000000000", "not-a-uuid")) {
-            val res = noRedirects().get("/r/$id")
-            res.status shouldBe HttpStatusCode.Found
-            res.headers[HttpHeaders.Location] shouldBe "/search"
+            client.get(metaPath(id)).status shouldBe HttpStatusCode.NotFound
         }
     }
 
@@ -302,7 +299,7 @@ class OgApiTest {
             admin,
         ).status shouldBe HttpStatusCode.OK
         val wishPath = client.imagePath(shop.id)
-        client.get("/r/${shop.id}").bodyAsText().let {
+        client.get(metaPath(shop.id)).bodyAsText().let {
             it shouldContain "絶対行きたい"
             it shouldNotContain "気になる"
         }
@@ -312,7 +309,7 @@ class OgApiTest {
 
         val eatenPath = client.imagePath(shop.id)
         eatenPath shouldNotBe wishPath
-        client.get("/r/${shop.id}").bodyAsText().let {
+        client.get(metaPath(shop.id)).bodyAsText().let {
             it shouldContain "食べた・1回訪問"
             it shouldNotContain "絶対行きたい"
         }
@@ -320,14 +317,8 @@ class OgApiTest {
     }
 
     @Test
-    fun `share page and image answer HEAD, and image HEAD never renders`() = testApp(maxPendingBitmapWork = 0) { t ->
+    fun `image HEAD never renders`() = testApp(maxPendingBitmapWork = 0) { t ->
         val shop = addShop("醤油", t.adminToken())
-        noRedirects().head("/r/${shop.id}").let {
-            it.status shouldBe HttpStatusCode.OK
-            it.contentType()?.withoutParameters() shouldBe ContentType.Text.Html
-            it.headers[HttpHeaders.ContentLength]!!.toLong() shouldBe client.get("/r/${shop.id}").readRawBytes().size.toLong()
-        }
-        noRedirects().head("/r/not-a-uuid").headers[HttpHeaders.Location] shouldBe "/search"
         // A render here would answer 503 (no render slots).
         client.head(client.imagePath(shop.id)).let {
             it.status shouldBe HttpStatusCode.OK

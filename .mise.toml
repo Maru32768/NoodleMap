@@ -16,7 +16,7 @@ description = "Judge the lines changed since a base ref (origin/master by defaul
 usage = 'arg "[base]" help="The ref to review the changes since" default="origin/master"'
 run = "jev-lint review --base {{usage.base}}"
 
-# Ctrl+C stops both. Open http://localhost:5173; Vite proxies /api and /r/ to the server.
+# Ctrl+C stops both. Open http://localhost:5173; Vite proxies /api to the server.
 [tasks.dev]
 description = "Start the API server and the Vite dev server together"
 depends = ["dev:server", "dev:web"]

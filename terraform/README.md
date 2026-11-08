@@ -9,6 +9,8 @@ Create a Cloudflare API token with these permissions:
 - Account: Workers R2 Storage Read
 - Account: Workers R2 Storage Write
 - Zone: DNS Read
+- Account: Workers Scripts Write
+- Zone: Workers Routes Write
 
 Set the token in your shell:
 
@@ -93,6 +95,32 @@ under `og/shops/<id>/<hash>.png`. Set on the Render backend:
 
 Set both feature values or neither; with neither the backend renders each image
 on request.
+
+## OGP tags for shared shop URLs
+
+A shop's URL is the search page, `/search?shop=<id>`, which the static site serves
+as the same `index.html` for every shop. `module.og_worker` deploys
+[`edge/og-worker.js`](../edge/og-worker.js) on the route
+`noodle-map.marulabs.dev/search*`. For a request with `shop`, it fetches the shop's
+tags from the backend (`GET /api/v1/og/shops/<id>`) and replaces the site's tags in
+`index.html` with them. If the shop is unknown, or the backend fails or takes more
+than 2 seconds, the page is served unchanged.
+
+Routes run only on proxied hostnames. Do these once in the Cloudflare dashboard,
+after Render shows the custom domain's certificate as issued:
+
+1. Set SSL/TLS encryption to Full for the hostname. Render asks for Full; a
+   Configuration Rule can set it for `noodle-map.marulabs.dev` only, without
+   changing the rest of the zone.
+2. Set the `noodle-map.marulabs.dev` CNAME record to Proxied. Render does not
+   support IPv6, so the zone must have no AAAA record for the hostname.
+
+Test the Worker with `npm install` and `npm test` from `edge/`. After `terraform
+apply`, check it with a request that does not run JavaScript:
+
+```bash
+curl -s "https://noodle-map.marulabs.dev/search?shop=<id>" | grep og:title
+```
 
 ## Database backups
 

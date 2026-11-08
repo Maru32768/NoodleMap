@@ -32,24 +32,22 @@ import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
-import kotlinx.serialization.json.JsonPrimitive
 import org.slf4j.LoggerFactory
 
-private const val OG_IMAGE_PATH = "/api/v1/og/shops/"
+private const val OG_SHOPS_PATH = "/api/v1/og/shops/"
 private const val SEARCH_PATH = "/search"
 private const val IMMUTABLE = "public, max-age=31536000, immutable"
 
 private val log = LoggerFactory.getLogger("Og")
 
 fun Route.ogRoutes(og: OgHandler) {
-    get("/r/{id}") { og.sharePage(call, head = false) }
-    head("/r/{id}") { og.sharePage(call, head = true) }
-    get("$OG_IMAGE_PATH{id}/{hash}.png") { og.image(call, head = false) }
-    head("$OG_IMAGE_PATH{id}/{hash}.png") { og.image(call, head = true) }
+    get("$OG_SHOPS_PATH{id}") { og.meta(call) }
+    get("$OG_SHOPS_PATH{id}/{hash}.png") { og.image(call, head = false) }
+    head("$OG_SHOPS_PATH{id}/{hash}.png") { og.image(call, head = true) }
 }
 
 /** The headers of a GET response without its body, for HEAD (crawlers probe with it). */
-private class HeadOnly(override val contentType: ContentType, override val contentLength: Long? = null) : OutgoingContent.NoContent()
+private class HeadOnly(override val contentType: ContentType) : OutgoingContent.NoContent()
 
 /**
  * A rendered image. [fallback]: the card has a 代表写真 that would not decode, so the text card was drawn
@@ -69,7 +67,7 @@ private class CoverFailure(val fallback: ByteArray?, val until: Long)
 private val COVER_READ_TIMEOUT = 5.seconds
 private const val MAX_COVER_FAILURES = 64
 
-/** Share pages (`/r/{id}`) carrying OGP tags, and the OGP images they point at. Public, no auth. */
+/** A shop's OGP tags, which the edge Worker (`edge/og-worker.js`) puts into `/search?shop=`, and the image they point at. Public, no auth. */
 class OgHandler(
     private val shops: ShopHandler,
     private val publicBaseUrl: String,
@@ -87,23 +85,17 @@ class OgHandler(
     // By image key; small and cleared when full, like R2OgImageStore's known keys.
     private val coverFailures = ConcurrentHashMap<String, CoverFailure>()
 
-    /**
-     * Same response for crawlers and browsers: OGP meta plus a script redirect to the shop on the
-     * search page (headers only for HEAD). An unknown shop redirects to the search page directly.
-     */
-    suspend fun sharePage(call: ApplicationCall, head: Boolean) {
-        val record = findShop(call) ?: return call.respondRedirect(SEARCH_PATH)
+    /** The `<head>` tags for the shop's page on the search page, as an HTML fragment. */
+    suspend fun meta(call: ApplicationCall) {
+        val record = findShop(call) ?: throw DomainException.NotFound()
         val shop = record.shop
         val card = cardOf(record)
-        val html = sharePageHtml(
+        val html = ogMetaHtml(
             card = card,
-            shareUrl = "$publicBaseUrl/r/${shop.id}",
+            pageUrl = "$publicBaseUrl$SEARCH_PATH?shop=${shop.id}",
             imageUrl = "$publicBaseUrl${imagePath(shop.id, card.hash())}",
-            target = "$SEARCH_PATH?shop=${shop.id}",
         )
-        val type = ContentType.Text.Html.withCharset(Charsets.UTF_8)
-        if (head) return call.respond(HeadOnly(type, html.toByteArray().size.toLong()))
-        call.respondText(html, type)
+        call.respondText(html, ContentType.Text.Html.withCharset(Charsets.UTF_8))
     }
 
     /** HEAD never renders: it redirects to a stored image or answers with the headers a render would get. */
@@ -222,37 +214,24 @@ class OgHandler(
 
     private fun cardOf(record: ShopRecord) = OgCard.of(record.shop, record.coverPhotoKey, LocalDate.now(JST))
 
-    private fun imagePath(id: String, hash: String) = "$OG_IMAGE_PATH$id/$hash.png"
+    private fun imagePath(id: String, hash: String) = "$OG_SHOPS_PATH$id/$hash.png"
 }
 
-/**
- * No meta refresh: scrapers that follow it (Facebook) would land on the SPA, which has no OGP tags.
- * Browsers leave via the script; the link covers the rest.
- */
-internal fun sharePageHtml(card: OgCard, shareUrl: String, imageUrl: String, target: String): String {
+internal fun ogMetaHtml(card: OgCard, pageUrl: String, imageUrl: String): String {
     val title = card.name.escapeHTML()
     val description = card.description().escapeHTML()
-    // JSON string literal for the script; `<` escaped so the value can never close the tag.
-    val targetJs = JsonPrimitive(target).toString().replace("<", "\\u003c")
-    return """<!doctype html>
-<html lang="ja">
-<head>
-<meta charset="utf-8">
-<title>$title | NoodleMap</title>
+    val url = pageUrl.escapeHTML()
+    return """<title>$title | NoodleMap</title>
 <meta name="description" content="$description">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="NoodleMap">
 <meta property="og:title" content="$title">
 <meta property="og:description" content="$description">
-<meta property="og:url" content="${shareUrl.escapeHTML()}">
+<meta property="og:url" content="$url">
 <meta property="og:image" content="${imageUrl.escapeHTML()}">
 <meta property="og:image:width" content="$OG_WIDTH">
 <meta property="og:image:height" content="$OG_HEIGHT">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="canonical" href="${shareUrl.escapeHTML()}">
-<script>location.replace($targetJs)</script>
-</head>
-<body><a href="${target.escapeHTML()}">$title</a></body>
-</html>
+<link rel="canonical" href="$url">
 """
 }

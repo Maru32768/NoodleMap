@@ -87,7 +87,7 @@ data class Config(
             val publicBaseUrl = env("PUBLIC_BASE_URL")?.trim()?.trimEnd('/')?.takeIf { it.isNotEmpty() }
                 ?.also { httpUrl("PUBLIC_BASE_URL", it) }
                 ?: "http://localhost:$serverPort".also {
-                    log.warn("PUBLIC_BASE_URL is empty; share pages use {} for absolute URLs", it)
+                    log.warn("PUBLIC_BASE_URL is empty; OGP tags use {} for absolute URLs", it)
                 }
 
             val r2Connection = r2Connection(env)

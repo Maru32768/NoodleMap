@@ -131,7 +131,7 @@ DB スキーマを大きく変える機能が多いため、タグ・訪問ロ�
 |-----|------------|------------------------------------------|
 | 完了  | 店舗詳細の個別URL | `/search?shop=<id>` で選択店舗を開けるようにする |
 | 完了  | 共有ボタン      | 店舗詳細からURLをコピー                            |
-| 完了  | `/r/:id`   | 通常ブラウザは検索URLへ誘導、SNSクローラーには OGP HTML を返す  |
+| 完了  | 共有URLのOGP  | `/search?shop=<id>` に Cloudflare Worker が店舗の OGP タグを入れる（`/r/:id` は廃止） |
 | 完了  | OGP画像生成    | 店名、タグ、お気に入り度、住所エリア、NoodleMap ロゴを含める。代表写真がある店舗は写真を背景にする |
 
 ### Phase 8. 仕上げ
@@ -911,7 +911,6 @@ create table shop_links
 
 - `/search?shop=<shop_id>`
 - `/search?shop=<shop_id>&lat=35.xxxxxx&lng=139.xxxxxx`
-- `/r/<shop_id>` 共有・OGP向けの短縮URL
 
 **共有URLを開いた時の挙動:**
 
@@ -927,7 +926,7 @@ create table shop_links
 - 初期表示時に `shop` param を読んで該当店舗を選択する
 - 選択店舗が現在のフィルタ条件では非表示でも、ピンまたは詳細パネルは表示できるようにする
 - 店舗詳細に共有ボタンを追加する
-- `/r/:id` は通常ブラウザでは `/search?shop=:id` へ誘導し、SNSクローラー向けには OGP 付き HTML を返す
+- `/search?shop=:id` の HTML に、Cloudflare Worker (`edge/og-worker.js`) が店舗の OGP タグを入れる
 
 将来的にタグ別一覧を共有したくなった場合は、`/search?tag=家系` のように既存検索URLを拡張する。最初から別の公開一覧ページを作る必要は薄い。
 

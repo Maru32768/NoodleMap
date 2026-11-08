@@ -9,6 +9,7 @@ This repository contains a full-stack noodle map application.
 - `typespec/`: TypeSpec API contract source.
 - `api/openapi.yaml`: generated OpenAPI document.
 - `e2e/`: Playwright end-to-end tests against the real backend and frontend.
+- `edge/`: Cloudflare Worker that puts a shop's OGP tags into `/search?shop=<id>` pages, deployed by `terraform/`.
 - `db/`: source seed CSVs, the committed default database, and its generator. The schema and queries live in `server/`.
 - `render.yaml`: Render Blueprint for deployed services and non-secret environment variables.
 
@@ -33,6 +34,10 @@ End-to-end commands run from `e2e/` (Playwright against the real `server` and a 
 - `npm test`: build and start both servers, then run the suite headless.
 - `npm run test:ui`: run the suite in Playwright UI mode.
 - `npm run report`: open the last HTML report.
+
+Edge commands run from `edge/`:
+
+- `npm test`: run the Worker in Miniflare against a stub origin and backend.
 
 API generation commands run from the repository root:
 

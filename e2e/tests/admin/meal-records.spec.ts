@@ -31,7 +31,7 @@ test("admin selects an older regular-menu record for the cover and OGP and can r
   const regular = records[1];
   await expect.poll(async () => (await api.getShop(shop.id)).coverPhotoUrl).toBe(limited.images[0].url);
   const ogUrl = async () => {
-    const html = await (await page.request.get(`/r/${shop.id}`)).text();
+    const html = await (await page.request.get(`/api/v1/og/shops/${shop.id}`)).text();
     return html.match(/og:image" content="([^"]+)"/)?.[1];
   };
   const automaticOg = await ogUrl();

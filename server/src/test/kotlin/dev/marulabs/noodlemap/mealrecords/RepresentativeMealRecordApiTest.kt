@@ -27,7 +27,7 @@ class RepresentativeMealRecordApiTest {
             t.db.mealRecordImagesQueries.appendMealRecordImage(it, UUID.fromString(record.id), key, 320, 240)
         }
         suspend fun current() = client.shops().single()
-        suspend fun og() = Regex("""og:image" content="([^"]+)"""").find(client.get("/r/${shop.id}").bodyAsText())!!.groupValues[1]
+        suspend fun og() = Regex("""og:image" content="([^"]+)"""").find(client.get("/api/v1/og/shops/${shop.id}").bodyAsText())!!.groupValues[1]
         val regular = record("2025-01-01")
         val regularImage = image(regular, "regular.jpg")
         val limited = record("2025-02-01")

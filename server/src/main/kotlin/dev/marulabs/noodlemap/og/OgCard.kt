@@ -15,7 +15,7 @@ private const val TEMPLATE_VERSION = 5
 data class Chip(val label: String, val color: String)
 
 /**
- * Everything the share page and OGP image show for a shop. [hash] names the image, so any
+ * Everything the OGP tags and image show for a shop. [hash] names the image, so any
  * visible change (including date-derived statuses) yields a new image URL.
  */
 data class OgCard(
