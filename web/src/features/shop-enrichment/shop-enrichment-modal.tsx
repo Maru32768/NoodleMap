@@ -775,6 +775,7 @@ function ValueEditor({
       inputs = (
         <BusinessHoursEditor
           value={proposal.proposedValue}
+          stampToday={false}
           // 不明 is no proposal, so that choice is ignored here.
           onChange={(hours) =>
             hours &&

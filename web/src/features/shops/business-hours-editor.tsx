@@ -70,15 +70,19 @@ const smallButtonProps = {
 } as const;
 
 /**
- * Edits 営業時間; undefined is 営業時間不明. A change to the schedule or 補足
- * sets the 確認日 to today until the 確認日 is changed by hand.
+ * Edits 営業時間; undefined is 営業時間不明. With `stampToday`, a change to the
+ * schedule or 補足 sets the 確認日 to today until the 確認日 is changed by hand.
+ * Without it, the 確認日 changes only by hand, as when correcting a research
+ * proposal whose 確認日 is its evidence date.
  */
 export function BusinessHoursEditor({
   value,
   onChange,
+  stampToday = true,
 }: {
   value: BusinessHours | undefined;
   onChange: (value: BusinessHours | undefined) => void;
+  stampToday?: boolean;
 }) {
   const [checkedOnByHand, setCheckedOnByHand] = useState(false);
   const kind: Kind = value?.kind ?? "unknown";
@@ -86,7 +90,7 @@ export function BusinessHoursEditor({
   const change = (next: Omit<BusinessHours, "checkedOn">) =>
     onChange({
       ...next,
-      checkedOn: checkedOnByHand ? value?.checkedOn : today,
+      checkedOn: stampToday && !checkedOnByHand ? today : value?.checkedOn,
     });
 
   const setKind = (next: Kind) => {

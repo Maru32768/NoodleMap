@@ -37,6 +37,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import { CiFilter } from "react-icons/ci";
 import { LuX } from "react-icons/lu";
@@ -215,17 +216,21 @@ export default function SearchPage({ active = true }: { active?: boolean }) {
 
   const { shops } = useShops();
 
-  // 今営業中 follows the clock: shops open and close while the map stays up.
-  const [now, setNow] = useState(() => dayjs());
+  // 今営業中 follows the clock: the current minute, read on every render, while it is chosen.
   const followsClock = filters.openAt === "now";
-  useEffect(() => {
-    if (!followsClock) {
-      return;
-    }
-    setNow(dayjs());
-    const timer = setInterval(() => setNow(dayjs()), 60_000);
-    return () => clearInterval(timer);
-  }, [followsClock]);
+  const subscribeToMinutes = useCallback(
+    (onMinute: () => void) => {
+      if (!followsClock) {
+        return () => {};
+      }
+      const timer = setInterval(onMinute, 60_000);
+      return () => clearInterval(timer);
+    },
+    [followsClock],
+  );
+  const minute = useSyncExternalStore(subscribeToMinutes, () =>
+    followsClock ? Math.floor(Date.now() / 60_000) : 0,
+  );
 
   const filteredShops = useMemo(() => {
     if (!shops) {
@@ -234,9 +239,9 @@ export default function SearchPage({ active = true }: { active?: boolean }) {
     return filterShops(shops, {
       query: deferredQuery,
       filters: deferredFilters,
-      now,
+      now: dayjs(minute * 60_000),
     });
-  }, [shops, deferredQuery, deferredFilters, now]);
+  }, [shops, deferredQuery, deferredFilters, minute]);
 
   const sortedShops = useMemo(() => {
     const center = mapView

@@ -144,7 +144,8 @@ describe("parseEnrichmentFile", () => {
       },
     });
 
-    const { checkedOn: _, ...withoutDate } = hours.proposedValue;
+    // JSON leaves an undefined key out.
+    const withoutDate = { ...hours.proposedValue, checkedOn: undefined };
     expect(errorOf({ ...hours, proposedValue: withoutDate })).toBe(
       "1 行目: 確認日がありません",
     );
