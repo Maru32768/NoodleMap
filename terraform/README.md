@@ -9,8 +9,8 @@ Create a Cloudflare API token with these permissions:
 - Account: Workers R2 Storage Read
 - Account: Workers R2 Storage Write
 - Zone: DNS Read
-- Account: Workers Scripts Write
-- Zone: Workers Routes Write
+- Account: Workers Scripts Edit
+- Zone: Workers Routes Edit (with the zone in Zone Resources)
 
 Set the token in your shell:
 
