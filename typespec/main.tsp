@@ -53,6 +53,7 @@ union AddShopField {
   "openedAt",
   "closedAt",
   "temporaryClosure",
+  "businessHours",
   "googlePlaceId",
   "category",
   "tagIds",
@@ -85,6 +86,7 @@ union UpdateShopField {
   "openedAt",
   "closedAt",
   "temporaryClosure",
+  "businessHours",
   "googlePlaceId",
   "category",
   "eaten",
@@ -406,6 +408,9 @@ model Shop {
   @doc("臨時休業, past, current or upcoming. Absent when none is set. Clients judge it against today; a closed shop is closed, not on 臨時休業.")
   temporaryClosure?: TemporaryClosure;
 
+  @doc("営業時間. Absent when unknown (営業時間不明).")
+  businessHours?: BusinessHours;
+
   postalCode: string;
   address: string;
 
@@ -619,6 +624,64 @@ model TemporaryClosureInput {
   reopensOn?: string;
 }
 
+@doc("weekly = a fixed 週間スケジュール in days; irregular = 不定休, no schedule.")
+union BusinessHoursKind {
+  "weekly",
+  "irregular",
+}
+
+@doc("The row a schedule is for: a weekday, or holiday for 祝日.")
+union BusinessDay {
+  "mon",
+  "tue",
+  "wed",
+  "thu",
+  "fri",
+  "sat",
+  "sun",
+  "holiday",
+}
+
+@doc("One time range of a business day. Times are HH:MM in Japan time.")
+model BusinessPeriod {
+  @doc("From 00:00 to 23:59.")
+  opensAt: string;
+
+  @doc("After opensAt and at most 24 hours later. Past midnight counts on from 24:00, so 2 a.m. the next morning is 26:00.")
+  closesAt: string;
+}
+
+model BusinessDayHours {
+  day: BusinessDay;
+
+  @doc("Time ranges in order, not overlapping, at most 4. Empty on a 定休日.")
+  periods: BusinessPeriod[];
+
+  @doc("Weeks of the month (1 to 5, ascending) on which this weekday is closed, e.g. [2, 4] for 第2・第4. Absent when none. Weekdays with periods only.")
+  closedWeeks?: int32[];
+}
+
+model BusinessHours {
+  kind: BusinessHoursKind;
+
+  @doc("For weekly, one row for each weekday mon to sun, then an optional holiday row; without it 祝日 follow their weekday. Empty for irregular.")
+  days: BusinessDayHours[];
+
+  @doc("補足, at most 500 characters: what the schedule cannot express. Absent when not set.")
+  note?: string;
+
+  @doc("確認日 (YYYY-MM-DD): when the hours were last confirmed. Absent when not recorded.")
+  checkedOn?: string;
+}
+
+@doc("A missing kind means 営業時間不明 and clears the stored hours. Otherwise the same shape as BusinessHours; a blank note or checkedOn means not set.")
+model BusinessHoursInput {
+  kind?: BusinessHoursKind;
+  days?: BusinessDayHours[];
+  note?: string;
+  checkedOn?: string;
+}
+
 model ShopLink {
   type: ShopLinkType;
 
@@ -682,6 +745,9 @@ model AddShopRequest {
   @doc("Omit when the shop has no 臨時休業.")
   temporaryClosure?: TemporaryClosureInput;
 
+  @doc("Omit when the 営業時間 are unknown.")
+  businessHours?: BusinessHoursInput;
+
   @doc("Omit (or send a blank string) for a shop entered by hand. Must be unique among shops when set.")
   googlePlaceId?: string;
 
@@ -711,6 +777,9 @@ model UpdateShopRequest {
 
   @doc("Omit to keep the stored 臨時休業 (older clients); an object without startsOn clears it.")
   temporaryClosure?: TemporaryClosureInput;
+
+  @doc("Omit to keep the stored 営業時間 (older clients); an object without kind clears them.")
+  businessHours?: BusinessHoursInput;
 
   @doc("Omit to keep the stored place id (older clients); a blank string clears it.")
   googlePlaceId?: string;

@@ -155,6 +155,11 @@ export function shopFieldErrorMessage(
   if (field === "tagIds") {
     return "存在しないタグが含まれています。タグを選び直してください";
   }
+  if (field === "businessHours") {
+    return type === "too_long"
+      ? "補足が長すぎます"
+      : "営業時間を確認してください。時刻は 11:00 の形式で、時間帯は重ならないように並べます";
+  }
   switch (type) {
     case "required":
       return "入力してください";

@@ -6,6 +6,7 @@ import { ShopMealRecordHistory } from "@/features/meal-records/shop-meal-record-
 import { ShopRating } from "@/features/meal-records/shop-rating.tsx";
 import { stationLabel } from "@/features/search/utils.ts";
 import { Shop } from "@/features/shops/api/use-shops.ts";
+import { BusinessHoursSummary } from "@/features/shops/business-hours-summary.tsx";
 import { MiniHearts } from "@/features/shops/rating-hearts.tsx";
 import {
   ShopActions,
@@ -390,6 +391,14 @@ export function MobileSheet({
                     ...[stationLabel(shop)]
                       .filter((label) => label !== null)
                       .map((value) => ({ label: "STATION", value })),
+                    ...(shop.lifecycleStatus === "closed"
+                      ? []
+                      : [
+                          {
+                            label: "HOURS",
+                            value: <BusinessHoursSummary shop={shop} />,
+                          },
+                        ]),
                     {
                       label: "STATUS",
                       value: shopStatusLabel(shop),

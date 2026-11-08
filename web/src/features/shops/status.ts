@@ -224,7 +224,7 @@ export function shopSystemTagSlugs(
   return slugs;
 }
 
-// System tags shown as chips on a shop (excludes the default 営業中 state).
+// System tags shown as chips on a shop (excludes the default 営業店 state).
 export function shopDisplaySystemTags(
   shop: Pick<Shop, "lifecycleStatus" | "recencyStatus" | "closureStatus">,
 ): SystemTagDef[] {

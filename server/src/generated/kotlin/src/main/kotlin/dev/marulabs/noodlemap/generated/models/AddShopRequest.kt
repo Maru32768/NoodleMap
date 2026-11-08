@@ -30,6 +30,11 @@ public data class AddShopRequest(
   @SerialName("temporaryClosure")
   public val temporaryClosure: TemporaryClosureInput? = null,
   /**
+   * Omit when the 営業時間 are unknown.
+   */
+  @SerialName("businessHours")
+  public val businessHours: BusinessHoursInput? = null,
+  /**
    * Omit (or send a blank string) for a shop entered by hand. Must be unique among shops when set.
    */
   @SerialName("googlePlaceId")

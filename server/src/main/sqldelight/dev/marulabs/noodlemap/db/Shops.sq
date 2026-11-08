@@ -16,7 +16,8 @@ CREATE TABLE shops (
     wish_level      TEXT CHECK (wish_level IN ('low', 'medium', 'high')),
     rate            REAL CHECK (rate BETWEEN 0 AND 100),
     temporary_closure_starts_on TEXT,
-    temporary_closure_reopens_on TEXT
+    temporary_closure_reopens_on TEXT,
+    business_hours  TEXT
 );
 
 -- (modtime trigger omitted; see note in Users.sq)
@@ -37,7 +38,8 @@ SELECT r.id,
        r.wish_level,
        r.rate,
        r.temporary_closure_starts_on,
-       r.temporary_closure_reopens_on
+       r.temporary_closure_reopens_on,
+       r.business_hours
 FROM shops r;
 
 insertShop:
@@ -67,6 +69,9 @@ UPDATE shops
 SET temporary_closure_starts_on  = :startsOn,
     temporary_closure_reopens_on = :reopensOn
 WHERE id = :id;
+
+setBusinessHours:
+UPDATE shops SET business_hours = :businessHours WHERE id = :id;
 
 setShopRate:
 UPDATE shops SET rate = :rate WHERE id = :id;

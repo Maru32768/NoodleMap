@@ -7,6 +7,7 @@ import { renderWithProviders } from "@/test/render.tsx";
 import { server } from "@/test/server.ts";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import dayjs from "dayjs";
 import { http, HttpResponse } from "msw";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -504,6 +505,64 @@ describe("ShopEditModal links", () => {
     await userEvent.click(screen.getByRole("button", { name: "保存" }));
     await waitFor(() => expect(requests).toHaveLength(1));
     expect(requests[0].temporaryClosure).toEqual({});
+  });
+
+  it("sends the stored 営業時間 back unchanged, 確認日 included", async () => {
+    const businessHours = {
+      kind: "irregular" as const,
+      days: [],
+      note: "日曜のみ",
+      checkedOn: "2025-01-05",
+    };
+    const { requests } = await renderEditor(makeShop({ businessHours }));
+
+    await userEvent.click(screen.getByRole("button", { name: "保存" }));
+    await waitFor(() => expect(requests).toHaveLength(1));
+    expect(requests[0].businessHours).toEqual(businessHours);
+  });
+
+  it("builds a weekly schedule and stamps today's 確認日", async () => {
+    const { requests } = await renderEditor(makeShop());
+
+    await userEvent.click(screen.getByRole("radio", { name: "通常" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "月 に時間帯を追加" }),
+    );
+    await userEvent.type(screen.getByLabelText("月 時間帯1 開始"), "11:00");
+    await userEvent.type(screen.getByLabelText("月 時間帯1 終了"), "26:00");
+    await userEvent.click(
+      screen.getByRole("button", { name: "月曜の時間を火〜金にコピー" }),
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "水曜の休む週: 第2" }),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "保存" }));
+
+    await waitFor(() => expect(requests).toHaveLength(1));
+    const hours = requests[0].businessHours;
+    const period = [{ opensAt: "11:00", closesAt: "26:00" }];
+    expect(hours?.kind).toBe("weekly");
+    expect(hours?.checkedOn).toBe(dayjs().format("YYYY-MM-DD"));
+    expect(hours?.days).toEqual([
+      { day: "mon", periods: period },
+      { day: "tue", periods: period },
+      { day: "wed", periods: period, closedWeeks: [2] },
+      { day: "thu", periods: period },
+      { day: "fri", periods: period },
+      { day: "sat", periods: [] },
+      { day: "sun", periods: [] },
+    ]);
+  });
+
+  it("sends no kind after choosing 不明 so the server clears the hours", async () => {
+    const { requests } = await renderEditor(
+      makeShop({ businessHours: { kind: "irregular", days: [] } }),
+    );
+
+    await userEvent.click(screen.getByRole("radio", { name: "不明" }));
+    await userEvent.click(screen.getByRole("button", { name: "保存" }));
+    await waitFor(() => expect(requests).toHaveLength(1));
+    expect(requests[0].businessHours).toEqual({});
   });
 
   it("omits links for a shop cached without them so saving keeps them", async () => {

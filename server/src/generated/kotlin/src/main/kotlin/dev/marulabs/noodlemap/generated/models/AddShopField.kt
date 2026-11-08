@@ -25,6 +25,8 @@ public enum class AddShopField(
   CLOSED_AT("closedAt"),
   @SerialName("temporaryClosure")
   TEMPORARY_CLOSURE("temporaryClosure"),
+  @SerialName("businessHours")
+  BUSINESS_HOURS("businessHours"),
   @SerialName("googlePlaceId")
   GOOGLE_PLACE_ID("googlePlaceId"),
   @SerialName("category")

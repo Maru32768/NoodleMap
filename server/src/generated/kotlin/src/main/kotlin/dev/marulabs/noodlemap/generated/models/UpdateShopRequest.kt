@@ -34,6 +34,11 @@ public data class UpdateShopRequest(
   @SerialName("temporaryClosure")
   public val temporaryClosure: TemporaryClosureInput? = null,
   /**
+   * Omit to keep the stored 営業時間 (older clients); an object without kind clears them.
+   */
+  @SerialName("businessHours")
+  public val businessHours: BusinessHoursInput? = null,
+  /**
    * Omit to keep the stored place id (older clients); a blank string clears it.
    */
   @SerialName("googlePlaceId")

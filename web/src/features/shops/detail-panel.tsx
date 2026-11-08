@@ -7,6 +7,7 @@ import { ShopMealRecordHistory } from "@/features/meal-records/shop-meal-record-
 import { ShopRating } from "@/features/meal-records/shop-rating.tsx";
 import { stationLabel } from "@/features/search/utils.ts";
 import { Shop } from "@/features/shops/api/use-shops.ts";
+import { BusinessHoursSummary } from "@/features/shops/business-hours-summary.tsx";
 import {
   buildGoogleMapsUrl,
   ShopActions,
@@ -279,6 +280,14 @@ export function DetailPanel({ shop, onAdminEdit, onClose }: DetailPanelProps) {
               ),
             },
             ...(stationText ? [{ label: "Station", value: stationText }] : []),
+            ...(closed
+              ? []
+              : [
+                  {
+                    label: "Hours",
+                    value: <BusinessHoursSummary shop={shop} />,
+                  },
+                ]),
             ...(openedAtLabel
               ? [{ label: "Opened", value: openedAtLabel }]
               : []),

@@ -42,6 +42,11 @@ public data class Shop(
    */
   @SerialName("temporaryClosure")
   public val temporaryClosure: TemporaryClosure? = null,
+  /**
+   * 営業時間. Absent when unknown (営業時間不明).
+   */
+  @SerialName("businessHours")
+  public val businessHours: BusinessHours? = null,
   @SerialName("postalCode")
   public val postalCode: String,
   @SerialName("address")

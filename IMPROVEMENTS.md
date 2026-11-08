@@ -854,6 +854,8 @@ create table visit_logs
 
 ### 16. 店舗リンク / SNS URL
 
+> 2026-11-08 更新: 営業時間は公式の情報から自前で持つ方針に変えた (`docs/adr/0004-business-hours-from-official-sources.md`)。以下は当時の検討。
+
 営業日・営業時間は変動が大きく、自前管理するとすぐに情報が古くなる。営業時間は Google Maps への導線に任せ、アプリ側では管理しやすい
 SNS / 公式 URL を持つのが現実的。
 
@@ -886,6 +888,8 @@ create table shop_links
 `type` を自動推定できると入力体験も良い。
 
 ### 17. Google Maps 導線強化
+
+> 2026-11-08 更新: 臨時休業と営業時間はアプリ内で持つようになった (`GLOSSARY.md`、`docs/adr/0004-business-hours-from-official-sources.md`)。Google Maps への導線は残す。
 
 営業日・営業時間・臨時休業は Google Maps に全寄せする。アプリ内で正確に管理しようとしない。
 

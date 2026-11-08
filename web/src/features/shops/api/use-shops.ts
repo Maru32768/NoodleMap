@@ -220,6 +220,18 @@ export function useShops(config?: SWRConfiguration<Shop[]>) {
                     reopensOn: shopFields.temporaryClosure.reopensOn,
                   }
                 : undefined,
+          // Same: omitted keeps the 営業時間; no kind clears them.
+          businessHours:
+            shopFields.businessHours === undefined
+              ? current[i].businessHours
+              : shopFields.businessHours.kind
+                ? {
+                    kind: shopFields.businessHours.kind,
+                    days: shopFields.businessHours.days ?? [],
+                    note: shopFields.businessHours.note?.trim() || undefined,
+                    checkedOn: shopFields.businessHours.checkedOn || undefined,
+                  }
+                : undefined,
           googlePlaceId:
             shopFields.googlePlaceId === undefined
               ? current[i].googlePlaceId

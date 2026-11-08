@@ -178,6 +178,7 @@ class ShopHandler(
         val links = normalizeLinks(req.links.orEmpty())
         val wishLevel = req.wishLevel?.let(::parseWishLevel)
         val temporaryClosure = req.temporaryClosure?.let(::normalizeTemporaryClosure)
+        val businessHours = req.businessHours?.let(::normalizeBusinessHours)
         db.transaction {
             rejectingDuplicatePlaceId {
                 db.shopsQueries.insertShop(
@@ -187,6 +188,7 @@ class ShopHandler(
                 )
             }
             temporaryClosure?.let { db.shopsQueries.setTemporaryClosure(it.startsOn, it.reopensOn, shopId) }
+            businessHours?.let { db.shopsQueries.setBusinessHours(BusinessHoursColumn.encode(it), shopId) }
             replaceShopTags(shopId, req.tagIds)
             replaceShopLinks(shopId, links)
         }
@@ -195,7 +197,7 @@ class ShopHandler(
             Shop(
                 id = shopId.toString(), name = req.name, nameKana = nameKana, lat = req.lat, lng = req.lng,
                 openedAt = ShopDate.encode(req.openedAt), closedAt = ShopDate.encode(req.closedAt),
-                temporaryClosure = temporaryClosure,
+                temporaryClosure = temporaryClosure, businessHours = businessHours,
                 postalCode = req.postalCode, address = req.address, googlePlaceId = googlePlaceId,
                 nearestStation = Stations.nearest(req.lat, req.lng),
                 eaten = false, favorite = false, mealRecordCount = 0, wishLevel = wishLevel?.value,
@@ -228,6 +230,8 @@ class ShopHandler(
         val wishLevel = req.wishLevel?.let { if (it.isEmpty()) "" else parseWishLevel(it).value }
         // Missing (older clients) keeps the stored 臨時休業; an object without startsOn clears it.
         val temporaryClosure = req.temporaryClosure?.let(::normalizeTemporaryClosure)
+        // Same for the 営業時間: missing keeps them, an object without kind clears them.
+        val businessHours = req.businessHours?.let(::normalizeBusinessHours)
         db.transaction {
             // Write first and judge existence by rows affected: a SELECT before the first write
             // in a deferred WAL transaction can fail with SQLITE_BUSY_SNAPSHOT under contention.
@@ -243,6 +247,9 @@ class ShopHandler(
             links?.let { replaceShopLinks(shopId, it) }
             if (req.temporaryClosure != null) {
                 db.shopsQueries.setTemporaryClosure(temporaryClosure?.startsOn, temporaryClosure?.reopensOn, shopId)
+            }
+            if (req.businessHours != null) {
+                db.shopsQueries.setBusinessHours(BusinessHoursColumn.encode(businessHours), shopId)
             }
         }
 
@@ -301,6 +308,7 @@ class ShopHandler(
                 temporaryClosure = r.temporary_closure_starts_on?.let {
                     TemporaryClosure(startsOn = it, reopensOn = r.temporary_closure_reopens_on)
                 },
+                businessHours = BusinessHoursColumn.decode(r.business_hours),
                 postalCode = r.postal_code, address = r.address, googlePlaceId = r.google_place_id,
                 nearestStation = Stations.nearest(r.lat, r.lng),
                 eaten = mealRecordCount > 0, rate = r.rate, favorite = isFavorite(r.rate),

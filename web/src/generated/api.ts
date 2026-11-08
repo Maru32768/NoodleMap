@@ -433,7 +433,7 @@ export interface components {
             fieldErrors?: components["schemas"]["AddShopFieldError"][];
         };
         /** @enum {string} */
-        AddShopField: "name" | "nameKana" | "lat" | "lng" | "postalCode" | "address" | "openedAt" | "closedAt" | "temporaryClosure" | "googlePlaceId" | "category" | "tagIds" | "links" | "wishLevel";
+        AddShopField: "name" | "nameKana" | "lat" | "lng" | "postalCode" | "address" | "openedAt" | "closedAt" | "temporaryClosure" | "businessHours" | "googlePlaceId" | "category" | "tagIds" | "links" | "wishLevel";
         AddShopFieldError: {
             field: components["schemas"]["AddShopField"];
             type: components["schemas"]["FieldErrorType"];
@@ -452,6 +452,8 @@ export interface components {
             closedAt?: string;
             /** @description Omit when the shop has no 臨時休業. */
             temporaryClosure?: components["schemas"]["TemporaryClosureInput"];
+            /** @description Omit when the 営業時間 are unknown. */
+            businessHours?: components["schemas"]["BusinessHoursInput"];
             /** @description Omit (or send a blank string) for a shop entered by hand. Must be unique among shops when set. */
             googlePlaceId?: string;
             category: components["schemas"]["CategorySlug"];
@@ -484,6 +486,46 @@ export interface components {
             /** @enum {string} */
             type: "backup_busy";
             message?: string;
+        };
+        /**
+         * @description The row a schedule is for: a weekday, or holiday for 祝日.
+         * @enum {string}
+         */
+        BusinessDay: "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun" | "holiday";
+        BusinessDayHours: {
+            day: components["schemas"]["BusinessDay"];
+            /** @description Time ranges in order, not overlapping, at most 4. Empty on a 定休日. */
+            periods: components["schemas"]["BusinessPeriod"][];
+            /** @description Weeks of the month (1 to 5, ascending) on which this weekday is closed, e.g. [2, 4] for 第2・第4. Absent when none. Weekdays with periods only. */
+            closedWeeks?: number[];
+        };
+        BusinessHours: {
+            kind: components["schemas"]["BusinessHoursKind"];
+            /** @description For weekly, one row for each weekday mon to sun, then an optional holiday row; without it 祝日 follow their weekday. Empty for irregular. */
+            days: components["schemas"]["BusinessDayHours"][];
+            /** @description 補足, at most 500 characters: what the schedule cannot express. Absent when not set. */
+            note?: string;
+            /** @description 確認日 (YYYY-MM-DD): when the hours were last confirmed. Absent when not recorded. */
+            checkedOn?: string;
+        };
+        /** @description A missing kind means 営業時間不明 and clears the stored hours. Otherwise the same shape as BusinessHours; a blank note or checkedOn means not set. */
+        BusinessHoursInput: {
+            kind?: components["schemas"]["BusinessHoursKind"];
+            days?: components["schemas"]["BusinessDayHours"][];
+            note?: string;
+            checkedOn?: string;
+        };
+        /**
+         * @description weekly = a fixed 週間スケジュール in days; irregular = 不定休, no schedule.
+         * @enum {string}
+         */
+        BusinessHoursKind: "weekly" | "irregular";
+        /** @description One time range of a business day. Times are HH:MM in Japan time. */
+        BusinessPeriod: {
+            /** @description From 00:00 to 23:59. */
+            opensAt: string;
+            /** @description After opensAt and at most 24 hours later. Past midnight counts on from 24:00, so 2 a.m. the next morning is 26:00. */
+            closesAt: string;
         };
         /** @enum {string} */
         CategorySlug: "ramen" | "udon";
@@ -765,6 +807,8 @@ export interface components {
             closedAt?: string;
             /** @description 臨時休業, past, current or upcoming. Absent when none is set. Clients judge it against today; a closed shop is closed, not on 臨時休業. */
             temporaryClosure?: components["schemas"]["TemporaryClosure"];
+            /** @description 営業時間. Absent when unknown (営業時間不明). */
+            businessHours?: components["schemas"]["BusinessHours"];
             postalCode: string;
             address: string;
             /** @description Google Places place id. Absent when the shop was entered by hand. */
@@ -875,7 +919,7 @@ export interface components {
             fieldErrors?: components["schemas"]["UpdateShopFieldError"][];
         };
         /** @enum {string} */
-        UpdateShopField: "name" | "nameKana" | "lat" | "lng" | "postalCode" | "address" | "openedAt" | "closedAt" | "temporaryClosure" | "googlePlaceId" | "category" | "eaten" | "rate" | "tagIds" | "links" | "wishLevel";
+        UpdateShopField: "name" | "nameKana" | "lat" | "lng" | "postalCode" | "address" | "openedAt" | "closedAt" | "temporaryClosure" | "businessHours" | "googlePlaceId" | "category" | "eaten" | "rate" | "tagIds" | "links" | "wishLevel";
         UpdateShopFieldError: {
             field: components["schemas"]["UpdateShopField"];
             type: components["schemas"]["FieldErrorType"];
@@ -895,6 +939,8 @@ export interface components {
             closedAt?: string;
             /** @description Omit to keep the stored 臨時休業 (older clients); an object without startsOn clears it. */
             temporaryClosure?: components["schemas"]["TemporaryClosureInput"];
+            /** @description Omit to keep the stored 営業時間 (older clients); an object without kind clears them. */
+            businessHours?: components["schemas"]["BusinessHoursInput"];
             /** @description Omit to keep the stored place id (older clients); a blank string clears it. */
             googlePlaceId?: string;
             category: components["schemas"]["CategorySlug"];

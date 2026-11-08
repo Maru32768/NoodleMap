@@ -9,6 +9,12 @@ import dev.marulabs.noodlemap.errors.ErrorBody
 import dev.marulabs.noodlemap.errors.ErrorType
 import dev.marulabs.noodlemap.errors.FieldError
 import dev.marulabs.noodlemap.errors.FieldErrorType
+import dev.marulabs.noodlemap.generated.models.BusinessDay
+import dev.marulabs.noodlemap.generated.models.BusinessDayHours
+import dev.marulabs.noodlemap.generated.models.BusinessHours
+import dev.marulabs.noodlemap.generated.models.BusinessHoursInput
+import dev.marulabs.noodlemap.generated.models.BusinessHoursKind
+import dev.marulabs.noodlemap.generated.models.BusinessPeriod
 import dev.marulabs.noodlemap.generated.models.Shop
 import dev.marulabs.noodlemap.generated.models.ShopLink
 import dev.marulabs.noodlemap.generated.models.ShopLinkInput
@@ -439,6 +445,105 @@ class ShopApiTest {
         client.shops().single().let {
             it.name shouldBe "Ramen Taro"
             it.temporaryClosure shouldBe TemporaryClosure("2026-11-10")
+        }
+    }
+
+    private fun weekday(day: BusinessDay, vararg periods: Pair<String, String>, closedWeeks: List<Int>? = null) =
+        BusinessDayHours(day, periods.map { (opens, closes) -> BusinessPeriod(opens, closes) }, closedWeeks)
+
+    // Sent out of order, with an unsorted closedWeeks, a blank note and a padded date, to check what is stored.
+    private val weeklyInput = BusinessHoursInput(
+        kind = BusinessHoursKind.WEEKLY,
+        days = listOf(
+            weekday(BusinessDay.HOLIDAY, "11:00" to "15:00"),
+            weekday(BusinessDay.MON),
+            weekday(BusinessDay.TUE, "11:00" to "15:00", "18:00" to "26:00"),
+            weekday(BusinessDay.WED, "11:00" to "15:00", closedWeeks = listOf(4, 2)),
+            weekday(BusinessDay.THU, "11:00" to "15:00"),
+            weekday(BusinessDay.FRI, "11:00" to "15:00"),
+            weekday(BusinessDay.SAT, "00:00" to "24:00"),
+            weekday(BusinessDay.SUN, "11:00" to "15:00"),
+        ),
+        note = " ",
+        checkedOn = " 2026-11-08 ",
+    )
+
+    private val weeklyStored = BusinessHours(
+        kind = BusinessHoursKind.WEEKLY,
+        days = listOf(
+            weekday(BusinessDay.MON),
+            weekday(BusinessDay.TUE, "11:00" to "15:00", "18:00" to "26:00"),
+            weekday(BusinessDay.WED, "11:00" to "15:00", closedWeeks = listOf(2, 4)),
+            weekday(BusinessDay.THU, "11:00" to "15:00"),
+            weekday(BusinessDay.FRI, "11:00" to "15:00"),
+            weekday(BusinessDay.SAT, "00:00" to "24:00"),
+            weekday(BusinessDay.SUN, "11:00" to "15:00"),
+            weekday(BusinessDay.HOLIDAY, "11:00" to "15:00"),
+        ),
+        checkedOn = "2026-11-08",
+    )
+
+    @Test
+    fun `business hours are set on add, kept when omitted, replaced when sent and cleared without a kind`() = testApp { t ->
+        val admin = t.adminToken()
+        val req = addShopRequest().copy(businessHours = weeklyInput)
+        val added = client.postJson("/api/v1/auth/shops", encode(req), admin).body<Shop>()
+        added.businessHours shouldBe weeklyStored
+        client.shops().single().businessHours shouldBe weeklyStored
+
+        // Older clients don't send the field; that must keep the stored hours.
+        client.putJson("/api/v1/auth/shops/${added.id}", encode(req.toUpdate()), admin).status shouldBe HttpStatusCode.OK
+        client.shops().single().businessHours shouldBe weeklyStored
+
+        val irregular = BusinessHoursInput(kind = BusinessHoursKind.IRREGULAR, days = emptyList(), note = " 日曜のみ ")
+        client.putJson("/api/v1/auth/shops/${added.id}", encode(req.toUpdate().copy(businessHours = irregular)), admin)
+        client.shops().single().businessHours shouldBe BusinessHours(BusinessHoursKind.IRREGULAR, emptyList(), note = "日曜のみ")
+
+        client.putJson("/api/v1/auth/shops/${added.id}", encode(req.toUpdate().copy(businessHours = BusinessHoursInput())), admin)
+            .status shouldBe HttpStatusCode.OK
+        client.shops().single().businessHours shouldBe null
+    }
+
+    @Test
+    fun `invalid business hours are field errors and nothing is written`() = testApp { t ->
+        val admin = t.adminToken()
+        fun hoursError(message: String, type: FieldErrorType) =
+            ErrorBody(ErrorType.INVALID_REQUEST, message, listOf(FieldError("businessHours", type)))
+        val days = weeklyInput.days!!
+        fun withTuesday(vararg periods: Pair<String, String>, closedWeeks: List<Int>? = null) =
+            weeklyInput.copy(days = days.map { if (it.day == BusinessDay.TUE) weekday(BusinessDay.TUE, *periods, closedWeeks = closedWeeks) else it })
+        val outOfRange = FieldErrorType.OUT_OF_RANGE
+        val cases = listOf(
+            weeklyInput.copy(days = days.filter { it.day != BusinessDay.SUN }) to
+                hoursError("business hours without every weekday", FieldErrorType.REQUIRED),
+            weeklyInput.copy(days = days + weekday(BusinessDay.MON)) to hoursError("duplicate business day", outOfRange),
+            BusinessHoursInput(kind = BusinessHoursKind.IRREGULAR, days = days) to
+                hoursError("irregular business hours with a schedule", outOfRange),
+            withTuesday("11:00" to "15:00", "14:00" to "20:00") to hoursError("business periods overlap or are out of order", outOfRange),
+            withTuesday("18:00" to "11:00") to hoursError("business period closes before it opens or a day later", outOfRange),
+            withTuesday("11:00" to "35:01") to hoursError("business period closes before it opens or a day later", outOfRange),
+            withTuesday("24:00" to "26:00") to hoursError("business period opens after 23:59", outOfRange),
+            withTuesday("9:00" to "15:00") to hoursError("invalid business period time", FieldErrorType.INVALID_FORMAT),
+            withTuesday("11:00" to "15:00", closedWeeks = listOf(2, 6)) to hoursError("closed weeks must be distinct weeks 1 to 5", outOfRange),
+            withTuesday(closedWeeks = listOf(2)) to hoursError("closed weeks on a day without hours", outOfRange),
+            weeklyInput.copy(checkedOn = "2026-02-30") to hoursError("invalid business hours checked date", FieldErrorType.INVALID_FORMAT),
+            weeklyInput.copy(note = "あ".repeat(501)) to hoursError("business hours note too long", FieldErrorType.TOO_LONG),
+        )
+        for ((hours, error) in cases) {
+            client.postJson("/api/v1/auth/shops", encode(addShopRequest().copy(businessHours = hours)), admin)
+                .body<ErrorBody>() shouldBe error
+        }
+        client.shops().shouldBeEmpty()
+
+        val req = addShopRequest().copy(businessHours = weeklyInput)
+        val id = client.postJson("/api/v1/auth/shops", encode(req), admin).body<Shop>().id
+        for ((hours, error) in cases) {
+            client.putJson("/api/v1/auth/shops/$id", encode(req.toUpdate().copy(name = "Renamed", businessHours = hours)), admin)
+                .body<ErrorBody>() shouldBe error
+        }
+        client.shops().single().let {
+            it.name shouldBe "Ramen Taro"
+            it.businessHours shouldBe weeklyStored
         }
     }
 

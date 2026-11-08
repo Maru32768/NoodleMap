@@ -19,6 +19,8 @@ import {
   useShops,
   useTags,
 } from "@/features/shops/api/use-shops.ts";
+import { BusinessHoursEditor } from "@/features/shops/business-hours-editor.tsx";
+import type { BusinessHours } from "@/features/shops/business-hours.ts";
 import { MiniHearts } from "@/features/shops/rating-hearts.tsx";
 import {
   clearShopFieldErrors,
@@ -71,6 +73,8 @@ interface ShopEditDraft {
   // 臨時休業; no start means none.
   closureStartsOn?: string;
   closureReopensOn?: string;
+  // Undefined is 営業時間不明.
+  businessHours?: BusinessHours;
   // "" is 未設定.
   wishLevel: WishLevel | "";
   tagIds: string[];
@@ -335,6 +339,7 @@ const FIELDS_WITH_INPUT: readonly UpdateShopField[] = [
   "openedAt",
   "closedAt",
   "temporaryClosure",
+  "businessHours",
   "googlePlaceId",
   "category",
   "tagIds",
@@ -392,6 +397,8 @@ function toUpdateCommand(
       startsOn: draft.closureStartsOn,
       reopensOn: draft.closureStartsOn ? draft.closureReopensOn : undefined,
     },
+    // Always sent: without kind it clears the stored 営業時間.
+    businessHours: draft.businessHours ?? {},
     // Blank clears the stored Place ID.
     googlePlaceId: draft.googlePlaceId.trim(),
     category: draft.category,
@@ -433,6 +440,7 @@ export function ShopEditModal({
     closedAt: shop.closedAt,
     closureStartsOn: shop.temporaryClosure?.startsOn,
     closureReopensOn: shop.temporaryClosure?.reopensOn,
+    businessHours: shop.businessHours,
     wishLevel: shop.wishLevel ?? "",
     tagIds: shop.tags.map((tag) => tag.id),
     // `links` is missing while an older server is still deployed.
@@ -972,6 +980,14 @@ export function ShopEditModal({
                     )}
                   </Box>
                 </FormField>
+                <Box gridColumn="span 2">
+                  <FieldLabel>営業時間</FieldLabel>
+                  <BusinessHoursEditor
+                    value={draft.businessHours}
+                    onChange={(hours) => set("businessHours", hours)}
+                  />
+                  <FieldError error={errorOf("businessHours")} />
+                </Box>
                 <Box gridColumn="span 2">
                   <FieldLabel>リンク（公式サイト・SNS・予約）</FieldLabel>
                   <ShopLinksEditor
