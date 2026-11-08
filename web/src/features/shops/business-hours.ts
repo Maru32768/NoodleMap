@@ -125,18 +125,15 @@ export function openIntervalAt(shop: HoursShop, at: Dayjs): Interval | null {
     return null;
   }
   const today = at.startOf("day");
-  for (const date of [today.subtract(1, "day"), today]) {
-    if (!servesOn(shop, date)) {
-      continue;
-    }
-    const open = intervalsOn(hours, date).find(
-      (i) => !at.isBefore(i.opens) && at.isBefore(i.closes),
-    );
-    if (open) {
-      return open;
-    }
-  }
-  return null;
+  // Yesterday's period past midnight may overlap today's; the later closing is the one that holds.
+  const open = [today.subtract(1, "day"), today]
+    .filter((date) => servesOn(shop, date))
+    .flatMap((date) => intervalsOn(hours, date))
+    .filter((i) => !at.isBefore(i.opens) && at.isBefore(i.closes));
+  return open.reduce<Interval | null>(
+    (latest, i) => (latest && !i.closes.isAfter(latest.closes) ? latest : i),
+    null,
+  );
 }
 
 export function isOpenAt(shop: HoursShop, at: Dayjs): boolean {
@@ -203,6 +200,20 @@ export function businessDayLabel(row: BusinessDayHours): string {
     ? `（${row.closedWeeks.map((w) => `第${w}`).join("・")}は休み）`
     : "";
   return periods + weeks;
+}
+
+/** The whole 営業時間 as lines of text, for comparing values side by side. */
+export function businessHoursText(hours: BusinessHours): string {
+  const schedule =
+    hours.kind === "irregular"
+      ? ["不定休"]
+      : hours.days.map(
+          (row) => `${BUSINESS_DAY_LABEL[row.day]} ${businessDayLabel(row)}`,
+        );
+  const checked = checkedOnLabel(hours);
+  return [...schedule, hours.note, checked && `（${checked}）`]
+    .filter(Boolean)
+    .join("\n");
 }
 
 /** The row to highlight today: the 祝日 row on a 祝日 when the shop has one. */

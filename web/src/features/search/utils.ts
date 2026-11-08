@@ -6,7 +6,7 @@ import {
   WISH_LEVELS,
   WishLevel,
 } from "@/features/shops/status.ts";
-import dayjs from "dayjs";
+import dayjs, { Dayjs } from "dayjs";
 
 export type CategoryType = "all" | "ramen" | "udon";
 
@@ -93,15 +93,17 @@ export function filterShops(
   opts: {
     query: string;
     filters: SearchFilters;
+    // What "now" means for openAt; the caller advances it so the list follows the clock.
+    now?: Dayjs;
   },
 ): Shop[] {
-  const { query, filters } = opts;
+  const { query, filters, now = dayjs() } = opts;
   const matchesQuery = createQueryMatcher(query);
   const openAt =
     filters.openAt === null
       ? null
       : filters.openAt === "now"
-        ? dayjs()
+        ? now
         : dayjs(filters.openAt);
 
   return shops.filter((r) => {

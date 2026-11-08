@@ -27,6 +27,7 @@ import { ShopFilters, Sidebar } from "@/features/shops/sidebar.tsx";
 import { useDocumentTitle } from "@/utils/document-title.ts";
 import { SHOP_PARAM } from "@/utils/path.ts";
 import { Box, Input } from "@chakra-ui/react";
+import dayjs from "dayjs";
 import {
   SetStateAction,
   useCallback,
@@ -214,6 +215,18 @@ export default function SearchPage({ active = true }: { active?: boolean }) {
 
   const { shops } = useShops();
 
+  // 今営業中 follows the clock: shops open and close while the map stays up.
+  const [now, setNow] = useState(() => dayjs());
+  const followsClock = filters.openAt === "now";
+  useEffect(() => {
+    if (!followsClock) {
+      return;
+    }
+    setNow(dayjs());
+    const timer = setInterval(() => setNow(dayjs()), 60_000);
+    return () => clearInterval(timer);
+  }, [followsClock]);
+
   const filteredShops = useMemo(() => {
     if (!shops) {
       return [];
@@ -221,8 +234,9 @@ export default function SearchPage({ active = true }: { active?: boolean }) {
     return filterShops(shops, {
       query: deferredQuery,
       filters: deferredFilters,
+      now,
     });
-  }, [shops, deferredQuery, deferredFilters]);
+  }, [shops, deferredQuery, deferredFilters, now]);
 
   const sortedShops = useMemo(() => {
     const center = mapView

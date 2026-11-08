@@ -60,7 +60,7 @@ test("admin enters 営業時間 in the edit modal and today's 確認日 is store
   });
 });
 
-test("guests narrow to shops 営業中 now and unfold a shop's 営業時間", async ({ page, api }) => {
+test("the map narrows to shops 営業中 now and a shop's 営業時間 unfold", async ({ page, api }) => {
   const id = uid();
   const open = await api.createShop({ name: `${id} いつも開いている店` });
   const irregular = await api.createShop({ name: `${id} 不定休の店` });

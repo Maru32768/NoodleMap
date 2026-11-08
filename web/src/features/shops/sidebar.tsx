@@ -613,9 +613,12 @@ export function ShopFilters({ filters, onFilterChange }: ShopFiltersProps) {
           </Chip>
           <Chip
             active={filters.openAt !== null && filters.openAt !== "now"}
-            onClick={() =>
-              onFilterChange("openAt", dayjs().format("YYYY-MM-DDTHH:mm"))
-            }
+            onClick={() => {
+              // Clicking it again keeps the chosen date and time.
+              if (filters.openAt === null || filters.openAt === "now") {
+                onFilterChange("openAt", dayjs().format("YYYY-MM-DDTHH:mm"));
+              }
+            }}
           >
             日時を指定
           </Chip>

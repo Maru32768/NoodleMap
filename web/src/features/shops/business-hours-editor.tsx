@@ -13,6 +13,7 @@ import {
 } from "@/features/shops/business-hours.ts";
 import { Box, Input, Textarea } from "@chakra-ui/react";
 import dayjs from "dayjs";
+import { useState } from "react";
 
 type Kind = BusinessHours["kind"] | "unknown";
 
@@ -69,8 +70,8 @@ const smallButtonProps = {
 } as const;
 
 /**
- * Edits 営業時間; undefined is 営業時間不明. Any change to the schedule or 補足
- * sets the 確認日 to today, which can then be changed by hand.
+ * Edits 営業時間; undefined is 営業時間不明. A change to the schedule or 補足
+ * sets the 確認日 to today until the 確認日 is changed by hand.
  */
 export function BusinessHoursEditor({
   value,
@@ -79,10 +80,14 @@ export function BusinessHoursEditor({
   value: BusinessHours | undefined;
   onChange: (value: BusinessHours | undefined) => void;
 }) {
+  const [checkedOnByHand, setCheckedOnByHand] = useState(false);
   const kind: Kind = value?.kind ?? "unknown";
   const today = dayjs().format("YYYY-MM-DD");
   const change = (next: Omit<BusinessHours, "checkedOn">) =>
-    onChange({ ...next, checkedOn: today });
+    onChange({
+      ...next,
+      checkedOn: checkedOnByHand ? value?.checkedOn : today,
+    });
 
   const setKind = (next: Kind) => {
     if (next === kind) {
@@ -193,9 +198,10 @@ export function BusinessHoursEditor({
               aria-label="営業時間の確認日"
               type="date"
               value={value.checkedOn ?? ""}
-              onChange={(e) =>
-                onChange({ ...value, checkedOn: e.target.value || undefined })
-              }
+              onChange={(e) => {
+                setCheckedOnByHand(true);
+                onChange({ ...value, checkedOn: e.target.value || undefined });
+              }}
               fontFamily="mono"
               w="auto"
               {...inputProps}

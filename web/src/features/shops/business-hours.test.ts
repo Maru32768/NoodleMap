@@ -119,6 +119,27 @@ describe("businessHoursHeadline", () => {
     );
   });
 
+  it("gives the later closing when a period past midnight overlaps the next day's", () => {
+    const allSaturday = makeShop({
+      businessHours: {
+        ...weekly,
+        days: weekly.days.map((d) =>
+          d.day === "sat"
+            ? { day: "sat", periods: [{ opensAt: "00:00", closesAt: "24:00" }] }
+            : d.day === "fri"
+              ? {
+                  day: "fri",
+                  periods: [{ opensAt: "18:00", closesAt: "26:00" }],
+                }
+              : d,
+        ),
+      },
+    });
+    expect(businessHoursHeadline(allSaturday, at("2026-11-07T01:00"))).toBe(
+      "営業中・0:00まで",
+    );
+  });
+
   it("says when the shop opens next", () => {
     expect(businessHoursHeadline(shop, at("2026-11-02T09:00"))).toBe(
       "営業時間外・次は11:00",

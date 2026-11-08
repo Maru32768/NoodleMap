@@ -19,9 +19,12 @@ private val WEEKDAYS = BusinessDay.entries - BusinessDay.HOLIDAY
 
 /** `shops.business_hours` holds the API's [BusinessHours] as JSON, written only after [normalizeBusinessHours]. */
 internal object BusinessHoursColumn {
-    fun encode(hours: BusinessHours?): String? = hours?.let { Json.encodeToString(it) }
+    // A key written by a newer build must not break the shop list after a rollback.
+    private val json = Json { ignoreUnknownKeys = true }
 
-    fun decode(raw: String?): BusinessHours? = raw?.let { Json.decodeFromString<BusinessHours>(it) }
+    fun encode(hours: BusinessHours?): String? = hours?.let { json.encodeToString(it) }
+
+    fun decode(raw: String?): BusinessHours? = raw?.let { json.decodeFromString<BusinessHours>(it) }
 }
 
 /** Null for 営業時間不明 (no kind). Days come back in mon..sun, holiday order; blank note and checkedOn mean not set. */
