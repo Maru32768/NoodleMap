@@ -12,6 +12,12 @@ const tabelogEvidence = {
   observedAt: TODAY,
   note: "店名と番地が一致",
 };
+const officialEvidence = {
+  url: "https://toho-seiso.example/news",
+  sourceKind: "official_site",
+  observedAt: TODAY,
+  note: "公式サイトのお知らせ",
+};
 
 /** What export-batch.mjs writes for this shop, as the research saw it. */
 function batchShop(shop: Shop) {
@@ -37,7 +43,12 @@ function resultFor(shop: Shop, proposals: { field: string; value: unknown; check
   return JSON.stringify({
     shopId: shop.id,
     checks,
-    proposals: proposals.map(({ field, value }) => ({ field, value, evidence: [tabelogEvidence] })),
+    proposals: proposals.map(({ field, value, checkField }) => ({
+      field,
+      value,
+      // Tabelog backs only the link to its own page.
+      evidence: [checkField === "link.tabelog" ? tabelogEvidence : officialEvidence],
+    })),
     notices: [],
     tagCandidates: [],
   });
@@ -106,8 +117,14 @@ test("applies the chosen proposals from a validated file and leaves the rest of 
   expect(await api.getShop(shop.id)).toEqual(before);
 
   await dialog.getByRole("button", { name: "表示中の一括可を選択" }).click();
-  // The name needs a person, so bulk selection leaves it out.
+  // Only the Tabelog link citing its own page passes without a person; the rest are chosen one by one.
+  await expect(dialog.getByRole("button", { name: "選択した 1 件を本番へ反映" })).toBeVisible();
   await expect(dialog.getByLabel("店名を選択")).not.toBeChecked();
+  for (const label of ["読みを選択", "開店日を選択", "タグを選択"]) {
+    // The input is visually hidden, so click the checkbox root it sits in.
+    await dialog.getByLabel(label).locator("xpath=..").click();
+    await expect(dialog.getByLabel(label)).toBeChecked();
+  }
   await dialog.getByRole("button", { name: "選択した 4 件を本番へ反映" }).click();
   await expect(dialog.getByText("反映が終わりました")).toBeVisible();
   await expect(dialog.getByText(/反映 4 件/)).toBeVisible();

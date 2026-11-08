@@ -6,10 +6,10 @@ import { describe, expect, it } from "vitest";
 
 const SHOP_ID = "11111111-2222-4333-8444-555555555555";
 const evidence = {
-  url: "https://tabelog.com/tokyo/A1319/A131905/13000000/",
-  sourceKind: "tabelog",
+  url: "https://toho-seiso.example/news",
+  sourceKind: "official_site",
   observedAt: "2026-11-06",
-  note: "店名と番地が一致",
+  note: "開店のお知らせ",
 };
 const proposal = {
   kind: "proposal",

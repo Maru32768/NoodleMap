@@ -58,9 +58,8 @@ const REASON_LABELS: Record<ReviewReason, string> = {
   high_impact_field: "影響の大きい項目",
   replaces_existing_value: "既存の値を置き換え",
   link_needs_review: "リンクの確認が必要",
-  no_tabelog_attestation: "食べログの裏付けなし",
+  source_unconfirmed: "出典の確認が必要",
   estimated_reading: "推定の読み",
-  weak_evidence: "証拠が弱い",
   suspected_injection: "注入の疑い",
   identity_uncertain: "店舗の同定が不確か",
 };
@@ -68,9 +67,9 @@ const REASON_LABELS: Record<ReviewReason, string> = {
 const SOURCE_LABELS: Record<SourceKind, string> = {
   official_site: "公式サイト",
   official_sns: "公式SNS",
+  facility_site: "施設のテナントページ",
   tabelog: "食べログ",
   reservation_site: "予約サイト",
-  other: "その他",
 };
 
 const NOTICE_LABELS: Record<NoticeKind, string> = {

@@ -94,7 +94,7 @@ test('links come out in their canonical form', () => {
   ];
   for (const [type, url, expected] of cases) {
     const output = runProposal(
-      { field: 'link', value: { type, url }, evidence: [tabelogEvidence()] },
+      { field: 'link', value: { type, url }, evidence: [type === 'tabelog' ? tabelogEvidence() : officialEvidence] },
       { [`link.${type}`]: 'found' },
     );
     assert.deepEqual(output.rejected, [], type);
@@ -119,7 +119,7 @@ test('a link on a look-alike or wrong domain is rejected', () => {
   ];
   for (const [type, url, reason] of cases) {
     const output = runProposal(
-      { field: 'link', value: { type, url }, evidence: [tabelogEvidence()] },
+      { field: 'link', value: { type, url }, evidence: [officialEvidence] },
       { [`link.${type}`]: 'found' },
     );
     assert.deepEqual(reasons(output), [reason], url);
@@ -131,10 +131,13 @@ test('a link on a look-alike or wrong domain is rejected', () => {
 test('evidence cannot claim a source its domain does not support', () => {
   const name = '東奔西走';
   const cases = [
-    [{ ...tabelogEvidence(), url: 'https://evil.example/' }, 'source_domain_mismatch'],
     [{ ...officialEvidence, sourceKind: 'official_sns' }, 'source_domain_mismatch'],
+    [{ ...officialEvidence, sourceKind: 'facility_site', url: 'https://www.instagram.com/tohoseiso/' }, 'source_domain_mismatch'],
     [{ ...tabelogEvidence(), sourceKind: 'official_site' }, 'source_domain_mismatch'],
-    [{ ...tabelogEvidence(), url: 'https://tabelog.com/tokyo/A1319/A131905/13245678/dtlrvwlst/' }, 'tabelog_review_or_photo_page'],
+    [{ ...tabelogEvidence(), sourceKind: 'reservation_site', url: 'https://tabelog.com/tokyo/A1319/A131905/13245678/rstdtl/' }, 'source_domain_mismatch'],
+    [{ ...officialEvidence, url: 'https://retty.me/area/PRE13/ARE1/SUB1/100001/' }, 'source_site_not_allowed'],
+    [{ ...officialEvidence, sourceKind: 'reservation_site', url: 'https://www.google.com/maps/place/x' }, 'source_site_not_allowed'],
+    [{ ...officialEvidence, sourceKind: 'facility_site', url: 'https://www.openstreetmap.org/node/1' }, 'source_site_not_allowed'],
     [{ ...officialEvidence, observedAt: '2026-11-07' }, 'observed_in_the_future'],
     [{ ...officialEvidence, sourceKind: 'other' }, 'source_not_allowed_for_field'],
   ];
@@ -142,6 +145,38 @@ test('evidence cannot claim a source its domain does not support', () => {
     const output = runProposal({ field: 'name', value: name, evidence: [evidence] }, { name: 'found' });
     assert.deepEqual(reasons(output), [reason], JSON.stringify(evidence));
   }
+});
+
+test('Tabelog backs only the link to its own page', () => {
+  for (const [proposal, check] of [
+    [{ field: 'name', value: '東奔西走' }, 'name'],
+    [{ field: 'name_kana', value: 'とーほーせーそー' }, 'name_kana'],
+    [{ field: 'opened_at', value: '2020-06-28' }, 'opened_at'],
+    [{ field: 'tag', value: 'shoyu-ramen' }, 'tag'],
+    [{ field: 'link', value: { type: 'official', url: 'https://toho-seiso.example/' } }, 'link.official'],
+    [{ field: 'link', value: { type: 'twitter', url: 'https://x.com/tohoseiso' } }, 'link.twitter'],
+  ]) {
+    const output = runProposal({ ...proposal, evidence: [tabelogEvidence()] }, { [check]: 'found' }, shopOnTabelog());
+    assert.deepEqual(reasons(output), ['source_not_allowed_for_field'], check);
+  }
+
+  const reviewPage = runProposal(
+    {
+      field: 'link',
+      value: { type: 'tabelog', url: tabelogEvidence().url },
+      evidence: [{ ...tabelogEvidence(), url: 'https://tabelog.com/tokyo/A1319/A131905/13245678/dtlrvwlst/' }],
+    },
+    { 'link.tabelog': 'found' },
+  );
+  assert.deepEqual(reasons(reviewPage), ['tabelog_review_or_photo_page']);
+});
+
+test('a facility tenant page backs what the shop shows there, and not its closing', () => {
+  const tenantPage = { ...officialEvidence, sourceKind: 'facility_site', url: 'https://station-mall.example/shops/toho' };
+  const opened = runProposal({ field: 'opened_at', value: '2020-06-28', evidence: [tenantPage] }, { opened_at: 'found' });
+  assert.deepEqual(opened.rejected, []);
+  const closed = runProposal({ field: 'closed_at', value: '2026-10-31', evidence: [tenantPage] }, { closed_at: 'found' });
+  assert.deepEqual(reasons(closed), ['source_not_allowed_for_field']);
 });
 
 test('a closing date needs an official announcement', () => {
@@ -181,12 +216,11 @@ test('text that hides its reading or carries a link is rejected', () => {
 
 test('the reading becomes hiragana, keeps an existing value, and flags an estimate', () => {
   const converted = runProposal(
-    { field: 'name_kana', value: 'トーホーセーソー', evidence: [tabelogEvidence()] },
+    { field: 'name_kana', value: 'トーホーセーソー', evidence: [officialEvidence] },
     { name_kana: 'found' },
-    shopOnTabelog(),
   );
   assert.equal(proposals(converted)[0].proposedValue, 'とーほーせーそー');
-  assert.deepEqual(proposals(converted)[0].reviewReasons, []);
+  assert.deepEqual(proposals(converted)[0].reviewReasons, ['source_unconfirmed']);
 
   const estimated = runProposal({ field: 'name_kana', value: 'とうほうせいそう', evidence: [], estimated: true }, { name_kana: 'found' });
   assert.deepEqual(estimated.rejected, []);
@@ -195,12 +229,12 @@ test('the reading becomes hiragana, keeps an existing value, and flags an estima
   const noEvidenceAtAll = runProposal({ field: 'name_kana', value: 'とうほうせいそう', evidence: [] }, { name_kana: 'found' });
   assert.deepEqual(reasons(noEvidenceAtAll), ['evidence_required']);
 
-  const notKana = runProposal({ field: 'name_kana', value: 'tohoseiso', evidence: [tabelogEvidence()] }, { name_kana: 'found' });
+  const notKana = runProposal({ field: 'name_kana', value: 'tohoseiso', evidence: [officialEvidence] }, { name_kana: 'found' });
   assert.deepEqual(reasons(notKana), ['reading_not_hiragana']);
 
   const shopWithReading = makeShop({ nameKana: 'かめい' });
   const replacing = runProposal(
-    { field: 'name_kana', value: 'とうほうせいそう', evidence: [tabelogEvidence()] },
+    { field: 'name_kana', value: 'とうほうせいそう', evidence: [officialEvidence] },
     { name_kana: 'found' },
     shopWithReading,
   );
@@ -209,7 +243,7 @@ test('the reading becomes hiragana, keeps an existing value, and flags an estima
   assert.deepEqual(proposals(replacing)[0].reviewReasons, ['replaces_existing_value']);
 
   const sameReading = runProposal(
-    { field: 'name_kana', value: 'かめい', evidence: [tabelogEvidence()] },
+    { field: 'name_kana', value: 'かめい', evidence: [officialEvidence] },
     { name_kana: 'found' },
     shopWithReading,
   );
@@ -223,9 +257,9 @@ test('the reading becomes hiragana, keeps an existing value, and flags an estima
   assert.deepEqual(reasons(estimateOverExisting), ['estimate_cannot_replace_reading']);
 });
 
-test('filling an empty date can be bulk approved, and replacing one cannot', () => {
-  const proposal = { field: 'opened_at', value: '2020-06-28', evidence: [tabelogEvidence()] };
-  assert.deepEqual(proposals(runProposal(proposal, { opened_at: 'found' }, shopOnTabelog()))[0].reviewReasons, []);
+test('replacing a date says so, on top of the source check every filled gap gets', () => {
+  const proposal = { field: 'opened_at', value: '2020-06-28', evidence: [officialEvidence] };
+  assert.deepEqual(proposals(runProposal(proposal, { opened_at: 'found' }))[0].reviewReasons, ['source_unconfirmed']);
   assert.deepEqual(
     proposals(runProposal(proposal, { opened_at: 'found' }, makeShop({ openedAt: '2020-06-01' })))[0].reviewReasons,
     ['replaces_existing_value'],
@@ -234,8 +268,8 @@ test('filling an empty date can be bulk approved, and replacing one cannot', () 
 
 test('dates must be real and in order', () => {
   const cases = [
-    [{ field: 'opened_at', value: '2026-02-30', evidence: [tabelogEvidence()] }, { opened_at: 'found' }, makeShop(), 'invalid_date'],
-    [{ field: 'opened_at', value: '2026-10-01', evidence: [tabelogEvidence()] }, { opened_at: 'found' }, makeShop({ closedAt: '2026-09-22 09:08:40' }), 'opened_after_closed'],
+    [{ field: 'opened_at', value: '2026-02-30', evidence: [officialEvidence] }, { opened_at: 'found' }, makeShop(), 'invalid_date'],
+    [{ field: 'opened_at', value: '2026-10-01', evidence: [officialEvidence] }, { opened_at: 'found' }, makeShop({ closedAt: '2026-09-22 09:08:40' }), 'opened_after_closed'],
     [{ field: 'closed_at', value: '2020-01-01', evidence: [officialEvidence] }, { closed_at: 'found' }, makeShop({ openedAt: '2020-06-28' }), 'closed_before_opened'],
     [{ field: 'temporary_closure', value: { startsOn: '2026-11-10', reopensOn: '2026-11-10' }, evidence: [officialEvidence] }, { temporary_closure: 'found' }, makeShop(), 'reopens_before_start'],
     [{ field: 'temporary_closure', value: { startsOn: '2026-10-01', reopensOn: '2026-10-10' }, evidence: [officialEvidence] }, { temporary_closure: 'found' }, makeShop(), 'closure_already_ended'],
@@ -247,20 +281,20 @@ test('dates must be real and in order', () => {
 });
 
 test('tags come from the catalogue and match the shop category', () => {
-  const unknown = runProposal({ field: 'tag', value: 'free-text', evidence: [tabelogEvidence()] }, { tag: 'found' });
+  const unknown = runProposal({ field: 'tag', value: 'free-text', evidence: [officialEvidence] }, { tag: 'found' });
   assert.deepEqual(reasons(unknown), ['unknown_tag']);
 
-  const wrongCategory = runProposal({ field: 'tag', value: 'sanuki-udon', evidence: [tabelogEvidence()] }, { tag: 'found' });
+  const wrongCategory = runProposal({ field: 'tag', value: 'sanuki-udon', evidence: [officialEvidence] }, { tag: 'found' });
   assert.deepEqual(reasons(wrongCategory), ['tag_category_mismatch']);
 
-  const common = runProposal({ field: 'tag', value: 'morning-service', evidence: [tabelogEvidence()] }, { tag: 'found' });
+  const common = runProposal({ field: 'tag', value: 'morning-service', evidence: [officialEvidence] }, { tag: 'found' });
   assert.deepEqual(common.rejected, []);
   assert.equal(proposals(common).length, 1);
 });
 
 test('a value equal to the current one produces no proposal', () => {
   const output = runProposal(
-    { field: 'link', value: { type: 'twitter', url: 'https://twitter.com/tohoseiso' }, evidence: [tabelogEvidence()] },
+    { field: 'link', value: { type: 'twitter', url: 'https://twitter.com/tohoseiso' }, evidence: [officialEvidence] },
     { 'link.twitter': 'found' },
     makeShop({ links: [{ type: 'twitter', label: null, url: 'https://x.com/tohoseiso' }] }),
   );
@@ -309,7 +343,7 @@ test('a field outside the batch is rejected', () => {
     {
       shopId: SHOP_ID,
       checks: { name: 'found' },
-      proposals: [{ field: 'name_kana', value: 'とうほう', evidence: [tabelogEvidence()] }],
+      proposals: [{ field: 'name_kana', value: 'とうほう', evidence: [officialEvidence] }],
       notices: [],
       tagCandidates: [],
     },
@@ -369,72 +403,30 @@ test('a warning sends every proposal of that shop to individual review', () => {
   );
 });
 
-test('an account only a claimed official page names cannot be approved in bulk', () => {
-  const account = { type: 'twitter', url: 'https://x.com/tohoseiso' };
-  const claimed = runProposal({ field: 'link', value: account, evidence: [officialEvidence] }, { 'link.twitter': 'found' });
-  assert.deepEqual(proposals(claimed)[0].reviewReasons, ['no_tabelog_attestation']);
-  const attested = runProposal(
-    { field: 'link', value: account, evidence: [tabelogEvidence()] },
-    { 'link.twitter': 'found' },
-    shopOnTabelog(),
-  );
-  assert.deepEqual(proposals(attested)[0].reviewReasons, []);
-});
-
-test('only the shop own Tabelog page vouches for an account', () => {
-  const account = { type: 'instagram', url: 'https://www.instagram.com/attacker/' };
-  const shop = shopOnTabelog();
-  const citing = (url, target = shop) =>
+test('a Tabelog link passes in bulk only when it cites that same page', () => {
+  const tabelogLink = (url) =>
     proposals(
       runProposal(
-        { field: 'link', value: account, evidence: [{ ...tabelogEvidence(), url }] },
-        { 'link.instagram': 'found' },
-        target,
+        { field: 'link', value: { type: 'tabelog', url: tabelogEvidence().url }, evidence: [{ ...tabelogEvidence(), url }] },
+        { 'link.tabelog': 'found' },
       ),
     )[0].reviewReasons;
 
-  assert.deepEqual(citing('https://tabelog.com/'), ['no_tabelog_attestation']);
-  assert.deepEqual(citing('https://tabelog.com/tokyo/A1319/A131905/13000000/'), ['no_tabelog_attestation']);
-  assert.deepEqual(citing(tabelogEvidence().url, makeShop()), ['no_tabelog_attestation']);
-  assert.deepEqual(citing('https://s.tabelog.com/en/tokyo/A1319/A131905/13245678/dtlmenu/'), []);
-
-  const proposedTogether = run({
-    shopId: SHOP_ID,
-    checks: { ...noEvidence(), 'link.instagram': 'found', 'link.tabelog': 'found' },
-    proposals: [
-      { field: 'link', value: account, evidence: [tabelogEvidence()] },
-      { field: 'link', value: { type: 'tabelog', url: tabelogEvidence().url }, evidence: [tabelogEvidence()] },
-    ],
-    notices: [],
-    tagCandidates: [],
-  });
-  assert.deepEqual(proposals(proposedTogether).map((proposal) => proposal.reviewReasons), [[], []]);
+  assert.deepEqual(tabelogLink('https://s.tabelog.com/en/tokyo/A1319/A131905/13245678/dtlmenu/'), []);
+  assert.deepEqual(tabelogLink('https://tabelog.com/tokyo/A1319/A131905/13000000/'), ['source_unconfirmed']);
+  assert.deepEqual(tabelogLink('https://tabelog.com/'), ['source_unconfirmed']);
 });
 
-test('a rejected Tabelog link vouches for nothing', () => {
-  const output = run({
-    shopId: SHOP_ID,
-    checks: { ...noEvidence(), 'link.twitter': 'found', 'link.tabelog': 'found' },
-    proposals: [
-      { field: 'link', value: { type: 'tabelog', url: tabelogEvidence().url }, evidence: [] },
-      { field: 'link', value: { type: 'twitter', url: 'https://x.com/attacker' }, evidence: [tabelogEvidence()] },
-    ],
-    notices: [],
-    tagCandidates: [],
-  });
-  assert.deepEqual(reasons(output), ['evidence_required']);
-  assert.deepEqual(proposals(output).map((proposal) => proposal.reviewReasons), [['no_tabelog_attestation']]);
-});
-
-test('nothing is approved in bulk on an unverified official page alone', () => {
+test('nothing else is approved in bulk, since an official page cannot be verified', () => {
   const claimedOfficial = { ...officialEvidence, url: 'https://attacker.example/x' };
   for (const [proposal, check] of [
     [{ field: 'opened_at', value: '1999-01-01', evidence: [claimedOfficial] }, 'opened_at'],
     [{ field: 'name_kana', value: 'にせもの', evidence: [claimedOfficial] }, 'name_kana'],
     [{ field: 'tag', value: 'morning-service', evidence: [claimedOfficial] }, 'tag'],
+    [{ field: 'link', value: { type: 'twitter', url: 'https://x.com/attacker' }, evidence: [claimedOfficial] }, 'link.twitter'],
   ]) {
     const output = runProposal(proposal, { [check]: 'found' }, shopOnTabelog());
-    assert.deepEqual(proposals(output)[0].reviewReasons, ['no_tabelog_attestation'], check);
+    assert.deepEqual(proposals(output)[0].reviewReasons, ['source_unconfirmed'], check);
   }
 });
 
@@ -443,8 +435,8 @@ test('one URL under two labels is one proposal', () => {
     shopId: SHOP_ID,
     checks: { ...noEvidence(), 'link.twitter': 'found' },
     proposals: [
-      { field: 'link', value: { type: 'twitter', url: 'https://x.com/shop' }, evidence: [tabelogEvidence()] },
-      { field: 'link', value: { type: 'twitter', url: 'https://twitter.com/shop', label: '公式' }, evidence: [tabelogEvidence()] },
+      { field: 'link', value: { type: 'twitter', url: 'https://x.com/shop' }, evidence: [officialEvidence] },
+      { field: 'link', value: { type: 'twitter', url: 'https://twitter.com/shop', label: '公式' }, evidence: [officialEvidence] },
     ],
     notices: [],
     tagCandidates: [],
@@ -458,8 +450,8 @@ test('two values for a field that holds one reject both, and the field is retrie
     shopId: SHOP_ID,
     checks: { ...noEvidence(), opened_at: 'found' },
     proposals: [
-      { field: 'opened_at', value: '2020-06-28', evidence: [tabelogEvidence()] },
-      { field: 'opened_at', value: '2021-01-01', evidence: [tabelogEvidence()] },
+      { field: 'opened_at', value: '2020-06-28', evidence: [officialEvidence] },
+      { field: 'opened_at', value: '2021-01-01', evidence: [officialEvidence] },
     ],
     notices: [],
     tagCandidates: [],
@@ -472,8 +464,8 @@ test('two values for a field that holds one reject both, and the field is retrie
     shopId: SHOP_ID,
     checks: { ...noEvidence(), opened_at: 'found' },
     proposals: [
-      { field: 'opened_at', value: '2020-06-28', evidence: [tabelogEvidence()] },
-      { field: 'opened_at', value: '2020-06-28', evidence: [tabelogEvidence()] },
+      { field: 'opened_at', value: '2020-06-28', evidence: [officialEvidence] },
+      { field: 'opened_at', value: '2020-06-28', evidence: [officialEvidence] },
     ],
     notices: [],
     tagCandidates: [],
@@ -491,7 +483,7 @@ test('dates proposed together must agree with each other', () => {
       notices: [],
       tagCandidates: [],
     });
-  const opened = { field: 'opened_at', value: '2025-01-01', evidence: [tabelogEvidence()] };
+  const opened = { field: 'opened_at', value: '2025-01-01', evidence: [officialEvidence] };
   const closed = { field: 'closed_at', value: '2020-01-01', evidence: [officialEvidence] };
   const closure = { field: 'temporary_closure', value: { startsOn: '2026-11-10', reopensOn: null }, evidence: [officialEvidence] };
 
@@ -509,7 +501,7 @@ test('dates proposed together must agree with each other', () => {
 
 test('a Facebook link must name a page, not a post', () => {
   const facebook = (url) =>
-    runProposal({ field: 'link', value: { type: 'facebook', url }, evidence: [tabelogEvidence()] }, { 'link.facebook': 'found' });
+    runProposal({ field: 'link', value: { type: 'facebook', url }, evidence: [officialEvidence] }, { 'link.facebook': 'found' });
   for (const url of [
     'https://www.facebook.com/SomePage/posts/123',
     'https://www.facebook.com/permalink.php?story_fbid=1&id=2',
@@ -538,7 +530,7 @@ test('the URL limit applies to the stored form', () => {
     {
       field: 'link',
       value: { type: 'official', url: `https://toho-seiso.example/${'あ'.repeat(300)}` },
-      evidence: [tabelogEvidence()],
+      evidence: [officialEvidence],
     },
     { 'link.official': 'found' },
   );
@@ -547,7 +539,7 @@ test('the URL limit applies to the stored form', () => {
 
 test('the same proposal has the same key on every run', () => {
   const first = runProposal({ field: 'name', value: '東奔西走', evidence: [officialEvidence] }, { name: 'found' });
-  const second = runProposal({ field: 'name', value: '東奔西走', evidence: [tabelogEvidence()] }, { name: 'found' });
+  const second = runProposal({ field: 'name', value: '東奔西走', evidence: [{ ...officialEvidence, sourceKind: 'official_sns', url: 'https://x.com/tohoseiso' }] }, { name: 'found' });
   assert.equal(proposals(first)[0].dedupeKey, proposals(second)[0].dedupeKey);
 });
 

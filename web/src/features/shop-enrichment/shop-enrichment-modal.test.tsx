@@ -21,10 +21,10 @@ const proposalLine = (
   proposedValue: "2020-06-28",
   evidence: [
     {
-      url: "https://tabelog.com/tokyo/A1319/A131905/13000000/",
-      sourceKind: "tabelog",
+      url: "https://toho-seiso.example/news",
+      sourceKind: "official_site",
       observedAt: "2026-11-06",
-      note: "オープン日の記載",
+      note: "開店のお知らせ",
     },
   ],
   estimated: false,
@@ -279,13 +279,13 @@ describe("ShopEnrichmentModal", () => {
       url: null,
     });
     const user = await loadFile([
-      notice(quiet, "食べログに閉店の表示"),
+      notice(quiet, "公式サイトに閉店の告知"),
       notice(busy, "移転の記載"),
       proposalLine(busy, "applied", {}),
     ]);
     const group = await screen.findByRole("group", { name: "提案のない店" });
     expect(
-      within(group).getByText("閉店 (日付不明): 食べログに閉店の表示"),
+      within(group).getByText("閉店 (日付不明): 公式サイトに閉店の告知"),
     ).toBeInTheDocument();
     expect(screen.getByText("閉店 (日付不明): 移転の記載")).toBeInTheDocument();
     expect(screen.getByText("注意のある店舗: 2 店")).toBeInTheDocument();
@@ -506,7 +506,7 @@ describe("ShopEnrichmentModal", () => {
       await screen.findByText("<img src=x onerror=alert(1)>"),
     ).toBeInTheDocument();
     expect(document.querySelector("img[src='x']")).toBeNull();
-    const link = screen.getByRole("link", { name: "tabelog.com" });
+    const link = screen.getByRole("link", { name: "toho-seiso.example" });
     expect(link).toHaveAttribute("rel", "noopener noreferrer");
   });
 

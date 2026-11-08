@@ -24,16 +24,23 @@ const NOTICE_KINDS = new Set([
   'suspected_injection',
 ]);
 const IDENTITY_NOTICES = new Set(['address_differs', 'possibly_relocated', 'multiple_candidates']);
-const FACT_SOURCES = ['official_site', 'official_sns', 'tabelog'];
-const ANNOUNCEMENT_SOURCES = ['official_site', 'official_sns'];
+// Tabelog's terms forbid copying its information, so it identifies the shop and backs only the link to its own page.
+const OFFICIAL_SOURCES = ['official_site', 'official_sns'];
+const SHOP_PAGE_SOURCES = [...OFFICIAL_SOURCES, 'facility_site'];
 const EVIDENCE_SOURCES = {
-  name: FACT_SOURCES,
-  name_kana: FACT_SOURCES,
-  opened_at: FACT_SOURCES,
-  closed_at: ANNOUNCEMENT_SOURCES,
-  temporary_closure: ANNOUNCEMENT_SOURCES,
-  tag: [...FACT_SOURCES, 'reservation_site'],
-  link: [...FACT_SOURCES, 'reservation_site', 'other'],
+  name: [...SHOP_PAGE_SOURCES, 'reservation_site'],
+  name_kana: [...SHOP_PAGE_SOURCES, 'reservation_site'],
+  opened_at: SHOP_PAGE_SOURCES,
+  closed_at: OFFICIAL_SOURCES,
+  temporary_closure: OFFICIAL_SOURCES,
+  tag: [...SHOP_PAGE_SOURCES, 'reservation_site'],
+  'link.official': SHOP_PAGE_SOURCES,
+  'link.tabelog': ['tabelog'],
+  'link.twitter': OFFICIAL_SOURCES,
+  'link.instagram': OFFICIAL_SOURCES,
+  'link.facebook': OFFICIAL_SOURCES,
+  'link.reservation': [...OFFICIAL_SOURCES, 'reservation_site'],
+  'link.other': OFFICIAL_SOURCES,
 };
 const INDIVIDUAL_REVIEW_FIELDS = new Set(['name', 'closed_at', 'temporary_closure']);
 // A shop holds one value of these, so a second proposal would silently replace the first when applied.
@@ -51,19 +58,19 @@ const SNS_DOMAINS = [
   'line.me',
   'lin.ee',
 ];
-const NOT_OFFICIAL_DOMAINS = [
-  ...SNS_DOMAINS,
+// Gourmet and map sites describe a shop without speaking for it, and may copy Tabelog, so they are no one's evidence.
+const GOURMET_AND_MAP_DOMAINS = [
   'tabelog.com',
   'hotpepper.jp',
   'retty.me',
   'gnavi.co.jp',
   'supleks.jp',
-  'tablecheck.com',
   'google.com',
+  'google.co.jp',
   'goo.gl',
-  'bit.ly',
-  't.co',
+  'openstreetmap.org',
 ];
+const NOT_OFFICIAL_DOMAINS = [...SNS_DOMAINS, ...GOURMET_AND_MAP_DOMAINS, 'tablecheck.com', 'bit.ly', 't.co'];
 const X_RESERVED = new Set(['home', 'i', 'intent', 'search', 'share', 'hashtag', 'explore', 'login', 'settings']);
 const INSTAGRAM_RESERVED = new Set(['p', 'reel', 'reels', 'explore', 'stories', 'accounts', 'tv']);
 const FACEBOOK_RESERVED = new Set([
@@ -244,21 +251,21 @@ function parseEvidenceItem(raw, allowedSources, today) {
   if (!allowedSources.includes(raw.sourceKind)) reject('source_not_allowed_for_field');
   const url = parseUrl(raw.url);
   const onTabelog = onDomain(url.hostname, 'tabelog.com');
-  if (raw.sourceKind === 'tabelog' && !onTabelog) reject('source_domain_mismatch');
+  if (onTabelog !== (raw.sourceKind === 'tabelog')) reject('source_domain_mismatch');
   if (onTabelog && TABELOG_NON_FACT_PAGE.test(url.pathname)) reject('tabelog_review_or_photo_page');
+  if (!onTabelog && onAnyDomain(url.hostname, GOURMET_AND_MAP_DOMAINS)) reject('source_site_not_allowed');
   if (raw.sourceKind === 'official_sns' && !onAnyDomain(url.hostname, SNS_DOMAINS)) reject('source_domain_mismatch');
-  if (raw.sourceKind === 'official_site' && onAnyDomain(url.hostname, NOT_OFFICIAL_DOMAINS)) {
-    reject('source_domain_mismatch');
-  }
+  const ownPage = raw.sourceKind === 'official_site' || raw.sourceKind === 'facility_site';
+  if (ownPage && onAnyDomain(url.hostname, NOT_OFFICIAL_DOMAINS)) reject('source_domain_mismatch');
   const observedAt = parseDate(raw.observedAt);
   if (observedAt > today) reject('observed_in_the_future');
   return { url: url.href, sourceKind: raw.sourceKind, observedAt, note: parseProse(raw.note, EVIDENCE_NOTE_MAX) };
 }
 
-function parseEvidence(raw, field, estimated, today) {
+function parseEvidence(raw, checkField, estimated, today) {
   if (!Array.isArray(raw) || raw.length > MAX_EVIDENCE) reject('invalid_evidence');
   if (raw.length === 0 && !estimated) reject('evidence_required');
-  return raw.map((item) => parseEvidenceItem(item, EVIDENCE_SOURCES[field], today));
+  return raw.map((item) => parseEvidenceItem(item, EVIDENCE_SOURCES[checkField], today));
 }
 
 function parseClosure(raw, today) {
@@ -371,17 +378,10 @@ const dedupeKey = (shopId, field, value) =>
 
 const tabelogShopId = (href) => /\/A\d{4}\/A\d{6}\/(\d+)(?:\/|$)/.exec(new URL(href).pathname)?.[1] ?? null;
 
-/** The Tabelog page the shop is known by: its existing link, or a Tabelog link this result got accepted. */
-function ownTabelogId(shop, acceptedProposals) {
-  const existing = shop.links.find((link) => link.type === 'tabelog')?.url;
-  const accepted = acceptedProposals.find((proposal) => proposal.value?.type === 'tabelog')?.value.url;
-  try {
-    return tabelogShopId(canonicalTabelog(parseUrl(existing ?? accepted)));
-  } catch (error) {
-    if (error instanceof Rejection) return null;
-    throw error;
-  }
-}
+const citesItsOwnPage = (field, value, evidence) =>
+  field === 'link' &&
+  value.type === 'tabelog' &&
+  evidence.some((item) => tabelogShopId(item.url) === tabelogShopId(value.url));
 
 function reviewReasonsOf(field, value, estimated, evidence, notices, shop) {
   const reasons = [];
@@ -390,9 +390,11 @@ function reviewReasonsOf(field, value, estimated, evidence, notices, shop) {
   else if (baseValueOf(field, shop) !== null) reasons.push('replaces_existing_value');
   if (field === 'link' && INDIVIDUAL_REVIEW_LINKS.has(value.type)) reasons.push('link_needs_review');
   if (estimated) reasons.push('estimated_reading');
-  if (evidence.length > 0 && evidence.every((item) => item.sourceKind === 'other')) reasons.push('weak_evidence');
   if (notices.some((notice) => notice.kind === 'suspected_injection')) reasons.push('suspected_injection');
   if (notices.some((notice) => IDENTITY_NOTICES.has(notice.kind))) reasons.push('identity_uncertain');
+  // The validator cannot tell a real official page from a page claiming to be one. All it can confirm is
+  // a Tabelog link citing that same page, so anything else that would pass in bulk goes to a person.
+  if (reasons.length === 0 && !citesItsOwnPage(field, value, evidence)) reasons.push('source_unconfirmed');
   return reasons;
 }
 
@@ -427,7 +429,7 @@ function parseProposal(raw, shop, requested, tagsBySlug, today, notices) {
   const value = parseValue(raw.field, raw.value, shop, tagsBySlug, today);
   const checkField = checkFieldOf(raw.field, value);
   if (!requested.has(checkField)) reject('field_not_requested');
-  const evidence = parseEvidence(raw.evidence, raw.field, estimated, today);
+  const evidence = parseEvidence(raw.evidence, checkField, estimated, today);
   return {
     field: raw.field,
     checkField,
@@ -511,18 +513,6 @@ function validateShopResult(raw, shop, batch, tagsBySlug, today, output) {
     drop('closed_at', 'closed_before_opened');
   }
   if (closed && proposedValue('temporary_closure')) drop('temporary_closure', 'closure_on_closed_shop');
-
-  // The validator cannot tell a real official page from a page claiming to be one, so anything else that
-  // could be approved in bulk needs the one source it can confirm. Only the shop's own Tabelog page counts,
-  // because any other page describes another shop. Which page is the shop's is the researcher's claim, so
-  // it must be a link a person can see: the existing one, or an accepted proposal, never a rejected one.
-  const ownTabelog = ownTabelogId(shop, proposals);
-  for (const proposal of proposals) {
-    const vouched =
-      ownTabelog !== null &&
-      proposal.evidence.some((item) => item.sourceKind === 'tabelog' && tabelogShopId(item.url) === ownTabelog);
-    if (proposal.reviewReasons.length === 0 && !vouched) proposal.reviewReasons.push('no_tabelog_attestation');
-  }
 
   for (const field of batch.fields) {
     const outcome = raw.checks[field];

@@ -9,9 +9,8 @@ const REVIEW_REASONS = [
   "high_impact_field",
   "replaces_existing_value",
   "link_needs_review",
-  "no_tabelog_attestation",
+  "source_unconfirmed",
   "estimated_reading",
-  "weak_evidence",
   "suspected_injection",
   "identity_uncertain",
 ] as const;
@@ -20,9 +19,9 @@ export type ReviewReason = (typeof REVIEW_REASONS)[number];
 const SOURCE_KINDS = [
   "official_site",
   "official_sns",
+  "facility_site",
   "tabelog",
   "reservation_site",
-  "other",
 ] as const;
 export type SourceKind = (typeof SOURCE_KINDS)[number];
 
