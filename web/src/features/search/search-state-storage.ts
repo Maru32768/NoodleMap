@@ -6,7 +6,9 @@ import {
 } from "@/features/shops/status.ts";
 
 const SEARCH_STATE_STORAGE_KEY = "noodle-map:search-state:v1";
-const SAVED_SEARCH_STATE_VERSION = 5;
+// 6: a status chip turned off hides the shops showing it, so a state saved before
+// the 休業予定・臨時休業 chips existed would hide those shops; it falls back to the defaults.
+const SAVED_SEARCH_STATE_VERSION = 6;
 
 export type MapCenter = [number, number];
 

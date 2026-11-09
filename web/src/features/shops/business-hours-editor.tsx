@@ -13,7 +13,7 @@ import {
 } from "@/features/shops/business-hours.ts";
 import { Box, Input, Textarea } from "@chakra-ui/react";
 import dayjs from "dayjs";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 type Kind = BusinessHours["kind"] | "unknown";
 
@@ -93,18 +93,34 @@ export function BusinessHoursEditor({
       checkedOn: stampToday && !checkedOnByHand ? today : value?.checkedOn,
     });
 
+  // A click away and back gives that kind's hours back as they were, 確認日 included,
+  // so a misclick neither empties the week nor stamps a new 確認日.
+  const lastByKind = useRef<
+    Partial<Record<BusinessHours["kind"], BusinessHours>>
+  >({});
+  const lastNote = useRef<string | undefined>(undefined);
+
   const setKind = (next: Kind) => {
     if (next === kind) {
       return;
+    }
+    if (value) {
+      lastByKind.current[value.kind] = value;
+      lastNote.current = value.note;
     }
     if (next === "unknown") {
       onChange(undefined);
       return;
     }
+    const earlier = lastByKind.current[next];
+    if (earlier) {
+      onChange(earlier);
+      return;
+    }
     change({
       kind: next,
       days: next === "weekly" ? emptyWeek() : [],
-      note: value?.note,
+      note: value ? value.note : lastNote.current,
     });
   };
 
@@ -217,6 +233,11 @@ export function BusinessHoursEditor({
   );
 }
 
+// The server takes two-digit hours, while 9:00 is how people write them.
+function padHour(time: string): string {
+  return /^\d:\d\d$/.test(time) ? `0${time}` : time;
+}
+
 function DayRow({
   row,
   onChange,
@@ -269,6 +290,10 @@ function DayRow({
               onChange={(e) =>
                 setPeriod(i, { ...period, opensAt: e.target.value })
               }
+              onBlur={() =>
+                padHour(period.opensAt) !== period.opensAt &&
+                setPeriod(i, { ...period, opensAt: padHour(period.opensAt) })
+              }
               fontFamily="mono"
               w="5rem"
               {...inputProps}
@@ -280,6 +305,10 @@ function DayRow({
               value={period.closesAt}
               onChange={(e) =>
                 setPeriod(i, { ...period, closesAt: e.target.value })
+              }
+              onBlur={() =>
+                padHour(period.closesAt) !== period.closesAt &&
+                setPeriod(i, { ...period, closesAt: padHour(period.closesAt) })
               }
               fontFamily="mono"
               w="5rem"

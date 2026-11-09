@@ -147,6 +147,12 @@ describe("temporaryClosureLabel", () => {
     ).toBe("2025/6/10〜（6/20 再開）");
     expect(
       temporaryClosureLabel({
+        temporaryClosure: { startsOn: "2025-12-20", reopensOn: "2026-01-10" },
+        closureStatus: "temporarilyClosed",
+      }),
+    ).toBe("2025/12/20〜（2026/1/10 再開）");
+    expect(
+      temporaryClosureLabel({
         temporaryClosure: { startsOn: "2025-06-20" },
         closureStatus: "planned",
       }),

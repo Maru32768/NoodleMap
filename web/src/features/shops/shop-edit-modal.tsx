@@ -382,6 +382,7 @@ const shopDraftAsSaved = ({ links, ...rest }: ShopEditState) => ({
 function toUpdateCommand(
   draft: ShopEditDraft,
   initialWishLevel: WishLevel | "",
+  initialBusinessHours: ShopEditDraft["businessHours"],
 ): UpdateShopCommand {
   return {
     name: draft.name,
@@ -395,10 +396,13 @@ function toUpdateCommand(
     // Always sent: without startsOn it clears the stored 臨時休業.
     temporaryClosure: {
       startsOn: draft.closureStartsOn,
-      reopensOn: draft.closureStartsOn ? draft.closureReopensOn : undefined,
+      reopensOn: draft.closureReopensOn,
     },
-    // Always sent: without kind it clears the stored 営業時間.
-    businessHours: draft.businessHours ?? {},
+    // Omitted when untouched, so hours this build could not read are kept; without kind it clears them.
+    businessHours:
+      draft.businessHours === initialBusinessHours
+        ? undefined
+        : (draft.businessHours ?? {}),
     // Blank clears the stored Place ID.
     googlePlaceId: draft.googlePlaceId.trim(),
     category: draft.category,
@@ -572,7 +576,11 @@ export function ShopEditModal({
     try {
       const result = await updateShop(
         shop.id,
-        toUpdateCommand(sanitizedDraft, initialWishLevel),
+        toUpdateCommand(
+          sanitizedDraft,
+          initialWishLevel,
+          initialDraft.businessHours,
+        ),
       );
       if (!result.ok) {
         if (result.error.type === "not_found") {

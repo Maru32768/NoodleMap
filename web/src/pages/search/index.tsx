@@ -217,7 +217,7 @@ export default function SearchPage({ active = true }: { active?: boolean }) {
   const { shops } = useShops();
 
   // 今営業中 follows the clock: the current minute, read on every render, while it is chosen.
-  const followsClock = filters.openAt === "now";
+  const followsClock = deferredFilters.openAt === "now";
   const subscribeToMinutes = useCallback(
     (onMinute: () => void) => {
       if (!followsClock) {

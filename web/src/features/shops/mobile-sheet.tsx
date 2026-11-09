@@ -246,7 +246,12 @@ export function MobileSheet({
         disableDismiss
         // The sheet is portalled, so hiding the page does not hide it.
         disableScrollLocking={hidden}
-        style={{ zIndex: 800, display: hidden ? "none" : undefined }}
+        // Hidden without display: none, which would measure the sheet as 0px and empty its snap points.
+        // Spread only when hidden: a visibility key overrides the sheet's own.
+        style={{
+          zIndex: 800,
+          ...(hidden && { visibility: "hidden" as const }),
+        }}
       >
         <Sheet.Container
           style={{

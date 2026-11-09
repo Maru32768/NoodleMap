@@ -251,3 +251,25 @@ test("guest scrolls details without dismissal and pulls down from the top", asyn
     await touch.detach();
   }
 });
+
+test("a shop opened from a 食べた記録 album tile lifts the sheet to its peek", async ({ page, api }) => {
+  const shop = await api.createShop({ name: `${uid()} アルバムの店` });
+  // Dated tomorrow, the latest day the server takes, so it leads the newest-first album
+  // even after other tests saved records dated today.
+  const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  await api.addMealRecord({ shopIds: [shop.id], eatenOn: tomorrow });
+
+  await page.goto("/search");
+  await expect(page.getByText(/件 \/ SHOPS$/).filter({ visible: true })).toBeVisible();
+  // The sheet stays mounted, hidden, while the album is shown.
+  await page.getByRole("navigation", { name: "メインメニュー" }).getByRole("link", { name: "食べた記録" }).click();
+  await page.getByRole("button", { name: shop.name, exact: true }).click();
+  await page.getByRole("link", { name: shop.name, exact: true }).click();
+
+  await expect(page).toHaveURL(new RegExp(`shop=${shop.id}`));
+  // Collapsed shows 56px over the 56px footer; the peek is about 190px.
+  const sheet = page.locator(".react-modal-sheet-container");
+  await expect
+    .poll(async () => page.viewportSize()!.height - ((await sheet.boundingBox())?.y ?? page.viewportSize()!.height))
+    .toBeGreaterThan(150);
+});

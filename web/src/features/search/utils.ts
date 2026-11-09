@@ -2,6 +2,7 @@ import { Shop } from "@/features/shops/api/use-shops.ts";
 import { isOpenAt } from "@/features/shops/business-hours.ts";
 import {
   isSystemTagSlug,
+  shopDisplaySystemTags,
   shopSystemTagSlugs,
   WISH_LEVELS,
   WishLevel,
@@ -138,13 +139,14 @@ export function filterShops(
       return false;
     }
 
-    // System-tag (status) facet: lifecycle is exhaustive, so a shop must match a
-    // selected system tag. Deselecting all status chips intentionally shows
-    // nothing. The `system:open` receiver keeps ordinary shops visible while
-    // `閉店` defaults off and single states can be spotlighted.
-    const systemMatch = shopSystemTagSlugs(r).some((slug) =>
-      filters.tagIds.includes(slug),
-    );
+    // System-tag (status) facet: a chip turned off hides every shop showing it.
+    // 営業店 is not shown on shops, so it only keeps ordinary shops (showing no
+    // chip) visible, and turning everything but one chip off spotlights that
+    // state. Deselecting all status chips intentionally shows nothing.
+    const systemMatch =
+      shopDisplaySystemTags(r).every((tag) =>
+        filters.tagIds.includes(tag.slug),
+      ) && shopSystemTagSlugs(r).some((slug) => filters.tagIds.includes(slug));
     if (!systemMatch) {
       return false;
     }

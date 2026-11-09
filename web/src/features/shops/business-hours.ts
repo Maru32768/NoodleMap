@@ -47,6 +47,8 @@ const WEEKDAY_OF_DAY_INDEX: readonly BusinessDay[] = [
 
 const STALE_AFTER_MONTHS = 12;
 const NEXT_OPENING_SEARCH_DAYS = 14;
+// Five weeks reach past any 第N週 rule, so a stretch open that long has no end worth naming.
+const OPEN_STRETCH_SEARCH_DAYS = 35;
 
 type HoursShop = Pick<
   Shop,
@@ -176,18 +178,43 @@ export function businessHoursHeadline(
   }
   const open = openIntervalAt(shop, now);
   if (open) {
-    return `営業中・${open.closes.format("H:mm")}まで`;
+    // Back-to-back periods, such as 00:00〜24:00 every day, read as one stretch.
+    let closes = open.closes;
+    for (
+      let next = openIntervalAt(shop, closes);
+      next && closes.diff(now, "day") < OPEN_STRETCH_SEARCH_DAYS;
+      next = openIntervalAt(shop, closes)
+    ) {
+      closes = next.closes;
+    }
+    if (closes.diff(now, "day") >= OPEN_STRETCH_SEARCH_DAYS) {
+      return "営業中・24時間営業";
+    }
+    // One period past midnight reads 「2:00まで」; a chained stretch names its day.
+    const day =
+      closes.isSame(open.closes) && closes.diff(now, "hour") < 24
+        ? ""
+        : dayPrefix(closes, now);
+    return `営業中・${day}${closes.format("H:mm")}まで`;
   }
   const next = nextOpeningAfter(shop, now);
   if (!next) {
     return "営業時間外";
   }
-  const day = next.isSame(now, "day")
-    ? ""
-    : next.diff(now.startOf("day"), "day") === 1
-      ? "明日 "
-      : `${BUSINESS_DAY_LABEL[WEEKDAY_OF_DAY_INDEX[next.day()]]} `;
-  return `営業時間外・次は${day}${next.format("H:mm")}`;
+  return `営業時間外・次は${dayPrefix(next, now)}${next.format("H:mm")}`;
+}
+
+// Nothing for today, 明日, the weekday within a week, and the date as well beyond it.
+function dayPrefix(date: Dayjs, now: Dayjs): string {
+  const days = date.startOf("day").diff(now.startOf("day"), "day");
+  if (days === 0) {
+    return "";
+  }
+  if (days === 1) {
+    return "明日 ";
+  }
+  const weekday = BUSINESS_DAY_LABEL[WEEKDAY_OF_DAY_INDEX[date.day()]];
+  return days < 7 ? `${weekday} ` : `${date.format("M/D")}(${weekday}) `;
 }
 
 /** One row of the unfolded list, e.g. 「11:00〜15:00、18:00〜翌2:00（第2・第4は休み）」. */

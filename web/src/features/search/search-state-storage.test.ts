@@ -22,7 +22,7 @@ describe("search state storage", () => {
   it("round-trips a written state", () => {
     writeSavedSearchState(state);
 
-    expect(readSavedSearchState()).toEqual({ version: 5, ...state });
+    expect(readSavedSearchState()).toEqual({ version: 6, ...state });
   });
 
   it("round-trips the 気になる度 levels", () => {
@@ -35,7 +35,7 @@ describe("search state storage", () => {
     };
     writeSavedSearchState(withWish);
 
-    expect(readSavedSearchState()).toEqual({ version: 5, ...withWish });
+    expect(readSavedSearchState()).toEqual({ version: 6, ...withWish });
   });
 
   function readWithFilters(filters: Record<string, unknown>) {
@@ -43,7 +43,7 @@ describe("search state storage", () => {
       KEY,
       JSON.stringify({
         ...state,
-        version: 5,
+        version: 6,
         filters: { ...omit(state.filters, ["wishLevels"]), ...filters },
       }),
     );
@@ -61,7 +61,7 @@ describe("search state storage", () => {
     "migrates a legacy 気になる度 floor that is %s",
     (_, legacy, wishLevels) => {
       expect(readWithFilters(legacy)).toEqual({
-        version: 5,
+        version: 6,
         ...state,
         filters: { ...state.filters, wishLevels },
       });
@@ -91,12 +91,12 @@ describe("search state storage", () => {
   it.each([
     ["malformed JSON", "{not json"],
     ["an older version", JSON.stringify({ ...state, version: 4 })],
-    ["a non-string query", JSON.stringify({ ...state, version: 5, query: 1 })],
+    ["a non-string query", JSON.stringify({ ...state, version: 6, query: 1 })],
     [
       "a filter missing a toggle",
       JSON.stringify({
         ...state,
-        version: 5,
+        version: 6,
         filters: { ...state.filters, udon: undefined },
       }),
     ],
@@ -104,7 +104,7 @@ describe("search state storage", () => {
       "a non-string tag id",
       JSON.stringify({
         ...state,
-        version: 5,
+        version: 6,
         filters: { ...state.filters, tagIds: [1] },
       }),
     ],
@@ -112,7 +112,7 @@ describe("search state storage", () => {
       "a non-finite map center",
       JSON.stringify({
         ...state,
-        version: 5,
+        version: 6,
         mapView: { center: [null, 135], zoom: 15 },
       }),
     ],
@@ -120,7 +120,7 @@ describe("search state storage", () => {
       "a missing zoom",
       JSON.stringify({
         ...state,
-        version: 5,
+        version: 6,
         mapView: { center: [34.7, 135.5] },
       }),
     ],

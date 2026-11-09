@@ -243,12 +243,63 @@ describe("filterShops", () => {
       ]);
     });
 
-    it("matches a new shop through either its lifecycle or the new flag", () => {
-      expect(filterNames(shops, { tagIds: ["system:new"] })).toEqual(["new"]);
-      expect(filterNames(shops, { tagIds: ["system:open"] })).toEqual([
-        "open",
+    it("hides a shop when any chip it shows is turned off", () => {
+      const withClosures = [
+        ...shops,
+        makeShop({
+          name: "closedForNow",
+          temporaryClosure: { startsOn: "2000-01-01" },
+        }),
+        makeShop({
+          name: "closingAndClosed",
+          closedAt: "2999-12-31",
+          temporaryClosure: { startsOn: "2000-01-01" },
+        }),
+      ];
+      const allBut = (slug: string) =>
+        ALL_SYSTEM_TAGS.filter((other) => other !== slug);
+
+      expect(
+        filterNames(withClosures, {
+          tagIds: allBut("system:temporarilyClosed"),
+        }),
+      ).toEqual(["open", "closed", "upcoming", "closingSoon", "new"]);
+      expect(
+        filterNames(withClosures, { tagIds: allBut("system:closingSoon") }),
+      ).toEqual(["open", "closed", "upcoming", "new", "closedForNow"]);
+      expect(
+        filterNames(withClosures, { tagIds: allBut("system:new") }),
+      ).not.toContain("new");
+      // 営業店 is not shown on shops: off, it hides only the shops showing no chip.
+      expect(
+        filterNames(withClosures, { tagIds: allBut("system:open") }),
+      ).toEqual([
+        "closed",
+        "upcoming",
+        "closingSoon",
         "new",
+        "closedForNow",
+        "closingAndClosed",
       ]);
+    });
+
+    it("spotlights a flag, leaving out shops that show another chip turned off", () => {
+      const withClosures = [
+        ...shops,
+        makeShop({
+          name: "closedForNow",
+          temporaryClosure: { startsOn: "2000-01-01" },
+        }),
+        makeShop({
+          name: "closingAndClosed",
+          closedAt: "2999-12-31",
+          temporaryClosure: { startsOn: "2000-01-01" },
+        }),
+      ];
+      expect(filterNames(shops, { tagIds: ["system:new"] })).toEqual(["new"]);
+      expect(
+        filterNames(withClosures, { tagIds: ["system:temporarilyClosed"] }),
+      ).toEqual(["closedForNow"]);
     });
   });
 

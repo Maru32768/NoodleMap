@@ -82,6 +82,10 @@ export class Api {
     return this.getShop(shop.id);
   }
 
+  async addMealRecord(input: MealRecordInput): Promise<MealRecord> {
+    return expectOkJson<MealRecord>(await this.request.post("/api/v1/auth/meal-records", { data: input }));
+  }
+
   async listMealRecords(shopId: string): Promise<MealRecord[]> {
     const res = await this.request.get(`/api/v1/shops/${shopId}/meal-records`);
     return (await expectOkJson<{ mealRecords: MealRecord[] }>(res)).mealRecords;

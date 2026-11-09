@@ -44,7 +44,7 @@ describe("useSearchState", () => {
 
     expect(result.current.filters).toEqual({ ...DEFAULT_FILTERS, favMin: 80 });
     expect(readSavedSearchState()).toEqual({
-      version: 5,
+      version: 6,
       query: "味噌",
       filters: { ...DEFAULT_FILTERS, favMin: 80 },
       mapView: { center: [35, 139], zoom: 10 },

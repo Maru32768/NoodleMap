@@ -5,7 +5,7 @@ import type { components } from "@/generated/api.ts";
 import { makeShop, makeTag } from "@/test/fixtures.ts";
 import { renderWithProviders } from "@/test/render.tsx";
 import { server } from "@/test/server.ts";
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import dayjs from "dayjs";
 import { http, HttpResponse } from "msw";
@@ -493,6 +493,19 @@ describe("ShopEditModal links", () => {
     });
   });
 
+  it("sends a 再開日 left without a 開始日, so the server refuses it instead of clearing the closure", async () => {
+    const { requests } = await renderEditor(
+      makeShop({
+        temporaryClosure: { startsOn: "2026-11-10", reopensOn: "2026-11-20" },
+      }),
+    );
+
+    await userEvent.clear(screen.getByDisplayValue("2026-11-10"));
+    await userEvent.click(screen.getByRole("button", { name: "保存" }));
+    await waitFor(() => expect(requests).toHaveLength(1));
+    expect(requests[0].temporaryClosure).toEqual({ reopensOn: "2026-11-20" });
+  });
+
   it("sends no start after 休業をクリア so the server clears it", async () => {
     const { requests } = await renderEditor(
       makeShop({ temporaryClosure: { startsOn: "2026-11-10" } }),
@@ -507,7 +520,7 @@ describe("ShopEditModal links", () => {
     expect(requests[0].temporaryClosure).toEqual({});
   });
 
-  it("sends the stored 営業時間 back unchanged, 確認日 included", async () => {
+  it("omits untouched 営業時間 so the stored value, 確認日 included, is kept", async () => {
     const businessHours = {
       kind: "irregular" as const,
       days: [],
@@ -518,7 +531,7 @@ describe("ShopEditModal links", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "保存" }));
     await waitFor(() => expect(requests).toHaveLength(1));
-    expect(requests[0].businessHours).toEqual(businessHours);
+    expect(requests[0]).not.toHaveProperty("businessHours");
   });
 
   it("builds a weekly schedule and stamps today's 確認日", async () => {
@@ -552,6 +565,51 @@ describe("ShopEditModal links", () => {
       { day: "sat", periods: [] },
       { day: "sun", periods: [] },
     ]);
+  });
+
+  it("gives the week and the 確認日 back after a click away from 通常, and pads a one-digit hour", async () => {
+    const { requests } = await renderEditor(makeShop());
+
+    await userEvent.click(screen.getByRole("radio", { name: "通常" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "月 に時間帯を追加" }),
+    );
+    await userEvent.type(screen.getByLabelText("月 時間帯1 開始"), "9:00");
+    await userEvent.type(screen.getByLabelText("月 時間帯1 終了"), "15:00");
+    fireEvent.change(screen.getByLabelText("営業時間の確認日"), {
+      target: { value: "2026-10-01" },
+    });
+    await userEvent.click(screen.getByRole("radio", { name: "不定休" }));
+    await userEvent.click(screen.getByRole("radio", { name: "不明" }));
+    await userEvent.click(screen.getByRole("radio", { name: "通常" }));
+    await userEvent.click(screen.getByRole("button", { name: "保存" }));
+
+    await waitFor(() => expect(requests).toHaveLength(1));
+    expect(requests[0].businessHours?.days?.[0]).toEqual({
+      day: "mon",
+      periods: [{ opensAt: "09:00", closesAt: "15:00" }],
+    });
+    expect(requests[0].businessHours?.checkedOn).toBe("2026-10-01");
+  });
+
+  it("sends nothing for the hours after a click to 不明 and back", async () => {
+    const { requests } = await renderEditor(
+      makeShop({
+        businessHours: {
+          kind: "weekly",
+          days: [
+            { day: "mon", periods: [{ opensAt: "11:00", closesAt: "15:00" }] },
+          ],
+          checkedOn: "2025-01-05",
+        },
+      }),
+    );
+
+    await userEvent.click(screen.getByRole("radio", { name: "不明" }));
+    await userEvent.click(screen.getByRole("radio", { name: "通常" }));
+    await userEvent.click(screen.getByRole("button", { name: "保存" }));
+    await waitFor(() => expect(requests).toHaveLength(1));
+    expect(requests[0]).not.toHaveProperty("businessHours");
   });
 
   it("sends no kind after choosing 不明 so the server clears the hours", async () => {

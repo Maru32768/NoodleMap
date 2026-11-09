@@ -83,7 +83,7 @@ test("the map narrows to shops 営業中 now and a shop's 営業時間 unfold", 
 
   await card(open.name).click();
   const detail = page.locator("#root");
-  const headline = detail.getByRole("button", { name: /^営業中・0:00まで/ }).filter({ visible: true });
+  const headline = detail.getByRole("button", { name: /^営業中・24時間営業/ }).filter({ visible: true });
   await expect(headline).toHaveAttribute("aria-expanded", "false");
   await headline.click();
   await expect(headline).toHaveAttribute("aria-expanded", "true");

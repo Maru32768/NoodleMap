@@ -90,9 +90,13 @@ export function temporaryClosureLabel(
   }
   const start = formatShopDate(shop.temporaryClosure?.startsOn);
   const reopen = parseShopDate(shop.temporaryClosure?.reopensOn);
-  return reopen
-    ? `${start}〜（${reopen.format("M/D")} 再開）`
-    : `${start}〜 再開日未定`;
+  if (!reopen) {
+    return `${start}〜 再開日未定`;
+  }
+  // The year only when it differs from the start's, so a year-long closure does not read as a month.
+  const sameYear =
+    parseShopDate(shop.temporaryClosure?.startsOn)?.year() === reopen.year();
+  return `${start}〜（${reopen.format(sameYear ? "M/D" : "YYYY/M/D")} 再開）`;
 }
 
 export function shopRecencyStatus(

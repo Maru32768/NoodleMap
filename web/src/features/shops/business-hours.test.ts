@@ -155,6 +155,75 @@ describe("businessHoursHeadline", () => {
     );
   });
 
+  it("gives the date when the next opening is a week or more away", () => {
+    const closedAWeek = makeShop({
+      businessHours: weekly,
+      temporaryClosure: { startsOn: "2026-11-10", reopensOn: "2026-11-19" },
+    });
+    expect(businessHoursHeadline(closedAWeek, at("2026-11-09T16:00"))).toBe(
+      "営業時間外・次は11/19(木) 11:00",
+    );
+  });
+
+  it("reads back-to-back periods as one stretch", () => {
+    const allDay = [{ opensAt: "00:00", closesAt: "24:00" }];
+    const around = (days: BusinessHours["days"]) =>
+      makeShop({ businessHours: { kind: "weekly", days } });
+    const everyDay = around(
+      weekly.days.map((d) => ({ day: d.day, periods: allDay })),
+    );
+    expect(businessHoursHeadline(everyDay, at("2026-11-02T12:00"))).toBe(
+      "営業中・24時間営業",
+    );
+    const split = around(
+      weekly.days.map((d) => ({
+        day: d.day,
+        periods: [
+          { opensAt: "11:00", closesAt: "15:00" },
+          { opensAt: "15:00", closesAt: "22:00" },
+        ],
+      })),
+    );
+    expect(businessHoursHeadline(split, at("2026-11-02T12:00"))).toBe(
+      "営業中・22:00まで",
+    );
+    const weekend = around(
+      weekly.days.map((d) => ({
+        day: d.day,
+        periods: d.day === "sat" || d.day === "sun" ? allDay : [],
+      })),
+    );
+    // Open since Friday 0:00, closing Saturday 22:00: under a day away, but not today.
+    const untilSaturdayNight = around(
+      weekly.days.map((d) => ({
+        day: d.day,
+        periods:
+          d.day === "sat"
+            ? [{ opensAt: "00:00", closesAt: "22:00" }]
+            : d.day === "fri"
+              ? allDay
+              : [],
+      })),
+    );
+    expect(
+      businessHoursHeadline(untilSaturdayNight, at("2026-11-06T23:00")),
+    ).toBe("営業中・明日 22:00まで");
+    // Every day but the 第2 Sunday: the stretch ends on 12/13, past a week.
+    const allButSecondSunday = around(
+      weekly.days.map((d) => ({
+        day: d.day,
+        periods: allDay,
+        ...(d.day === "sun" && { closedWeeks: [2] }),
+      })),
+    );
+    expect(
+      businessHoursHeadline(allButSecondSunday, at("2026-11-09T12:00")),
+    ).toBe("営業中・12/13(日) 0:00まで");
+    expect(businessHoursHeadline(weekend, at("2026-11-07T12:00"))).toBe(
+      "営業中・月 0:00まで",
+    );
+  });
+
   it("names 不定休, unknown hours and 臨時休業", () => {
     const now = at("2026-11-02T12:00");
     expect(
