@@ -25,9 +25,9 @@ class OgCardTest {
         val card = OgCard.of(shop.copy(openedAt = "2026-06-01"), null, today)
         card.statuses.map { it.label } shouldBe listOf("食べた", "新店")
         card.hearts shouldBe 3.5
-        card.mealRecordCountLabel shouldBe "3回訪問"
+        card.mealRecordCountLabel shouldBe "3件の記録"
         card.area shouldBe "東京都新宿区"
-        card.description() shouldBe "ラーメン・家系・食べた・新店・3回訪問・東京都新宿区"
+        card.description() shouldBe "ラーメン・家系・食べた・新店・3件の記録・東京都新宿区"
         val wish = shop.copy(eaten = false, rate = null, mealRecordCount = 0, wishLevel = "high", category = CategorySlug.UDON)
         OgCard.of(wish, null, today).let {
             it.category shouldBe "うどん"

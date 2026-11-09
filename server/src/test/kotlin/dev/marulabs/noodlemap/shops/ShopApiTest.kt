@@ -505,6 +505,17 @@ class ShopApiTest {
     }
 
     @Test
+    fun `stored business hours this build cannot read show as unknown instead of failing the shop list`() = testApp { t ->
+        val admin = t.adminToken()
+        client.postJson("/api/v1/auth/shops", encode(addShopRequest().copy(businessHours = weeklyInput)), admin).body<Shop>()
+        // A day a newer build might add, read after a rollback.
+        t.dataSource.connection.use { c ->
+            c.createStatement().use { it.executeUpdate("""UPDATE shops SET business_hours = '{"kind":"weekly","days":[{"day":"holidayEve","periods":[]}]}'""") }
+        }
+        client.shops().single().businessHours shouldBe null
+    }
+
+    @Test
     fun `invalid business hours are field errors and nothing is written`() = testApp { t ->
         val admin = t.adminToken()
         fun hoursError(message: String, type: FieldErrorType) =

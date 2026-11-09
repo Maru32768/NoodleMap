@@ -68,6 +68,7 @@ class SharedRecordsApiTest {
         client.shops().single().mealRecordCount shouldBe 1
         client.deleteWithSession("/api/v1/auth/meal-records/${second.id}", admin).status shouldBe HttpStatusCode.NoContent
         client.get("/api/v1/venues/${venue.id}/meal-records").body<VenueMealRecordsResponse>().mealRecords shouldBe emptyList()
+        client.get("/api/v1/venues").body<VenuesResponse>().venues shouldBe emptyList()
         t.dataSource.connection.use { c -> c.createStatement().use { st -> st.executeQuery("PRAGMA foreign_key_check").use { it.next() shouldBe false } } }
     }
 

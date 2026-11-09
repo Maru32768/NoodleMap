@@ -58,6 +58,13 @@ def import_seed(connection):
                     "UPDATE shops SET rate = ? WHERE id = ?",
                     (max(0, min(100, rate)), str(UUID(row["shop_id"]))),
                 )
+        # Migrations stamp their tags, and setting a rate fired update_shops_modtime. These UPDATEs
+        # change updated_at, so the modtime triggers stay quiet and every run writes the same file.
+        for table in ("shops", "tags"):
+            connection.execute(
+                f"UPDATE {table} SET created_at = ?, updated_at = ? WHERE updated_at <> ?",
+                (SEED_TIMESTAMP, SEED_TIMESTAMP, SEED_TIMESTAMP),
+            )
         connection.execute("UPDATE goose_db_version SET tstamp = ?", (SEED_TIMESTAMP,))
     if connection.execute("PRAGMA integrity_check").fetchall() != [("ok",)]:
         raise RuntimeError("Seed database failed integrity_check")

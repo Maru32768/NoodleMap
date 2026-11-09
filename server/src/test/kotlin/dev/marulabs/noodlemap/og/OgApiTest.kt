@@ -310,7 +310,7 @@ class OgApiTest {
         val eatenPath = client.imagePath(shop.id)
         eatenPath shouldNotBe wishPath
         client.get(metaPath(shop.id)).bodyAsText().let {
-            it shouldContain "食べた・1回訪問"
+            it shouldContain "食べた・1件の記録"
             it shouldNotContain "絶対行きたい"
         }
         png(client.get(eatenPath).readRawBytes()).width shouldBe 1200

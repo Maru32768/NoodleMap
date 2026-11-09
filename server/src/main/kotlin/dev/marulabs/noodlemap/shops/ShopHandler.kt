@@ -296,9 +296,9 @@ class ShopHandler(
         val tagsByShop = tagsByShopIds(rows.map { it.id })
         val linksByShop = linksByShopIds(rows.map { it.id })
         val mealRecordCounts = mealRecordCountsByShop(db)
-        val coversByShop = coverPhotoKeysByShop(db)
         val representatives = db.shopRepresentativeMealRecordsQueries.findAllRepresentativeMealRecords()
             .executeAsList().associate { it.shop_id to it.meal_record_id }
+        val coversByShop = coverPhotoKeysByShop(db, representatives)
         return rows.map { r ->
             val mealRecordCount = mealRecordCounts[r.id] ?: 0
             val coverKey = coversByShop[r.id]

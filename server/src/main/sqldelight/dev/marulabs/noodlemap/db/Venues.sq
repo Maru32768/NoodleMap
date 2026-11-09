@@ -12,5 +12,7 @@ SELECT * FROM venues WHERE name = ?;
 findVenue:
 SELECT * FROM venues WHERE id = ?;
 
+-- Only venues some meal record names: a venue whose last record moved or went keeps its row, so its page
+-- still answers, but leaves the list that suggests names.
 findVenues:
-SELECT * FROM venues ORDER BY name, id;
+SELECT * FROM venues WHERE EXISTS (SELECT 1 FROM meal_records WHERE meal_records.venue_id = venues.id) ORDER BY name, id;

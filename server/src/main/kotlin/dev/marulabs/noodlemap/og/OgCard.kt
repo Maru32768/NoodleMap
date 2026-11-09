@@ -9,7 +9,7 @@ import java.time.temporal.ChronoUnit
 import kotlin.math.floor
 
 /** Bump whenever the image layout changes, so every OGP image URL changes with it. */
-private const val TEMPLATE_VERSION = 5
+private const val TEMPLATE_VERSION = 6
 
 /** A pill label with its background color (`#rrggbb`). */
 data class Chip(val label: String, val color: String)
@@ -31,8 +31,8 @@ data class OgCard(
     /** Storage key of the shop's 代表写真, drawn as the background; null draws the text-only card. */
     val coverPhotoKey: String?,
 ) {
-    /** 「3回訪問」, or null for a shop not eaten. */
-    val mealRecordCountLabel: String? get() = if (mealRecordCount > 0) "${mealRecordCount}回訪問" else null
+    /** 「3件の記録」, as the web counts them (a record is not a visit, GLOSSARY.md), or null for a shop not eaten. */
+    val mealRecordCountLabel: String? get() = if (mealRecordCount > 0) "${mealRecordCount}件の記録" else null
 
     fun hash(): String {
         // Length-prefixed fields, so no value can shift into its neighbour.

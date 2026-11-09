@@ -10,6 +10,7 @@ import dev.marulabs.noodlemap.generated.models.BusinessHoursInput
 import dev.marulabs.noodlemap.generated.models.BusinessHoursKind
 import java.time.LocalDate
 import kotlinx.serialization.json.Json
+import org.slf4j.LoggerFactory
 
 private const val NOTE_MAX_LENGTH = 500
 private const val PERIODS_MAX = 4
@@ -19,12 +20,19 @@ private val WEEKDAYS = BusinessDay.entries - BusinessDay.HOLIDAY
 
 /** `shops.business_hours` holds the API's [BusinessHours] as JSON, written only after [normalizeBusinessHours]. */
 internal object BusinessHoursColumn {
+    private val log = LoggerFactory.getLogger(BusinessHoursColumn::class.java)
+
     // A key written by a newer build must not break the shop list after a rollback.
     private val json = Json { ignoreUnknownKeys = true }
 
     fun encode(hours: BusinessHours?): String? = hours?.let { json.encodeToString(it) }
 
-    fun decode(raw: String?): BusinessHours? = raw?.let { json.decodeFromString<BusinessHours>(it) }
+    /** Null, read as 営業時間不明, for a value this build cannot read (say, a day or kind from a newer build). */
+    fun decode(raw: String?): BusinessHours? = raw?.let {
+        runCatching { json.decodeFromString<BusinessHours>(it) }
+            .onFailure { e -> log.warn("Unreadable business hours, shown as unknown: {}", e.message) }
+            .getOrNull()
+    }
 }
 
 /** Null for 営業時間不明 (no kind). Days come back in mon..sun, holiday order; blank note and checkedOn mean not set. */
