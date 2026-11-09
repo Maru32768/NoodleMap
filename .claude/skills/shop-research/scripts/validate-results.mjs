@@ -548,10 +548,22 @@ function validateShopResult(raw, shop, batch, tagsBySlug, today, output) {
       const proposal = parseProposal(item, shop, requested, tagsBySlug, today, notices);
       if (raw.checks[proposal.checkField] !== 'found') reject('proposal_without_found_check');
       if (isNoop(proposal.field, proposal.value, shop)) return;
-      // A link is its address, so one URL under two labels is one proposal.
-      const keyValue = proposal.field === 'link' ? { type: proposal.value.type, url: proposal.value.url } : proposal.value;
+      // A link is its address, so one URL under two labels is one proposal. Hours are their schedule, as one shop holds one.
+      const keyValue =
+        proposal.field === 'link'
+          ? { type: proposal.value.type, url: proposal.value.url }
+          : proposal.field === 'business_hours'
+            ? scheduleOf(proposal.value)
+            : proposal.value;
       const key = dedupeKey(shopId, proposal.field, keyValue);
-      if (seen.has(key)) return;
+      if (seen.has(key)) {
+        // The 確認日 is the newest observation, so the later sighting of the same schedule is the one kept.
+        const index = proposals.findIndex((earlier) => earlier.key === key);
+        if (proposal.field === 'business_hours' && proposal.value.checkedOn > proposals[index].value.checkedOn) {
+          proposals[index] = { ...proposal, key };
+        }
+        return;
+      }
       if (proposal.field === 'link') {
         if (++linkCount > MAX_LINKS) reject('too_many_links');
         if (proposal.value.type === 'tabelog') {
@@ -584,6 +596,7 @@ function validateShopResult(raw, shop, batch, tagsBySlug, today, output) {
     drop('closed_at', 'closed_before_opened');
   }
   if (closed && proposedValue('temporary_closure')) drop('temporary_closure', 'closure_on_closed_shop');
+  if (closed && proposedValue('business_hours')) drop('business_hours', 'hours_on_closed_shop');
 
   for (const field of batch.fields) {
     const outcome = raw.checks[field];

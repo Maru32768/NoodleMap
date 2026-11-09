@@ -2,6 +2,8 @@ import type { Page } from "@playwright/test";
 import { expect, type Shop, type Tag, test, uid } from "../../support/fixtures.ts";
 // @ts-expect-error A plain .mjs script: this test runs the real validator so the file format cannot drift from the screen.
 import { validateResults } from "../../../.claude/skills/shop-research/scripts/validate-results.mjs";
+// @ts-expect-error A plain .mjs script: the batch is what the real export writes for these shops.
+import { exportBatch } from "../../../scripts/enrichment/export-batch.mjs";
 
 const TODAY = "2026-11-06";
 const FIELDS = [
@@ -29,23 +31,6 @@ const officialEvidence = {
   note: "公式サイトのお知らせ",
 };
 
-/** What export-batch.mjs writes for this shop, as the research saw it. */
-function batchShop(shop: Shop) {
-  return {
-    id: shop.id,
-    name: shop.name,
-    nameKana: shop.nameKana ?? null,
-    address: shop.address,
-    category: shop.category,
-    openedAt: shop.openedAt ?? null,
-    closedAt: shop.closedAt ?? null,
-    temporaryClosure: null,
-    businessHours: shop.businessHours ?? null,
-    tags: shop.tags.map((tag) => tag.slug),
-    links: shop.links,
-  };
-}
-
 function resultFor(shop: Shop, proposals: { field: string; value: unknown; checkField?: string }[]) {
   const checks = Object.fromEntries(FIELDS.map((field) => [field, "no_evidence"]));
   for (const { field, checkField } of proposals) {
@@ -67,14 +52,7 @@ function resultFor(shop: Shop, proposals: { field: string; value: unknown; check
 
 function acceptedJsonl(shops: Shop[], tags: Tag[], results: Map<string, string>) {
   const { accepted, rejected } = validateResults({
-    batch: {
-      schemaVersion: 1,
-      runId: "b07-e2e",
-      createdAt: TODAY,
-      fields: FIELDS,
-      tags: tags.map(({ slug, label, category }) => ({ slug, label, category: category ?? null })),
-      shops: shops.map(batchShop),
-    },
+    batch: exportBatch({ shops, tags }, { runId: "b07-e2e", fields: FIELDS }),
     readResult: (id: string) => results.get(id) ?? null,
     today: TODAY,
   });

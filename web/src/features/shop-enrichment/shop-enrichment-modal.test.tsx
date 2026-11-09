@@ -114,7 +114,16 @@ describe("ShopEnrichmentModal", () => {
     const shop = makeShop({ name: "店" });
     shops = [shop];
     const user = await loadFile([
-      proposalLine(shop, "plain", {}),
+      proposalLine(shop, "plain", {
+        field: "link",
+        proposedValue: {
+          type: "tabelog",
+          url: "https://tabelog.com/tokyo/A1319/A131905/13000000/",
+          label: null,
+        },
+      }),
+      // The file cannot clear a field the validator always sends to a person.
+      proposalLine(shop, "unchecked", {}),
       proposalLine(shop, "risky", {
         field: "closed_at",
         proposedValue: "2026-10-01",
@@ -134,7 +143,8 @@ describe("ShopEnrichmentModal", () => {
     await user.click(
       screen.getByRole("button", { name: "表示中の一括可を選択" }),
     );
-    expect(screen.getByLabelText("開店日を選択")).toBeChecked();
+    expect(screen.getByLabelText("リンク: 食べログを選択")).toBeChecked();
+    expect(screen.getByLabelText("開店日を選択")).not.toBeChecked();
     expect(screen.getByLabelText("閉店日を選択")).not.toBeChecked();
     expect(
       within(screen.getByRole("group", { name: "閉店日" })).getByText(
@@ -234,6 +244,24 @@ describe("ShopEnrichmentModal", () => {
     expect(
       screen.getByRole("button", { name: "選択した 0 件を本番へ反映" }),
     ).toBeDisabled();
+  });
+
+  it("leaves an unchosen edit unchosen while its value is typed", async () => {
+    const shop = makeShop({ name: "店" });
+    shops = [shop];
+    const user = await loadFile([
+      proposalLine(shop, "a", {
+        field: "name",
+        baseValue: shop.name,
+        proposedValue: "新しい店",
+      }),
+    ]);
+    await user.click(await screen.findByRole("button", { name: "修正する" }));
+    await user.click(screen.getByLabelText("店名を選択"));
+    expect(screen.getByLabelText("店名を選択")).not.toBeChecked();
+
+    await user.type(screen.getByLabelText("店名の修正"), "名");
+    expect(screen.getByLabelText("店名を選択")).not.toBeChecked();
   });
 
   it("keeps a second link of a type out of bulk selection and shows the existing one", async () => {
@@ -364,6 +392,7 @@ describe("ShopEnrichmentModal", () => {
     await user.click(
       screen.getByRole("button", { name: "表示中の一括可を選択" }),
     );
+    await user.click(screen.getByLabelText("タグを選択"));
     await user.click(
       screen.getByRole("button", { name: "選択した 2 件を本番へ反映" }),
     );
@@ -403,9 +432,13 @@ describe("ShopEnrichmentModal", () => {
         targets.map((shop, i) => proposalLine(shop, `key-${i}`, {})),
       );
       await screen.findByRole("group", { name: "店A" });
-      await user.click(
-        screen.getByRole("button", { name: "表示中の一括可を選択" }),
-      );
+      for (const shop of targets) {
+        await user.click(
+          within(screen.getByRole("group", { name: shop.name })).getByLabelText(
+            "開店日を選択",
+          ),
+        );
+      }
       return user;
     };
     const applyButton = () =>
@@ -431,6 +464,34 @@ describe("ShopEnrichmentModal", () => {
           screen.getByRole("list", { name: "反映できなかった項目" }),
         ).getByText(/^店B: /),
       ).toBeInTheDocument();
+    });
+
+    it("names the items the server refused", async () => {
+      const [a] = three();
+      server.use(
+        http.put(`/api/v1/auth/shops/${a.id}`, () =>
+          HttpResponse.json(
+            {
+              type: "invalid_request",
+              message: "x",
+              fieldErrors: [
+                { field: "businessHours", type: "invalid_format" },
+                { field: "closedAt", type: "out_of_range" },
+              ],
+            },
+            { status: 400 },
+          ),
+        ),
+      );
+      const user = await choose([a]);
+      await user.click(applyButton());
+
+      await screen.findByText("反映が終わりました");
+      expect(
+        screen.getByRole("list", { name: "反映できなかった項目" }),
+      ).toHaveTextContent(
+        /^店A: 営業時間を確認してください.*、閉店日: 範囲外の値です$/,
+      );
     });
 
     it("stops at an expired login and says so", async () => {

@@ -119,6 +119,11 @@ describe("stateOf", () => {
     const older = makeShop({ businessHours: week("10:00") });
     expect(kind(hours(week("10:00")), older)).toBe("ready");
     expect(kind(hours(null), older)).toBe("conflict");
+    // Confirmed again in production after the export: applying would move the 確認日 back.
+    const reconfirmed = makeShop({
+      businessHours: { ...week("10:00"), checkedOn: "2026-11-08" },
+    });
+    expect(kind(hours(week("10:00")), reconfirmed)).toBe("conflict");
     expect(kind(hours(null), makeShop())).toBe("ready");
   });
 
@@ -146,13 +151,27 @@ describe("stateOf", () => {
 
 describe("canBulkApprove", () => {
   it("needs a ready proposal with no review reason", () => {
-    const proposal = openedAt(null, "2020-01-01");
+    const proposal = link("tabelog", "https://tabelog.com/tokyo/A1/A2/1/");
     expect(canBulkApprove(proposal, { kind: "ready" })).toBe(true);
     expect(canBulkApprove(proposal, { kind: "conflict" })).toBe(false);
     expect(
       canBulkApprove(
         { ...proposal, reviewReasons: ["replaces_existing_value"] },
         { kind: "ready" },
+      ),
+    ).toBe(false);
+  });
+
+  it("takes only a Tabelog link on tabelog.com, whatever the file says", () => {
+    const ready = { kind: "ready" } as const;
+    expect(canBulkApprove(openedAt(null, "2020-01-01"), ready)).toBe(false);
+    expect(
+      canBulkApprove(link("official", "https://tabelog.com/x/"), ready),
+    ).toBe(false);
+    expect(
+      canBulkApprove(
+        link("tabelog", "https://tabelog.com.evil.example/"),
+        ready,
       ),
     ).toBe(false);
   });

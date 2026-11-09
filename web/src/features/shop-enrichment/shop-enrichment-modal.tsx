@@ -115,7 +115,7 @@ const matchesState = (row: Row, filter: StateFilter) => {
       return canBulkApprove(row.proposal, row.state);
     case "review":
       return (
-        row.state.kind === "ready" && row.proposal.reviewReasons.length > 0
+        row.state.kind === "ready" && !canBulkApprove(row.proposal, row.state)
       );
     case "conflict":
       return row.state.kind === "conflict";
@@ -500,8 +500,13 @@ export function ShopEnrichmentModal({
                         }
                         return next;
                       });
-                      // Stopping an edit also takes back the choice it made, so nothing unintended is sent.
-                      toggle(row.proposal.id, edit !== undefined);
+                      // Starting an edit chooses it and stopping takes that back. A keystroke leaves the choice alone.
+                      if (
+                        edit === undefined ||
+                        edits[row.proposal.id] === undefined
+                      ) {
+                        toggle(row.proposal.id, edit !== undefined);
+                      }
                     }}
                   />
                 ))}

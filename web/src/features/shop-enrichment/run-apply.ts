@@ -3,11 +3,27 @@ import {
   fetchTags,
   putShop,
 } from "@/features/shops/api/use-shops.ts";
-import { ApiError } from "@/utils/request.ts";
-import { apiErrorText } from "@/utils/toast.ts";
+import type { UpdateShopField } from "@/features/shops/shop-field-errors.ts";
+import { ApiError, invalidRequestFieldErrors } from "@/utils/request.ts";
+import { apiErrorText, shopFieldErrorMessage } from "@/utils/toast.ts";
 import { groupBy } from "es-toolkit";
 import type { Proposal } from "./proposal-file.ts";
 import { currentValueOf, shopUpdateOf, stateOf } from "./review.ts";
+
+// The fields the PUT carries whose shopFieldErrorMessage does not say which item it is:
+// the proposable ones, and the stored values sent back with them.
+const UNNAMED_FIELD_NAMES: Partial<Record<UpdateShopField, string>> = {
+  name: "店名",
+  nameKana: "読み",
+  openedAt: "開店日",
+  closedAt: "閉店日",
+  temporaryClosure: "臨時休業",
+  lat: "緯度",
+  lng: "経度",
+  postalCode: "郵便番号",
+  address: "住所",
+  category: "カテゴリ",
+};
 
 export type ApplyItem = {
   /** Carries the edited value, when the admin edited it. */
@@ -115,9 +131,28 @@ export async function applyProposals(
       if (result.ok) {
         applied = toSend.length;
       } else if (result.error.status === 401) {
-        return { kind: "unauthorized", progress };
+        return {
+          kind: "unauthorized",
+          progress: {
+            ...progress,
+            alreadyApplied: progress.alreadyApplied + already,
+            failures,
+          },
+        };
       } else {
-        fail(apiErrorText(result.error));
+        // One PUT carries all of the shop's items, so name the ones the server refused.
+        const refused = invalidRequestFieldErrors(result.error.body)?.map(
+          (e) => {
+            const message = shopFieldErrorMessage(e.field, e.type);
+            const name = UNNAMED_FIELD_NAMES[e.field];
+            return name ? `${name}: ${message}` : message;
+          },
+        );
+        fail(
+          refused
+            ? [...new Set(refused)].join("、")
+            : apiErrorText(result.error),
+        );
       }
     }
 

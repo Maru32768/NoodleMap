@@ -112,6 +112,21 @@ test('the same hours seen again only matter when they move the 確認日 forward
   assert.equal(proposals(runProposal(sameHours, { business_hours: 'found' }, current)).length, 0);
 });
 
+test('the same hours seen on several dates are one proposal, confirmed on the latest', () => {
+  const value = { kind: 'weekly', days: week(), note: null };
+  const output = run({
+    shopId: SHOP_ID,
+    checks: { ...noEvidence(), business_hours: 'found' },
+    proposals: ['2026-11-01', '2026-11-05', '2026-11-03'].map((observedAt) =>
+      hoursProposal(value, [{ ...officialEvidence, observedAt }]),
+    ),
+    notices: [],
+    tagCandidates: [],
+  });
+  assert.deepEqual(output.rejected, []);
+  assert.deepEqual(proposals(output).map((proposal) => proposal.proposedValue.checkedOn), ['2026-11-05']);
+});
+
 test('business hours follow the schedule rules and need a shop page', () => {
   const weekly = (days) => hoursProposal({ kind: 'weekly', days, note: null });
   const overlapping = [
@@ -556,6 +571,11 @@ test('dates proposed together must agree with each other', () => {
   const closedAndPaused = together(closed, closure);
   assert.deepEqual(reasons(closedAndPaused), ['closure_on_closed_shop']);
   assert.deepEqual(proposals(closedAndPaused).map((proposal) => proposal.field), ['closed_at']);
+
+  const closedWithHours = together(closed, hoursProposal({ kind: 'irregular', days: [], note: null }));
+  assert.deepEqual(reasons(closedWithHours), ['hours_on_closed_shop']);
+  assert.deepEqual(proposals(closedWithHours).map((proposal) => proposal.field), ['closed_at']);
+  assert.equal(outcomeOf(closedWithHours, 'business_hours'), 'error');
 
   assert.deepEqual(together({ ...opened, value: '2019-01-01' }, closed).rejected, []);
 });

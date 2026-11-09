@@ -117,7 +117,9 @@ export function stateOf(
           ? { kind: "applied" }
           : { kind: "ready" };
       }
-      return scheduleKey(current) === scheduleKey(proposal.baseValue)
+      // A 確認日 moved on since the research is a newer reading of the week, which this must not undo.
+      return scheduleKey(current) === scheduleKey(proposal.baseValue) &&
+        current?.checkedOn === proposal.baseValue?.checkedOn
         ? { kind: "ready" }
         : { kind: "conflict" };
     }
@@ -136,9 +138,16 @@ export function stateOf(
   }
 }
 
-/** Only an untroubled proposal that fills or adds may be approved without reading it. */
+/**
+ * Only an untroubled proposal that fills or adds may be approved without reading it. The validator
+ * clears only a Tabelog link, and the file comes from outside, so that rule is checked again here.
+ */
 export const canBulkApprove = (proposal: Proposal, state: ProposalState) =>
-  state.kind === "ready" && proposal.reviewReasons.length === 0;
+  state.kind === "ready" &&
+  proposal.reviewReasons.length === 0 &&
+  proposal.field === "link" &&
+  proposal.proposedValue.type === "tabelog" &&
+  new URL(proposal.proposedValue.url.trim()).hostname === "tabelog.com";
 
 /** What is wrong with an edited value, or null. Edits come from a person, the file's values were parsed. */
 export function editProblem(proposal: Proposal): string | null {
