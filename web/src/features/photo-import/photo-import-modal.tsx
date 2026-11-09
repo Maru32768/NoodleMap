@@ -3,6 +3,7 @@ import {
   outlineButton,
   primaryButton,
 } from "@/components/file-button.tsx";
+import { LoadableButton } from "@/components/loadable-button.tsx";
 import { ModalDialog } from "@/components/modal-dialog.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import {
@@ -152,6 +153,10 @@ export function PhotoImportModal({
     <ModalDialog
       open={open}
       onOpenChange={(isOpen) => !isOpen && close()}
+      // The review (kept under finished too) holds every choice, photo order and detail; a stray Esc or click must not drop them.
+      closeOnEscapeOrOutside={
+        state.kind !== "review" && state.kind !== "finished"
+      }
       width="100%"
       maxWidth="1100px"
       height="90vh"
@@ -402,9 +407,13 @@ function ImportHeader({
             写真を選び直す
           </Button>
           {addButton}
-          <Button {...outlineButton} onClick={() => void onRefresh()}>
+          <LoadableButton
+            {...outlineButton}
+            disabled={!!adding}
+            onClick={onRefresh}
+          >
             確認に戻る
-          </Button>
+          </LoadableButton>
         </Actions>
       </>
     );

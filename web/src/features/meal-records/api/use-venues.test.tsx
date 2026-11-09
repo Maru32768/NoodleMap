@@ -134,7 +134,7 @@ describe("venue history cache", () => {
       useVenues();
       useShops();
       const { updateMealRecord } = useMealRecordMutations();
-      const { updateCaption } = useMealRecordImageMutations();
+      const { updateCaption, revalidate } = useMealRecordImageMutations();
       return (
         <>
           <output data-testid="one">{JSON.stringify(one.mealRecords)}</output>
@@ -150,7 +150,12 @@ describe("venue history cache", () => {
           >
             保存
           </button>
-          <button onClick={() => void updateCaption("photo", "画像を編集")}>
+          {/* Image writes leave the refetch to their caller, as the form's save does. */}
+          <button
+            onClick={() =>
+              void updateCaption("photo", "画像を編集").then(revalidate)
+            }
+          >
             画像を編集
           </button>
         </>

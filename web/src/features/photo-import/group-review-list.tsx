@@ -220,9 +220,12 @@ function DetailsModal({
   onSave: (details: MealRecordDetails) => void;
   onClose: () => void;
 }) {
+  const [dirty, setDirty] = useState(false);
   return (
     <ModalDialog
       open
+      // Esc and the backdrop keep a typed draft; × and キャンセル still close.
+      closeOnEscapeOrOutside={!dirty}
       onOpenChange={(o) => !o && onClose()}
       width="100%"
       maxWidth="720px"
@@ -242,6 +245,7 @@ function DetailsModal({
                 eatenOn: day,
               }
         }
+        onDirtyChange={setDirty}
         onCancel={onClose}
         onSave={async (input) => {
           onSave(omit(input, ["eatenOn"]));

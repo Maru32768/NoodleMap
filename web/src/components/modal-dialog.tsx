@@ -26,6 +26,8 @@ interface Props
   > {
   children: ReactNode;
   buttons?: ModalFooterButton[];
+  /** False keeps the dialog open on Esc and on a click outside, leaving the × and the footer as the ways out. */
+  closeOnEscapeOrOutside?: boolean;
   footer?: ReactNode;
   bodyProps?: ComponentProps<typeof DialogBody>;
   contentProps?: Omit<ComponentProps<typeof DialogContent>, "children">;
@@ -57,6 +59,7 @@ export const ModalDialogContext = createContext<ModalDialogContextProps | null>(
 export function ModalDialog({
   children,
   buttons,
+  closeOnEscapeOrOutside = true,
   footer,
   open,
   onOpenChange,
@@ -96,6 +99,8 @@ export function ModalDialog({
     <DialogRoot
       placement="center"
       open={open}
+      closeOnEscape={closeOnEscapeOrOutside}
+      closeOnInteractOutside={closeOnEscapeOrOutside}
       onOpenChange={(x) => {
         onOpenChange(x.open);
       }}
@@ -185,6 +190,7 @@ export function ModalDialog({
                   color="nm.inkMuted"
                   bg="nm.bg"
                   _hover={{ bg: "nm.bgSoft", color: "nm.ink" }}
+                  aria-label="ダイアログを閉じる"
                   onClick={() => onOpenChange(false)}
                 >
                   <svg

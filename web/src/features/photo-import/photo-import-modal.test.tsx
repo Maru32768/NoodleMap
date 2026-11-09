@@ -166,9 +166,29 @@ describe("PhotoImportModal", () => {
     expect(fake.mealRecordsOf(NEIGHBOR_A.id)).toHaveLength(1);
     expect(fake.mealRecordsOf(ALONE.id)).toHaveLength(1);
 
+    // The finished screen still holds the review, so Esc keeps it open.
     await user.keyboard("{Escape}");
+    expect(onClose).not.toHaveBeenCalled();
+    await user.click(
+      screen.getByRole("button", { name: "ダイアログを閉じる" }),
+    );
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(onShopsChanged).toHaveBeenCalledTimes(1);
+  });
+
+  it("stays open on Esc during the review and closes from its × button", async () => {
+    const user = userEvent.setup();
+    fakeMealRecordServer();
+    const { onClose } = renderModal();
+    await selectPhotos(user);
+    await screen.findByRole("button", { name: "取り込む" });
+
+    await user.keyboard("{Escape}");
+    expect(onClose).not.toHaveBeenCalled();
+    await user.click(
+      screen.getByRole("button", { name: "ダイアログを閉じる" }),
+    );
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it("moves a photo of a meal record still to be made", async () => {
@@ -507,6 +527,152 @@ describe("PhotoImportModal", () => {
     expect(fake.mealRecordsOf(created[0].id)).toMatchObject([
       { eatenOn: "2023-04-03" },
     ]);
+  });
+
+  it("reads the records of a shop picked by search, so its record of that day is added to without new details", async () => {
+    const user = userEvent.setup();
+    fakeMealRecordServer({
+      [ALONE.id]: [
+        {
+          id: "00000000-0000-4000-8000-0000000000fd",
+          eatenOn: "2019-08-03",
+          shops: [{ id: ALONE.id, name: ALONE.name }],
+          menuItems: [],
+          images: [],
+        },
+      ],
+    });
+    renderModal();
+    await user.upload(await screen.findByLabelText("写真を選ぶ"), [
+      new File([BARE_JPEG], "first_2019-08-03.JPG", { type: "image/jpeg" }),
+    ]);
+    const row = await screen.findByRole("group", { name: /^2019-08-03 / });
+    await user.click(within(row).getByRole("button", { name: "店舗を検索" }));
+    await user.type(
+      within(row).getByRole("textbox", { name: "店舗を検索" }),
+      "ひとり",
+    );
+    await user.click(within(row).getByRole("button", { name: /麺屋 ひとり/ }));
+
+    await screen.findByText(/^0 件の記録を作成 .* 1 件に画像を追加/);
+    await user.click(screen.getByRole("radio", { name: /取り込み予定/ }));
+    const picked = await screen.findByRole("group", { name: /^2019-08-03 / });
+    expect(picked).toHaveTextContent("既存の記録 (画像0枚)");
+    expect(
+      within(picked).queryByRole("button", { name: "記録の内容" }),
+    ).toBeNull();
+  });
+
+  it("keeps 記録の内容 open on Esc once written, and an unticked お気に入り度 reflection when opened again", async () => {
+    const user = userEvent.setup();
+    fakeMealRecordServer();
+    server.use(
+      http.get("/api/v1/venues", () => HttpResponse.json({ venues: [] })),
+    );
+    renderModal();
+    await selectPhotos(user);
+    await user.click(screen.getByRole("radio", { name: /取り込み予定/ }));
+    const row = await screen.findByRole("group", { name: /^2023-04-01 / });
+    const open = async () => {
+      await user.click(within(row).getByRole("button", { name: "記録の内容" }));
+      return screen.findByRole("group", { name: "取り込む食べた記録の内容" });
+    };
+    const reflect = (form: HTMLElement) =>
+      within(form).getByRole("checkbox", {
+        name: "店舗のお気に入り度にも反映",
+      });
+
+    let form = await open();
+    await user.type(within(form).getByLabelText("お気に入り度"), "80");
+    await user.click(reflect(form));
+    await user.keyboard("{Escape}");
+    expect(form).toBeInTheDocument();
+    await user.click(
+      within(form).getByRole("button", { name: "この内容にする" }),
+    );
+
+    form = await open();
+    expect(reflect(form)).not.toBeChecked();
+  });
+
+  it("keeps a choice made while a venue's records are still being read", async () => {
+    const user = userEvent.setup();
+    const venue = {
+      id: "00000000-0000-4000-8000-0000000000ff",
+      name: "大つけ麺博",
+    };
+    fakeMealRecordServer({
+      "venue:大つけ麺博": [
+        {
+          id: "00000000-0000-4000-8000-0000000000fe",
+          eatenOn: "2023-04-03",
+          shops: [],
+          venue,
+          menuItems: [],
+          images: [],
+        },
+      ],
+    });
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    let read = false;
+    server.use(
+      http.get("/api/v1/venues/:venueId/meal-records", async () => {
+        await held;
+        read = true;
+        return undefined;
+      }),
+    );
+    renderModal();
+    await selectPhotos(user);
+    await user.click(screen.getByRole("radio", { name: /すべて/ }));
+    const far = screen.getByRole("group", { name: /2023-04-03/ });
+    await user.click(
+      within(far).getByRole("button", { name: "店舗なし（催事・出店先）" }),
+    );
+    await user.type(
+      within(far).getByRole("combobox", { name: "催事・出店先" }),
+      "大つけ麺博",
+    );
+    await user.click(
+      within(far).getByRole("button", { name: "この出店先にする" }),
+    );
+    await user.click(within(far).getByRole("button", { name: "スキップ" }));
+    release();
+    await waitFor(() => expect(read).toBe(true));
+    await delay(50);
+
+    expect(far).not.toHaveTextContent("大つけ麺博");
+  });
+
+  it("keeps 確認に戻る disabled while photos are being added after a run", async () => {
+    const user = userEvent.setup();
+    fakeMealRecordServer();
+    renderModal();
+    await selectPhotos(user);
+    await user.click(screen.getByRole("button", { name: "取り込む" }));
+    const done = await screen.findByText("取り込みが完了しました");
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    server.use(
+      http.get("/api/v1/shops/:id/meal-records", async () => {
+        await held;
+        return undefined;
+      }),
+    );
+
+    fireEvent.drop(done, {
+      dataTransfer: {
+        types: ["Files"],
+        files: [photo("alone-later.jpg", "2023:04:05 12:00:00", 35.7, 139.7)],
+      },
+    });
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "確認に戻る" })).toBeDisabled(),
+    );
+    release();
+    await screen.findByText(/件の記録を作成/);
   });
 
   it("refuses to close while the import runs", async () => {

@@ -8,12 +8,13 @@ import type {
   ShopChoice,
 } from "@/features/photo-import/import-plan.ts";
 import type { Photo, PhotoRejection } from "@/features/photo-import/photos.ts";
+import { isEqual, uniqWith } from "es-toolkit";
 
 export interface Analysis {
   readonly photos: readonly Photo[];
   readonly rejected: readonly PhotoRejection[];
   readonly groups: readonly PhotoGroup[];
-  /** MealRecords of every candidate shop with mealRecordCount > 0 and of every chosen venue. */
+  /** MealRecords of every candidate or chosen shop with mealRecordCount > 0 and of every chosen venue. */
   readonly serverMealRecords: ServerMealRecords;
 }
 
@@ -229,10 +230,50 @@ export function importReducer(
             },
           }
         : state;
-    case "appended":
-      return state.kind === "review" || state.kind === "finished"
-        ? { kind: "review", analysis: action.analysis, review: state.review }
-        : state;
+    case "appended": {
+      if (state.kind !== "review" && state.kind !== "finished") {
+        return state;
+      }
+      // A group is keyed by its first photo, which a new photo can displace, and a photo between
+      // two groups merges them: each choice follows its photos, and differing merged ones ask again.
+      // No choice counts as one, so a merge never extends a choice to photos the admin left alone.
+      const choiceOfPhoto = new Map(
+        state.analysis.groups.flatMap((group) =>
+          group.photos.map(
+            (p) => [p.index, state.review.choices.get(group.id)] as const,
+          ),
+        ),
+      );
+      const choices = new Map<number, ShopChoice>();
+      for (const group of action.analysis.groups) {
+        const carried = uniqWith(
+          group.photos
+            .filter((p) => choiceOfPhoto.has(p.index))
+            .map((p) => choiceOfPhoto.get(p.index)),
+          isEqual,
+        );
+        const choice: ShopChoice | undefined =
+          carried.length > 1 ? { kind: "undecided" } : carried[0];
+        if (choice) {
+          choices.set(group.id, choice);
+        }
+      }
+      return {
+        kind: "review",
+        analysis: {
+          ...action.analysis,
+          // Review keeps records a choice loaded while the photos were read; after a run they are stale.
+          serverMealRecords:
+            state.kind === "review"
+              ? new Map([
+                  ...state.analysis.serverMealRecords,
+                  ...action.analysis.serverMealRecords,
+                ])
+              : action.analysis.serverMealRecords,
+        },
+        review: { ...state.review, choices },
+      };
+    }
     case "reset":
       return state.kind === "running" ? state : INITIAL_IMPORT_STATE;
   }

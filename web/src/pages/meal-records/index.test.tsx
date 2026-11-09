@@ -14,7 +14,7 @@ import { server } from "@/test/server.ts";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
-import { MemoryRouter, useLocation } from "react-router";
+import { InitialEntry, MemoryRouter, useLocation } from "react-router";
 import { VirtuosoGridMockContext } from "react-virtuoso";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -34,11 +34,17 @@ const admin: CurrentUser = {
 };
 
 function Search() {
-  return <div data-testid="search">{useLocation().search}</div>;
+  const location = useLocation();
+  return (
+    <>
+      <div data-testid="search">{location.search}</div>
+      <div data-testid="state">{JSON.stringify(location.state)}</div>
+    </>
+  );
 }
 
 function renderPage(
-  url = "/meal-records",
+  url: InitialEntry = "/meal-records",
   user: CurrentUser = { type: "guest" },
 ) {
   let records: MealRecord[] = [
@@ -195,6 +201,28 @@ describe("MealRecordsPage", () => {
     );
     expect(await cardShopNames()).toEqual(["ラーメン店 × うどん店"]);
     expect(screen.getByTestId("search")).toHaveTextContent("?venue=fes");
+  });
+
+  it("keeps the way back to the map when a filter changes", async () => {
+    const user = userEvent.setup();
+    const state = {
+      returnToSearch: {
+        pathname: "/search",
+        search: "?shop=r",
+        hash: "",
+        state: null,
+      },
+    };
+    renderPage({ pathname: "/meal-records", state });
+    await cardShopNames();
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "催事・出店先" }),
+      fes.name,
+    );
+    expect(screen.getByTestId("search")).toHaveTextContent("?venue=fes");
+    expect(screen.getByTestId("state")).toHaveTextContent(
+      JSON.stringify(state),
+    );
   });
 
   it("filters by an inclusive date range, leaving out undated records", async () => {

@@ -37,7 +37,7 @@ import { useIsPc } from "@/utils/use-is-pc.ts";
 import { Box, Input, NativeSelect } from "@chakra-ui/react";
 import { useMemo, useState } from "react";
 import { LuListFilter } from "react-icons/lu";
-import { useSearchParams } from "react-router";
+import { useLocation, useSearchParams } from "react-router";
 
 type CategoryChoice = CategorySlug | "all";
 type Order = "desc" | "asc";
@@ -102,6 +102,7 @@ export default function MealRecordsPage() {
   const [adding, setAdding] = useState(false);
   const { shops } = useShops();
   const [params, setParams] = useSearchParams();
+  const location = useLocation();
   const [scrollParent, setScrollParent] = useState<HTMLElement | null>(null);
   const isPc = useIsPc();
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -128,7 +129,8 @@ export default function MealRecordsPage() {
         }
         return next;
       },
-      { replace: true },
+      // Keeps the way back to the map (returnToSearch) across filter changes.
+      { replace: true, state: location.state },
     );
 
   const categoryOf = useMemo(

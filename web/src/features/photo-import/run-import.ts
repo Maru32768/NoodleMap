@@ -218,12 +218,7 @@ async function runEntry(
       signal,
       onUploaded,
     );
-    if (end === "uploaded") {
-      return { kind: counted };
-    }
-    if (end !== REENTER) {
-      return end;
-    }
+    return end === "uploaded" ? { kind: counted } : end;
   }
   return failed(MEAL_RECORD_IMAGE_UPLOAD_UNCONFIRMED_MESSAGE, true);
 }
@@ -243,7 +238,7 @@ async function uploadFrom(
   from: number,
   signal: AbortSignal,
   onUploaded: (uploaded: number) => void,
-): Promise<"uploaded" | typeof REENTER | Stop> {
+): Promise<"uploaded" | Stop> {
   let next = from < photos.length ? prepare(photos[from]) : undefined;
   for (let i = from; i < photos.length; i++) {
     const prepared = await next!;
@@ -278,8 +273,14 @@ async function uploadFrom(
         }
         continue;
       }
-      if (result.error.status === 0 || result.error.status === 401) {
-        return stopOf(result.error, signal);
+      if (result.error.status === 0) {
+        // A timed-out upload may still be stored: counting now could send this photo twice.
+        return signal.aborted
+          ? { kind: "stopped" }
+          : failed(MEAL_RECORD_IMAGE_UPLOAD_UNCONFIRMED_MESSAGE, true);
+      }
+      if (result.error.status === 401) {
+        return { kind: "unauthorized" };
       }
       return failedPhoto(mealRecordImageUploadErrorMessage(result.error));
     }

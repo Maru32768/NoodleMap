@@ -1,4 +1,5 @@
 import type { IsoDate } from "@/features/meal-records/eaten-date.ts";
+import type { PhotoGroup } from "@/features/photo-import/grouping.ts";
 import {
   ImportPlan,
   mealRecordKey,
@@ -25,6 +26,19 @@ const analysis: Analysis = {
   serverMealRecords: new Map(),
 };
 const plan: ImportPlan = { entries: [] };
+
+const group = (...indexes: number[]): PhotoGroup => ({
+  id: indexes[0],
+  day: "2023-04-01" as IsoDate,
+  photos: indexes.map((index) => ({
+    index,
+    file: new File([], `${index}.jpg`),
+    capturedAt: new Date(0),
+    dateSource: "exif",
+    location: null,
+  })),
+  center: null,
+});
 
 const run = (state: ImportState, ...actions: ImportAction[]) =>
   actions.reduce(importReducer, state);
@@ -107,12 +121,13 @@ describe("importReducer", () => {
   });
 
   it("adds photos in review and after a run, keeping the admin's decisions", () => {
-    const chosen = run(review, {
-      type: "choose",
-      groupId: 1,
-      choice: { kind: "skip" },
-    });
-    const more: Analysis = { ...analysis, photos: [] };
+    const chosen = run(
+      INITIAL_IMPORT_STATE,
+      { type: "read", total: 1 },
+      { type: "analyzed", analysis: { ...analysis, groups: [group(1)] } },
+      { type: "choose", groupId: 1, choice: { kind: "skip" } },
+    );
+    const more: Analysis = { ...analysis, groups: [group(1), group(2)] };
     const finished = run(
       chosen,
       { type: "start", plan },
@@ -129,6 +144,82 @@ describe("importReducer", () => {
         chosen.kind === "review" && chosen.review,
       );
     }
+  });
+
+  it("keeps each choice with its photos when added photos regroup them, asking again where merged choices differ", () => {
+    const shop = { kind: "shop", shopId: "shop", source: "admin" } as const;
+    const state = run(
+      INITIAL_IMPORT_STATE,
+      { type: "read", total: 8 },
+      {
+        type: "analyzed",
+        analysis: {
+          ...analysis,
+          groups: [
+            group(0, 1),
+            group(2),
+            group(3),
+            group(4),
+            group(7),
+            group(8),
+            group(9),
+          ],
+        },
+      },
+      { type: "choose", groupId: 0, choice: { kind: "skip" } },
+      { type: "choose", groupId: 2, choice: shop },
+      { type: "choose", groupId: 3, choice: { kind: "skip" } },
+      { type: "choose", groupId: 8, choice: { kind: "skip" } },
+      // Photo 5 was taken before photo 0; photo 6 between photos 2 and 3,
+      // photo 10 between 4 and 7, photo 11 between 8 and 9.
+      {
+        type: "appended",
+        analysis: {
+          ...analysis,
+          groups: [
+            group(5, 0, 1),
+            group(2, 6, 3),
+            group(4, 10, 7),
+            group(8, 11, 9),
+          ],
+        },
+      },
+    );
+
+    // Group 9 had no choice, so its photos are asked about rather than skipped with group 8's.
+    expect(state.kind === "review" && state.review.choices).toEqual(
+      new Map([
+        [5, { kind: "skip" }],
+        [2, { kind: "undecided" }],
+        [8, { kind: "undecided" }],
+      ]),
+    );
+  });
+
+  it("keeps meal records loaded while photos were added in review, but not those read before a run", () => {
+    const records = (id: string) => new Map([[`shop:${id}` as const, []]]);
+    const chosen = run(review, {
+      type: "loaded",
+      serverMealRecords: records("chosen"),
+    });
+    const more: Analysis = { ...analysis, serverMealRecords: records("added") };
+
+    expect(run(chosen, { type: "appended", analysis: more })).toMatchObject({
+      analysis: {
+        serverMealRecords: new Map([...records("chosen"), ...records("added")]),
+      },
+    });
+    const finished = run(
+      chosen,
+      { type: "start", plan },
+      {
+        type: "finished",
+        outcome: { kind: "finished", progress: runProgressOf(plan) },
+      },
+    );
+    expect(run(finished, { type: "appended", analysis: more })).toMatchObject({
+      analysis: { serverMealRecords: records("added") },
+    });
   });
 
   it("ignores what the current state does not accept", () => {

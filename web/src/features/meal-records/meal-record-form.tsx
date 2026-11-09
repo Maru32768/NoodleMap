@@ -265,7 +265,16 @@ export function MealRecordForm({
   } = useShops();
   const venues = useVenues();
   const [initialDraft, setInitialDraft] = useState<MealRecordDraft>(() =>
-    importDraft ? draftOf(importDraft) : toDraft(mealRecord, scope),
+    importDraft
+      ? {
+          ...draftOf(importDraft),
+          // Details saved with a rate hold its ticks; none left means every box was unticked.
+          rateShopIds:
+            importDraft.rate === undefined
+              ? undefined
+              : (importDraft.rateShopIds ?? []),
+        }
+      : toDraft(mealRecord, scope),
   );
   const [draft, setDraft] = useState<MealRecordDraft>(initialDraft);
   const imageDraft = useMealRecordImageDraft(mealRecord?.images ?? []);
@@ -393,7 +402,7 @@ export function MealRecordForm({
       showSaveError(result.error);
       return;
     }
-    if (await imageDraft.commit(result.data.id)) {
+    if (await imageDraft.commit(result.data)) {
       onSaved?.();
       return;
     }
@@ -491,8 +500,9 @@ export function MealRecordForm({
               // An imported meal record without a shop stays without one: its venue keys it.
               isDisabled={!shops || importDraft?.shopIds.length === 0 || saving}
               options={options}
-              value={options.filter((option) =>
-                draft.shopIds.includes(option.value),
+              // In the order picked, so an import's own shop stays first.
+              value={draft.shopIds.flatMap((id) =>
+                options.filter((option) => option.value === id),
               )}
               placeholder="店舗名で検索"
               noOptionsMessage={() => "該当する店舗がありません"}

@@ -18,6 +18,9 @@ export default function VenuePage() {
   useDocumentTitle(title);
   const [scrollParent, setScrollParent] = useState<HTMLElement | null>(null);
   const [managing, setManaging] = useState(false);
+  // An open form leaves by its own キャンセル, so switching views never drops a draft or a save.
+  const [formOpen, setFormOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
   return (
     <Box ref={setScrollParent} h="100%" overflowY="auto" bg="nm.bg">
       <Box
@@ -44,6 +47,7 @@ export default function VenuePage() {
             <Button
               variant="outline"
               size="sm"
+              disabled={formOpen || busy}
               onClick={() => setManaging((managing) => !managing)}
             >
               {managing ? "一覧に戻る" : "記録を管理"}
@@ -58,6 +62,8 @@ export default function VenuePage() {
             error={error}
             isValidating={isValidating}
             onRetry={() => mutate()}
+            onFormOpenChange={setFormOpen}
+            onBusyChange={setBusy}
           />
         ) : (
           <MealRecordsLoadState

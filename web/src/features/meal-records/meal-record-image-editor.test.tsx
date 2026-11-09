@@ -66,18 +66,21 @@ const png = (name = "image.png") =>
 /**
  * The edit modal on 食べた記録, its fake server appending uploads to the one record
  * as the real one does. `traffic` lists every write in arrival order: uploads
- * as `upload:<number of the upload>`.
+ * as `upload:<number of the upload>`. An upload in `lostUploads` is saved, but
+ * its response never arrives.
  */
 async function renderModal({
   images = [],
   mealRecords,
   uploadResponse,
+  lostUploads = [],
   captionResponse,
   deleteResponse,
 }: {
   images?: MealRecordImage[];
   mealRecords?: MealRecord[];
   uploadResponse?: (attempt: number) => Response | undefined;
+  lostUploads?: number[];
   captionResponse?: () => Response | undefined;
   deleteResponse?: () => Response | undefined;
 } = {}) {
@@ -132,7 +135,9 @@ async function renderModal({
         }
         const added = image(50 + attempt);
         record = { ...record, images: [...record.images, added] };
-        return HttpResponse.json(added);
+        return lostUploads.includes(attempt)
+          ? HttpResponse.error()
+          : HttpResponse.json(added);
       },
     ),
     http.put(
@@ -140,6 +145,15 @@ async function renderModal({
       async ({ request }) => {
         const { imageIds } = (await request.json()) as { imageIds: string[] };
         traffic.push(`order:${imageIds.join(",")}`);
+        if (imageIds.length !== record.images.length) {
+          return HttpResponse.json(
+            {
+              type: "invalid_request",
+              fieldErrors: [{ field: "imageIds", type: "unknown" }],
+            },
+            { status: 400 },
+          );
+        }
         const byId = new Map(record.images.map((i) => [i.id, i]));
         record = { ...record, images: imageIds.map((id) => byId.get(id)!) };
         return HttpResponse.json({ images: record.images });
@@ -295,8 +309,19 @@ describe("MealRecordImageEditor saving", () => {
     expect(traffic).toEqual(["put record", "upload:1", "upload:2"]);
   });
 
-  it("uploads one at a time and refetches the shops' 代表写真 after the last", async () => {
-    const { traffic, shopFetches, recordFetches } = await renderModal();
+  it("uploads one at a time", async () => {
+    // An upload's multipart request cannot be held under jsdom. The client
+    // releases a preview once its upload has answered, so an upload arriving
+    // after every earlier preview was released was the only one in flight.
+    const releasedAtArrival: number[] = [];
+    const { traffic } = await renderModal({
+      uploadResponse: () => {
+        releasedAtArrival.push(
+          vi.mocked(URL.revokeObjectURL).mock.calls.length,
+        );
+        return undefined;
+      },
+    });
     await openEditForm();
 
     await pick(jpeg("a.jpg"), jpeg("b.jpg"), jpeg("c.jpg"));
@@ -304,10 +329,32 @@ describe("MealRecordImageEditor saving", () => {
 
     await savedToast();
     expect(traffic).toEqual(["put record", "upload:1", "upload:2", "upload:3"]);
-    // Each upload starts only after the previous one finished and refetched
-    // the meal records; concurrent uploads would arrive back to back.
-    expect(recordFetches).toEqual(expect.arrayContaining([2, 3, 4]));
-    expect(shopFetches.at(-1)).toBe(traffic.length);
+    expect(releasedAtArrival).toEqual([0, 1, 2]);
+  });
+
+  it("refetches the meal records and the shops' 代表写真 once, after the last image write", async () => {
+    const { traffic, shopFetches, recordFetches } = await renderModal({
+      images: [image(1)],
+    });
+    await openEditForm();
+
+    await pick(jpeg("a.jpg"), jpeg("b.jpg"), jpeg("c.jpg"));
+    fireEvent.change(caption(1), { target: { value: "味玉" } });
+    fireEvent.change(caption(2), { target: { value: "一枚目" } });
+    await userEvent.click(
+      screen.getByRole("button", { name: "画像 2 を前に移動" }),
+    );
+    await save();
+
+    await savedToast();
+    expect(traffic).toHaveLength(7);
+    // The record's own save refetches after 1 write; the image writes refetch
+    // nothing until the last one.
+    const writes = traffic.length;
+    expect(recordFetches.filter((n) => n > 1 && n < writes)).toEqual([]);
+    expect(shopFetches.filter((n) => n > 1 && n < writes)).toEqual([]);
+    expect(recordFetches).toContain(writes);
+    expect(shopFetches).toContain(writes);
   });
 
   it("キャンセル after edits sends nothing and restores the list", async () => {
@@ -444,6 +491,150 @@ describe("MealRecordImageEditor saving", () => {
     await savedToast();
     expect(traffic.filter((entry) => entry.startsWith("upload"))).toHaveLength(
       2,
+    );
+  });
+
+  it("stops uploading at an unconfirmed upload and leaves the rest for the next save", async () => {
+    const { traffic } = await renderModal({
+      uploadResponse: (attempt) =>
+        attempt === 1 ? HttpResponse.error() : undefined,
+    });
+    await openEditForm();
+
+    await pick(jpeg("a.jpg"), jpeg("b.jpg"), jpeg("c.jpg"));
+    await save();
+
+    await partlySavedToast();
+    expect(traffic).toEqual(["put record", "upload:1"]);
+    expect(tile(1)).toHaveTextContent(
+      "アップロードの完了を確認できませんでした",
+    );
+
+    traffic.length = 0;
+    await save();
+    await savedToast();
+    expect(traffic).toEqual(["put record", "upload:2", "upload:3", "upload:4"]);
+  });
+
+  it("finds an unconfirmed upload the server saved and works from it", async () => {
+    const { traffic } = await renderModal({
+      images: [image(1), image(2)],
+      lostUploads: [1],
+    });
+    await openEditForm();
+
+    await pick(jpeg("c.jpg"), jpeg("d.jpg"));
+    await save();
+
+    await partlySavedToast();
+    expect(traffic).toEqual(["put record", "upload:1"]);
+    // Listed as saved: no file name, no warning.
+    expect(thumbs()).toEqual([
+      image(1).url,
+      image(2).url,
+      image(51).url,
+      "blob:preview-2",
+    ]);
+    expect(tile(3)).not.toHaveTextContent("c.jpg");
+    expect(tile(3)).not.toHaveTextContent(
+      "アップロードの完了を確認できませんでした",
+    );
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "画像 3 を削除" }),
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "画像 2 を前に移動" }),
+    );
+    traffic.length = 0;
+    await save();
+
+    await savedToast();
+    expect(traffic).toEqual([
+      "put record",
+      `delete:${image(51).id}`,
+      "upload:2",
+      `order:${[image(2).id, image(1).id, image(52).id].join(",")}`,
+    ]);
+  });
+
+  it("does not upload again an unconfirmed upload the server stored after its re-read", async () => {
+    const { traffic } = await renderModal({
+      images: [image(1)],
+      lostUploads: [1],
+    });
+    await openEditForm();
+    // The re-read right after the lost response comes before the server has it.
+    let storing = true;
+    server.use(
+      http.get(`/api/v1/shops/${shop.id}/meal-records`, () =>
+        storing
+          ? HttpResponse.json({
+              mealRecords: [
+                {
+                  id: RECORD_ID,
+                  shops: [shop],
+                  menuItems: [],
+                  images: [image(1)],
+                },
+              ],
+            })
+          : undefined,
+      ),
+    );
+
+    await pick(jpeg("c.jpg"));
+    await save();
+
+    await partlySavedToast();
+    expect(tile(2)).toHaveTextContent(
+      "アップロードの完了を確認できませんでした",
+    );
+
+    storing = false;
+    traffic.length = 0;
+    await save();
+
+    await savedToast();
+    expect(traffic).toEqual(["put record"]);
+  });
+
+  it("keeps an unconfirmed upload for later when the server cannot be asked about it", async () => {
+    const { traffic } = await renderModal({
+      images: [image(1)],
+      lostUploads: [1],
+    });
+    await openEditForm();
+    let reachable = true;
+    server.use(
+      http.get(`/api/v1/shops/${shop.id}/meal-records`, () =>
+        reachable
+          ? HttpResponse.json({
+              mealRecords: [
+                {
+                  id: RECORD_ID,
+                  shops: [shop],
+                  menuItems: [],
+                  images: [image(1)],
+                },
+              ],
+            })
+          : HttpResponse.error(),
+      ),
+    );
+
+    await pick(jpeg("c.jpg"));
+    await save();
+    await partlySavedToast();
+
+    reachable = false;
+    traffic.length = 0;
+    await save();
+
+    await partlySavedToast();
+    expect(traffic.filter((entry) => entry.startsWith("upload:"))).toEqual([]);
+    expect(tile(2)).toHaveTextContent(
+      "アップロードの完了を確認できませんでした",
     );
   });
 
@@ -627,11 +818,12 @@ describe("MealRecordImageEditor saving", () => {
   });
 
   it("locks the form and the modal for the whole save, images included", async () => {
-    // The upload counts as running until the list it refetches arrives; its
-    // own multipart request cannot be left waiting under jsdom.
+    // The save runs until the refetch after its image writes arrives; an
+    // upload's own multipart request cannot be left waiting under jsdom.
     let respond = () => {};
     const responded = new Promise<void>((resolve) => (respond = resolve));
     let uploaded = false;
+    let held = false;
     await renderModal({
       uploadResponse: () => {
         uploaded = true;
@@ -642,6 +834,7 @@ describe("MealRecordImageEditor saving", () => {
     server.use(
       http.get(`/api/v1/shops/${shop.id}/meal-records`, async () => {
         if (uploaded) {
+          held = true;
           await responded;
         }
         return HttpResponse.json({ mealRecords: [] });
@@ -651,7 +844,7 @@ describe("MealRecordImageEditor saving", () => {
     await pick(jpeg("a.jpg"));
     await save();
 
-    expect(await screen.findByText("アップロード中…")).toBeInTheDocument();
+    await waitFor(() => expect(held).toBe(true));
     expect(screen.getByRole("button", { name: "キャンセル" })).toBeDisabled();
     expect(caption(1)).toBeDisabled();
     expect(

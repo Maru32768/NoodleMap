@@ -254,7 +254,7 @@ describe("runImport", () => {
     ]);
   });
 
-  it("looks again after an upload cut off at status 0 and does not resend a photo the server saved", async () => {
+  it("leaves an entry unconfirmed after an upload cut off at status 0, and the next run does not resend a photo the server saved", async () => {
     const fake = fakeMealRecordServer();
     let uploads = 0;
     server.use(
@@ -267,19 +267,24 @@ describe("runImport", () => {
         return HttpResponse.error();
       }),
     );
+    const photos = plan(entry(SHOP_A, "2023-04-01", 3));
 
-    const outcome = await run(plan(entry(SHOP_A, "2023-04-01", 3)));
+    expect(await run(photos)).toMatchObject({
+      kind: "finished",
+      progress: { failures: [{ unconfirmed: true }] },
+    });
+    expect(fake.log).toEqual(["create 2023-04-01", "image 1", "image 2"]);
 
+    expect(await run(photos)).toMatchObject({
+      kind: "finished",
+      progress: { resumed: 1, failures: [] },
+    });
     expect(fake.log).toEqual([
       "create 2023-04-01",
       "image 1",
       "image 2",
       "image 3",
     ]);
-    expect(outcome).toMatchObject({
-      kind: "finished",
-      progress: { created: 1, failures: [] },
-    });
   });
 
   it("waits out a busy server and sends the same photo again", async () => {

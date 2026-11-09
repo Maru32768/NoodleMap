@@ -203,15 +203,6 @@ export function useRevalidateRecords() {
   );
 }
 
-/** Refetches every cached mealRecords entry of every shop, e.g. once after a bulk import. */
-export function useRevalidateAllMealRecords() {
-  const { mutate } = useSWRConfig();
-  return useCallback(
-    () => Promise.all([mutate(isRecordKey), mutate(SHOPS_KEY)]),
-    [mutate],
-  );
-}
-
 /** Admin writes to a shop's 食べた記録. Each success refetches the mealRecords and the shop list (食べた, お気に入り度, mealRecordCount). */
 export function useMealRecordMutations() {
   const revalidate = useRevalidateRecords().all;

@@ -1,6 +1,6 @@
 import {
   MealRecord,
-  useRevalidateAllMealRecords,
+  useRevalidateRecords,
 } from "@/features/meal-records/api/use-meal-records.ts";
 import { groupPhotos, PhotoGroup } from "@/features/photo-import/grouping.ts";
 import {
@@ -15,7 +15,6 @@ import {
   PlanEntry,
   recordsOf,
   RecordTarget,
-  ReviewState,
   ShopChoice,
   TargetKey,
   targetKey,
@@ -84,28 +83,31 @@ async function loadServerMealRecords(
 }
 
 /**
- * Shops with mealRecords among the candidates of any group, and the venues the admin chose:
- * the only ones decideAction needs.
+ * Shops with mealRecords among the candidates of any group or the choices, and the venues
+ * chosen: the only ones decideAction needs.
  */
 function targetsToLoad(
   groups: readonly PhotoGroup[],
   shops: readonly Shop[],
-  review?: ReviewState,
+  choices: Iterable<ShopChoice> = [],
 ) {
+  const withRecords = new Set(
+    shops.filter((s) => s.mealRecordCount > 0).map((s) => s.id),
+  );
   const targets = new Map<TargetKey, RecordTarget>();
+  const add = (target: RecordTarget | null) => {
+    if (target && (target.kind === "venue" || withRecords.has(target.shopId))) {
+      targets.set(targetKey(target), target);
+    }
+  };
   for (const group of groups) {
     const match = matchShop(group.center, shops);
     for (const c of "candidates" in match ? match.candidates : []) {
-      if (c.shop.mealRecordCount > 0) {
-        const target = { kind: "shop", shopId: c.shop.id } as const;
-        targets.set(targetKey(target), target);
-      }
+      add({ kind: "shop", shopId: c.shop.id });
     }
   }
-  for (const choice of review?.choices.values() ?? []) {
-    if (choice.kind === "venue") {
-      targets.set(targetKey(choice), choice);
-    }
+  for (const choice of choices) {
+    add(targetOf(choice));
   }
   return [...targets.values()];
 }
@@ -124,7 +126,7 @@ function toastFailure(error: unknown) {
  */
 export function usePhotoImport(shops: readonly Shop[]) {
   const [state, dispatch] = useReducer(importReducer, INITIAL_IMPORT_STATE);
-  const revalidateAllMealRecords = useRevalidateAllMealRecords();
+  const revalidateAllMealRecords = useRevalidateRecords().all;
   const controller = useRef<AbortController>(null);
   const [adding, setAdding] = useState<{ done: number; total: number } | null>(
     null,
@@ -207,9 +209,6 @@ export function usePhotoImport(shops: readonly Shop[]) {
       const entry = entries.get(key);
       const own = new Set(group.photos);
       const action = entry && actionOf(entry);
-      const sameDay = recordsOf(serverMealRecords, target).filter(
-        (v) => v.eatenOn === group.day,
-      );
       return {
         group,
         photos: photosByKey.get(key)!.filter((p) => own.has(p)),
@@ -217,9 +216,8 @@ export function usePhotoImport(shops: readonly Shop[]) {
         candidates,
         choice,
         tab: !action ? "skip" : action.kind === "done" ? "imported" : "ready",
-        existingImages: sameDay.length
-          ? Math.max(...sameDay.map((v) => v.images.length))
-          : null,
+        // Only the record this import adds to: another shop's or a collaboration is left alone.
+        existingImages: action?.kind === "resume" ? action.uploaded : null,
         overflow: entry?.overflow ?? 0,
         // An existing same-day record is only added to, so what it says stays as it is.
         detailsKey:
@@ -269,6 +267,7 @@ export function usePhotoImport(shops: readonly Shop[]) {
   }
 
   async function appendFiles(files: readonly File[], analysis: Analysis) {
+    controller.current?.abort();
     const { signal } = (controller.current = new AbortController());
     setAdding({ done: 0, total: files.length });
     try {
@@ -286,7 +285,7 @@ export function usePhotoImport(shops: readonly Shop[]) {
       // After a run the meal records read before it are out of date: read them all again.
       const stale = state.kind === "finished";
       const loaded = await loadServerMealRecords(
-        targetsToLoad(groups, shops, review).filter(
+        targetsToLoad(groups, shops, review?.choices.values()).filter(
           (t) => stale || !analysis.serverMealRecords.has(targetKey(t)),
         ),
         signal,
@@ -344,6 +343,7 @@ export function usePhotoImport(shops: readonly Shop[]) {
       return;
     }
     const { plan } = derived;
+    controller.current?.abort();
     const { signal } = (controller.current = new AbortController());
     dispatch({ type: "start", plan });
     const outcome = await runImport(plan, {
@@ -359,13 +359,42 @@ export function usePhotoImport(shops: readonly Shop[]) {
     if (state.kind !== "finished") {
       return;
     }
+    controller.current?.abort();
     const { signal } = (controller.current = new AbortController());
     try {
       const serverMealRecords = await loadServerMealRecords(
-        targetsToLoad(state.analysis.groups, shops, state.review),
+        targetsToLoad(
+          state.analysis.groups,
+          shops,
+          state.review.choices.values(),
+        ),
         signal,
       );
       dispatch({ type: "refreshed", serverMealRecords });
+    } catch (error) {
+      if (!signal.aborted) {
+        toastFailure(error);
+      }
+    }
+  }
+
+  /**
+   * Takes the choice, then reads its shop's or venue's mealRecords if not read yet, so the row
+   * learns whether that day's record already exists before details are written for it.
+   */
+  async function choose(groupId: number, choice: ShopChoice) {
+    dispatch({ type: "choose", groupId, choice });
+    const targets = targetsToLoad([], shops, [choice]).filter(
+      (t) => !analysis?.serverMealRecords.has(targetKey(t)),
+    );
+    if (targets.length === 0) {
+      return;
+    }
+    // Aborted by a new selection, an append or a run, after which these records may be stale.
+    const { signal } = controller.current!;
+    try {
+      const serverMealRecords = await loadServerMealRecords(targets, signal);
+      dispatch({ type: "loaded", serverMealRecords });
     } catch (error) {
       if (!signal.aborted) {
         toastFailure(error);
@@ -380,25 +409,10 @@ export function usePhotoImport(shops: readonly Shop[]) {
     addFiles,
     /** Photos being added to the selection under review. */
     adding,
-    choose: (groupId: number, choice: ShopChoice) =>
-      dispatch({ type: "choose", groupId, choice }),
-    /**
-     * Takes the group as a shop-less record at `venueName` once that venue's records are read,
-     * so the row knows whether the day's record already exists before it says what will happen.
-     */
-    chooseVenue: async (groupId: number, venueName: string) => {
-      const choice = { kind: "venue", venueName: venueName.trim() } as const;
-      try {
-        const serverMealRecords = await loadServerMealRecords(
-          [choice],
-          new AbortController().signal,
-        );
-        dispatch({ type: "loaded", serverMealRecords });
-        dispatch({ type: "choose", groupId, choice });
-      } catch (error) {
-        toastFailure(error);
-      }
-    },
+    choose,
+    /** Takes the group as a shop-less record at `venueName`. */
+    chooseVenue: (groupId: number, venueName: string) =>
+      choose(groupId, { kind: "venue", venueName: venueName.trim() }),
     togglePhoto: (photoIndex: number) =>
       dispatch({ type: "togglePhoto", photoIndex }),
     /** Swaps a photo with the row's next (delta 1) or previous (-1) one, in its meal record's order. */

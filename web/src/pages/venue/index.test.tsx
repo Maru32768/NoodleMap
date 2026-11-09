@@ -98,6 +98,20 @@ describe("VenuePage", () => {
     ).toBeInTheDocument();
   });
 
+  it("keeps the admin in the list while a record form is open", async () => {
+    renderVenue(admin);
+    await userEvent.click(
+      await screen.findByRole("button", { name: "記録を管理" }),
+    );
+    const back = screen.getByRole("button", { name: "一覧に戻る" });
+    await userEvent.click(
+      await screen.findByRole("button", { name: "食べた記録を追加" }),
+    );
+    expect(back).toBeDisabled();
+    await userEvent.click(screen.getByRole("button", { name: "キャンセル" }));
+    expect(back).toBeEnabled();
+  });
+
   it("shows no admin controls to a guest", async () => {
     renderVenue({ type: "guest" });
     await screen.findByText("まだ食べた記録がありません");

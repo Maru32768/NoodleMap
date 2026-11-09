@@ -3,6 +3,7 @@ import {
   uploadTimeoutMs,
   useMealRecordImageMutations,
 } from "@/features/meal-records/api/use-meal-record-images.ts";
+import type { MealRecord } from "@/features/meal-records/api/use-meal-records.ts";
 import {
   PreparedImage,
   prepareImageForUpload,
@@ -57,6 +58,9 @@ interface DraftState {
   baseline: MealRecordImage[];
 }
 
+// The saved record `commit` writes to; its shops or venue let it re-read the images.
+type SavedRecord = Pick<MealRecord, "id" | "shops" | "venue">;
+
 let nextNewKey = 0;
 
 const savedItemOf = (image: MealRecordImage): ImageDraftItem => ({
@@ -92,8 +96,8 @@ export function useMealRecordImageDraft(images: readonly MealRecordImage[]) {
     updateCaption,
     reorderImages,
     deleteImage,
-    revalidateMealRecords,
-    revalidateShops,
+    readImages,
+    revalidate,
   } = useMealRecordImageMutations();
   const [state, setState] = useState<DraftState>(() => ({
     items: images.map(savedItemOf),
@@ -241,9 +245,17 @@ export function useMealRecordImageDraft(images: readonly MealRecordImage[]) {
     [updateItem],
   );
 
-  const commit = async (mealRecordId: string) => {
+  // The images the server has that the baseline lacks; undefined when unreadable.
+  const unknownImages = async (mealRecord: SavedRecord) => {
+    const images = await readImages(mealRecord);
+    const known = new Set(latest.current.baseline.map((image) => image.id));
+    return images?.filter((image) => !known.has(image.id));
+  };
+
+  const commit = async (mealRecord: SavedRecord) => {
+    const mealRecordId = mealRecord.id;
     let complete = true;
-    let mayHaveUploaded = false;
+    let sent = false;
 
     let deleteFailed = false;
     const listed = new Set(savedIdsOf(latest.current.items));
@@ -251,6 +263,7 @@ export function useMealRecordImageDraft(images: readonly MealRecordImage[]) {
       if (listed.has(image.id)) {
         continue;
       }
+      sent = true;
       const result = await deleteImage(image.id);
       if (result.ok || result.error.type === "not_found") {
         update((state) => ({
@@ -270,46 +283,79 @@ export function useMealRecordImageDraft(images: readonly MealRecordImage[]) {
       if (item.kind !== "new" || item.status === "preparing") {
         continue;
       }
+      sent = true;
       updateItem(item.key, () => ({
         ...item,
         status: "uploading",
         error: undefined,
       }));
-      const result = await uploadImage(mealRecordId, item.prepared, {
-        timeoutMs: uploadTimeoutMs(item.prepared.blob.size),
-      });
-      if (result.ok) {
-        mayHaveUploaded = true;
-        URL.revokeObjectURL(item.previewUrl);
-        update((state) => ({
-          items: state.items.map((other) =>
-            other.key === item.key
-              ? {
-                  kind: "saved",
-                  key: item.key,
-                  image: result.data,
-                  caption: item.caption,
-                }
-              : other,
-          ),
-          baseline: [...state.baseline, result.data],
-        }));
-        continue;
+      // An unconfirmed try may have been stored after its re-read: sending it
+      // again would leave the server a second copy.
+      const storedSince =
+        item.error === MEAL_RECORD_IMAGE_DRAFT_UPLOAD_UNCONFIRMED_MESSAGE
+          ? await unknownImages(mealRecord)
+          : [];
+      if (!storedSince) {
+        // Unreadable, so it stays unconfirmed for the next save rather than risk a second copy.
+        complete = false;
+        updateItem(item.key, () => item);
+        break;
       }
-      complete = false;
+      const result =
+        storedSince.length > 0
+          ? undefined
+          : await uploadImage(mealRecordId, item.prepared, {
+              timeoutMs: uploadTimeoutMs(item.prepared.blob.size),
+            });
       // Aborted or cut off: the server may still have saved the image.
-      const unconfirmed = result.error.status === 0;
-      if (unconfirmed) {
-        mayHaveUploaded = true;
-        void revalidateMealRecords();
+      const unconfirmed = result?.ok === false && result.error.status === 0;
+      // Unconfirmed, the last image the server has beyond the baseline is this
+      // upload, and any before it an earlier unconfirmed try: all are listed as
+      // saved, so neither a retry nor a reorder works from a short baseline.
+      const stored = !result
+        ? storedSince
+        : result.ok
+          ? [result.data]
+          : unconfirmed
+            ? ((await unknownImages(mealRecord)) ?? [])
+            : [];
+      if (stored.length > 0) {
+        URL.revokeObjectURL(item.previewUrl);
+        const image = stored[stored.length - 1];
+        update((state) => ({
+          items: state.items.flatMap((other) =>
+            other.key === item.key
+              ? [
+                  ...stored.slice(0, -1).map(savedItemOf),
+                  {
+                    kind: "saved",
+                    key: item.key,
+                    image,
+                    caption: item.caption,
+                  },
+                ]
+              : [other],
+          ),
+          baseline: [...state.baseline, ...stored],
+        }));
+      } else if (result?.ok === false) {
+        complete = false;
+        updateItem(item.key, () => ({
+          ...item,
+          status: "ready",
+          error: unconfirmed
+            ? MEAL_RECORD_IMAGE_DRAFT_UPLOAD_UNCONFIRMED_MESSAGE
+            : mealRecordImageUploadErrorMessage(result.error),
+        }));
       }
-      updateItem(item.key, () => ({
-        ...item,
-        status: "ready",
-        error: unconfirmed
-          ? MEAL_RECORD_IMAGE_DRAFT_UPLOAD_UNCONFIRMED_MESSAGE
-          : mealRecordImageUploadErrorMessage(result.error),
-      }));
+      if (unconfirmed) {
+        // On a stalled uplink each further upload would wait out its own
+        // timeout with the form locked: they stay for the next save.
+        complete &&= latest.current.items.every(
+          (other) => other.kind === "saved",
+        );
+        break;
+      }
     }
 
     for (const item of latest.current.items) {
@@ -323,6 +369,7 @@ export function useMealRecordImageDraft(images: readonly MealRecordImage[]) {
       if (caption === (saved?.caption ?? "")) {
         continue;
       }
+      sent = true;
       const result = await updateCaption(item.image.id, caption);
       if (result.ok) {
         update((state) => ({
@@ -374,6 +421,7 @@ export function useMealRecordImageDraft(images: readonly MealRecordImage[]) {
         baseline.map((image) => image.id),
       )
     ) {
+      sent = true;
       const result = await reorderImages(mealRecordId, imageIds);
       if (result.ok) {
         update((state) => ({ ...state, baseline: result.data }));
@@ -385,9 +433,9 @@ export function useMealRecordImageDraft(images: readonly MealRecordImage[]) {
       }
     }
 
-    // The 代表写真 in the shop list.
-    if (mayHaveUploaded) {
-      await revalidateShops();
+    // Once per save, failures included: a failure can mean the views are stale.
+    if (sent) {
+      await revalidate();
     }
     return complete;
   };

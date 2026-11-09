@@ -1,4 +1,7 @@
-import { useRevalidateRecords } from "@/features/meal-records/api/use-meal-records.ts";
+import {
+  MealRecord,
+  useRevalidateRecords,
+} from "@/features/meal-records/api/use-meal-records.ts";
 import type { PreparedImage } from "@/features/meal-records/prepare-image.ts";
 import type { components } from "@/generated/api.ts";
 import {
@@ -140,35 +143,39 @@ export function uploadMealRecordImage(
   );
 }
 
+/** The meal record's images as the server has them now; undefined when they could not be read. */
+async function readMealRecordImages({
+  id,
+  shops,
+  venue,
+}: Pick<MealRecord, "id" | "shops" | "venue">) {
+  // There is no read of one meal record: list its first shop's, or its venue's
+  // (a record without shops always has one).
+  const signal = AbortSignal.timeout(UPLOAD_TIMEOUT_BASE_MS);
+  const read =
+    shops.length > 0
+      ? apiClient.GET("/api/v1/shops/{id}/meal-records", {
+          params: { path: { id: shops[0].id } },
+          signal,
+        })
+      : venue &&
+        apiClient.GET("/api/v1/venues/{venueId}/meal-records", {
+          params: { path: { venueId: venue.id } },
+          signal,
+        });
+  const res = await read?.catch(() => undefined);
+  return res?.data?.mealRecords.find((record) => record.id === id)?.images;
+}
+
 /**
- * Admin writes to 記録の画像. Each success refetches the shop's meal records; a reorder
- * or delete also the shop list (代表写真). Uploads leave the shop list to
- * `revalidateShops`, called once a batch of uploads is done.
+ * Admin writes to 記録の画像. None refetches anything: a batch of them ends with one
+ * `revalidate` (the meal records and the shop list's 代表写真), failures
+ * included. `readImages` is for an upload that could not be confirmed.
  */
 export function useMealRecordImageMutations() {
-  const revalidate = useRevalidateRecords();
+  const revalidate = useRevalidateRecords().all;
 
-  const uploadImage = useCallback(
-    async (
-      mealRecordId: string,
-      image: PreparedImage,
-      options: UploadOptions = {},
-    ) => {
-      const result = await uploadMealRecordImage(mealRecordId, image, options);
-      if (
-        result.ok ||
-        // The meal record is gone or has images added elsewhere.
-        result.error.type === "not_found" ||
-        result.error.type === "meal_record_image_limit_reached"
-      ) {
-        await revalidate.mealRecords();
-      }
-      return result;
-    },
-    [revalidate],
-  );
-
-  /** Saves the caption trimmed; a blank one clears it. Captions are not in the shop list. */
+  /** Saves the caption trimmed; a blank one clears it. */
   const updateCaption = useCallback(
     (imageId: string, caption: string) =>
       withApiResult<MealRecordImage, UpdateMealRecordImageErrorBody>(
@@ -182,20 +189,16 @@ export function useMealRecordImageMutations() {
             },
           );
           if (res.error || !res.response.ok) {
-            if (res.error?.type === "not_found") {
-              await revalidate.mealRecords();
-            }
             return apiError(
               "/api/v1/auth/meal-record-images/{imageId}",
               res.response,
               res.error,
             );
           }
-          await revalidate.mealRecords();
           return apiOk(res.data);
         },
       ),
-    [revalidate],
+    [],
   );
 
   /** Replaces the display order with `imageIds`, every image of the mealRecord exactly once. */
@@ -209,24 +212,16 @@ export function useMealRecordImageMutations() {
             { params: { path: { mealRecordId } }, body: { imageIds } },
           );
           if (res.error || !res.response.ok) {
-            // Stale ids (an image added or deleted elsewhere) or a deleted mealRecord.
-            if (
-              res.error?.type === "not_found" ||
-              res.error?.type === "invalid_request"
-            ) {
-              await revalidate.all();
-            }
             return apiError(
               "/api/v1/auth/meal-records/{mealRecordId}/images/order",
               res.response,
               res.error,
             );
           }
-          await revalidate.all();
           return apiOk(res.data.images);
         },
       ),
-    [revalidate],
+    [],
   );
 
   const deleteImage = useCallback(
@@ -239,28 +234,24 @@ export function useMealRecordImageMutations() {
             { params: { path: { imageId } } },
           );
           if (res.error || !res.response.ok) {
-            if (res.error?.type === "not_found") {
-              await revalidate.all();
-            }
             return apiError(
               "/api/v1/auth/meal-record-images/{imageId}",
               res.response,
               res.error,
             );
           }
-          await revalidate.all();
           return apiOk(undefined);
         },
       ),
-    [revalidate],
+    [],
   );
 
   return {
-    uploadImage,
+    uploadImage: uploadMealRecordImage,
     updateCaption,
     reorderImages,
     deleteImage,
-    revalidateMealRecords: revalidate.mealRecords,
-    revalidateShops: revalidate.shops,
+    readImages: readMealRecordImages,
+    revalidate,
   };
 }
