@@ -49,6 +49,11 @@ public data class AddShopRequest(
   @SerialName("wishLevel")
   public val wishLevel: String? = null,
   /**
+   * 公開メモ, trimmed. Omit (or send a blank string) for none.
+   */
+  @SerialName("publicNote")
+  public val publicNote: String? = null,
+  /**
    * At most 10 links, stored in array order. Omit for none.
    */
   @SerialName("links")

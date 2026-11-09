@@ -26,6 +26,7 @@ import {
   clearShopFieldErrors,
   FieldErrorType,
   SHOP_NAME_KANA_MAX_LENGTH,
+  SHOP_PUBLIC_NOTE_MAX_LENGTH,
   ShopFieldErrors,
   toShopFieldErrors,
   UpdateShopField,
@@ -54,7 +55,7 @@ import {
   toastError,
   toastShopFieldErrors,
 } from "@/utils/toast.ts";
-import { Box, Input, NativeSelect } from "@chakra-ui/react";
+import { Box, Field, Input, NativeSelect, Textarea } from "@chakra-ui/react";
 import { isEqual } from "es-toolkit";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -77,6 +78,8 @@ interface ShopEditDraft {
   businessHours?: BusinessHours;
   // "" is 未設定.
   wishLevel: WishLevel | "";
+  // "" is no 公開メモ.
+  publicNote: string;
   tagIds: string[];
   // Omitted when the cached shop has no `links` (older server), so saving keeps them.
   links?: ShopLinkInput[];
@@ -345,6 +348,7 @@ const FIELDS_WITH_INPUT: readonly UpdateShopField[] = [
   "tagIds",
   "links",
   "wishLevel",
+  "publicNote",
 ];
 
 function isUpdateShopField(key: string): key is UpdateShopField {
@@ -409,6 +413,8 @@ function toUpdateCommand(
     // Omitted when unchanged so the stored value is kept; "" clears it.
     wishLevel:
       draft.wishLevel === initialWishLevel ? undefined : draft.wishLevel,
+    // Blank clears the stored 公開メモ.
+    publicNote: draft.publicNote.trim(),
     tagIds: draft.tagIds,
     links: draft.links,
   };
@@ -446,6 +452,7 @@ export function ShopEditModal({
     closureReopensOn: shop.temporaryClosure?.reopensOn,
     businessHours: shop.businessHours,
     wishLevel: shop.wishLevel ?? "",
+    publicNote: shop.publicNote ?? "",
     tagIds: shop.tags.map((tag) => tag.id),
     // `links` is missing while an older server is still deployed.
     links: (shop.links ?? []).map(newLinkRow),
@@ -828,6 +835,27 @@ export function ShopEditModal({
                         <MiniHearts rate={rateToSave} />
                       )}
                   </Box>
+                </FormField>
+                <FormField
+                  gridColumn="span 2"
+                  label={<FieldLabel>公開メモ</FieldLabel>}
+                  error={errorOf("publicNote")}
+                >
+                  <Textarea
+                    {...mealRecordInputProps}
+                    aria-label="公開メモ"
+                    rows={3}
+                    maxLength={SHOP_PUBLIC_NOTE_MAX_LENGTH}
+                    value={draft.publicNote}
+                    onChange={(e) => set("publicNote", e.target.value)}
+                  />
+                  <Field.HelperText
+                    mt="4px"
+                    fontSize="11px"
+                    color="nm.inkMuted"
+                  >
+                    誰でも読めます。おすすめのメニューなど
+                  </Field.HelperText>
                 </FormField>
                 <FormField
                   gridColumn="span 2"

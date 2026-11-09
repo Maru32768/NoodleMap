@@ -65,6 +65,11 @@ public data class UpdateShopRequest(
   @SerialName("wishLevel")
   public val wishLevel: String? = null,
   /**
+   * 公開メモ, trimmed. Omit to keep the stored one (older clients); a blank string clears it.
+   */
+  @SerialName("publicNote")
+  public val publicNote: String? = null,
+  /**
    * Omit to keep the stored links (older clients); an array replaces them all, in array order. At
    * most 10.
    */

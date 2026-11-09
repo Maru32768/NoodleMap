@@ -41,6 +41,8 @@ public enum class UpdateShopField(
   LINKS("links"),
   @SerialName("wishLevel")
   WISH_LEVEL("wishLevel"),
+  @SerialName("publicNote")
+  PUBLIC_NOTE("publicNote"),
   ;
 
   override fun toString(): String = value

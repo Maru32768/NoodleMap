@@ -89,6 +89,25 @@ describe("DetailPanel", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("shows the 公開メモ to guests, line breaks kept", () => {
+    renderPanel(makeShop({ publicNote: "味噌がおすすめ\n大盛り無料" }));
+
+    expect(screen.getByText("公開メモ - Public Note")).toBeInTheDocument();
+    expect(
+      screen.getByText("味噌がおすすめ\n大盛り無料", {
+        normalizer: (text) => text,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows no memo for a shop without a 公開メモ", () => {
+    renderPanel(makeShop({ publicNote: undefined }));
+
+    expect(
+      screen.queryByText("公開メモ - Public Note"),
+    ).not.toBeInTheDocument();
+  });
+
   it("lets admins see user tags and open the editor", async () => {
     const { onAdminEdit } = renderPanel(shop, admin);
 

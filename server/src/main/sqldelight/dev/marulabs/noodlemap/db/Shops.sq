@@ -17,7 +17,8 @@ CREATE TABLE shops (
     rate            REAL CHECK (rate BETWEEN 0 AND 100),
     temporary_closure_starts_on TEXT,
     temporary_closure_reopens_on TEXT,
-    business_hours  TEXT
+    business_hours  TEXT,
+    public_note     TEXT
 );
 
 -- (modtime trigger omitted; see note in Users.sq)
@@ -39,12 +40,13 @@ SELECT r.id,
        r.rate,
        r.temporary_closure_starts_on,
        r.temporary_closure_reopens_on,
-       r.business_hours
+       r.business_hours,
+       r.public_note
 FROM shops r;
 
 insertShop:
-INSERT INTO shops (id, name, name_kana, lat, lng, postal_code, address, opened_at, closed_at, google_place_id, category, wish_level)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO shops (id, name, name_kana, lat, lng, postal_code, address, opened_at, closed_at, google_place_id, category, wish_level, public_note)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 updateShop:
 UPDATE shops
@@ -61,7 +63,9 @@ SET name            = :name,
     google_place_id = NULLIF(COALESCE(:googlePlaceId, google_place_id), ''),
     category        = :category,
     -- Same for the 気になる度: NULL keeps it, '' clears it.
-    wish_level      = NULLIF(COALESCE(:wishLevel, wish_level), '')
+    wish_level      = NULLIF(COALESCE(:wishLevel, wish_level), ''),
+    -- Same for the 公開メモ: NULL keeps it, '' clears it.
+    public_note     = NULLIF(COALESCE(:publicNote, public_note), '')
 WHERE id = :id;
 
 setTemporaryClosure:

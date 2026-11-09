@@ -210,6 +210,11 @@ export function useShops(config?: SWRConfiguration<Shop[]>) {
             shopFields.nameKana === undefined
               ? current[i].nameKana
               : shopFields.nameKana.trim() || undefined,
+          // Same for the 公開メモ.
+          publicNote:
+            shopFields.publicNote === undefined
+              ? current[i].publicNote
+              : shopFields.publicNote.trim() || undefined,
           // Same: omitted keeps the 臨時休業; no startsOn clears it.
           temporaryClosure:
             shopFields.temporaryClosure === undefined

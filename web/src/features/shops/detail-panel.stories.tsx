@@ -106,6 +106,15 @@ export const Admin: Story = {
   parameters: { currentUser: admin },
 };
 
+export const WithPublicNote: Story = {
+  args: {
+    shop: makeShop({
+      ...shop,
+      publicNote: "特製中華そばがおすすめ。\n味玉は売り切れが早いので早めに。",
+    }),
+  },
+};
+
 export const WishListUdon: Story = {
   args: {
     shop: makeShop({

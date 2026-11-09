@@ -433,7 +433,7 @@ export interface components {
             fieldErrors?: components["schemas"]["AddShopFieldError"][];
         };
         /** @enum {string} */
-        AddShopField: "name" | "nameKana" | "lat" | "lng" | "postalCode" | "address" | "openedAt" | "closedAt" | "temporaryClosure" | "businessHours" | "googlePlaceId" | "category" | "tagIds" | "links" | "wishLevel";
+        AddShopField: "name" | "nameKana" | "lat" | "lng" | "postalCode" | "address" | "openedAt" | "closedAt" | "temporaryClosure" | "businessHours" | "googlePlaceId" | "category" | "tagIds" | "links" | "wishLevel" | "publicNote";
         AddShopFieldError: {
             field: components["schemas"]["AddShopField"];
             type: components["schemas"]["FieldErrorType"];
@@ -460,6 +460,8 @@ export interface components {
             tagIds: components["schemas"]["uuid"][];
             /** @description Omit when not set. */
             wishLevel?: components["schemas"]["WishLevel"];
+            /** @description 公開メモ, trimmed. Omit (or send a blank string) for none. */
+            publicNote?: string;
             /** @description At most 10 links, stored in array order. Omit for none. */
             links?: components["schemas"]["ShopLinkInput"][];
         };
@@ -831,6 +833,8 @@ export interface components {
             mealRecordCount: number;
             /** @description 気になる度. Absent when not set. Kept after the shop is eaten, but only meaningful before. */
             wishLevel?: components["schemas"]["WishLevel"];
+            /** @description 公開メモ, such as the menu to order. Shown to everyone. Absent when not set. */
+            publicNote?: string;
             category: components["schemas"]["CategorySlug"];
             tags: components["schemas"]["Tag"][];
             /** @description External links (official site, SNS, ...) in display order. */
@@ -919,7 +923,7 @@ export interface components {
             fieldErrors?: components["schemas"]["UpdateShopFieldError"][];
         };
         /** @enum {string} */
-        UpdateShopField: "name" | "nameKana" | "lat" | "lng" | "postalCode" | "address" | "openedAt" | "closedAt" | "temporaryClosure" | "businessHours" | "googlePlaceId" | "category" | "eaten" | "rate" | "tagIds" | "links" | "wishLevel";
+        UpdateShopField: "name" | "nameKana" | "lat" | "lng" | "postalCode" | "address" | "openedAt" | "closedAt" | "temporaryClosure" | "businessHours" | "googlePlaceId" | "category" | "eaten" | "rate" | "tagIds" | "links" | "wishLevel" | "publicNote";
         UpdateShopFieldError: {
             field: components["schemas"]["UpdateShopField"];
             type: components["schemas"]["FieldErrorType"];
@@ -954,6 +958,8 @@ export interface components {
             tagIds: components["schemas"]["uuid"][];
             /** @description Omit to keep the stored 気になる度 (older clients); an empty string clears it. */
             wishLevel?: components["schemas"]["WishLevel"] | "";
+            /** @description 公開メモ, trimmed. Omit to keep the stored one (older clients); a blank string clears it. */
+            publicNote?: string;
             /** @description Omit to keep the stored links (older clients); an array replaces them all, in array order. At most 10. */
             links?: components["schemas"]["ShopLinkInput"][];
         };

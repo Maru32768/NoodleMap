@@ -3,6 +3,7 @@ import type { UploadMealRecordImageErrorBody } from "@/features/meal-records/api
 import {
   type FieldErrorType,
   SHOP_NAME_KANA_MAX_LENGTH,
+  SHOP_PUBLIC_NOTE_MAX_LENGTH,
   type UpdateShopField,
 } from "@/features/shops/shop-field-errors.ts";
 import {
@@ -143,6 +144,11 @@ export const SHOP_ALREADY_DELETED_TITLE = "この店舗はすでに削除され�
 // 店舗リンク problems: rejected by the server, or caught before saving.
 const SHOP_LINKS_INVALID_TITLE = `リンクの内容を確認してください（http(s) の URL は${SHOP_LINK_URL_MAX_LENGTH}文字まで、表示名は${SHOP_LINK_LABEL_MAX_LENGTH}文字まで、最大${SHOP_LINKS_MAX}件）`;
 
+const SHOP_TEXT_MAX_LENGTH: Partial<Record<UpdateShopField, number>> = {
+  nameKana: SHOP_NAME_KANA_MAX_LENGTH,
+  publicNote: SHOP_PUBLIC_NOTE_MAX_LENGTH,
+};
+
 // Message for an `invalid_request` field error on a shop form: shown under the
 // named input, or in a toast when the form has no input for that field.
 export function shopFieldErrorMessage(
@@ -167,10 +173,10 @@ export function shopFieldErrorMessage(
       return "形式が正しくありません";
     case "out_of_range":
       return "範囲外の値です";
-    case "too_long":
-      return field === "nameKana"
-        ? `${SHOP_NAME_KANA_MAX_LENGTH}文字以内で入力してください`
-        : "長すぎます";
+    case "too_long": {
+      const max = SHOP_TEXT_MAX_LENGTH[field];
+      return max ? `${max}文字以内で入力してください` : "長すぎます";
+    }
     case "duplicate":
       return field === "googlePlaceId"
         ? SHOP_DUPLICATE_PLACE_ID_TITLE

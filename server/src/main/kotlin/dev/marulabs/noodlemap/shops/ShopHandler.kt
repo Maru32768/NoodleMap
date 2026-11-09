@@ -42,6 +42,7 @@ import org.sqlite.SQLiteErrorCode
 import org.sqlite.SQLiteException
 
 private const val NAME_KANA_MAX_LENGTH = 100
+private const val PUBLIC_NOTE_MAX_LENGTH = 2000
 private const val SHOP_LINKS_MAX = 10
 private const val SHOP_LINK_URL_MAX_LENGTH = 2048
 private const val SHOP_LINK_LABEL_MAX_LENGTH = 100
@@ -179,12 +180,13 @@ class ShopHandler(
         val wishLevel = req.wishLevel?.let(::parseWishLevel)
         val temporaryClosure = req.temporaryClosure?.let(::normalizeTemporaryClosure)
         val businessHours = req.businessHours?.let(::normalizeBusinessHours)
+        val publicNote = normalizePublicNote(req.publicNote)
         db.transaction {
             rejectingDuplicatePlaceId {
                 db.shopsQueries.insertShop(
                     shopId, req.name, nameKana, req.lat, req.lng, req.postalCode, req.address,
                     ShopDate.encode(req.openedAt), ShopDate.encode(req.closedAt), googlePlaceId, req.category.value,
-                    wishLevel?.value,
+                    wishLevel?.value, publicNote,
                 )
             }
             temporaryClosure?.let { db.shopsQueries.setTemporaryClosure(it.startsOn, it.reopensOn, shopId) }
@@ -201,7 +203,7 @@ class ShopHandler(
                 postalCode = req.postalCode, address = req.address, googlePlaceId = googlePlaceId,
                 nearestStation = Stations.nearest(req.lat, req.lng),
                 eaten = false, favorite = false, mealRecordCount = 0, wishLevel = wishLevel?.value,
-                category = req.category,
+                publicNote = publicNote, category = req.category,
                 tags = tagsByShopIds(listOf(shopId))[shopId] ?: emptyList(),
                 links = linksByShopIds(listOf(shopId))[shopId] ?: emptyList(),
             ),
@@ -232,6 +234,8 @@ class ShopHandler(
         val temporaryClosure = req.temporaryClosure?.let(::normalizeTemporaryClosure)
         // Same for the 営業時間: missing keeps them, an object without kind clears them.
         val businessHours = req.businessHours?.let(::normalizeBusinessHours)
+        // Same for the 公開メモ: missing keeps it, blank clears it.
+        val publicNote = req.publicNote?.let { normalizePublicNote(it) ?: "" }
         db.transaction {
             // Write first and judge existence by rows affected: a SELECT before the first write
             // in a deferred WAL transaction can fail with SQLITE_BUSY_SNAPSHOT under contention.
@@ -239,7 +243,7 @@ class ShopHandler(
                 db.shopsQueries.updateShop(
                     req.name, nameKana, req.lat, req.lng, req.postalCode, req.address,
                     ShopDate.encode(req.openedAt), ShopDate.encode(req.closedAt), googlePlaceId, req.category.value,
-                    wishLevel, shopId,
+                    wishLevel, publicNote, shopId,
                 ).value
             }
             if (updated == 0L) throw DomainException.NotFound()
@@ -312,7 +316,7 @@ class ShopHandler(
                 postalCode = r.postal_code, address = r.address, googlePlaceId = r.google_place_id,
                 nearestStation = Stations.nearest(r.lat, r.lng),
                 eaten = mealRecordCount > 0, rate = r.rate, favorite = isFavorite(r.rate),
-                mealRecordCount = mealRecordCount, wishLevel = r.wish_level,
+                mealRecordCount = mealRecordCount, wishLevel = r.wish_level, publicNote = r.public_note,
                 category = CategorySlug.fromValue(r.category) ?: CategorySlug.RAMEN,
                 tags = tagsByShop[r.id] ?: emptyList(),
                 links = linksByShop[r.id] ?: emptyList(),
@@ -410,6 +414,18 @@ class ShopHandler(
             )
         }
         return kana
+    }
+
+    /** Trims the 公開メモ; blank means "not set". Counted in code points, as OpenAPI maxLength counts characters. */
+    private fun normalizePublicNote(raw: String?): String? {
+        val note = raw?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+        if (note.codePointCount(0, note.length) > PUBLIC_NOTE_MAX_LENGTH) {
+            throw DomainException.InvalidRequestWithFields(
+                "public note too long",
+                listOf(FieldError("publicNote", FieldErrorType.TOO_LONG)),
+            )
+        }
+        return note
     }
 
     /** `google_place_id` is the only UNIQUE column on `shops`, so a UNIQUE violation there is a duplicate place id. */

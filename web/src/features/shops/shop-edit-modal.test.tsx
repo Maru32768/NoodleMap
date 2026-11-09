@@ -680,6 +680,54 @@ describe("ShopEditModal 気になる度", () => {
   });
 });
 
+describe("ShopEditModal 公開メモ", () => {
+  const note = () => screen.getByRole("textbox", { name: "公開メモ" });
+
+  it("sends the edited 公開メモ, trimmed", async () => {
+    const { requests } = await renderEditor(
+      makeShop({ publicNote: "味噌がおすすめ" }),
+    );
+
+    expect(note()).toHaveValue("味噌がおすすめ");
+    await userEvent.clear(note());
+    await userEvent.type(note(), " 塩がおすすめ{Enter}大盛り無料 ");
+    await userEvent.click(screen.getByRole("button", { name: "保存" }));
+
+    await waitFor(() => expect(requests).toHaveLength(1));
+    expect(requests[0].publicNote).toBe("塩がおすすめ\n大盛り無料");
+  });
+
+  it("sends an empty string to clear the 公開メモ", async () => {
+    const { requests } = await renderEditor(
+      makeShop({ publicNote: "味噌がおすすめ" }),
+    );
+
+    await userEvent.clear(note());
+    await userEvent.click(screen.getByRole("button", { name: "保存" }));
+
+    await waitFor(() => expect(requests).toHaveLength(1));
+    expect(requests[0].publicNote).toBe("");
+  });
+
+  it("shows a too long error under the 公開メモ", async () => {
+    await renderEditor(makeShop(), {
+      saveResponse: fieldErrorResponse([
+        { field: "publicNote", type: "too_long" },
+      ]),
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: "保存" }));
+
+    expect(
+      await screen.findByRole("textbox", {
+        name: "公開メモ",
+        description: /2000文字以内で入力してください/,
+      }),
+    ).toHaveAttribute("aria-invalid", "true");
+    expect(screen.queryByText("店舗を更新できませんでした")).toBeNull();
+  });
+});
+
 describe("ShopEditModal 気になる度 keyboard", () => {
   it("moves the choice with arrow keys from the one Tab stop", async () => {
     const { requests } = await renderEditor(

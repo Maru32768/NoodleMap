@@ -59,6 +59,7 @@ union AddShopField {
   "tagIds",
   "links",
   "wishLevel",
+  "publicNote",
 }
 
 union CategorySlug {
@@ -94,6 +95,7 @@ union UpdateShopField {
   "tagIds",
   "links",
   "wishLevel",
+  "publicNote",
 }
 
 @doc("気になる度 of a shop not eaten yet: low = ちょっと行きたい, medium = 行きたい, high = 絶対行きたい.")
@@ -435,6 +437,9 @@ model Shop {
   @doc("気になる度. Absent when not set. Kept after the shop is eaten, but only meaningful before.")
   wishLevel?: WishLevel;
 
+  @doc("公開メモ, such as the menu to order. Shown to everyone. Absent when not set.")
+  publicNote?: string;
+
   category: CategorySlug;
   tags: Tag[];
 
@@ -757,6 +762,10 @@ model AddShopRequest {
   @doc("Omit when not set.")
   wishLevel?: WishLevel;
 
+  @doc("公開メモ, trimmed. Omit (or send a blank string) for none.")
+  @maxLength(2000)
+  publicNote?: string;
+
   @doc("At most 10 links, stored in array order. Omit for none.")
   @maxItems(10)
   links?: ShopLinkInput[];
@@ -796,6 +805,10 @@ model UpdateShopRequest {
 
   @doc("Omit to keep the stored 気になる度 (older clients); an empty string clears it.")
   wishLevel?: WishLevel | "";
+
+  @doc("公開メモ, trimmed. Omit to keep the stored one (older clients); a blank string clears it.")
+  @maxLength(2000)
+  publicNote?: string;
 
   @doc("Omit to keep the stored links (older clients); an array replaces them all, in array order. At most 10.")
   @maxItems(10)

@@ -87,6 +87,11 @@ public data class Shop(
    */
   @SerialName("wishLevel")
   public val wishLevel: String? = null,
+  /**
+   * 公開メモ, such as the menu to order. Shown to everyone. Absent when not set.
+   */
+  @SerialName("publicNote")
+  public val publicNote: String? = null,
   @SerialName("category")
   public val category: CategorySlug,
   @SerialName("tags")

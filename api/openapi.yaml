@@ -1311,6 +1311,7 @@ components:
         - tagIds
         - links
         - wishLevel
+        - publicNote
     AddShopFieldError:
       type: object
       required:
@@ -1373,6 +1374,10 @@ components:
           allOf:
             - $ref: '#/components/schemas/WishLevel'
           description: Omit when not set.
+        publicNote:
+          type: string
+          maxLength: 2000
+          description: 公開メモ, trimmed. Omit (or send a blank string) for none.
         links:
           type: array
           items:
@@ -2156,6 +2161,9 @@ components:
           allOf:
             - $ref: '#/components/schemas/WishLevel'
           description: 気になる度. Absent when not set. Kept after the shop is eaten, but only meaningful before.
+        publicNote:
+          type: string
+          description: 公開メモ, such as the menu to order. Shown to everyone. Absent when not set.
         category:
           $ref: '#/components/schemas/CategorySlug'
         tags:
@@ -2381,6 +2389,7 @@ components:
         - tagIds
         - links
         - wishLevel
+        - publicNote
     UpdateShopFieldError:
       type: object
       required:
@@ -2454,6 +2463,10 @@ components:
               enum:
                 - ''
           description: Omit to keep the stored 気になる度 (older clients); an empty string clears it.
+        publicNote:
+          type: string
+          maxLength: 2000
+          description: 公開メモ, trimmed. Omit to keep the stored one (older clients); a blank string clears it.
         links:
           type: array
           items:

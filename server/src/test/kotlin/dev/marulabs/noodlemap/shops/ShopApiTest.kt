@@ -149,6 +149,56 @@ class ShopApiTest {
     }
 
     @Test
+    fun `public note is trimmed, kept when omitted, replaced when sent and cleared when blank`() = testApp { t ->
+        val admin = t.adminToken()
+        val req = addShopRequest().copy(publicNote = "\n 味噌がおすすめ\n大盛り無料 \n")
+        val added = client.postJson("/api/v1/auth/shops", encode(req), admin).body<Shop>()
+        added.publicNote shouldBe "味噌がおすすめ\n大盛り無料"
+        client.shops().single().publicNote shouldBe "味噌がおすすめ\n大盛り無料"
+
+        // Older clients don't send the field; that must keep the stored note.
+        client.putJson("/api/v1/auth/shops/${added.id}", encode(req.toUpdate()), admin).status shouldBe HttpStatusCode.OK
+        client.shops().single().publicNote shouldBe "味噌がおすすめ\n大盛り無料"
+
+        client.putJson("/api/v1/auth/shops/${added.id}", encode(req.toUpdate().copy(publicNote = " 塩がおすすめ ")), admin)
+            .status shouldBe HttpStatusCode.OK
+        client.shops().single().publicNote shouldBe "塩がおすすめ"
+
+        client.putJson("/api/v1/auth/shops/${added.id}", encode(req.toUpdate().copy(publicNote = " \n ")), admin)
+            .status shouldBe HttpStatusCode.OK
+        client.shops().single().publicNote shouldBe null
+
+        client.postJson("/api/v1/auth/shops", encode(addShopRequest(placeId = null).copy(publicNote = " ")), admin)
+            .body<Shop>().publicNote shouldBe null
+        client.shops().map { it.publicNote } shouldBe listOf(null, null)
+    }
+
+    @Test
+    fun `a public note over 2000 characters is a field error and nothing is written`() = testApp { t ->
+        val admin = t.adminToken()
+        val tooLong = ErrorBody(ErrorType.INVALID_REQUEST, "public note too long", listOf(FieldError("publicNote", FieldErrorType.TOO_LONG)))
+        // Characters, not UTF-16 units: each 🍜 is a surrogate pair.
+        val longest = "🍜".repeat(2000)
+        val req = addShopRequest()
+
+        client.postJson("/api/v1/auth/shops", encode(req.copy(publicNote = longest + "あ")), admin).let {
+            it.status shouldBe HttpStatusCode.BadRequest
+            it.body<ErrorBody>() shouldBe tooLong
+        }
+        client.shops().shouldBeEmpty()
+
+        val id = client.postJson("/api/v1/auth/shops", encode(req.copy(publicNote = longest)), admin).body<Shop>().id
+        client.putJson("/api/v1/auth/shops/$id", encode(req.toUpdate().copy(name = "Renamed", publicNote = longest + "あ")), admin).let {
+            it.status shouldBe HttpStatusCode.BadRequest
+            it.body<ErrorBody>() shouldBe tooLong
+        }
+        client.shops().single().let {
+            it.name shouldBe "Ramen Taro"
+            it.publicNote shouldBe longest
+        }
+    }
+
+    @Test
     fun `links keep their order, are kept when omitted on update, and replaced when sent`() = testApp { t ->
         val admin = t.adminToken()
         val req = addShopRequest().copy(

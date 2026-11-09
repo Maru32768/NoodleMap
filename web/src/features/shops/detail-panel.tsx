@@ -240,6 +240,36 @@ export function DetailPanel({ shop, onAdminEdit, onClose }: DetailPanelProps) {
           </Box>
         )}
 
+        {shop.publicNote && (
+          <Box
+            bg="nm.bg"
+            borderRadius="nmMd"
+            px="1rem"
+            py="0.875rem"
+            mb="1.125rem"
+          >
+            <Box
+              fontFamily="mono"
+              fontSize="0.625rem"
+              letterSpacing="0.18em"
+              color="nm.inkMuted"
+              textTransform="uppercase"
+              mb="0.5rem"
+            >
+              公開メモ - Public Note
+            </Box>
+            <Box
+              fontSize="0.8125rem"
+              color="nm.ink"
+              lineHeight="1.55"
+              whiteSpace="pre-wrap"
+              overflowWrap="anywhere"
+            >
+              {shop.publicNote}
+            </Box>
+          </Box>
+        )}
+
         {shop.eaten && (
           <Box
             bg="nm.bg"

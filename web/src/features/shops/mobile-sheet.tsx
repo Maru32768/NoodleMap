@@ -351,6 +351,36 @@ export function MobileSheet({
                   />
                 </Box>
 
+                {shop.publicNote && (
+                  <Box
+                    bg="nm.bg"
+                    borderRadius="nmMd"
+                    px="1rem"
+                    py="0.875rem"
+                    mt="0.875rem"
+                  >
+                    <Box
+                      fontFamily="mono"
+                      fontSize="0.625rem"
+                      letterSpacing="0.18em"
+                      color="nm.inkMuted"
+                      textTransform="uppercase"
+                      mb="0.5rem"
+                    >
+                      公開メモ
+                    </Box>
+                    <Box
+                      fontSize="0.8125rem"
+                      color="nm.ink"
+                      lineHeight="1.55"
+                      whiteSpace="pre-wrap"
+                      overflowWrap="anywhere"
+                    >
+                      {shop.publicNote}
+                    </Box>
+                  </Box>
+                )}
+
                 {shop.eaten && (
                   <Box
                     bg="nm.bg"
