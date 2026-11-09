@@ -19,7 +19,10 @@ const mf = new Miniflare({
   bindings: { BACKEND_ORIGIN: "https://backend.test" },
   outboundService(request) {
     const url = new URL(request.url);
-    if (url.host !== "backend.test") return new Response(PAGE, { headers: { "content-type": "text/html" } });
+    if (url.host !== "backend.test") {
+      if (request.headers.get("if-none-match") === '"abc"') return new Response(null, { status: 304 });
+      return new Response(PAGE, { headers: { "content-type": "text/html", etag: '"abc"' } });
+    }
     backendCalls.push(url.pathname);
     return backend();
   },
@@ -64,4 +67,14 @@ test("a backend slower than the timeout leaves the page as it is", async () => {
   const started = Date.now();
   assert.equal(await get("/search?shop=x"), PAGE);
   assert.ok(Date.now() - started < 5000);
+});
+
+test("a revalidation still gets the shop's tags, and the page carries no validator of index.html", async () => {
+  const res = await mf.dispatchFetch("https://noodle-map.test/search?shop=x", {
+    headers: { "if-none-match": '"abc"' },
+  });
+
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get("etag"), null);
+  assert.ok((await res.text()).includes(META));
 });

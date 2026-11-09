@@ -12,15 +12,23 @@ export default {
     if (request.method !== "GET" || url.pathname !== "/search" || !shop) {
       return fetch(request);
     }
+    // index.html's validators say nothing about the shop's tags, so a 304 would keep stale ones.
+    const headers = new Headers(request.headers);
+    headers.delete("if-none-match");
+    headers.delete("if-modified-since");
     const [page, meta] = await Promise.all([
-      fetch(request),
+      fetch(new Request(request, { headers })),
       shopMeta(env.BACKEND_ORIGIN, shop),
     ]);
     if (meta === null || !page.ok) return page;
-    return new HTMLRewriter()
+    const tagged = new HTMLRewriter()
       .on(DEFAULT_TAGS, { element: (e) => e.remove() })
       .on("head", { element: (e) => e.append(meta, { html: true }) })
       .transform(page);
+    const response = new Response(tagged.body, tagged);
+    response.headers.delete("etag");
+    response.headers.delete("last-modified");
+    return response;
   },
 };
 

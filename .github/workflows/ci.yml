@@ -40,6 +40,20 @@ jobs:
           install_args: node
       - run: npm run test:enrichment
 
+  # terraform deploys edge/og-worker.js straight from the checkout.
+  edge:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: edge
+    steps:
+      - uses: actions/checkout@v5
+      - uses: jdx/mise-action@v3
+        with:
+          install_args: node
+      - run: npm ci
+      - run: npm test
+
   server:
     runs-on: ubuntu-latest
     defaults:
