@@ -84,12 +84,17 @@ export function MealRecordGrid({
 }) {
   const { shops } = useShops();
   const isPc = useIsPc();
+  // The record outlives `isOpen` so the modal keeps its content while it animates closed.
   const [opened, setOpened] = useState<MealRecord>();
+  const [isOpen, setIsOpen] = useState(false);
   const categoryOf = useMemo(
     () => shops && new Map(shops.map((shop) => [shop.id, shop.category])),
     [shops],
   );
-  const open = useCallback((record: MealRecord) => setOpened(record), []);
+  const open = useCallback((record: MealRecord) => {
+    setOpened(record);
+    setIsOpen(true);
+  }, []);
 
   return (
     <>
@@ -118,8 +123,8 @@ export function MealRecordGrid({
         />
       )}
       <ModalDialog
-        open={!!opened}
-        onOpenChange={(isOpen) => !isOpen && setOpened(undefined)}
+        open={isOpen}
+        onOpenChange={setIsOpen}
         width="640px"
         title={opened && mealRecordTitle(opened)}
       >

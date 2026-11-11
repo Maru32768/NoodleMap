@@ -76,21 +76,20 @@ function AddMealRecordDialog({
       // Sticky elements stop at the padding: the form's action row is the footer.
       bodyProps={{ pb: 0 }}
     >
-      {open && (
-        <MealRecordForm
-          scope={ALL}
-          onDirtyChange={setDirty}
-          onBusyChange={setBusy}
-          onCancel={onClose}
-          onSave={(input, savedId) =>
-            savedId ? updateMealRecord(savedId, input) : addMealRecord(input)
-          }
-          onSaved={() => {
-            onClose();
-            toaster.success({ description: "食べた記録を保存しました" });
-          }}
-        />
-      )}
+      {/* The dialog mounts its content fresh on each open and unmounts it after the close animation. */}
+      <MealRecordForm
+        scope={ALL}
+        onDirtyChange={setDirty}
+        onBusyChange={setBusy}
+        onCancel={onClose}
+        onSave={(input, savedId) =>
+          savedId ? updateMealRecord(savedId, input) : addMealRecord(input)
+        }
+        onSaved={() => {
+          onClose();
+          toaster.success({ description: "食べた記録を保存しました" });
+        }}
+      />
     </ModalDialog>
   );
 }
