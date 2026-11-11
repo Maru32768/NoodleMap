@@ -233,12 +233,11 @@ describe("businessHoursHeadline", () => {
       ),
     ).toBe("不定休");
     expect(businessHoursHeadline(makeShop(), now)).toBe("営業時間不明");
-    expect(
-      businessHoursHeadline(
-        { ...shop, closureStatus: "temporarilyClosed" },
-        now,
-      ),
-    ).toBe("臨時休業");
+    const closed = makeShop({
+      businessHours: weekly,
+      temporaryClosure: { startsOn: "2026-11-01", reopensOn: "2026-11-05" },
+    });
+    expect(businessHoursHeadline(closed, now)).toBe("臨時休業");
   });
 });
 
