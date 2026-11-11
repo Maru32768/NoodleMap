@@ -266,8 +266,22 @@ export default function MealRecordsPage() {
           mt="24px"
           mb="16px"
         >
-          <Box as="h1" fontSize="24px" fontWeight={700}>
-            食べた記録
+          <Box display="flex" alignItems="baseline" gap="12px">
+            <Box as="h1" fontSize="24px" fontWeight={700}>
+              食べた記録
+            </Box>
+            {data && visible && (
+              <Box
+                role="status"
+                fontFamily="mono"
+                fontSize="13px"
+                color="nm.inkMuted"
+              >
+                {visible.length === data.length
+                  ? `${data.length}件`
+                  : `${visible.length}件 / 全${data.length}件`}
+              </Box>
+            )}
           </Box>
           {isAdmin && (
             <Button variant="outline" size="sm" onClick={() => setAdding(true)}>

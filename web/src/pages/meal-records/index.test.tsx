@@ -159,12 +159,14 @@ describe("MealRecordsPage", () => {
       "ラーメン店 × うどん店",
       "うどん店",
     ]);
+    expect(screen.getByText("3件")).toBeInTheDocument();
 
     await user.click(screen.getByRole("radio", { name: "うどん" }));
     expect(await cardShopNames()).toEqual([
       "ラーメン店 × うどん店",
       "うどん店",
     ]);
+    expect(screen.getByText("2件 / 全3件")).toBeInTheDocument();
     expect(screen.getByTestId("search")).toHaveTextContent("?category=udon");
   });
 
