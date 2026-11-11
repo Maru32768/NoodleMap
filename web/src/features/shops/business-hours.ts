@@ -164,10 +164,10 @@ export function nextOpeningAfter(shop: HoursShop, at: Dayjs): Dayjs | null {
 
 /** The folded line of the 営業時間 section, e.g. 「営業中・15:00まで」. */
 export function businessHoursHeadline(
-  shop: Pick<Shop, "closureStatus"> & HoursShop,
+  shop: HoursShop,
   now: Dayjs = dayjs(),
 ): string {
-  if (shop.closureStatus === "temporarilyClosed") {
+  if (shopClosureStatus(shop, now) === "temporarilyClosed") {
     return "臨時休業";
   }
   if (!shop.businessHours) {
