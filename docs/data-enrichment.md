@@ -141,6 +141,8 @@ Skill、検証スクリプト、バッチ分割、取り込み画面は実装済
 
 `check-isolation.mjs` は既知の名前を確認するだけで、完全な検査ではない。この確認は誤って手元で実行する事故を防ぐためのもので、攻撃は防がない。隔離は環境そのもので担保する。
 
+作者の環境では、これらの条件を dotfiles の research インスタンス ([docs/research.md](https://github.com/Maru32768/dotfiles/blob/master/docs/research.md)) で満たす。使い捨ての WSL インスタンスで、Claude Code は `WebSearch` と `WebFetch` だけを Web に使える。Bash には通信先がない。認証は呼び出し元が渡す `ANTHROPIC_API_KEY` で、LAN とメタデータの宛先は nftables で拒否する。1回の実行ごとに作り直す。
+
 ### 実行方法
 
 次のコマンドは、リポジトリの外に作った作業フォルダで実行する。`batch.json`、`results`、`validated` は `.gitignore` の対象外で、リポジトリは公開されているからだ。コマンドの `scripts/` と `.claude/` は、リポジトリへのパスに読み替える。
@@ -159,13 +161,27 @@ node scripts/enrichment/export-batch.mjs --progress results
 node scripts/enrichment/export-batch.mjs --out batch.json --batch 7
 ```
 
-隔離環境で Skill を実行する。途中で止まっても、同じ引数で再実行すれば結果のない店から続く。
+隔離環境に Skill、サブエージェント、`batch.json` を渡す。research インスタンスの Claude Code は `--setting-sources user` で起動し、作業ディレクトリの `.claude/skills` と `.claude/agents` を読まないので、Skill とサブエージェントは隔離環境のユーザーの `~/.claude` に置く。次のコマンドは Windows の Git Bash で実行する (Windows PowerShell 5.1 のパイプはバイナリを書き換えるので、tar のアーカイブが壊れる)。
+
+```bash
+tar -cf - -C <リポジトリ>/.claude skills/shop-research agents/shop-researcher.md | wsl.exe -d research-foo --cd '~' -e sh -c 'mkdir -p .claude && tar -xf - -C .claude'
+tar -cf - batch.json | wsl.exe -d research-foo --cd '~/work' -e sh -c 'mkdir -p run && tar -xf - -C run'
+```
+
+隔離環境の Claude Code を `~/work/run` で起動し、Skill を実行する。途中で止まっても、同じ引数で再実行すれば結果のない店から続く。
 
 ```text
 /shop-research batch.json results
 ```
 
-受け取った結果を `results/07/` へ移し、信頼する側の検証スクリプトと、手元に残した `batch.json` で検証する。隔離環境の Skill は `--rejections-only` を付けて実行するので、`accepted.jsonl` を作らない。管理画面に読み込ませるのは、次のコマンドが手元で作ったファイルだけにする。
+結果の出力先だけを持ち出し、`results/07/` に展開する。中身は Web から来たものとして扱い、実行しない。
+
+```bash
+wsl.exe -d research-foo --cd '~/work/run' -e tar -cf - results > results.tar
+mkdir -p results/07 && tar -xf results.tar -C results/07 --strip-components=1
+```
+
+受け取った結果を、信頼する側の検証スクリプトと、手元に残した `batch.json` で検証する。隔離環境の Skill は `--rejections-only` を付けて実行するので、`accepted.jsonl` を作らない。管理画面に読み込ませるのは、次のコマンドが手元で作ったファイルだけにする。
 
 ```bash
 node .claude/skills/shop-research/scripts/validate-results.mjs batch.json results/07 validated/07
@@ -490,7 +506,7 @@ OGP 画像はハッシュを含むパスで保存される (`og/OgHandler.kt`)�
 検証スクリプトは、自動テストと基準データのコピーで確認した。書き出しは、自動テストと本番 API への実行で確認した。全店の書き出しを基準データから作ったものと比べると、違いは基準データの後に統合された2店だけだった。Skill とサブエージェントは隔離環境でだけ動かす前提なので、まだ一度も実行していない。
 
 - `/shop-research` がサブエージェントを1店ずつ呼び、結果をそのまま保存できるか。
-- `disable-model-invocation: true` の Skill を `claude -p` から実行できるか。定期実行で必要になる。`--bare` は Skill とサブエージェントの自動検出を止めるので使えない。
+- `disable-model-invocation: true` の Skill を `claude -p` から実行できるか。定期実行で必要になる。`--bare` は Skill とサブエージェントの自動検出を止めるので使えない。research インスタンスの `lab.ps1 run` は対話の起動だけで、今は `-p` を渡せない。
 - 注入の試験ページに対する実際の挙動。
 - WebFetch が robots.txt に従うかは公式文書で確認できなかった。食べログの `robots.txt` は `*` に店舗ページを許可している。
 - WebFetch や WebSearch が食べログや検索結果へ届く範囲と、抽出の精度。
