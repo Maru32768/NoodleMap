@@ -174,6 +174,12 @@ tar -cf - batch.json | wsl.exe -d research-foo --cd '~/work' -e sh -c 'mkdir -p 
 /shop-research batch.json results
 ```
 
+research インスタンスでは、`lab.ps1 run`の`-Prompt`でこの Skill を`claude -p`として1回だけ実行できる。APIキーは呼び出し元の環境変数で渡す(dotfilesの[docs/research.md](https://github.com/Maru32768/dotfiles/blob/master/docs/research.md))。ConsoleのPromotional creditsは、「Applies to」にClaude Codeを含まないものがあり、そのクレジットしかない組織では、対話のClaude Codeは`Credit balance too low`で失敗し、`claude -p`は動いた(2026-11、Claude Code 2.1.318)。
+
+```powershell
+powershell -ExecutionPolicy Bypass -File lab\lab.ps1 run research-foo -Path work/run -Prompt '/shop-research batch.json results'
+```
+
 結果の出力先だけを持ち出し、`results/07/` に展開する。中身は Web から来たものとして扱い、実行しない。
 
 ```bash
@@ -490,6 +496,7 @@ OGP 画像はハッシュを含むパスで保存される (`og/OgHandler.kt`)�
 - Claude のサブスクリプションで実行する場合は、金額ではなく利用上限が制約になる。
 - オーケストレーターの費用はこの表に含まない。各店の結果を文脈に持ち続けるので、1バッチが大きいほど増える。
 - 項目を絞ったバッチや、継続更新の一部の店だけなら、この表より少ない。
+- 3店で試した実費は1店あたり約0.29ドルで、この表の想定の2倍を超えた(「3店の試験実行」)。この値のままなら、全店で約500ドルになる(推定)。
 
 ## 小規模な確認の結果
 
@@ -501,12 +508,21 @@ OGP 画像はハッシュを含むパスで保存される (`og/OgHandler.kt`)�
 | 中華そば 麦笑 | 別の店を返した | 5件中2位 | 未確認 |
 | らぁめん鴇 | 食べログは未発見、TableCheck は発見 | 5件中1位 | 未確認 |
 
+### 3店の試験実行
+
+同じ3店を`--shop-ids`で書き出し、research インスタンスで`/shop-research`を`claude -p`として実行した(2026-11-14、Claude Code 2.1.318、モデルは既定のOpus 5.5)。
+
+- `disable-model-invocation: true`の Skill は、`claude -p '/shop-research batch.json results'`で動いた。オーケストレーターはサブエージェントを1店ずつ呼び、返った JSON をそのまま`results/<店舗ID>.json`に保存した。
+- 隔離環境の検証と、信頼する側での検証の両方で、3店の結果はすべて合格した(提案11件、チェック42件、却下0件、注入の疑い0店)。
+- 費用は合計0.88ドル(1店あたり約0.29ドル)、Web検索は17回(1店あたり約6回)、所要時間は約4分(1店あたり約80秒)だった。このうち0.22ドルはHaiku 5.5の分で、WebSearch と WebFetch がツールの中で使うモデルと見られる(推定)。
+- 3店とも、店名と住所が一致した食べログのページを提案した。提案したページが正しいかは、まだ確かめていない。
+- 営業時間と公式サイトは、3店とも見つからなかった。読みは、鴇が TableCheck の表記から、麦笑と東奔西走は推定だった。麦笑は Facebook のページ名から、店名に支店名を足す提案が出た。
+- 隔離環境の`claude -p`では、Bash の複合コマンド(`node ...; echo ...`)が承認を得られずに拒まれ、Claude が単独のコマンドで実行し直した。サンドボックスの中の Bash からは、`ANTHROPIC_`で始まる環境変数が見えなかった。
+
 ### 未検証のこと
 
-検証スクリプトは、自動テストと基準データのコピーで確認した。書き出しは、自動テストと本番 API への実行で確認した。全店の書き出しを基準データから作ったものと比べると、違いは基準データの後に統合された2店だけだった。Skill とサブエージェントは隔離環境でだけ動かす前提なので、まだ一度も実行していない。
+検証スクリプトは、自動テストと基準データのコピーで確認した。書き出しは、自動テストと本番 API への実行で確認した。全店の書き出しを基準データから作ったものと比べると、違いは基準データの後に統合された2店だけだった。Skill とサブエージェントは、上の3店でだけ実行した。
 
-- `/shop-research` がサブエージェントを1店ずつ呼び、結果をそのまま保存できるか。
-- `disable-model-invocation: true` の Skill を `claude -p` から実行できるか。定期実行で必要になる。`--bare` は Skill とサブエージェントの自動検出を止めるので使えない。research インスタンスの `lab.ps1 run` は対話の起動だけで、今は `-p` を渡せない。
 - 注入の試験ページに対する実際の挙動。
 - WebFetch が robots.txt に従うかは公式文書で確認できなかった。食べログの `robots.txt` は `*` に店舗ページを許可している。
 - WebFetch や WebSearch が食べログや検索結果へ届く範囲と、抽出の精度。
