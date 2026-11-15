@@ -357,9 +357,9 @@ Batches API に移す場合は、先に食べログへの同時アクセスを�
 |------|---------------|-----------|
 | `official` | 店舗単位のページを優先する。チェーンは店舗ページがなければ公式トップ | Web検索、商業施設のテナントページ |
 | `tabelog` | `https://tabelog.com/<都道府県>/<A…>/<A…>/<ID>/`。`ssl.` と `/en/` は除く | 食べログ検索 |
-| `twitter` | `https://x.com/<ID>`。`twitter.com` も統一する | 公式サイトのリンク、検索結果のプロフィール |
+| `twitter` | `https://x.com/<ID>`。`twitter.com` も統一する | 公式サイトのリンク、検索結果のプロフィール、食べログの公式アカウント欄と検索の候補の一致 |
 | `instagram` | `https://www.instagram.com/<ID>/` | 同上 |
-| `facebook` | ページの URL | 同上 |
+| `facebook` | ページの URL | 公式サイトのリンク、検索結果のプロフィール |
 | `reservation` | 予約と整理券をまとめる。言語別 URL は日本語版にする (TableCheck に `/pt/` や `/ru/` がある) | 公式サイト、公式 SNS、予約ページ |
 | `other` | LINE、TikTok など | 公式サイト、公式 SNS |
 
