@@ -39,8 +39,8 @@ const fileOf = (records: unknown[]) =>
     "accepted.jsonl",
   );
 
-// As a browser does: the file shows only on drop, an untaken dragover lets the browser open the file,
-// and an effect of "none" refuses it.
+// As a browser does: the file shows only on drop, an untaken dragover or drop lets the browser open
+// the file, and an effect of "none" refuses it.
 const dropFile = (target: Element, file: File) => {
   const over = { types: ["Files"], files: [] as File[], dropEffect: "copy" };
   if (fireEvent.dragOver(target, { dataTransfer: over })) {
@@ -49,10 +49,9 @@ const dropFile = (target: Element, file: File) => {
   if (over.dropEffect === "none") {
     return "refused";
   }
-  fireEvent.drop(target, {
-    dataTransfer: { ...over, files: [file] },
-  });
-  return "dropped";
+  return fireEvent.drop(target, { dataTransfer: { ...over, files: [file] } })
+    ? "opened"
+    : "dropped";
 };
 
 const ready = async () => {
@@ -366,10 +365,12 @@ describe("ShopEnrichmentModal", () => {
     const user = userEvent.setup();
     await ready();
 
-    dropFile(
-      screen.getByText(/ここにドロップしてください/),
-      fileOf([proposalLine(shop, "a", {})]),
-    );
+    expect(
+      dropFile(
+        screen.getByText(/ここにドロップしてください/),
+        fileOf([proposalLine(shop, "a", {})]),
+      ),
+    ).toBe("dropped");
     await user.click(await screen.findByLabelText("開店日を選択"));
 
     dropFile(
