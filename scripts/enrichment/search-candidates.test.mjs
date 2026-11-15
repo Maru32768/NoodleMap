@@ -16,6 +16,19 @@ test('the area is the city, Tokyo ward, or district of the address', () => {
   assert.equal(areaOf('3 Luongo Square, Providence'), '');
 });
 
+test('a municipality keeps its whole name when a suffix character sits inside it', () => {
+  assert.equal(areaOf('東京都羽村市五ノ神４丁目'), '羽村市');
+  assert.equal(areaOf('東京都東村山市秋津町５丁目'), '東村山市');
+  assert.equal(areaOf('東京都武蔵村山市学園３丁目'), '武蔵村山市');
+  assert.equal(areaOf('愛知県蒲郡市本町１−２５'), '蒲郡市');
+  assert.equal(areaOf('奈良県大和郡山市北郡山町'), '大和郡山市');
+  assert.equal(areaOf('三重県四日市市城北町１−１'), '四日市市');
+  assert.equal(areaOf('北海道余市郡余市町黒川町'), '余市郡');
+  assert.equal(areaOf('群馬県安中市原市２丁目'), '安中市');
+  assert.equal(areaOf('千葉県匝瑳市八日市場イ'), '匝瑳市');
+  assert.equal(areaOf('東京都新宿区市谷本村町'), '新宿区');
+});
+
 test('accounts and sites come out canonical, in rank order, without posts or third-party pages', () => {
   const candidates = candidatesFrom([
     'https://tabelog.com/tokyo/A1316/A131601/13003195/',

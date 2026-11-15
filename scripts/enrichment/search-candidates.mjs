@@ -23,8 +23,13 @@ const NOT_A_SHOP_SITE = [
 
 /** The city, ward of Tokyo, or district of an address, which narrows a search to the shop's area. */
 export function areaOf(address) {
-  const match = /^(?:東京都|北海道|京都府|大阪府|.{2,3}県)(.+?[市区郡町村])/.exec(address.normalize('NFKC'));
-  return match ? match[1].replace(/^(.+?市).+区$/, '$1') : '';
+  const rest = /^(?:東京都|北海道|京都府|大阪府|.{2,3}県)(.*)$/.exec(address.normalize('NFKC'))?.[1] ?? '';
+  const name = /^.+?[市区郡町村]/.exec(rest)?.[0];
+  if (!name) return '';
+  // 四日市市 and 余市郡 repeat the suffix, and 羽村市, 東村山市, and 蒲郡市 hold one inside the name.
+  const after = rest.slice(name.length);
+  const more = name.endsWith('区') ? '' : (name.endsWith('市') ? /^[市郡]/ : /^.?市/).exec(after)?.[0] ?? '';
+  return name + more;
 }
 
 /**
