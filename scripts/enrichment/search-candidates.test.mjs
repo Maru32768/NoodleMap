@@ -65,6 +65,9 @@ test('a Facebook page name in the URL is dropped for its id, and a long or encod
     'https://www.facebook.com/profile.php?id=100012348',
     `https://www.facebook.com/${'a'.repeat(50)}`,
   ]);
+  // Alone, so that the five-candidate limit cannot be what drops them.
+  assert.deepEqual(candidatesFrom([`https://www.facebook.com/${'b'.repeat(51)}`]).facebook, []);
+  assert.deepEqual(candidatesFrom(['https://www.facebook.com/p/%E3%82%AA%E3%83%BC']).facebook, []);
 });
 
 test('each kind holds at most five candidates', () => {
