@@ -21,14 +21,21 @@ const NOT_A_SHOP_SITE = [
   'hatalike.jp', 'apple.com', 'bing.com',
 ];
 
+// The first suffix character ends a name everywhere else, and 東近江市市辺町 or 芳賀郡市貝町 is not one name.
+// shortcut: only the names with a suffix character inside; add one when a search area comes out cut short.
+const INNER_SUFFIX = [
+  [/^(?:四日市|廿日市|野々市|羽村|田村|大町|十日町)$/, /^市/],
+  [/^余市$/, /^[郡町]/],
+  [/^(?:蒲郡|大和郡)$/, /^山?市/],
+  [/^(?:東村|武蔵村|西村|北村)$/, /^山[市郡]/],
+];
+
 /** The city, ward of Tokyo, or district of an address, which narrows a search to the shop's area. */
 export function areaOf(address) {
   const rest = /^(?:東京都|北海道|京都府|大阪府|.{2,3}県)(.*)$/.exec(address.normalize('NFKC'))?.[1] ?? '';
   const name = /^.+?[市区郡町村]/.exec(rest)?.[0];
   if (!name) return '';
-  // 四日市市 and 余市郡 repeat the suffix, and 羽村市, 東村山市, and 蒲郡市 hold one inside the name.
-  const after = rest.slice(name.length);
-  const more = name.endsWith('区') ? '' : (name.endsWith('市') ? /^[市郡]/ : /^.?市/).exec(after)?.[0] ?? '';
+  const more = INNER_SUFFIX.find(([cut]) => cut.test(name))?.[1].exec(rest.slice(name.length))?.[0] ?? '';
   return name + more;
 }
 

@@ -16,7 +16,7 @@ test('the area is the city, Tokyo ward, or district of the address', () => {
   assert.equal(areaOf('3 Luongo Square, Providence'), '');
 });
 
-test('a municipality keeps its whole name when a suffix character sits inside it', () => {
+test('a municipality with a suffix character inside its name keeps the whole name', () => {
   assert.equal(areaOf('東京都羽村市五ノ神４丁目'), '羽村市');
   assert.equal(areaOf('東京都東村山市秋津町５丁目'), '東村山市');
   assert.equal(areaOf('東京都武蔵村山市学園３丁目'), '武蔵村山市');
@@ -27,6 +27,15 @@ test('a municipality keeps its whole name when a suffix character sits inside it
   assert.equal(areaOf('群馬県安中市原市２丁目'), '安中市');
   assert.equal(areaOf('千葉県匝瑳市八日市場イ'), '匝瑳市');
   assert.equal(areaOf('東京都新宿区市谷本村町'), '新宿区');
+  assert.equal(areaOf('滋賀県東近江市市辺町'), '東近江市');
+  assert.equal(areaOf('大阪府茨木市郡山'), '茨木市');
+  assert.equal(areaOf('栃木県芳賀郡市貝町'), '芳賀郡');
+  assert.equal(areaOf('富山県中新川郡上市町'), '中新川郡');
+  assert.equal(areaOf('山形県西村山郡河北町'), '西村山郡');
+  assert.equal(areaOf('新潟県十日町市本町'), '十日町市');
+  assert.equal(areaOf('徳島県阿波市市場町市場'), '阿波市');
+  assert.equal(areaOf('鹿児島県鹿児島市郡山町'), '鹿児島市');
+  assert.equal(areaOf('奈良県吉野郡下市町'), '吉野郡');
 });
 
 test('accounts and sites come out canonical, in rank order, without posts or third-party pages', () => {
