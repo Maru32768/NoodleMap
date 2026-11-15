@@ -511,6 +511,8 @@ function parseProposal(raw, shop, requested, tagsBySlug, today, notices) {
   const value = parseValue(raw.field, raw.value, shop, tagsBySlug, today);
   // A source that gives only the month says the shop closed by the month's end, which is what closed_at means.
   if (estimated && raw.field === 'closed_at' && !isMonthEnd(value)) reject('estimated_date_not_month_end');
+  // The month's end of a month still to come would show a closed shop as open until then.
+  if (estimated && raw.field === 'closed_at' && value > today) reject('estimated_date_in_the_future');
   const checkField = checkFieldOf(raw.field, value);
   if (!requested.has(checkField)) reject('field_not_requested');
   const evidence = parseEvidence(raw.evidence, checkField, estimated, today);

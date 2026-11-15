@@ -299,6 +299,7 @@ test('a closing date known only to the month is its last day, marked as estimate
   assert.deepEqual(reasons(monthEnd('2024-06-15')), ['estimated_date_not_month_end']);
   assert.deepEqual(reasons(monthEnd('2023-02-29')), ['invalid_date']);
   assert.deepEqual(reasons(monthEnd('2024-06-30', [])), ['evidence_required']);
+  assert.deepEqual(reasons(monthEnd('2099-12-31')), ['estimated_date_in_the_future']);
   const shopWithReading = runProposal(
     { field: 'closed_at', value: '2024-06-30', evidence: [officialEvidence], estimated: true },
     { closed_at: 'found' },
