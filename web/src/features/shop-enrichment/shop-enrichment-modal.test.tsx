@@ -39,10 +39,24 @@ const fileOf = (records: unknown[]) =>
     "accepted.jsonl",
   );
 
-const dropFile = (target: Element, records: unknown[]) =>
-  fireEvent.drop(target, {
-    dataTransfer: { types: ["Files"], files: [fileOf(records)] },
-  });
+// As a browser does, drops only where the dragover was taken with an effect other than "none".
+const dropFile = (target: Element, file: File) => {
+  const dataTransfer = { types: ["Files"], files: [file], dropEffect: "copy" };
+  const taken =
+    !fireEvent.dragOver(target, { dataTransfer }) &&
+    dataTransfer.dropEffect !== "none";
+  if (taken) {
+    fireEvent.drop(target, { dataTransfer });
+  }
+  return taken;
+};
+
+const ready = async () => {
+  renderWithProviders(<ShopEnrichmentModal open onClose={() => {}} />);
+  const picker = await screen.findByLabelText("ファイルを選ぶ");
+  await waitFor(() => expect(picker).toBeEnabled());
+  return picker;
+};
 
 let shops: Shop[];
 let tags: Tag[];
@@ -67,10 +81,7 @@ function serve() {
 
 async function loadFile(records: unknown[]) {
   const user = userEvent.setup();
-  renderWithProviders(<ShopEnrichmentModal open onClose={() => {}} />);
-  const picker = await screen.findByLabelText("ファイルを選ぶ");
-  await waitFor(() => expect(picker).toBeEnabled());
-  await user.upload(picker, fileOf(records));
+  await user.upload(await ready(), fileOf(records));
   return user;
 }
 
@@ -349,18 +360,18 @@ describe("ShopEnrichmentModal", () => {
     const shop = makeShop({ name: "店" });
     shops = [shop];
     const user = userEvent.setup();
-    renderWithProviders(<ShopEnrichmentModal open onClose={() => {}} />);
-    const picker = await screen.findByLabelText("ファイルを選ぶ");
-    await waitFor(() => expect(picker).toBeEnabled());
+    await ready();
 
-    dropFile(screen.getByText(/ここにドロップしてください/), [
-      proposalLine(shop, "a", {}),
-    ]);
+    dropFile(
+      screen.getByText(/ここにドロップしてください/),
+      fileOf([proposalLine(shop, "a", {})]),
+    );
     await user.click(await screen.findByLabelText("開店日を選択"));
 
-    dropFile(screen.getByRole("group", { name: "店" }), [
-      proposalLine(shop, "a", { runId: "b08-2026-11-13" }),
-    ]);
+    dropFile(
+      screen.getByRole("group", { name: "店" }),
+      fileOf([proposalLine(shop, "a", { runId: "b08-2026-11-13" })]),
+    );
     expect(await screen.findByText(/^b08-2026-11-13 /)).toBeInTheDocument();
     expect(screen.queryByText(/^b07-2026-11-06 /)).toBeNull();
     expect(screen.getByLabelText("開店日を選択")).not.toBeChecked();
@@ -386,9 +397,12 @@ describe("ShopEnrichmentModal", () => {
     );
     await screen.findByRole("button", { name: "停止" });
 
-    dropFile(screen.getByRole("group", { name: "店" }), [
-      proposalLine(shop, "a", { runId: "b08-2026-11-13" }),
-    ]);
+    expect(
+      dropFile(
+        screen.getByRole("group", { name: "店" }),
+        fileOf([proposalLine(shop, "a", { runId: "b08-2026-11-13" })]),
+      ),
+    ).toBe(false);
     release();
 
     await screen.findByText("反映が終わりました");
@@ -609,17 +623,13 @@ describe("ShopEnrichmentModal", () => {
   });
 
   it("explains a dropped folder", async () => {
-    renderWithProviders(<ShopEnrichmentModal open onClose={() => {}} />);
-    const picker = await screen.findByLabelText("ファイルを選ぶ");
-    await waitFor(() => expect(picker).toBeEnabled());
+    const picker = await ready();
     // Chromium hands a dropped folder over as an empty File whose read fails.
     const folder = new File([], "b07-2026-11-06");
     folder.text = () =>
       Promise.reject(new DOMException("not found", "NotFoundError"));
 
-    fireEvent.drop(picker, {
-      dataTransfer: { types: ["Files"], files: [folder] },
-    });
+    dropFile(picker, folder);
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "読み込めませんでした。ファイルを読めません。フォルダではなく、accepted.jsonlを選んでください",
