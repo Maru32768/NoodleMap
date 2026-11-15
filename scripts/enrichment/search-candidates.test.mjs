@@ -109,7 +109,7 @@ test('a rerun skips shops that already have candidates and saves after each shop
   assert.deepEqual(batch.shops[1].candidates.twitter, ['https://x.com/men_sonan']);
 });
 
-test('the search sends the key in its header, and fails on an error answer', async () => {
+test('the search sends the key in its header only, and fails on an error answer without it', async () => {
   const calls = [];
   const responses = [
     Response.json({ web: { results: [{ url: 'https://x.com/a', title: 'ignored' }] }, query: { more_results_available: true } }),
@@ -124,5 +124,6 @@ test('the search sends the key in its header, and fails on an error answer', asy
   assert.equal(calls[0].key, 'secret');
   assert.equal(calls[0].url.searchParams.get('q'), 'かづ屋 目黒区');
   assert.equal(calls[0].url.searchParams.get('offset'), '1');
-  await assert.rejects(search('x', 0), /answered 500/);
+  await assert.rejects(search('x', 0), (error) => /answered 500/.test(error.message) && !error.message.includes('secret'));
+  assert.ok(calls.every((call) => !call.url.href.includes('secret')));
 });
