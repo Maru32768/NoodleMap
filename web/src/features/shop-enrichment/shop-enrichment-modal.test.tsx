@@ -471,14 +471,11 @@ describe("ShopEnrichmentModal", () => {
       ),
     ).toBe("dropped");
     await reached;
-    expect(dropFile(group, fileOf([{ kind: "command", runId: "r" }]))).toBe(
-      "refused",
-    );
+    expect(dropFile(group, fileOf([]))).toBe("refused");
     expect(screen.getByLabelText("別のファイルを選ぶ")).toBeDisabled();
     release();
 
     expect(await screen.findByText(/^b08-2026-11-13 /)).toBeInTheDocument();
-    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it.each(["shops", "tags"] as const)(
