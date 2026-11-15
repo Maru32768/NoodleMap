@@ -202,7 +202,7 @@ tar -cf - -C <リポジトリ>/.claude skills/shop-research agents/shop-research
 tar -cf - batch.json | wsl.exe -d research-foo --cd '~/work' -e sh -c 'mkdir -p run && tar -xf - -C run'
 ```
 
-隔離環境の Claude Code を `~/work/run` で起動し、Skill を実行する。途中で止まっても、同じ引数で再実行すれば結果のない店から続く。1回の実行で調べるのは、結果のない店のうち先頭の30店まで。Claude Codeでは1ターンのWebSearchがサブエージェントと合わせて200回までで、バッチ0では34店を調べた後に上限に達したからだ(「バッチ0の実行」)。50店ほどのバッチは2回に分けて実行する。上限に達した後の店では、researcherが調べられなかった項目を`error`にする。
+隔離環境の Claude Code を `~/work/run` で起動し、Skill を実行する。途中で止まっても、同じ引数で再実行すれば結果のない店から続く。1回の実行で調べるのは、結果のない店のうち先頭の30店まで。Claude Codeでは1ターンのWebSearchがサブエージェントと合わせて200回までで、バッチ0では34店を調べた後に上限に達したからだ(「バッチ0の実行」)。50店ほどのバッチは2回に分けて実行する。2回目は新しい環境で行う(後述)。上限に達した後の店では、researcherが調べられなかった項目を`error`にする。
 
 ```text
 /shop-research batch.json results
@@ -230,6 +230,13 @@ node .claude/skills/shop-research/scripts/validate-results.mjs batch.json result
 終了コードは、すべて合格が0、却下ありが1。却下ありでも、合格した店の分は `accepted.jsonl` に出力される。このファイルを管理画面に読み込ませる。
 
 出力の`error_shops=`には、`error`の項目が残った店のIDが並ぶ。サイトに断られたか、検索の上限に達した店なので、その結果ファイルを消して、新しい環境で調べ直す。
+
+2回目の実行と調べ直しは、新しい環境で行う。前の結果を隔離環境へ戻さないためだ。`--skip-researched` で結果のない店だけを書き出し、候補を足してから、同じ手順で調べる。持ち出した結果は同じ `results/07/` に展開し、検証はその回の `batch.json` で行い、出力先を `validated/07-2` のように分ける。1回目の検証では、まだ調べていない店が `missing_result` として却下に並ぶ。
+
+```bash
+node scripts/enrichment/export-batch.mjs --out batch-2.json --batch 7 --skip-researched results/07
+node scripts/enrichment/search-candidates.mjs --batch batch-2.json --out batch-2.json
+```
 
 店舗を追加したら `--progress` を実行する。`remaining` が1以上のバッチについて、結果のある店を除いて書き出す。調査と検証の手順は同じで、出力先だけ別にする。
 
