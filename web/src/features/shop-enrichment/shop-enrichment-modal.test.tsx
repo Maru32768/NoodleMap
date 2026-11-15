@@ -785,6 +785,37 @@ describe("ShopEnrichmentModal", () => {
     expect(link).toHaveAttribute("rel", "noopener noreferrer");
   });
 
+  it("says a month-end closing date came from a news article that gave only the month", async () => {
+    const shop = makeShop({ name: "店" });
+    shops = [shop];
+    await loadFile([
+      proposalLine(shop, "a", {
+        field: "closed_at",
+        proposedValue: "2024-06-30",
+        evidence: [
+          {
+            url: "https://www.yamatopi.jp/open-close/shouta.html",
+            sourceKind: "news_site",
+            observedAt: "2026-11-06",
+            note: "2024年6月に閉店と報じた記事",
+          },
+        ],
+        estimated: true,
+        reviewReasons: ["high_impact_field", "estimated_date"],
+      }),
+    ]);
+    expect(
+      await screen.findByText("月までしか分からないので月末にした日付です"),
+    ).toBeInTheDocument();
+    // The filters list every label too, so look for the badge and the evidence line.
+    expect(
+      screen
+        .getAllByText("月末とした閉店日")
+        .some((element) => element.tagName !== "OPTION"),
+    ).toBe(true);
+    expect(screen.getByText(/地域のニュース · 2026-11-06/)).toBeInTheDocument();
+  });
+
   it("shows notices next to the shop and names a shop production lost", async () => {
     const shop = makeShop({ name: "店" });
     const gone = "99999999-2222-4333-8444-555555555555";
