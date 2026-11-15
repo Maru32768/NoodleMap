@@ -39,16 +39,20 @@ const fileOf = (records: unknown[]) =>
     "accepted.jsonl",
   );
 
-// As a browser does, drops only where the dragover was taken with an effect other than "none".
+// As a browser does: the file shows only on drop, an untaken dragover lets the browser open the file,
+// and an effect of "none" refuses it.
 const dropFile = (target: Element, file: File) => {
-  const dataTransfer = { types: ["Files"], files: [file], dropEffect: "copy" };
-  const taken =
-    !fireEvent.dragOver(target, { dataTransfer }) &&
-    dataTransfer.dropEffect !== "none";
-  if (taken) {
-    fireEvent.drop(target, { dataTransfer });
+  const over = { types: ["Files"], files: [] as File[], dropEffect: "copy" };
+  if (fireEvent.dragOver(target, { dataTransfer: over })) {
+    return "opened";
   }
-  return taken;
+  if (over.dropEffect === "none") {
+    return "refused";
+  }
+  fireEvent.drop(target, {
+    dataTransfer: { ...over, files: [file] },
+  });
+  return "dropped";
 };
 
 const ready = async () => {
@@ -402,7 +406,7 @@ describe("ShopEnrichmentModal", () => {
         screen.getByRole("group", { name: "店" }),
         fileOf([proposalLine(shop, "a", { runId: "b08-2026-11-13" })]),
       ),
-    ).toBe(false);
+    ).toBe("refused");
     release();
 
     await screen.findByText("反映が終わりました");
@@ -428,19 +432,16 @@ describe("ShopEnrichmentModal", () => {
         await screen.findByText(/ここにドロップしてください/),
         fileOf([]),
       ),
-    ).toBe(false);
+    ).toBe("refused");
     release();
   });
 
   it("keeps the browser from opening a file dropped outside the drop area", async () => {
     await ready();
-    const outside = screen.getByText("調査結果の取り込み");
-    const dataTransfer = { types: ["Files"], files: [fileOf([])] };
 
-    // A canceled dragover with no effect means the browser neither drops nor opens the file.
-    expect(fireEvent.dragOver(outside, { dataTransfer })).toBe(false);
-    expect(dataTransfer).toHaveProperty("dropEffect", "none");
-    expect(fireEvent.drop(outside, { dataTransfer })).toBe(false);
+    expect(dropFile(screen.getByText("調査結果の取り込み"), fileOf([]))).toBe(
+      "refused",
+    );
   });
 
   it("sends an edited value and blocks an invalid one", async () => {
