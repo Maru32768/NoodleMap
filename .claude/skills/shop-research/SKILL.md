@@ -17,7 +17,7 @@ If it exits non-zero, stop and report the names it printed. Continue only when i
 
 ## 2. List the work
 
-Read the batch. The work list is every entry of `shops` with no `<results-dir>/<shop id>.json` file, so a rerun continues where the last run stopped.
+Read the batch. The work list is the first 30 entries of `shops`, in batch order, with no `<results-dir>/<shop id>.json` file, so a rerun continues where the last run stopped. Claude Code allows 200 WebSearch calls in one turn, shared by every subagent, and 30 shops keep a run below that.
 
 ## 3. Research each shop in turn
 
@@ -45,6 +45,6 @@ For each shop in that file, dispatch a fresh researcher once more, with the reje
 
 ## 5. Report
 
-The run is complete when the validator has run after the last write. Report its two output lines, then each remaining rejection's shop id and reason code.
+The run is complete when the validator has run after the last write. Report its three output lines, then each remaining rejection's shop id and reason code, and the number of shops in the batch that still have no result file.
 
 The operator takes `<results-dir>` out of the environment and validates it again with their own copy of the validator and the batch.

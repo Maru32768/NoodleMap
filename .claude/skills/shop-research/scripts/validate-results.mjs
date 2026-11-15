@@ -732,6 +732,9 @@ function main(args) {
   );
   const suspected = accepted.filter((record) => record.noticeKind === 'suspected_injection');
   console.log(`suspected_injection_shops=${[...new Set(suspected.map((record) => record.shopId))].join(',')}`);
+  // A blocked site or a spent search budget leaves `error`; deleting these result files queues the shops again.
+  const errored = accepted.filter((record) => record.kind === 'check' && record.outcome === 'error');
+  console.log(`error_shops=${[...new Set(errored.map((record) => record.shopId))].join(',')}`);
   return rejected.length ? 1 : 0;
 }
 

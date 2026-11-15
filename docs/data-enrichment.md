@@ -168,7 +168,7 @@ tar -cf - -C <リポジトリ>/.claude skills/shop-research agents/shop-research
 tar -cf - batch.json | wsl.exe -d research-foo --cd '~/work' -e sh -c 'mkdir -p run && tar -xf - -C run'
 ```
 
-隔離環境の Claude Code を `~/work/run` で起動し、Skill を実行する。途中で止まっても、同じ引数で再実行すれば結果のない店から続く。
+隔離環境の Claude Code を `~/work/run` で起動し、Skill を実行する。途中で止まっても、同じ引数で再実行すれば結果のない店から続く。1回の実行で調べるのは、結果のない店のうち先頭の30店まで。Claude Codeでは1ターンのWebSearchがサブエージェントと合わせて200回までで、バッチ0では34店で上限に達したからだ(「バッチ0の実行」)。50店ほどのバッチは2回に分けて実行する。上限に達した後の店では、researcherが調べられなかった項目を`error`にする。
 
 ```text
 /shop-research batch.json results
@@ -194,6 +194,8 @@ node .claude/skills/shop-research/scripts/validate-results.mjs batch.json result
 ```
 
 終了コードは、すべて合格が0、却下ありが1。却下ありでも、合格した店の分は `accepted.jsonl` に出力される。このファイルを管理画面に読み込ませる。
+
+出力の`error_shops=`には、`error`の項目が残った店のIDが並ぶ。サイトに断られたか、検索の上限に達した店なので、その結果ファイルを消して、新しい環境で調べ直す。
 
 店舗を追加したら `--progress` を実行する。`remaining` が1以上のバッチについて、結果のある店を除いて書き出す。調査と検証の手順は同じで、出力先だけ別にする。
 

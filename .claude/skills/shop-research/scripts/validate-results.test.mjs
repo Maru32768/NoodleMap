@@ -671,6 +671,15 @@ test('the command writes both files, reports rejections, and refuses a symlink',
     assert.equal(warned.status, 0, warned.stderr);
     assert.match(warned.stdout, /notices=1/);
     assert.match(warned.stdout, new RegExp(`suspected_injection_shops=${SHOP_ID}`));
+    assert.match(warned.stdout, /^error_shops=$/m);
+
+    writeFileSync(
+      join(resultsDir, `${SHOP_ID}.json`),
+      JSON.stringify({ shopId: SHOP_ID, checks: { ...noEvidence(), name: 'error' }, proposals: [], notices: [], tagCandidates: [] }),
+    );
+    const blocked = command();
+    assert.equal(blocked.status, 0, blocked.stderr);
+    assert.match(blocked.stdout, new RegExp(`^error_shops=${SHOP_ID}$`, 'm'));
 
     rmSync(join(resultsDir, `${SHOP_ID}.json`));
     const secret = join(dir, 'secret.json');

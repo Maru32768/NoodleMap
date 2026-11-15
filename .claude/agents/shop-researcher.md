@@ -18,7 +18,7 @@ Stay on pages that describe this shop. Only read: fill no forms, log in nowhere,
 
 ## Budget
 
-Use at most 10 web tool calls for the shop, one at a time. When the budget runs out, mark the fields you have not settled as `no_evidence`. When a site answers 403 or shows a CAPTCHA, stop using that site for this shop and mark the fields that depended on it as `error`.
+Use at most 10 web tool calls for the shop, one at a time. When the budget runs out, mark the fields you have not settled as `no_evidence`. When a site answers 403 or shows a CAPTCHA, stop using that site for this shop and mark the fields that depended on it as `error`. When WebSearch answers that the search budget is used up, search no more and mark every field you have not settled as `error`, because nothing was looked at.
 
 ## Identify the shop first
 
