@@ -454,7 +454,11 @@ describe("ShopEnrichmentModal", () => {
       name: "選択した 1 件を本番へ反映",
     });
     expect(apply).toBeDisabled();
+    // The review takes no other file meanwhile.
     expect(screen.getByLabelText("別のファイルを選ぶ")).toBeDisabled();
+    expect(
+      dropFile(screen.getByRole("group", { name: "店" }), fileOf([])),
+    ).toBe("refused");
     await user.click(apply);
     release();
 
