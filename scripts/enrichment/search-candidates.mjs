@@ -35,7 +35,8 @@ function officialCandidate(raw) {
   const canonical = canonicalLinkUrl('official', raw);
   if (!canonical) return null;
   const url = new URL(canonical);
-  // A wildcard DNS name can spell anything in its labels, so a long host name is not a shop's site.
+  // A wildcard DNS name can spell anything in its labels, so a host longer than 40 ASCII characters (after
+  // punycode) is not trusted as a candidate.
   if (url.hostname.length > 40 || onAnyDomain(url.hostname, NOT_A_SHOP_SITE)) return null;
   const plainPath = /^[A-Za-z0-9/._-]{0,80}$/.test(url.pathname) && !url.search;
   return plainPath ? `${url.origin}${url.pathname}` : `${url.origin}/`;
