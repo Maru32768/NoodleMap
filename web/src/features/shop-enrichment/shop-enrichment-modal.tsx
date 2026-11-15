@@ -257,7 +257,7 @@ export function ShopEnrichmentModal({
     const text = await picked.text().catch(() => null);
     if (text === null) {
       setFileError(
-        "フォルダではないか、ほかのアプリが開いたままでないかを確かめてください",
+        "フォルダではないか、ほかのアプリで開いたままになっていないかを確かめてください",
       );
       return;
     }

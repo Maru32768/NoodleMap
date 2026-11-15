@@ -672,7 +672,7 @@ describe("ShopEnrichmentModal", () => {
     dropFile(screen.getByRole("group", { name: "店" }), folder);
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "読み込めませんでした。フォルダではないか、ほかのアプリが開いたままでないかを確かめてください",
+      "読み込めませんでした。フォルダではないか、ほかのアプリで開いたままになっていないかを確かめてください",
     );
     expect(screen.getByLabelText("開店日を選択")).toBeChecked();
   });
