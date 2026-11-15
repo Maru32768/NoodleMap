@@ -36,6 +36,8 @@ test('a municipality with a suffix character inside its name keeps the whole nam
   assert.equal(areaOf('徳島県阿波市市場町市場'), '阿波市');
   assert.equal(areaOf('鹿児島県鹿児島市郡山町'), '鹿児島市');
   assert.equal(areaOf('奈良県吉野郡下市町'), '吉野郡');
+  assert.equal(areaOf('福島県田村郡三春町'), '田村郡');
+  assert.equal(areaOf('福島県田村市船引町'), '田村市');
 });
 
 test('accounts and sites come out canonical, in rank order, without posts or third-party pages', () => {

@@ -24,7 +24,8 @@ const NOT_A_SHOP_SITE = [
 // The first suffix character ends a name everywhere else, and 東近江市市辺町 or 芳賀郡市貝町 is not one name.
 // shortcut: only the names with a suffix character inside; add one when a search area comes out cut short.
 const INNER_SUFFIX = [
-  [/^(?:四日市|廿日市|野々市|羽村|田村|大町|十日町)$/, /^市/],
+  [/^(?:四日市|廿日市|野々市|羽村|大町|十日町)$/, /^市/],
+  [/^田村$/, /^[市郡]/],
   [/^余市$/, /^[郡町]/],
   [/^(?:蒲郡|大和郡)$/, /^山?市/],
   [/^(?:東村|武蔵村|西村|北村)$/, /^山[市郡]/],
