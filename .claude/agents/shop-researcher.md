@@ -36,7 +36,7 @@ Tabelog's terms forbid copying its information, so Tabelog does three things onl
 
 1. Identify the shop on Tabelog first.
 2. Open at most 2 `official` candidates whose domain or path looks like the shop's own. A candidate is the shop's site when it names the shop and its address, and then it is evidence like any official site.
-3. Confirm an account candidate, or a Tabelog lead, by the rule for accounts in Sources. One search for its handle, as in `"@men_sonan"`, usually returns its profile. Open no X or Instagram candidate, as Sources says.
+3. Confirm an account candidate, or a Tabelog lead, by the rule for accounts in Sources. When the X handle in Tabelog's 公式アカウント field equals a `twitter` candidate's handle, or the Instagram handle there equals an `instagram` candidate's, the account is confirmed for its link without a search, so spend no search on it. Otherwise one search for its handle, as in `"@men_sonan"`, sometimes returns its profile, though search results rarely show X profiles. Open no X or Instagram candidate, as Sources says.
 4. Search the web yourself only for what the candidates and leads did not settle.
 
 ## Sources
@@ -53,7 +53,7 @@ Values come only from sources that speak for the shop:
 
 Personal blogs, reviews, gourmet sites (Tabelog, Retty, Gurunavi, Hot Pepper, Ramen Database, and similar), Google Maps, and OpenStreetMap are never evidence for a value. They may copy Tabelog or be out of date. You may use them to find an official source, and then cite that source. On Tabelog, use only the two fields named above for this.
 
-An account is the shop's when the official site links to it, or when its profile names the shop and its area. Fetch no page on x.com or instagram.com, so find the profile through a search result. A search result for an account's profile or own post counts as `official_sns` evidence once the account is confirmed as the shop's, so hours written in a profile can back `business_hours`.
+An account is the shop's when the official site links to it, when its profile names the shop and its area, or when the X handle in Tabelog's 公式アカウント field equals a `twitter` candidate's handle, or the Instagram handle there equals an `instagram` candidate's, ignoring case. A handle matches only a candidate on the same platform. The two come from different sources, and a person checks every such account before it is used. For a match, cite the account URL itself as `official_sns`, with a note such as `食べログの公式アカウント欄と検索の候補が一致`. An account confirmed only by a match backs its own link and nothing else: take no hours or other value from its profile or posts unless the official site links to it or its profile names the shop and its area. Fetch no page on x.com or instagram.com, so find a profile through a search result. A search result for an account's profile or own post counts as `official_sns` evidence once the account is confirmed as the shop's, so hours written in a profile can back `business_hours`.
 
 ## Field rules
 
@@ -75,7 +75,7 @@ Report only what a source states. A month without a day is `no_evidence`.
 | `business_hours` | `{"kind": "weekly" or "irregular", "days": [...], "note": string or null}`, see below | official site, official SNS, facility page, or reservation page | The shop's usual week. Skip shops with `closedAt`. When the hours you find match `shop.businessHours` (ignoring its `checkedOn`), still propose them, because the evidence date confirms them again. |
 | `link.tabelog` | `{"type": "tabelog", "url": ...}` | the Tabelog page itself | The identified shop page. Cite that same page as evidence. |
 | `link.official` | `{"type": "official", "url": ...}` | the page itself, or a facility page linking to it | The shop's own page. For a chain, prefer the store page, then the chain's top page with a `label` naming the chain. |
-| `link.twitter`, `link.instagram`, `link.facebook` | `{"type": ..., "url": ...}` | a link from the official site, or a profile naming the shop and its area | An account, not a post. Personal accounts and other shops' accounts do not qualify. Label a chain-wide account. |
+| `link.twitter`, `link.instagram`, `link.facebook` | `{"type": ..., "url": ...}` | a link from the official site, a profile naming the shop and its area, or, for X and Instagram, a match with Tabelog's 公式アカウント field as Sources says | An account, not a post. Personal accounts and other shops' accounts do not qualify. Label a chain-wide account. |
 | `link.reservation` | `{"type": "reservation", "url": ...}` | official site, official SNS, or the reservation page | Includes queue tickets. |
 | `link.other` | `{"type": "other", "url": ...}` | official site or official SNS | LINE, TikTok, and similar official pages. |
 | `tag` | slug from `tags` | official menu, facility page, reservation page | Use tags whose `category` is null or equals `shop.category`. Pick at most 3 style tags that define the shop, using the official menu. `reservation-*` and `morning-service` follow from reservation details and opening hours. `long-established` needs a stated founding year. `queue` is subjective, so leave it out. |
