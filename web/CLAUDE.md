@@ -19,7 +19,8 @@ Run these from `web/`:
 
 - `npm run dev`: start the HTTPS Vite dev server.
 - `npm run dev:http`: start the HTTP Vite dev server.
-- `npm run build`: run mojibake checks, lint, TypeScript checks, and production build.
+- `npm run build`: run TypeScript checks and the production build. It does not lint or check for mojibake.
+- `npm run check`: run mojibake checks, lint, and TypeScript checks.
 - `npm run lint`: run ESLint.
 - `npm run format`: format with Prettier.
 - `npm run check:mojibake`: check Japanese text for mojibake.
@@ -78,8 +79,11 @@ Japanese UI copy must stay UTF-8. Before finishing frontend text changes, run `n
 
 ## Verification
 
-Before finishing frontend changes, run:
+Before finishing frontend changes, run from `web/`:
 
-- `npm run build` from `web/`
+- `npm run check`
+- `npm run build`
+
+`.githooks/pre-push` runs `npm run check` before each push, but only once `git config core.hooksPath .githooks` is set, and work that is never pushed skips it.
 
 For API type changes, run `npm run api:generate` from the repository root first.
