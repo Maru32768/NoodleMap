@@ -168,3 +168,7 @@ test('a shop gets at most two pages for its name and area', async () => {
   );
   assert.deepEqual(queries, ['MEN SONAN 神戸市#0', 'MEN SONAN 神戸市#1']);
 });
+
+test('a blog on a subdomain of an excluded site is not an official candidate', () => {
+  assert.deepEqual(candidatesFrom(['https://someone.hatenablog.com/entry/1']).official, []);
+});
