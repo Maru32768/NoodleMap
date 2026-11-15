@@ -664,7 +664,10 @@ describe("ShopEnrichmentModal", () => {
     const shop = makeShop({ name: "店" });
     shops = [shop];
     const user = await loadFile([proposalLine(shop, "a", {})]);
-    await user.click(await screen.findByLabelText("開店日を選択"));
+    await user.click(await screen.findByRole("button", { name: "修正する" }));
+    const input = screen.getByLabelText("開店日の修正");
+    await user.clear(input);
+    await user.type(input, "2021-02-03");
     // Chromium hands a dropped folder over as an empty File whose read fails.
     const folder = new File([], "b07-2026-11-06");
     folder.text = () =>
@@ -676,6 +679,7 @@ describe("ShopEnrichmentModal", () => {
       "読み込めませんでした。フォルダではないか、ほかのアプリで開いたままになっていないかを確かめてください",
     );
     expect(screen.getByLabelText("開店日を選択")).toBeChecked();
+    expect(screen.getByLabelText("開店日の修正")).toHaveValue("2021-02-03");
   });
 
   it("explains an empty file as empty, not as unreadable", async () => {
