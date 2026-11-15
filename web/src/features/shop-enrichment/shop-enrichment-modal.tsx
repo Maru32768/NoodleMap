@@ -253,7 +253,15 @@ export function ShopEnrichmentModal({
   const refresh = () => Promise.all([mutateShops(), mutateTags()]);
 
   const load = async (picked: File) => {
-    const parsed = parseEnrichmentFile(await picked.text());
+    // A dropped folder arrives as a File whose read fails.
+    const text = await picked.text().catch(() => null);
+    if (text === null) {
+      setFileError(
+        "ファイルを読めません。フォルダではなく、accepted.jsonlを選んでください",
+      );
+      return;
+    }
+    const parsed = parseEnrichmentFile(text);
     if (!parsed.ok) {
       // A loaded review stays, with its selections and edits: picking the wrong file costs nothing.
       setFileError(parsed.error);
