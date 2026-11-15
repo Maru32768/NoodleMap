@@ -79,6 +79,11 @@ test('a short Facebook name keeps its case and dots, and one page is listed once
   assert.deepEqual(facebook, ['https://www.facebook.com/Men.Sonan', 'https://www.facebook.com/profile.php?id=100012345']);
 });
 
+test('a long host name is not a candidate site, since any text fits in a wildcard DNS name', () => {
+  const host = `${'a'.repeat(28)}.example.com`;
+  assert.deepEqual(candidatesFrom([`https://${host}/`, `https://b${host}/`]).official, [`https://${host}/`]);
+});
+
 test('each kind holds at most five candidates', () => {
   const urls = Array.from({ length: 8 }, (_, i) => [`https://x.com/shop${i}`, `https://site${i}.example/`]).flat();
   const candidates = candidatesFrom(urls);
