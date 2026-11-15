@@ -17,7 +17,7 @@ If it exits non-zero, stop and report the names it printed. Continue only when i
 
 ## 2. List the work
 
-Read the batch. The work list is the first 30 entries of `shops`, in batch order, with no `<results-dir>/<shop id>.json` file, so a rerun continues where the last run stopped. Claude Code allows 200 WebSearch calls in one turn, shared by every subagent, and 30 shops keep a run below that.
+Read the batch. The work list is the first 30 shops, in batch order, of those in `shops` that have no `<results-dir>/<shop id>.json` file, so a rerun continues where the last run stopped. Claude Code allows 200 WebSearch calls in one turn, shared by every subagent, and 30 shops keep a run below that.
 
 ## 3. Research each shop in turn
 
