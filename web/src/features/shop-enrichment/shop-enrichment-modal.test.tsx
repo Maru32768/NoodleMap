@@ -410,6 +410,28 @@ describe("ShopEnrichmentModal", () => {
     expect(screen.queryByText(/^b08-2026-11-13 /)).toBeNull();
   });
 
+  it("refuses a file dropped before shops and tags load", async () => {
+    let release = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      http.get("/api/v1/shops", async () => {
+        await held;
+        return HttpResponse.json({ shops });
+      }),
+    );
+    renderWithProviders(<ShopEnrichmentModal open onClose={() => {}} />);
+
+    expect(
+      dropFile(
+        await screen.findByText(/ここにドロップしてください/),
+        fileOf([]),
+      ),
+    ).toBe(false);
+    release();
+  });
+
   it("sends an edited value and blocks an invalid one", async () => {
     const shop = makeShop({ name: "店" });
     shops = [shop];
