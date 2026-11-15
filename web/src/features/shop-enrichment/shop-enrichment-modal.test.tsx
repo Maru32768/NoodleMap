@@ -665,7 +665,7 @@ describe("ShopEnrichmentModal", () => {
     dropFile(picker, folder);
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "読み込めませんでした。ファイルを読めません。フォルダではなく、accepted.jsonlを選んでください",
+      "読み込めませんでした。フォルダではないか、ほかのアプリが開いたままでないかを確かめてください",
     );
   });
 

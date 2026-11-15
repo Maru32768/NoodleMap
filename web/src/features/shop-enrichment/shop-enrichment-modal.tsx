@@ -253,11 +253,11 @@ export function ShopEnrichmentModal({
   const refresh = () => Promise.all([mutateShops(), mutateTags()]);
 
   const load = async (picked: File) => {
-    // A dropped folder arrives as a File whose read fails.
+    // A dropped folder, or a file another app holds open, arrives as a File whose read fails.
     const text = await picked.text().catch(() => null);
     if (text === null) {
       setFileError(
-        "ファイルを読めません。フォルダではなく、accepted.jsonlを選んでください",
+        "フォルダではないか、ほかのアプリが開いたままでないかを確かめてください",
       );
       return;
     }
