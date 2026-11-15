@@ -677,6 +677,13 @@ describe("ShopEnrichmentModal", () => {
     expect(screen.getByLabelText("開店日を選択")).toBeChecked();
   });
 
+  it("explains an empty file as empty, not as unreadable", async () => {
+    await loadFile([]);
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "読み込めませんでした。レコードがありません",
+    );
+  });
+
   it("renders web text as text and links only with a safe rel", async () => {
     const shop = makeShop({ name: "店" });
     shops = [shop];
