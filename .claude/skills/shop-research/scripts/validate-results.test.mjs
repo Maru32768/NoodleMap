@@ -671,6 +671,15 @@ test('the command writes both files, reports rejections, and refuses a symlink',
     assert.equal(warned.status, 0, warned.stderr);
     assert.match(warned.stdout, /notices=1/);
     assert.match(warned.stdout, new RegExp(`suspected_injection_shops=${SHOP_ID}`));
+    assert.match(warned.stdout, /^error_shops=$/m);
+
+    writeFileSync(
+      join(resultsDir, `${SHOP_ID}.json`),
+      JSON.stringify({ shopId: SHOP_ID, checks: { ...noEvidence(), name: 'error', business_hours: 'error' }, proposals: [], notices: [], tagCandidates: [] }),
+    );
+    const blocked = command();
+    assert.equal(blocked.status, 0, blocked.stderr);
+    assert.match(blocked.stdout, new RegExp(`^error_shops=${SHOP_ID}$`, 'm'));
 
     rmSync(join(resultsDir, `${SHOP_ID}.json`));
     const secret = join(dir, 'secret.json');
@@ -742,12 +751,12 @@ test('the isolation check still runs when started through a link', () => {
 
 test('the isolation check names what it finds and no values', () => {
   const exposures = findExposures({
-    env: { R2_SECRET_ACCESS_KEY: 'value-1', GITHUB_TOKEN: 'value-2', ANTHROPIC_API_KEY: 'value-3', PATH: '/bin' },
+    env: { R2_SECRET_ACCESS_KEY: 'value-1', GITHUB_TOKEN: 'value-2', BRAVE_SEARCH_API_KEY: 'value-4', ANTHROPIC_API_KEY: 'value-3', PATH: '/bin' },
     cwd: '/work',
     home: '/home/u',
     exists: (path) => path.replaceAll('\\', '/').endsWith('/work/.env') || path.replaceAll('\\', '/').endsWith('/home/u/.ssh'),
   });
-  assert.deepEqual(exposures, ['env:R2_SECRET_ACCESS_KEY', 'env:GITHUB_TOKEN', 'workspace:.env', 'home:.ssh']);
+  assert.deepEqual(exposures, ['env:R2_SECRET_ACCESS_KEY', 'env:GITHUB_TOKEN', 'env:BRAVE_SEARCH_API_KEY', 'workspace:.env', 'home:.ssh']);
   assert.deepEqual(findExposures({ env: { PATH: '/bin' }, cwd: '/work', home: '/home/u', exists: () => false }), []);
   assert.deepEqual(
     findExposures({

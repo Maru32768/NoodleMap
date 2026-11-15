@@ -3,7 +3,7 @@ import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-const SECRET_ENV = /^(AWS_|R2_|CLOUDFLARE_|RENDER_|GOOGLE_|GH_TOKEN$|GITHUB_TOKEN$|TYPESAFE_|BACKUP_R2_|DB_PATH$|ADMIN_EMAIL$)/;
+const SECRET_ENV = /^(AWS_|R2_|CLOUDFLARE_|RENDER_|GOOGLE_|GH_TOKEN$|GITHUB_TOKEN$|TYPESAFE_|BRAVE_|BACKUP_R2_|DB_PATH$|ADMIN_EMAIL$)/;
 const WORKSPACE_PATHS = ['.env', 'mise.local.toml', 'db-data'];
 const HOME_PATHS = ['.ssh', '.aws', '.netrc', '.config/gh', '.config/rclone', '.docker/config.json'];
 

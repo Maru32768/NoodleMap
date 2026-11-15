@@ -163,7 +163,7 @@ function parseKana(raw) {
 }
 
 const onDomain = (host, domain) => host === domain || host.endsWith(`.${domain}`);
-const onAnyDomain = (host, domains) => domains.some((domain) => onDomain(host, domain));
+export const onAnyDomain = (host, domains) => domains.some((domain) => onDomain(host, domain));
 
 function parseUrl(raw) {
   if (typeof raw !== 'string' || raw.length > URL_MAX) reject('invalid_url');
@@ -247,6 +247,16 @@ const LINK_CANONICALIZERS = {
   reservation: canonicalReservation,
   other: withoutTracking,
 };
+
+/** The canonical form of a link the validator would accept, or null. */
+export function canonicalLinkUrl(type, raw) {
+  try {
+    return LINK_CANONICALIZERS[type](parseUrl(raw));
+  } catch (error) {
+    if (!(error instanceof Rejection)) throw error;
+    return null;
+  }
+}
 
 function parseLink(raw) {
   requireKeys(raw, ['type', 'url'], ['label']);
@@ -732,6 +742,9 @@ function main(args) {
   );
   const suspected = accepted.filter((record) => record.noticeKind === 'suspected_injection');
   console.log(`suspected_injection_shops=${[...new Set(suspected.map((record) => record.shopId))].join(',')}`);
+  // A blocked site, a spent search budget, or a rejected proposal leaves `error`; deleting these result files queues the shops again.
+  const errored = accepted.filter((record) => record.kind === 'check' && record.outcome === 'error');
+  console.log(`error_shops=${[...new Set(errored.map((record) => record.shopId))].join(',')}`);
   return rejected.length ? 1 : 0;
 }
 

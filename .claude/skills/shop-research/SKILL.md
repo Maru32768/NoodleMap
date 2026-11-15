@@ -17,7 +17,7 @@ If it exits non-zero, stop and report the names it printed. Continue only when i
 
 ## 2. List the work
 
-Read the batch. The work list is every entry of `shops` with no `<results-dir>/<shop id>.json` file, so a rerun continues where the last run stopped.
+Read the batch. The work list is the first 30 shops, in batch order, of those in `shops` that have no `<results-dir>/<shop id>.json` file, so a rerun continues where the last run stopped. Claude Code allows 200 WebSearch calls in one turn, shared by every subagent. A researcher makes at most 6, so 30 shops use at most 180 and leave a few for the retries in step 4.
 
 ## 3. Research each shop in turn
 
@@ -41,10 +41,10 @@ Run `node ${CLAUDE_SKILL_DIR}/scripts/validate-results.mjs <batch.json> <results
 
 Exit code 0 means every result passed. On exit code 1, read `<results-dir>/.validation/rejected.jsonl`. It holds shop ids and fixed reason codes.
 
-For each shop in that file, dispatch a fresh researcher once more, with the rejection's `where` and `reason` values added to the brief as `previousRejections`, overwrite its file, and validate again. One retry per shop is the limit.
+Skip every `missing_result` rejection of a shop that is not on this run's work list: that shop waits for the next run, and researching it here would spend the search budget the cap protects. For each other shop in that file, dispatch a fresh researcher once more, with the rejection's `where` and `reason` values added to the brief as `previousRejections`, overwrite its file, and validate again. This includes a shop whose invalid file an interrupted run left behind. One retry per shop is the limit.
 
 ## 5. Report
 
-The run is complete when the validator has run after the last write. Report its two output lines, then each remaining rejection's shop id and reason code.
+The run is complete when the validator has run after the last write. Report its three output lines, then the shop id and reason code of each remaining rejection except the skipped `missing_result` ones, and the number of shops in the batch that still have no result file.
 
 The operator takes `<results-dir>` out of the environment and validates it again with their own copy of the validator and the batch.
