@@ -413,113 +413,106 @@ export function ShopEnrichmentModal({
           </Box>
         ) : (
           <Box
-            display={{ base: "flex", md: "grid" }}
+            display={{ base: "flex", lg: "grid" }}
             flexDirection="column"
-            gridTemplateColumns={{ md: "300px minmax(0, 1fr)" }}
-            gridTemplateRows={{ md: "minmax(0, 1fr)" }}
+            gridTemplateColumns={{ lg: "300px minmax(0, 1fr)" }}
+            gridTemplateRows={{ lg: "minmax(0, 1fr)" }}
             gap="12px"
             flex="1"
             minH="0"
           >
             <Box
               display="grid"
-              gap="6px"
-              p="12px"
-              bg="nm.bg"
-              border="1px solid"
-              borderColor="nm.lineFaint"
-              rounded="nmMd"
+              gap="12px"
               flexShrink={0}
-              alignSelf={{ md: "start" }}
-              maxH={{ md: "100%" }}
-              overflowY="auto"
+              alignSelf={{ lg: "start" }}
+              maxH={{ lg: "100%" }}
+              overflowY={{ lg: "auto" }}
             >
-              <Line>
-                {file.runId} · 提案 {rows.length} 件 · 調査済み: 発見{" "}
-                {file.checks.found} / 情報なし {file.checks.no_evidence} / 失敗{" "}
-                {file.checks.error}
-              </Line>
-              {file.tagCandidates.length > 0 && (
-                <Line muted>
-                  タグの候補:{" "}
-                  {file.tagCandidates
-                    .map(({ label, count: n }) => `${label} (${n})`)
-                    .join("、")}
-                </Line>
-              )}
-              {noticeShopIds.length > 0 && (
-                <Line muted>
-                  注意のある店舗: {new Set(noticeShopIds).size} 店
-                </Line>
-              )}
-              <RunSummary run={run} />
-              {fileError && (
-                <Box role="alert" fontSize="13px" color="nm.shuDeep">
-                  読み込めませんでした。{fileError}
-                </Box>
-              )}
               <Box
-                display="flex"
-                flexDirection={{ md: "column" }}
-                justifyContent="flex-end"
-                alignItems={{ base: "center", md: "stretch" }}
-                gap="8px"
-                flexWrap="wrap"
-                textAlign="center"
+                display="grid"
+                gap="6px"
+                p="12px"
+                bg="nm.bg"
+                border="1px solid"
+                borderColor="nm.lineFaint"
+                rounded="nmMd"
               >
-                {running ? (
-                  <Button
-                    {...outlineButton}
-                    onClick={() => abort.current?.abort()}
-                  >
-                    停止
-                  </Button>
-                ) : (
-                  <>
-                    <FileButton
-                      {...outlineButton}
-                      accept={FILE_ACCEPT}
-                      onFiles={([picked]) => void load(picked)}
-                    >
-                      別のファイルを選ぶ
-                    </FileButton>
-                    <Button {...outlineButton} onClick={selectBulk}>
-                      表示中の一括可を選択
-                    </Button>
+                <Line>
+                  {file.runId} · 提案 {rows.length} 件 · 調査済み: 発見{" "}
+                  {file.checks.found} / 情報なし {file.checks.no_evidence} /
+                  失敗 {file.checks.error}
+                </Line>
+                {file.tagCandidates.length > 0 && (
+                  <Line muted>
+                    タグの候補:{" "}
+                    {file.tagCandidates
+                      .map(({ label, count: n }) => `${label} (${n})`)
+                      .join("、")}
+                  </Line>
+                )}
+                {noticeShopIds.length > 0 && (
+                  <Line muted>
+                    注意のある店舗: {new Set(noticeShopIds).size} 店
+                  </Line>
+                )}
+                <RunSummary run={run} />
+                {fileError && (
+                  <Box role="alert" fontSize="13px" color="nm.shuDeep">
+                    読み込めませんでした。{fileError}
+                  </Box>
+                )}
+                <Box
+                  display="flex"
+                  flexDirection={{ lg: "column" }}
+                  justifyContent="flex-end"
+                  alignItems={{ base: "center", lg: "stretch" }}
+                  gap="8px"
+                  flexWrap="wrap"
+                  textAlign="center"
+                >
+                  {running ? (
                     <Button
                       {...outlineButton}
-                      disabled={selected.size === 0}
-                      onClick={() => setSelected(new Set())}
+                      onClick={() => abort.current?.abort()}
                     >
-                      選択を解除
+                      停止
                     </Button>
-                  </>
-                )}
-                <LoadableButton
-                  {...primaryButton}
-                  disabled={chosen.length === 0 || invalidEdit}
-                  onClick={apply}
-                >
-                  選択した {chosen.length} 件を本番へ反映
-                </LoadableButton>
+                  ) : (
+                    <>
+                      <FileButton
+                        {...outlineButton}
+                        accept={FILE_ACCEPT}
+                        onFiles={([picked]) => void load(picked)}
+                      >
+                        別のファイルを選ぶ
+                      </FileButton>
+                      <Button {...outlineButton} onClick={selectBulk}>
+                        表示中の一括可を選択
+                      </Button>
+                      <Button
+                        {...outlineButton}
+                        disabled={selected.size === 0}
+                        onClick={() => setSelected(new Set())}
+                      >
+                        選択を解除
+                      </Button>
+                    </>
+                  )}
+                  <LoadableButton
+                    {...primaryButton}
+                    disabled={chosen.length === 0 || invalidEdit}
+                    onClick={apply}
+                  >
+                    選択した {chosen.length} 件を本番へ反映
+                  </LoadableButton>
+                </Box>
               </Box>
-            </Box>
-
-            <Box
-              display="flex"
-              flexDirection="column"
-              gap="12px"
-              flex="1"
-              minH="0"
-            >
-              <Box display="flex" gap="8px" flexWrap="wrap" flexShrink={0}>
-                <SegmentedPicker
-                  variant="segment"
-                  label="状態"
-                  options={stateOptions}
-                  value={filters.state}
-                  onChange={(state) => setFilters((f) => ({ ...f, state }))}
-                />
+              <Box
+                display={{ base: "flex", lg: "grid" }}
+                flexWrap="wrap"
+                gap="8px"
+              >
                 <FilterSelect
                   label="項目"
                   value={filters.field}
@@ -537,6 +530,24 @@ export function ShopEnrichmentModal({
                   value={filters.source}
                   options={SOURCE_LABELS}
                   onChange={(source) => setFilters((f) => ({ ...f, source }))}
+                />
+              </Box>
+            </Box>
+
+            <Box
+              display="flex"
+              flexDirection="column"
+              gap="12px"
+              flex="1"
+              minH="0"
+            >
+              <Box flexShrink={0}>
+                <SegmentedPicker
+                  variant="segment"
+                  label="状態"
+                  options={stateOptions}
+                  value={filters.state}
+                  onChange={(state) => setFilters((f) => ({ ...f, state }))}
                 />
               </Box>
 
