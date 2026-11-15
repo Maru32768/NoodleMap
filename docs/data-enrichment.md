@@ -202,7 +202,7 @@ tar -cf - -C <リポジトリ>/.claude skills/shop-research agents/shop-research
 tar -cf - batch.json | wsl.exe -d research-foo --cd '~/work' -e sh -c 'mkdir -p run && tar -xf - -C run'
 ```
 
-隔離環境の Claude Code を `~/work/run` で起動し、Skill を実行する。途中で止まっても、同じ引数で再実行すれば結果のない店から続く。1回の実行で調べるのは、結果のない店のうち先頭の30店まで。Claude Codeでは1ターンのWebSearchがサブエージェントと合わせて200回までで、バッチ0では34店を調べた後に上限に達したからだ(「バッチ0の実行」)。50店ほどのバッチは2回に分けて実行する。2回目は新しい環境で行う(後述)。上限に達した後の店では、researcherが調べられなかった項目を`error`にする。
+隔離環境の Claude Code を `~/work/run` で起動し、Skill を実行する。途中で止まっても、同じ引数で再実行すれば結果のない店から続く。1回の実行で調べるのは、結果のない店のうち先頭の30店まで。Claude Codeでは1ターンのWebSearchがサブエージェントと合わせて200回までで、バッチ0では34店を調べた後に上限に達したからだ(「バッチ0の実行」)。researcherの検索は1店6回までなので、30店で多くても180回になり、手順4の再試行の分が残る。50店ほどのバッチは2回に分けて実行する。2回目は新しい環境で行う(後述)。上限に達した後の店では、researcherが調べられなかった項目を`error`にする。
 
 ```text
 /shop-research batch.json results
