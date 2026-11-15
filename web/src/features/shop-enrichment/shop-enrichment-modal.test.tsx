@@ -432,6 +432,17 @@ describe("ShopEnrichmentModal", () => {
     release();
   });
 
+  it("keeps the browser from opening a file dropped outside the drop area", async () => {
+    await ready();
+    const outside = screen.getByText("調査結果の取り込み");
+    const dataTransfer = { types: ["Files"], files: [fileOf([])] };
+
+    // A canceled dragover with no effect means the browser neither drops nor opens the file.
+    expect(fireEvent.dragOver(outside, { dataTransfer })).toBe(false);
+    expect(dataTransfer).toHaveProperty("dropEffect", "none");
+    expect(fireEvent.drop(outside, { dataTransfer })).toBe(false);
+  });
+
   it("sends an edited value and blocks an invalid one", async () => {
     const shop = makeShop({ name: "店" });
     shops = [shop];
