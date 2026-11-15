@@ -290,6 +290,20 @@ test('text that hides its reading or carries a link is rejected', () => {
   assert.deepEqual(reasons(inNote), ['url_in_text']);
 });
 
+test('an account citing its own URL, as a Tabelog and candidate match does, goes to a person', () => {
+  const url = 'https://x.com/tohoseiso';
+  const output = runProposal(
+    {
+      field: 'link',
+      value: { type: 'twitter', url },
+      evidence: [{ ...officialEvidence, url, sourceKind: 'official_sns', note: '食べログの公式アカウント欄と検索の候補が一致' }],
+    },
+    { 'link.twitter': 'found' },
+  );
+  assert.deepEqual(reasons(output), []);
+  assert.deepEqual(proposals(output)[0].reviewReasons, ['source_unconfirmed']);
+});
+
 test('the reading becomes hiragana, keeps an existing value, and flags an estimate', () => {
   const converted = runProposal(
     { field: 'name_kana', value: 'トーホーセーソー', evidence: [officialEvidence] },
