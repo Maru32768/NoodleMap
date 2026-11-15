@@ -414,27 +414,30 @@ describe("ShopEnrichmentModal", () => {
     expect(screen.queryByText(/^b08-2026-11-13 /)).toBeNull();
   });
 
-  it("refuses a file dropped before shops and tags load", async () => {
-    let release = () => {};
-    const held = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    server.use(
-      http.get("/api/v1/shops", async () => {
-        await held;
-        return HttpResponse.json({ shops });
-      }),
-    );
-    renderWithProviders(<ShopEnrichmentModal open onClose={() => {}} />);
+  it.each(["shops", "tags"] as const)(
+    "refuses a file dropped before the %s load",
+    async (pending) => {
+      let release = () => {};
+      const held = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      server.use(
+        http.get(`/api/v1/${pending}`, async () => {
+          await held;
+          return HttpResponse.json({ shops, tags });
+        }),
+      );
+      renderWithProviders(<ShopEnrichmentModal open onClose={() => {}} />);
 
-    expect(
-      dropFile(
-        await screen.findByText(/ここにドロップしてください/),
-        fileOf([]),
-      ),
-    ).toBe("refused");
-    release();
-  });
+      expect(
+        dropFile(
+          await screen.findByText(/ここにドロップしてください/),
+          fileOf([]),
+        ),
+      ).toBe("refused");
+      release();
+    },
+  );
 
   it("keeps the browser from opening a file dropped outside the drop area", async () => {
     await ready();
