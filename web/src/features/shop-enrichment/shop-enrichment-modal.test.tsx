@@ -753,6 +753,7 @@ describe("ShopEnrichmentModal", () => {
     );
     expect(screen.getByLabelText("開店日を選択")).toBeChecked();
     expect(screen.getByLabelText("開店日の修正")).toHaveValue("2021-02-03");
+    // Nothing stays locked by the unreadable file.
     expect(
       screen.getByRole("button", { name: "選択した 1 件を本番へ反映" }),
     ).toBeEnabled();
