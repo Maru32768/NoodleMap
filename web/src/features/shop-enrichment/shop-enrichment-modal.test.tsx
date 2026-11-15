@@ -659,18 +659,22 @@ describe("ShopEnrichmentModal", () => {
     expect(screen.getByLabelText("ファイルを選ぶ")).toBeInTheDocument();
   });
 
-  it("explains a dropped folder", async () => {
-    const picker = await ready();
+  it("explains a folder dropped on the review and keeps the review", async () => {
+    const shop = makeShop({ name: "店" });
+    shops = [shop];
+    const user = await loadFile([proposalLine(shop, "a", {})]);
+    await user.click(await screen.findByLabelText("開店日を選択"));
     // Chromium hands a dropped folder over as an empty File whose read fails.
     const folder = new File([], "b07-2026-11-06");
     folder.text = () =>
       Promise.reject(new DOMException("not found", "NotFoundError"));
 
-    dropFile(picker, folder);
+    dropFile(screen.getByRole("group", { name: "店" }), folder);
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "読み込めませんでした。フォルダではないか、ほかのアプリが開いたままでないかを確かめてください",
     );
+    expect(screen.getByLabelText("開店日を選択")).toBeChecked();
   });
 
   it("renders web text as text and links only with a safe rel", async () => {
