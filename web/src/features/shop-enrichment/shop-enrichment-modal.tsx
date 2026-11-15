@@ -328,7 +328,7 @@ export function ShopEnrichmentModal({
       open={open}
       onOpenChange={(isOpen) => !isOpen && close()}
       width="100%"
-      maxWidth="1100px"
+      maxWidth="1280px"
       height="90vh"
       title="調査結果の取り込み"
       subtitle="SHOP RESEARCH"
@@ -412,7 +412,15 @@ export function ShopEnrichmentModal({
             )}
           </Box>
         ) : (
-          <>
+          <Box
+            display={{ base: "flex", md: "grid" }}
+            flexDirection="column"
+            gridTemplateColumns={{ md: "300px minmax(0, 1fr)" }}
+            gridTemplateRows={{ md: "minmax(0, 1fr)" }}
+            gap="12px"
+            flex="1"
+            minH="0"
+          >
             <Box
               display="grid"
               gap="6px"
@@ -422,6 +430,9 @@ export function ShopEnrichmentModal({
               borderColor="nm.lineFaint"
               rounded="nmMd"
               flexShrink={0}
+              alignSelf={{ md: "start" }}
+              maxH={{ md: "100%" }}
+              overflowY="auto"
             >
               <Line>
                 {file.runId} · 提案 {rows.length} 件 · 調査済み: 発見{" "}
@@ -449,10 +460,12 @@ export function ShopEnrichmentModal({
               )}
               <Box
                 display="flex"
+                flexDirection={{ md: "column" }}
                 justifyContent="flex-end"
-                alignItems="center"
+                alignItems={{ base: "center", md: "stretch" }}
                 gap="8px"
                 flexWrap="wrap"
+                textAlign="center"
               >
                 {running ? (
                   <Button
@@ -492,93 +505,101 @@ export function ShopEnrichmentModal({
               </Box>
             </Box>
 
-            <Box display="flex" gap="8px" flexWrap="wrap" flexShrink={0}>
-              <SegmentedPicker
-                variant="segment"
-                label="状態"
-                options={stateOptions}
-                value={filters.state}
-                onChange={(state) => setFilters((f) => ({ ...f, state }))}
-              />
-              <FilterSelect
-                label="項目"
-                value={filters.field}
-                options={FIELD_LABELS}
-                onChange={(field) => setFilters((f) => ({ ...f, field }))}
-              />
-              <FilterSelect
-                label="確認理由"
-                value={filters.reason}
-                options={REASON_LABELS}
-                onChange={(reason) => setFilters((f) => ({ ...f, reason }))}
-              />
-              <FilterSelect
-                label="証拠"
-                value={filters.source}
-                options={SOURCE_LABELS}
-                onChange={(source) => setFilters((f) => ({ ...f, source }))}
-              />
-            </Box>
-
             <Box
+              display="flex"
+              flexDirection="column"
+              gap="12px"
               flex="1"
               minH="0"
-              overflowY="auto"
-              display="grid"
-              gap="10px"
-              alignContent="start"
             >
-              {shopIds.length === 0 && (
-                <Box
-                  fontSize="13px"
-                  color="nm.inkMuted"
-                  py="24px"
-                  textAlign="center"
-                >
-                  該当する提案はありません
-                </Box>
-              )}
-              {shopIds.map((shopId) => (
-                <ShopGroup
-                  key={shopId}
-                  shop={shopsById.get(shopId)}
-                  shopId={shopId}
-                  notices={file.notices.filter((n) => n.shopId === shopId)}
-                >
-                  {(rowsByShop[shopId] ?? []).map((row) => (
-                    <ProposalRow
-                      key={row.proposal.id}
-                      row={row}
-                      shop={shopsById.get(shopId)}
-                      tags={tags ?? []}
-                      readOnly={running}
-                      checked={selected.has(row.proposal.id)}
-                      onCheck={(on) => toggle(row.proposal.id, on)}
-                      edit={edits[row.proposal.id]}
-                      onEdit={(edit) => {
-                        setEdits((current) => {
-                          const next = { ...current };
-                          if (edit) {
-                            next[row.proposal.id] = edit;
-                          } else {
-                            delete next[row.proposal.id];
+              <Box display="flex" gap="8px" flexWrap="wrap" flexShrink={0}>
+                <SegmentedPicker
+                  variant="segment"
+                  label="状態"
+                  options={stateOptions}
+                  value={filters.state}
+                  onChange={(state) => setFilters((f) => ({ ...f, state }))}
+                />
+                <FilterSelect
+                  label="項目"
+                  value={filters.field}
+                  options={FIELD_LABELS}
+                  onChange={(field) => setFilters((f) => ({ ...f, field }))}
+                />
+                <FilterSelect
+                  label="確認理由"
+                  value={filters.reason}
+                  options={REASON_LABELS}
+                  onChange={(reason) => setFilters((f) => ({ ...f, reason }))}
+                />
+                <FilterSelect
+                  label="証拠"
+                  value={filters.source}
+                  options={SOURCE_LABELS}
+                  onChange={(source) => setFilters((f) => ({ ...f, source }))}
+                />
+              </Box>
+
+              <Box
+                flex="1"
+                minH="0"
+                overflowY="auto"
+                display="grid"
+                gap="10px"
+                alignContent="start"
+              >
+                {shopIds.length === 0 && (
+                  <Box
+                    fontSize="13px"
+                    color="nm.inkMuted"
+                    py="24px"
+                    textAlign="center"
+                  >
+                    該当する提案はありません
+                  </Box>
+                )}
+                {shopIds.map((shopId) => (
+                  <ShopGroup
+                    key={shopId}
+                    shop={shopsById.get(shopId)}
+                    shopId={shopId}
+                    notices={file.notices.filter((n) => n.shopId === shopId)}
+                  >
+                    {(rowsByShop[shopId] ?? []).map((row) => (
+                      <ProposalRow
+                        key={row.proposal.id}
+                        row={row}
+                        shop={shopsById.get(shopId)}
+                        tags={tags ?? []}
+                        readOnly={running}
+                        checked={selected.has(row.proposal.id)}
+                        onCheck={(on) => toggle(row.proposal.id, on)}
+                        edit={edits[row.proposal.id]}
+                        onEdit={(edit) => {
+                          setEdits((current) => {
+                            const next = { ...current };
+                            if (edit) {
+                              next[row.proposal.id] = edit;
+                            } else {
+                              delete next[row.proposal.id];
+                            }
+                            return next;
+                          });
+                          // Starting an edit chooses it and stopping takes that back. A keystroke leaves the choice alone.
+                          if (
+                            edit === undefined ||
+                            edits[row.proposal.id] === undefined
+                          ) {
+                            toggle(row.proposal.id, edit !== undefined);
                           }
-                          return next;
-                        });
-                        // Starting an edit chooses it and stopping takes that back. A keystroke leaves the choice alone.
-                        if (
-                          edit === undefined ||
-                          edits[row.proposal.id] === undefined
-                        ) {
-                          toggle(row.proposal.id, edit !== undefined);
-                        }
-                      }}
-                    />
-                  ))}
-                </ShopGroup>
-              ))}
+                        }}
+                      />
+                    ))}
+                  </ShopGroup>
+                ))}
+              </Box>
             </Box>
-          </>
+          </Box>
         )}
       </Box>
     </ModalDialog>
