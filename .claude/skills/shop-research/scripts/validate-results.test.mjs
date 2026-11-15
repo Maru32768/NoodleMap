@@ -751,12 +751,12 @@ test('the isolation check still runs when started through a link', () => {
 
 test('the isolation check names what it finds and no values', () => {
   const exposures = findExposures({
-    env: { R2_SECRET_ACCESS_KEY: 'value-1', GITHUB_TOKEN: 'value-2', ANTHROPIC_API_KEY: 'value-3', PATH: '/bin' },
+    env: { R2_SECRET_ACCESS_KEY: 'value-1', GITHUB_TOKEN: 'value-2', BRAVE_SEARCH_API_KEY: 'value-4', ANTHROPIC_API_KEY: 'value-3', PATH: '/bin' },
     cwd: '/work',
     home: '/home/u',
     exists: (path) => path.replaceAll('\\', '/').endsWith('/work/.env') || path.replaceAll('\\', '/').endsWith('/home/u/.ssh'),
   });
-  assert.deepEqual(exposures, ['env:R2_SECRET_ACCESS_KEY', 'env:GITHUB_TOKEN', 'workspace:.env', 'home:.ssh']);
+  assert.deepEqual(exposures, ['env:R2_SECRET_ACCESS_KEY', 'env:GITHUB_TOKEN', 'env:BRAVE_SEARCH_API_KEY', 'workspace:.env', 'home:.ssh']);
   assert.deepEqual(findExposures({ env: { PATH: '/bin' }, cwd: '/work', home: '/home/u', exists: () => false }), []);
   assert.deepEqual(
     findExposures({
