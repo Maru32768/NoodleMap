@@ -2,7 +2,7 @@ import { readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { parseArgs } from 'node:util';
 import { pathToFileURL } from 'node:url';
-import { canonicalLinkUrl, parseBatch } from '../../.claude/skills/shop-research/scripts/validate-results.mjs';
+import { canonicalLinkUrl, onAnyDomain, parseBatch } from '../../.claude/skills/shop-research/scripts/validate-results.mjs';
 
 const ENDPOINT = 'https://api.search.brave.com/res/v1/web/search';
 const PER_PAGE = 20;
@@ -20,8 +20,6 @@ const NOT_A_SHOP_SITE = [
   'walkerplus.com', 'byfood.com', 'savorjapan.com', 'amazon.co.jp', 'matcha-jp.com', 'cookbiz.co.jp',
   'hatalike.jp', 'apple.com', 'bing.com',
 ];
-
-const onAnyDomain = (host, domains) => domains.some((domain) => host === domain || host.endsWith(`.${domain}`));
 
 /** The city, ward of Tokyo, or district of an address, which narrows a search to the shop's area. */
 export function areaOf(address) {

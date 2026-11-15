@@ -163,7 +163,7 @@ function parseKana(raw) {
 }
 
 const onDomain = (host, domain) => host === domain || host.endsWith(`.${domain}`);
-const onAnyDomain = (host, domains) => domains.some((domain) => onDomain(host, domain));
+export const onAnyDomain = (host, domains) => domains.some((domain) => onDomain(host, domain));
 
 function parseUrl(raw) {
   if (typeof raw !== 'string' || raw.length > URL_MAX) reject('invalid_url');
