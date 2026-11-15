@@ -3,7 +3,7 @@ import type { Shop, Tag } from "@/features/shops/api/use-shops.ts";
 import { makeShop, makeTag } from "@/test/fixtures.ts";
 import { renderWithProviders } from "@/test/render.tsx";
 import { server } from "@/test/server.ts";
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -38,6 +38,11 @@ const fileOf = (records: unknown[]) =>
     [records.map((record) => JSON.stringify(record)).join("\n")],
     "accepted.jsonl",
   );
+
+const dropFile = (target: Element, records: unknown[]) =>
+  fireEvent.drop(target, {
+    dataTransfer: { types: ["Files"], files: [fileOf(records)] },
+  });
 
 let shops: Shop[];
 let tags: Tag[];
@@ -338,6 +343,58 @@ describe("ShopEnrichmentModal", () => {
       "読み込めませんでした",
     );
     expect(screen.getByLabelText("開店日を選択")).toBeChecked();
+  });
+
+  it("loads a dropped file, and a second drop replaces the review", async () => {
+    const shop = makeShop({ name: "店" });
+    shops = [shop];
+    const user = userEvent.setup();
+    renderWithProviders(<ShopEnrichmentModal open onClose={() => {}} />);
+    const picker = await screen.findByLabelText("ファイルを選ぶ");
+    await waitFor(() => expect(picker).toBeEnabled());
+
+    dropFile(screen.getByText(/ここにドロップしてください/), [
+      proposalLine(shop, "a", {}),
+    ]);
+    await user.click(await screen.findByLabelText("開店日を選択"));
+
+    dropFile(screen.getByRole("group", { name: "店" }), [
+      proposalLine(shop, "a", { runId: "b08-2026-11-13" }),
+    ]);
+    expect(await screen.findByText(/^b08-2026-11-13 /)).toBeInTheDocument();
+    expect(screen.queryByText(/^b07-2026-11-06 /)).toBeNull();
+    expect(screen.getByLabelText("開店日を選択")).not.toBeChecked();
+  });
+
+  it("ignores a file dropped while a run is going", async () => {
+    const shop = makeShop({ name: "店" });
+    shops = [shop];
+    let release = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      http.put(`/api/v1/auth/shops/${shop.id}`, async () => {
+        await held;
+        return new HttpResponse(null, { status: 200 });
+      }),
+    );
+    const user = await loadFile([proposalLine(shop, "a", {})]);
+    await user.click(await screen.findByLabelText("開店日を選択"));
+    await user.click(
+      screen.getByRole("button", { name: "選択した 1 件を本番へ反映" }),
+    );
+    await screen.findByRole("button", { name: "停止" });
+
+    dropFile(screen.getByRole("group", { name: "店" }), [
+      proposalLine(shop, "a", { runId: "b08-2026-11-13" }),
+    ]);
+    release();
+
+    await screen.findByText("反映が終わりました");
+    expect(screen.getByText(/^b07-2026-11-06 /)).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "店" })).toBeInTheDocument();
+    expect(screen.queryByText(/^b08-2026-11-13 /)).toBeNull();
   });
 
   it("sends an edited value and blocks an invalid one", async () => {
