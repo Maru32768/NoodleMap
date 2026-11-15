@@ -61,7 +61,7 @@ Every entry in `fields` gets an outcome in `checks`:
 
 - `found`: you have evidence. Add a proposal, unless the current value is already correct.
 - `no_evidence`: you looked and found nothing that meets the rules below. Also use this for a closure or closing date that you found no sign of.
-- `error`: a site blocked you or failed.
+- `error`: a site blocked you or failed, or the search budget ran out before you looked.
 
 Report only what a source states. A month without a day is `no_evidence`.
 
