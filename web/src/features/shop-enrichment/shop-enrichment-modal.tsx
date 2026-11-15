@@ -202,10 +202,6 @@ export function ShopEnrichmentModal({
   const accepting = !!shops && !!tags && !running;
   const [dragging, setDragging] = useState(false);
   const dragDepth = useRef(0);
-  const endDrag = () => {
-    dragDepth.current = 0;
-    setDragging(false);
-  };
   useRefuseFileDrop(open);
 
   const shopsById = useMemo(
@@ -372,7 +368,8 @@ export function ShopEnrichmentModal({
         onDrop={(event) => {
           if (accepting && hasFiles(event)) {
             event.preventDefault();
-            endDrag();
+            dragDepth.current = 0;
+            setDragging(false);
             const [dropped] = event.dataTransfer.files;
             if (dropped) {
               void load(dropped);
