@@ -347,7 +347,6 @@ export function ShopEnrichmentModal({
         outline={dragging ? "2px dashed" : undefined}
         outlineColor="nm.shu"
         outlineOffset="2px"
-        data-dragging={dragging || undefined}
         onDragEnter={(event) => {
           if (accepting && hasFiles(event)) {
             event.preventDefault();
