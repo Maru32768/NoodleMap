@@ -200,7 +200,8 @@ export function ShopEnrichmentModal({
   }, [running]);
 
   // A load replaces the review a run reports on, so neither starts while the other goes: a file is
-  // refused mid-run, and the run waits for the load. One load at a time keeps the last file the one shown.
+  // refused mid-run, and apply is disabled until the load ends. One load at a time keeps the last
+  // file the one shown.
   const accepting = !!shops && !!tags && !running && !loading;
   const [dragging, setDragging] = useState(false);
   const dragDepth = useRef(0);
