@@ -53,7 +53,7 @@ For phone testing, the phone must also trust the `mkcert` root CA. Without that,
 npm run build
 ```
 
-The build runs mojibake checks, ESLint, TypeScript checks, and the Vite production build.
+The build runs TypeScript checks and the Vite production build. `npm run check` runs mojibake checks, ESLint, and TypeScript checks; `.githooks/pre-push` runs it before each push once `git config core.hooksPath .githooks` is set.
 
 ## Tests
 

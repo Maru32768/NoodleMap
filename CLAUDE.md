@@ -20,7 +20,8 @@ Directory-specific guidance lives in nested `CLAUDE.md` / `AGENTS.md` files. Whe
 Frontend commands run from `web/`:
 
 - `npm run dev`: start the Vite development server.
-- `npm run build`: run mojibake checks, lint, TypeScript checks, and production build.
+- `npm run build`: run TypeScript checks and the production build. It does not lint or check for mojibake.
+- `npm run check`: run mojibake checks, lint, and TypeScript checks. `.githooks/pre-push` runs it before each push once `git config core.hooksPath .githooks` is set.
 - `npm run lint`: run ESLint across the frontend.
 - `npm run format`: format frontend files with Prettier.
 
