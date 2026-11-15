@@ -255,7 +255,7 @@ test('a facility tenant page backs what the shop shows there, and not its closin
   assert.deepEqual(reasons(closed), ['source_not_allowed_for_field']);
 });
 
-test('a closing date needs an official announcement', () => {
+test('a closing date needs an official announcement or a news article', () => {
   const fromTabelog = runProposal(
     { field: 'closed_at', value: '2026-10-31', evidence: [tabelogEvidence()] },
     { closed_at: 'found' },
@@ -268,6 +268,32 @@ test('a closing date needs an official announcement', () => {
   );
   assert.deepEqual(fromOfficial.rejected, []);
   assert.deepEqual(proposals(fromOfficial)[0].reviewReasons, ['high_impact_field']);
+
+  const article = { ...officialEvidence, sourceKind: 'news_site', url: 'https://www.yamatopi.jp/open-close/shouta.html' };
+  const fromNews = runProposal({ field: 'closed_at', value: '2026-10-31', evidence: [article] }, { closed_at: 'found' });
+  assert.deepEqual(fromNews.rejected, []);
+  const openedFromNews = runProposal({ field: 'opened_at', value: '2020-06-28', evidence: [article] }, { opened_at: 'found' });
+  assert.deepEqual(reasons(openedFromNews), ['source_not_allowed_for_field']);
+  const newsOnGourmetSite = runProposal(
+    { field: 'closed_at', value: '2026-10-31', evidence: [{ ...article, url: 'https://retty.me/area/x/' }] },
+    { closed_at: 'found' },
+  );
+  assert.deepEqual(reasons(newsOnGourmetSite), ['source_site_not_allowed']);
+});
+
+test('a closing date known only to the month is its last day, marked as estimated', () => {
+  const monthEnd = (value, evidence = [officialEvidence]) =>
+    runProposal({ field: 'closed_at', value, evidence, estimated: true }, { closed_at: 'found' });
+  assert.deepEqual(proposals(monthEnd('2024-06-30'))[0].reviewReasons, ['high_impact_field', 'estimated_date']);
+  assert.deepEqual(monthEnd('2024-02-29').rejected, []);
+  assert.deepEqual(reasons(monthEnd('2024-06-15')), ['estimated_date_not_month_end']);
+  assert.deepEqual(reasons(monthEnd('2023-02-29')), ['invalid_date']);
+  assert.deepEqual(reasons(monthEnd('2024-06-30', [])), ['evidence_required']);
+  const openedEstimate = runProposal(
+    { field: 'opened_at', value: '2020-06-30', evidence: [officialEvidence], estimated: true },
+    { opened_at: 'found' },
+  );
+  assert.deepEqual(reasons(openedEstimate), ['only_readings_and_closing_dates_can_be_estimated']);
 });
 
 test('text that hides its reading or carries a link is rejected', () => {

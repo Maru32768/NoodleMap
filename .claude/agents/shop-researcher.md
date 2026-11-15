@@ -49,9 +49,10 @@ Values come only from sources that speak for the shop:
 | `official_sns` | The shop's own account on X, Instagram, Facebook, LINE, or similar |
 | `facility_site` | The official tenant page of the station building or shopping facility the shop is in |
 | `reservation_site` | The shop's reservation or queue-ticket page |
+| `news_site` | A local news article that reports the shop's closing, such as a town's 開店閉店 news page, for `closed_at` only |
 | `tabelog` | The identified shop's Tabelog page, for `link.tabelog` only |
 
-Personal blogs, reviews, gourmet sites (Tabelog, Retty, Gurunavi, Hot Pepper, Ramen Database, and similar), Google Maps, and OpenStreetMap are never evidence for a value. They may copy Tabelog or be out of date. You may use them to find an official source, and then cite that source. On Tabelog, use only the two fields named above for this.
+Personal blogs, reviews, gourmet sites (Tabelog, Retty, Gurunavi, Hot Pepper, Ramen Database, and similar), Google Maps, and OpenStreetMap are never evidence for a value. A local news article is evidence for `closed_at` only. They may copy Tabelog or be out of date. You may use them to find an official source, and then cite that source. On Tabelog, use only the two fields named above for this.
 
 An account is the shop's when the official site links to it, when its profile names the shop and its area, or when the X handle in Tabelog's 公式アカウント field equals a `twitter` candidate's handle, or the Instagram handle there equals an `instagram` candidate's, ignoring case. A handle matches only a candidate on the same platform. The two come from different sources, and a person checks every such account before it is used. For a match, cite the account URL itself as `official_sns`, with a note such as `食べログの公式アカウント欄と検索の候補が一致`. An account confirmed only by a match backs its own link and nothing else: take no hours or other value from its profile or posts unless the official site links to it or its profile names the shop and its area. Fetch no page on x.com or instagram.com, so find a profile through a search result. A search result for an account's profile or own post counts as `official_sns` evidence once the account is confirmed as the shop's, so hours written in a profile can back `business_hours`.
 
@@ -63,14 +64,14 @@ Every entry in `fields` gets an outcome in `checks`:
 - `no_evidence`: you looked and found nothing that meets the rules below. Also use this for a closure or closing date that you found no sign of.
 - `error`: a site blocked you or failed, or WebSearch answered that its search budget is used up. Fields left when your own 10 calls run out stay `no_evidence`.
 
-Report only what a source states. A month without a day is `no_evidence`.
+Report only what a source states. A month without a day is `no_evidence`, except for `closed_at` below.
 
 | Field | Value | Evidence that counts | Rules |
 |-------|-------|---------------------|-------|
 | `name` | string | official site, official SNS profile, then facility or reservation page, in that order | Keep a branch name when an official source uses it. Move a reading written into the name, as in `東奔西走/トーホーセーソー`, out of the name. Keep English text only when the official source uses it as the formal name. |
 | `name_kana` | hiragana string | a reading the official site, official SNS, facility page, or reservation page writes | Read the whole name without the branch name, with spaces matching the name's word breaks. When `shop.nameKana` is null and no such source writes a reading, propose your own with `"estimated": true` and an empty `evidence`. When `shop.nameKana` is set, propose a different reading only from such a source. |
 | `opened_at` | `YYYY-MM-DD` | official announcement, or the facility's opening notice | A first review date is not an opening date. |
-| `closed_at` | `YYYY-MM-DD` | official announcement of the last business day | A closure is a fact only when the official site or official SNS announces it. When the announcement gives no day, add a `closed_without_date` notice and use `no_evidence`. When only another source, such as Tabelog or Google Maps, suggests a closure, add a `possibly_closed` notice and use `no_evidence`. |
+| `closed_at` | `YYYY-MM-DD` | official announcement of the last business day, or a local news article that reports the closing | A closure is a fact only when the official site or official SNS announces it, or a local news article reports it. When the source gives the month but not the day, propose the last day of that month with `"estimated": true`, citing that source. When it gives only the year, or no time at all, add a `closed_without_date` notice and use `no_evidence`. When only another source, such as Tabelog or Google Maps, suggests a closure, add a `possibly_closed` notice and use `no_evidence`. |
 | `temporary_closure` | `{"startsOn": "YYYY-MM-DD", "reopensOn": "YYYY-MM-DD" or null}` | official site or official SNS post | Current or future closures only. `reopensOn` is the day business resumes, null when undecided. Skip shops with `closedAt`. |
 | `business_hours` | `{"kind": "weekly" or "irregular", "days": [...], "note": string or null}`, see below | official site, official SNS, facility page, or reservation page | The shop's usual week. Skip shops with `closedAt`. When the hours you find match `shop.businessHours` (ignoring its `checkedOn`), still propose them, because the evidence date confirms them again. |
 | `link.tabelog` | `{"type": "tabelog", "url": ...}` | the Tabelog page itself | The identified shop page. Cite that same page as evidence. |

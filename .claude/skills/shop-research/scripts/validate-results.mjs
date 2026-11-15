@@ -32,7 +32,8 @@ const EVIDENCE_SOURCES = {
   name: [...SHOP_PAGE_SOURCES, 'reservation_site'],
   name_kana: [...SHOP_PAGE_SOURCES, 'reservation_site'],
   opened_at: SHOP_PAGE_SOURCES,
-  closed_at: OFFICIAL_SOURCES,
+  // An official site gone dark leaves a local news article as the only record of a closure, and a person reads every closing date.
+  closed_at: [...OFFICIAL_SOURCES, 'news_site'],
   temporary_closure: OFFICIAL_SOURCES,
   business_hours: [...SHOP_PAGE_SOURCES, 'reservation_site'],
   tag: [...SHOP_PAGE_SOURCES, 'reservation_site'],
@@ -274,7 +275,7 @@ function parseEvidenceItem(raw, allowedSources, today) {
   if (onTabelog && TABELOG_NON_FACT_PAGE.test(url.pathname)) reject('tabelog_review_or_photo_page');
   if (!onTabelog && onAnyDomain(url.hostname, GOURMET_AND_MAP_DOMAINS)) reject('source_site_not_allowed');
   if (raw.sourceKind === 'official_sns' && !onAnyDomain(url.hostname, SNS_DOMAINS)) reject('source_domain_mismatch');
-  const ownPage = raw.sourceKind === 'official_site' || raw.sourceKind === 'facility_site';
+  const ownPage = ['official_site', 'facility_site', 'news_site'].includes(raw.sourceKind);
   if (ownPage && onAnyDomain(url.hostname, NOT_OFFICIAL_DOMAINS)) reject('source_domain_mismatch');
   const observedAt = parseDate(raw.observedAt);
   if (observedAt > today) reject('observed_in_the_future');
@@ -283,7 +284,8 @@ function parseEvidenceItem(raw, allowedSources, today) {
 
 function parseEvidence(raw, checkField, estimated, today) {
   if (!Array.isArray(raw) || raw.length > MAX_EVIDENCE) reject('invalid_evidence');
-  if (raw.length === 0 && !estimated) reject('evidence_required');
+  // Only a reading is estimated with nothing behind it. A month-end closing date still needs the source that gave the month.
+  if (raw.length === 0 && !(estimated && checkField === 'name_kana')) reject('evidence_required');
   return raw.map((item) => parseEvidenceItem(item, EVIDENCE_SOURCES[checkField], today));
 }
 
@@ -349,6 +351,8 @@ const scheduleOf = (hours) => hours && JSON.stringify([hours.kind, hours.days, h
 export const todayInJapan = () => new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
 const dateOf = (timestamp) => timestamp?.slice(0, 10) ?? null;
+const isMonthEnd = (date) =>
+  new Date(Date.UTC(Number(date.slice(0, 4)), Number(date.slice(5, 7)), 0)).toISOString().slice(0, 10) === date;
 
 function parseValue(field, raw, shop, tagsBySlug, today) {
   switch (field) {
@@ -467,7 +471,7 @@ function reviewReasonsOf(field, value, estimated, evidence, notices, shop) {
   // Filling a gap can be approved in bulk. Replacing a value someone entered needs a person to compare the two.
   else if (baseValueOf(field, shop) !== null) reasons.push('replaces_existing_value');
   if (field === 'link' && INDIVIDUAL_REVIEW_LINKS.has(value.type)) reasons.push('link_needs_review');
-  if (estimated) reasons.push('estimated_reading');
+  if (estimated) reasons.push(field === 'closed_at' ? 'estimated_date' : 'estimated_reading');
   if (notices.some((notice) => notice.kind === 'suspected_injection')) reasons.push('suspected_injection');
   if (notices.some((notice) => IDENTITY_NOTICES.has(notice.kind))) reasons.push('identity_uncertain');
   // The validator cannot tell a real official page from a page claiming to be one. All it can confirm is
@@ -502,9 +506,11 @@ function parseProposal(raw, shop, requested, tagsBySlug, today, notices) {
   requireKeys(raw, ['field', 'value', 'evidence'], ['estimated']);
   if (raw.estimated !== undefined && typeof raw.estimated !== 'boolean') reject('invalid_estimated');
   const estimated = raw.estimated === true;
-  if (estimated && raw.field !== 'name_kana') reject('only_readings_can_be_estimated');
-  if (estimated && shop.nameKana) reject('estimate_cannot_replace_reading');
+  if (estimated && !['name_kana', 'closed_at'].includes(raw.field)) reject('only_readings_and_closing_dates_can_be_estimated');
+  if (estimated && raw.field === 'name_kana' && shop.nameKana) reject('estimate_cannot_replace_reading');
   const value = parseValue(raw.field, raw.value, shop, tagsBySlug, today);
+  // A source that gives only the month says the shop closed by the month's end, which is what closed_at means.
+  if (estimated && raw.field === 'closed_at' && !isMonthEnd(value)) reject('estimated_date_not_month_end');
   const checkField = checkFieldOf(raw.field, value);
   if (!requested.has(checkField)) reject('field_not_requested');
   const evidence = parseEvidence(raw.evidence, checkField, estimated, today);

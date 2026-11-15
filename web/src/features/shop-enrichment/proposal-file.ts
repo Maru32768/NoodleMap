@@ -16,6 +16,7 @@ const REVIEW_REASONS = [
   "link_needs_review",
   "source_unconfirmed",
   "estimated_reading",
+  "estimated_date",
   "suspected_injection",
   "identity_uncertain",
 ] as const;
@@ -27,6 +28,7 @@ const SOURCE_KINDS = [
   "facility_site",
   "tabelog",
   "reservation_site",
+  "news_site",
 ] as const;
 export type SourceKind = (typeof SOURCE_KINDS)[number];
 

@@ -74,6 +74,7 @@ const REASON_LABELS: Record<ReviewReason, string> = {
   link_needs_review: "リンクの確認が必要",
   source_unconfirmed: "出典の確認が必要",
   estimated_reading: "推定の読み",
+  estimated_date: "月末とした閉店日",
   suspected_injection: "注入の疑い",
   identity_uncertain: "店舗の同定が不確か",
 };
@@ -84,6 +85,7 @@ const SOURCE_LABELS: Record<SourceKind, string> = {
   facility_site: "施設のテナントページ",
   tabelog: "食べログ",
   reservation_site: "予約サイト",
+  news_site: "地域のニュース",
 };
 
 const NOTICE_LABELS: Record<NoticeKind, string> = {
@@ -801,7 +803,9 @@ function ProposalRow({
         )}
         {proposal.estimated && (
           <Box fontSize="12px" color="nm.inkMuted">
-            情報源のない推定です
+            {proposal.field === "closed_at"
+              ? "月までしか分からないので月末にした日付です"
+              : "情報源のない推定です"}
           </Box>
         )}
         <Box
