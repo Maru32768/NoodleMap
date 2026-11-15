@@ -74,16 +74,11 @@ export function braveSearch(key, fetchImpl = fetch) {
       search_lang: 'jp',
       ui_lang: 'ja-JP',
     });
-    for (let attempt = 0; ; attempt++) {
-      const response = await fetchImpl(url, { headers: { Accept: 'application/json', 'X-Subscription-Token': key } });
-      if (response.status === 429 && attempt < 3) {
-        await sleep(2000 * (attempt + 1));
-        continue;
-      }
-      if (!response.ok) throw new Error(`Brave Search answered ${response.status} for page ${page} of a query`);
-      const body = await response.json();
-      return { urls: (body.web?.results ?? []).map((result) => result.url), more: body.query?.more_results_available === true };
-    }
+    // No retry: calls are already a second apart, and a rerun continues from the last saved shop.
+    const response = await fetchImpl(url, { headers: { Accept: 'application/json', 'X-Subscription-Token': key } });
+    if (!response.ok) throw new Error(`Brave Search answered ${response.status} for page ${page} of a query`);
+    const body = await response.json();
+    return { urls: (body.web?.results ?? []).map((result) => result.url), more: body.query?.more_results_available === true };
   };
 }
 
