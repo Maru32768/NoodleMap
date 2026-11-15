@@ -132,7 +132,7 @@ export async function addCandidates(batch, search, save, pause) {
 
 async function main() {
   const { values } = parseArgs({ options: { batch: { type: 'string' }, out: { type: 'string' } } });
-  if (!values.batch || !values.out) throw new Error('Usage: search-candidates.mjs --batch <batch.json> --out <batch.json>');
+  if (!values.batch || !values.out) throw new Error('Usage: search-candidates.mjs --batch <batch.json> --out <batch.json>; give the same file to both so that a rerun continues');
   const key = process.env.BRAVE_SEARCH_API_KEY;
   if (!key) throw new Error('BRAVE_SEARCH_API_KEY is not set');
   const batch = parseBatch(readFileSync(values.batch, 'utf8'));
