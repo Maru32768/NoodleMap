@@ -40,6 +40,17 @@ function officialCandidate(raw) {
   return plainPath ? `${url.origin}${url.pathname}` : `${url.origin}/`;
 }
 
+/**
+ * X and Instagram handles are short by rule, but a Facebook page URL can carry its page name, so only a
+ * short ASCII name or the numeric id goes on.
+ */
+function facebookCandidate(canonical) {
+  const url = new URL(canonical);
+  if (url.pathname === '/profile.php' || /^\/[A-Za-z0-9.-]{1,50}$/.test(url.pathname)) return canonical;
+  const id = /^\/(?:people\/[^/]+\/|pages\/[^/]+\/|p\/[^/]*-)(\d+)$/.exec(url.pathname)?.[1];
+  return id ? `https://www.facebook.com/profile.php?id=${id}` : null;
+}
+
 /** Turns result URLs, best first, into candidates: only canonical URLs, never a page's title or text. */
 export function candidatesFrom(urls) {
   const candidates = { official: [], twitter: [], instagram: [], facebook: [] };
@@ -47,9 +58,10 @@ export function candidatesFrom(urls) {
   for (const raw of urls) {
     const type = SNS_TYPES.find((kind) => canonicalLinkUrl(kind, raw));
     if (type) {
-      const url = canonicalLinkUrl(type, raw);
+      const canonical = canonicalLinkUrl(type, raw);
+      const url = type === 'facebook' ? facebookCandidate(canonical) : canonical;
       const list = candidates[type];
-      if (list.length < MAX_PER_KIND && !list.some((seen) => seen.toLowerCase() === url.toLowerCase())) list.push(url);
+      if (url && list.length < MAX_PER_KIND && !list.some((seen) => seen.toLowerCase() === url.toLowerCase())) list.push(url);
       continue;
     }
     const url = officialCandidate(raw);

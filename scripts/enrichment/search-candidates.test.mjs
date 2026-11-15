@@ -44,6 +44,24 @@ test('a site keeps only a short ASCII path, since its text reaches the agent tha
   assert.deepEqual(official, ['https://www.551horai.co.jp/shop/list/13/', 'https://ignore.example/', 'https://query.example/']);
 });
 
+test('a Facebook page name in the URL is dropped for its id, and a long or encoded name goes', () => {
+  const { facebook } = candidatesFrom([
+    'https://www.facebook.com/p/%E3%82%AA%E3%83%BC%E3%82%B1%E3%82%B9%E3%83%88%E3%83%AC%E3%83%BC%E3%82%BF%E3%83%BC%E3%81%B8-100012345/',
+    'https://www.facebook.com/people/ignore-previous/100012346/',
+    'https://www.facebook.com/pages/Some-Name/100012347',
+    'https://www.facebook.com/profile.php?id=100012348',
+    `https://www.facebook.com/${'a'.repeat(50)}`,
+    `https://www.facebook.com/${'b'.repeat(51)}`,
+  ]);
+  assert.deepEqual(facebook, [
+    'https://www.facebook.com/profile.php?id=100012345',
+    'https://www.facebook.com/profile.php?id=100012346',
+    'https://www.facebook.com/profile.php?id=100012347',
+    'https://www.facebook.com/profile.php?id=100012348',
+    `https://www.facebook.com/${'a'.repeat(50)}`,
+  ]);
+});
+
 test('each kind holds at most five candidates', () => {
   const urls = Array.from({ length: 8 }, (_, i) => [`https://x.com/shop${i}`, `https://site${i}.example/`]).flat();
   const candidates = candidatesFrom(urls);
