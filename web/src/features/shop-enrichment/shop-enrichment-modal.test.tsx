@@ -377,6 +377,11 @@ describe("ShopEnrichmentModal", () => {
       "読み込めませんでした",
     );
     expect(screen.getByLabelText("開店日を選択")).toBeChecked();
+    // Nothing stays locked by the refused file.
+    expect(
+      screen.getByRole("button", { name: "選択した 1 件を本番へ反映" }),
+    ).toBeEnabled();
+    expect(screen.getByLabelText("別のファイルを選ぶ")).toBeEnabled();
   });
 
   it("loads a dropped file, and a second drop replaces the review", async () => {
@@ -720,7 +725,7 @@ describe("ShopEnrichmentModal", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "読み込めませんでした。1 行目: 未知のレコードです",
     );
-    expect(screen.getByLabelText("ファイルを選ぶ")).toBeInTheDocument();
+    expect(screen.getByLabelText("ファイルを選ぶ")).toBeEnabled();
   });
 
   it("explains a folder dropped on the review and keeps the review", async () => {
@@ -743,6 +748,9 @@ describe("ShopEnrichmentModal", () => {
     );
     expect(screen.getByLabelText("開店日を選択")).toBeChecked();
     expect(screen.getByLabelText("開店日の修正")).toHaveValue("2021-02-03");
+    expect(
+      screen.getByRole("button", { name: "選択した 1 件を本番へ反映" }),
+    ).toBeEnabled();
   });
 
   it("explains an empty file as empty, not as unreadable", async () => {
