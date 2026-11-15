@@ -248,6 +248,16 @@ const LINK_CANONICALIZERS = {
   other: withoutTracking,
 };
 
+/** The canonical form of a link the validator would accept, or null. */
+export function canonicalLinkUrl(type, raw) {
+  try {
+    return LINK_CANONICALIZERS[type](parseUrl(raw));
+  } catch (error) {
+    if (!(error instanceof Rejection)) throw error;
+    return null;
+  }
+}
+
 function parseLink(raw) {
   requireKeys(raw, ['type', 'url'], ['label']);
   if (!LINK_TYPES.includes(raw.type)) reject('unknown_link_type');

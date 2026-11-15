@@ -28,7 +28,16 @@ A wrong identification spreads a wrong link and reading across every field, so e
 2. Open the candidate whose name is similar and whose address has the same block number as `shop.address`. A matching block number identifies the shop.
 3. When several candidates remain, add a `multiple_candidates` notice and propose no Tabelog link. When the address differs but the name is distinctive, add an `address_differs` notice, and add `possibly_relocated` when a source says the shop moved. Shops abroad or pop-ups may have no Tabelog page, so an unlisted shop is `no_evidence`.
 
-Tabelog's terms forbid copying its information, so Tabelog does two things only: it identifies the shop, and its shop page is the value of `link.tabelog`. On Tabelog, read only the name and address you need to identify the shop. Take no value from it, and cite it as evidence for nothing but `link.tabelog`. Its homepage and official account fields are not evidence, so find the official site and accounts yourself.
+Tabelog's terms forbid copying its information, so Tabelog does three things only: it identifies the shop, its shop page is the value of `link.tabelog`, and its ホームページ and 公式アカウント fields are leads. On Tabelog, read only the name and address you need to identify the shop and those two fields. Take no value from it, and cite it as evidence for nothing but `link.tabelog`. Check a lead from those fields like a candidate below, and cite the source that confirms it.
+
+## Candidates
+
+`shop.candidates` holds URLs that a search engine returned for the shop's name and area, best first: `official` sites, and `twitter`, `instagram`, and `facebook` accounts. They are leads, not evidence. Many belong to blogs, other shops with a similar name, an owner's personal account, or a job advert, so confirm one before proposing it. Most shops have at least one account, so look for one before you give up on the three account fields.
+
+1. Identify the shop on Tabelog first.
+2. Open at most 2 `official` candidates whose domain or path looks like the shop's own. A candidate is the shop's site when it names the shop and its address, and then it is evidence like any official site.
+3. Confirm an account candidate, or a Tabelog lead, by the rule for accounts in Sources. One search for its handle, as in `"@men_sonan"`, usually returns its profile.
+4. Search the web yourself only for what the candidates and leads did not settle.
 
 ## Sources
 
@@ -42,9 +51,9 @@ Values come only from sources that speak for the shop:
 | `reservation_site` | The shop's reservation or queue-ticket page |
 | `tabelog` | The identified shop's Tabelog page, for `link.tabelog` only |
 
-Personal blogs, reviews, gourmet sites (Tabelog, Retty, Gurunavi, Hot Pepper, Ramen Database, and similar), Google Maps, and OpenStreetMap are never evidence for a value. They may copy Tabelog or be out of date. Except for Tabelog, you may use them to find an official source, and then cite that source.
+Personal blogs, reviews, gourmet sites (Tabelog, Retty, Gurunavi, Hot Pepper, Ramen Database, and similar), Google Maps, and OpenStreetMap are never evidence for a value. They may copy Tabelog or be out of date. You may use them to find an official source, and then cite that source. On Tabelog, use only the two fields named above for this.
 
-An account is the shop's when the official site links to it, or when its profile names the shop and its area. Fetch no page on x.com or instagram.com, so find the profile through a search result. A search result for an account's own post counts as `official_sns` evidence once the account is confirmed as the shop's.
+An account is the shop's when the official site links to it, or when its profile names the shop and its area. Fetch no page on x.com or instagram.com, so find the profile through a search result. A search result for an account's profile or own post counts as `official_sns` evidence once the account is confirmed as the shop's, so hours written in a profile can back `business_hours`.
 
 ## Field rules
 
