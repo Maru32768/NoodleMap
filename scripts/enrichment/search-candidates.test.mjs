@@ -70,6 +70,15 @@ test('a Facebook page name in the URL is dropped for its id, and a long or encod
   assert.deepEqual(candidatesFrom(['https://www.facebook.com/p/%E3%82%AA%E3%83%BC']).facebook, []);
 });
 
+test('a short Facebook name keeps its case and dots, and one page is listed once', () => {
+  const { facebook } = candidatesFrom([
+    'https://www.facebook.com/Men.Sonan',
+    'https://www.facebook.com/profile.php?id=100012345',
+    'https://www.facebook.com/p/Shop-100012345/',
+  ]);
+  assert.deepEqual(facebook, ['https://www.facebook.com/Men.Sonan', 'https://www.facebook.com/profile.php?id=100012345']);
+});
+
 test('each kind holds at most five candidates', () => {
   const urls = Array.from({ length: 8 }, (_, i) => [`https://x.com/shop${i}`, `https://site${i}.example/`]).flat();
   const candidates = candidatesFrom(urls);
