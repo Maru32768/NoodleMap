@@ -231,7 +231,7 @@ node .claude/skills/shop-research/scripts/validate-results.mjs batch.json result
 
 出力の`error_shops=`には、`error`の項目が残った店のIDが並ぶ。サイトに断られた店、検索の上限に達した店、提案が却下された店なので、その結果ファイルを消して、新しい環境で調べ直す。
 
-2回目の実行と調べ直しは、新しい環境で行う。前の結果を隔離環境へ戻さないためだ。`--skip-researched` で結果のない店だけを書き出し、候補を足してから、同じ手順で調べる。隔離環境へは `batch-2.json` を `batch.json` という名前で渡し、Skill の引数は変えない。持ち出した結果は同じ `results/07/` に展開し、検証はその回の `batch-2.json` で行い、出力先を `validated/07-2` のように分ける。1回目の検証では、まだ調べていない店が `missing_result` として却下に並ぶ。
+2回目の実行と調べ直しは、新しい環境で行う。前の結果を隔離環境へ戻さないためだ。`--skip-researched` で結果のない店だけを書き出し、候補を足してから、同じ手順で調べる。隔離環境へは、`batch-2.json` を `batch.json` に写してから上の tar のコマンドで渡し、Skill の引数は変えない。66店のバッチは3回に分かれ、2回目の検証にもまだ調べていない店が `missing_result` として並ぶ。持ち出した結果は同じ `results/07/` に展開し、検証はその回の `batch-2.json` で行い、出力先を `validated/07-2` のように分ける。1回目の検証では、まだ調べていない店が `missing_result` として却下に並ぶ。
 
 ```bash
 node scripts/enrichment/export-batch.mjs --out batch-2.json --batch 7 --skip-researched results/07
