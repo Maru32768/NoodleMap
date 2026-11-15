@@ -675,7 +675,7 @@ test('the command writes both files, reports rejections, and refuses a symlink',
 
     writeFileSync(
       join(resultsDir, `${SHOP_ID}.json`),
-      JSON.stringify({ shopId: SHOP_ID, checks: { ...noEvidence(), name: 'error' }, proposals: [], notices: [], tagCandidates: [] }),
+      JSON.stringify({ shopId: SHOP_ID, checks: { ...noEvidence(), name: 'error', business_hours: 'error' }, proposals: [], notices: [], tagCandidates: [] }),
     );
     const blocked = command();
     assert.equal(blocked.status, 0, blocked.stderr);
