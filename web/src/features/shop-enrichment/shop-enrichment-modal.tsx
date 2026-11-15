@@ -11,6 +11,7 @@ import {
 } from "@/components/segmented-picker.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Checkbox } from "@/components/ui/checkbox.tsx";
+import { useRefuseFileDrop } from "@/components/use-refuse-file-drop.ts";
 import {
   Shop,
   Tag,
@@ -25,7 +26,14 @@ import {
 import { SHOP_LINK_TYPE_LABEL } from "@/features/shops/shop-links.ts";
 import { Box, Input, NativeSelect } from "@chakra-ui/react";
 import { groupBy } from "es-toolkit";
-import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import {
+  DragEvent,
+  ReactNode,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { LuFileCheck } from "react-icons/lu";
 import type {
   ClosureValue,
@@ -132,6 +140,9 @@ const matchesFilters = (row: Row, filters: Filters) =>
   (filters.source === "all" ||
     row.proposal.evidence.some((e) => e.sourceKind === filters.source));
 
+const hasFiles = (event: DragEvent) =>
+  event.dataTransfer.types.includes("Files");
+
 const selectable = ({ state }: Row) =>
   state.kind === "ready" || state.kind === "conflict";
 
@@ -187,6 +198,12 @@ export function ShopEnrichmentModal({
     return () => window.removeEventListener("beforeunload", warn);
   }, [running]);
 
+  // Refused mid-run, like the hidden picker: a new file would replace the review the run reports on.
+  const accepting = !!shops && !!tags && !running;
+  const [dragging, setDragging] = useState(false);
+  const dragDepth = useRef(0);
+  useRefuseFileDrop(open);
+
   const shopsById = useMemo(
     () => new Map((shops ?? []).map((shop) => [shop.id, shop])),
     [shops],
@@ -236,7 +253,15 @@ export function ShopEnrichmentModal({
   const refresh = () => Promise.all([mutateShops(), mutateTags()]);
 
   const load = async (picked: File) => {
-    const parsed = parseEnrichmentFile(await picked.text());
+    // A dropped folder, or a file another app holds open, arrives as a File whose read fails.
+    const text = await picked.text().catch(() => null);
+    if (text === null) {
+      setFileError(
+        "フォルダではないか、ほかのアプリで開いたままになっていないかを確かめてください",
+      );
+      return;
+    }
+    const parsed = parseEnrichmentFile(text);
     if (!parsed.ok) {
       // A loaded review stays, with its selections and edits: picking the wrong file costs nothing.
       setFileError(parsed.error);
@@ -307,7 +332,7 @@ export function ShopEnrichmentModal({
       open={open}
       onOpenChange={(isOpen) => !isOpen && close()}
       width="100%"
-      maxWidth="1100px"
+      maxWidth="1280px"
       height="90vh"
       title="調査結果の取り込み"
       subtitle="SHOP RESEARCH"
@@ -316,205 +341,282 @@ export function ShopEnrichmentModal({
       showCloseButton={!running}
       bodyProps={{ display: "flex", flexDirection: "column", gap: "12px" }}
     >
-      {!file ? (
-        <Box
-          display="grid"
-          placeItems="center"
-          gap="12px"
-          py="48px"
-          border="1px dashed"
-          borderColor="nm.line"
-          rounded="nmLg"
-          textAlign="center"
-        >
-          <Box fontSize="13px" color="nm.inkMuted" lineHeight="1.8">
-            validate-results.mjs が出力した accepted.jsonl を選んでください。
-            <br />
-            本番の値と比べて表示します。選んだ項目を反映するまで、店舗は変わりません。
-          </Box>
-          <FileButton
-            {...primaryButton}
-            accept={FILE_ACCEPT}
-            disabled={!shops || !tags}
-            onFiles={([picked]) => void load(picked)}
-          >
-            ファイルを選ぶ
-          </FileButton>
-          {fileError && (
-            <Box role="alert" fontSize="13px" color="nm.shuDeep">
-              読み込めませんでした。{fileError}
-            </Box>
-          )}
-        </Box>
-      ) : (
-        <>
+      <Box
+        flex="1"
+        minH="0"
+        display="flex"
+        flexDirection="column"
+        gap="12px"
+        rounded="nmLg"
+        outline={dragging ? "2px dashed" : undefined}
+        outlineColor="nm.shu"
+        outlineOffset="2px"
+        onDragEnter={(event) => {
+          if (accepting && hasFiles(event)) {
+            event.preventDefault();
+            dragDepth.current++;
+            setDragging(true);
+          }
+        }}
+        onDragOver={(event) => {
+          if (accepting && hasFiles(event)) {
+            // Without this the browser opens the dropped file.
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "copy";
+          }
+        }}
+        onDragLeave={(event) => {
+          if (accepting && hasFiles(event)) {
+            dragDepth.current = Math.max(0, dragDepth.current - 1);
+            if (dragDepth.current === 0) {
+              setDragging(false);
+            }
+          }
+        }}
+        onDrop={(event) => {
+          if (accepting && hasFiles(event)) {
+            event.preventDefault();
+            dragDepth.current = 0;
+            setDragging(false);
+            const [dropped] = event.dataTransfer.files;
+            if (dropped) {
+              void load(dropped);
+            }
+          }
+        }}
+      >
+        {!file ? (
           <Box
             display="grid"
-            gap="6px"
-            p="12px"
-            bg="nm.bg"
-            border="1px solid"
-            borderColor="nm.lineFaint"
-            rounded="nmMd"
-            flexShrink={0}
+            placeItems="center"
+            gap="12px"
+            py="48px"
+            border="1px dashed"
+            borderColor="nm.line"
+            rounded="nmLg"
+            textAlign="center"
           >
-            <Line>
-              {file.runId} · 提案 {rows.length} 件 · 調査済み: 発見{" "}
-              {file.checks.found} / 情報なし {file.checks.no_evidence} / 失敗{" "}
-              {file.checks.error}
-            </Line>
-            {file.tagCandidates.length > 0 && (
-              <Line muted>
-                タグの候補:{" "}
-                {file.tagCandidates
-                  .map(({ label, count: n }) => `${label} (${n})`)
-                  .join("、")}
-              </Line>
-            )}
-            {noticeShopIds.length > 0 && (
-              <Line muted>
-                注意のある店舗: {new Set(noticeShopIds).size} 店
-              </Line>
-            )}
-            <RunSummary run={run} />
+            <Box fontSize="13px" color="nm.inkMuted" lineHeight="1.8">
+              validate-results.mjsが出力したaccepted.jsonlを選ぶか、ここにドロップしてください。
+              <br />
+              本番の値と比べて表示します。選んだ項目を反映するまで、店舗は変わりません。
+            </Box>
+            <FileButton
+              {...primaryButton}
+              accept={FILE_ACCEPT}
+              disabled={!shops || !tags}
+              onFiles={([picked]) => void load(picked)}
+            >
+              ファイルを選ぶ
+            </FileButton>
             {fileError && (
               <Box role="alert" fontSize="13px" color="nm.shuDeep">
                 読み込めませんでした。{fileError}
               </Box>
             )}
-            <Box
-              display="flex"
-              justifyContent="flex-end"
-              alignItems="center"
-              gap="8px"
-              flexWrap="wrap"
-            >
-              {running ? (
-                <Button
-                  {...outlineButton}
-                  onClick={() => abort.current?.abort()}
-                >
-                  停止
-                </Button>
-              ) : (
-                <>
-                  <FileButton
-                    {...outlineButton}
-                    accept={FILE_ACCEPT}
-                    onFiles={([picked]) => void load(picked)}
-                  >
-                    別のファイルを選ぶ
-                  </FileButton>
-                  <Button {...outlineButton} onClick={selectBulk}>
-                    表示中の一括可を選択
-                  </Button>
-                  <Button
-                    {...outlineButton}
-                    disabled={selected.size === 0}
-                    onClick={() => setSelected(new Set())}
-                  >
-                    選択を解除
-                  </Button>
-                </>
-              )}
-              <LoadableButton
-                {...primaryButton}
-                disabled={chosen.length === 0 || invalidEdit}
-                onClick={apply}
-              >
-                選択した {chosen.length} 件を本番へ反映
-              </LoadableButton>
-            </Box>
           </Box>
-
-          <Box display="flex" gap="8px" flexWrap="wrap" flexShrink={0}>
-            <SegmentedPicker
-              variant="segment"
-              label="状態"
-              options={stateOptions}
-              value={filters.state}
-              onChange={(state) => setFilters((f) => ({ ...f, state }))}
-            />
-            <FilterSelect
-              label="項目"
-              value={filters.field}
-              options={FIELD_LABELS}
-              onChange={(field) => setFilters((f) => ({ ...f, field }))}
-            />
-            <FilterSelect
-              label="確認理由"
-              value={filters.reason}
-              options={REASON_LABELS}
-              onChange={(reason) => setFilters((f) => ({ ...f, reason }))}
-            />
-            <FilterSelect
-              label="証拠"
-              value={filters.source}
-              options={SOURCE_LABELS}
-              onChange={(source) => setFilters((f) => ({ ...f, source }))}
-            />
-          </Box>
-
+        ) : (
           <Box
+            display={{ base: "flex", lg: "grid" }}
+            flexDirection="column"
+            gridTemplateColumns={{ lg: "300px minmax(0, 1fr)" }}
+            gridTemplateRows={{ lg: "minmax(0, 1fr)" }}
+            gap="12px"
             flex="1"
             minH="0"
-            overflowY="auto"
-            display="grid"
-            gap="10px"
-            alignContent="start"
           >
-            {shopIds.length === 0 && (
+            <Box
+              display="grid"
+              gap="12px"
+              flexShrink={0}
+              alignSelf={{ lg: "start" }}
+              maxH={{ lg: "100%" }}
+              overflowY={{ lg: "auto" }}
+            >
               <Box
-                fontSize="13px"
-                color="nm.inkMuted"
-                py="24px"
-                textAlign="center"
+                display="grid"
+                gap="6px"
+                p="12px"
+                bg="nm.bg"
+                border="1px solid"
+                borderColor="nm.lineFaint"
+                rounded="nmMd"
               >
-                該当する提案はありません
+                <Line>
+                  {file.runId} · 提案 {rows.length} 件 · 調査済み: 発見{" "}
+                  {file.checks.found} / 情報なし {file.checks.no_evidence} /
+                  失敗 {file.checks.error}
+                </Line>
+                {file.tagCandidates.length > 0 && (
+                  <Line muted>
+                    タグの候補:{" "}
+                    {file.tagCandidates
+                      .map(({ label, count: n }) => `${label} (${n})`)
+                      .join("、")}
+                  </Line>
+                )}
+                {noticeShopIds.length > 0 && (
+                  <Line muted>
+                    注意のある店舗: {new Set(noticeShopIds).size} 店
+                  </Line>
+                )}
+                <RunSummary run={run} />
+                {fileError && (
+                  <Box role="alert" fontSize="13px" color="nm.shuDeep">
+                    読み込めませんでした。{fileError}
+                  </Box>
+                )}
+                <Box
+                  display="flex"
+                  flexDirection={{ lg: "column" }}
+                  justifyContent="flex-end"
+                  alignItems={{ base: "center", lg: "stretch" }}
+                  gap="8px"
+                  flexWrap="wrap"
+                  textAlign="center"
+                >
+                  {running ? (
+                    <Button
+                      {...outlineButton}
+                      onClick={() => abort.current?.abort()}
+                    >
+                      停止
+                    </Button>
+                  ) : (
+                    <>
+                      <FileButton
+                        {...outlineButton}
+                        accept={FILE_ACCEPT}
+                        onFiles={([picked]) => void load(picked)}
+                      >
+                        別のファイルを選ぶ
+                      </FileButton>
+                      <Button {...outlineButton} onClick={selectBulk}>
+                        表示中の一括可を選択
+                      </Button>
+                      <Button
+                        {...outlineButton}
+                        disabled={selected.size === 0}
+                        onClick={() => setSelected(new Set())}
+                      >
+                        選択を解除
+                      </Button>
+                    </>
+                  )}
+                  <LoadableButton
+                    {...primaryButton}
+                    disabled={chosen.length === 0 || invalidEdit}
+                    onClick={apply}
+                  >
+                    選択した {chosen.length} 件を本番へ反映
+                  </LoadableButton>
+                </Box>
               </Box>
-            )}
-            {shopIds.map((shopId) => (
-              <ShopGroup
-                key={shopId}
-                shop={shopsById.get(shopId)}
-                shopId={shopId}
-                notices={file.notices.filter((n) => n.shopId === shopId)}
+              <Box
+                display={{ base: "flex", lg: "grid" }}
+                flexWrap="wrap"
+                gap="8px"
               >
-                {(rowsByShop[shopId] ?? []).map((row) => (
-                  <ProposalRow
-                    key={row.proposal.id}
-                    row={row}
+                <FilterSelect
+                  label="項目"
+                  value={filters.field}
+                  options={FIELD_LABELS}
+                  onChange={(field) => setFilters((f) => ({ ...f, field }))}
+                />
+                <FilterSelect
+                  label="確認理由"
+                  value={filters.reason}
+                  options={REASON_LABELS}
+                  onChange={(reason) => setFilters((f) => ({ ...f, reason }))}
+                />
+                <FilterSelect
+                  label="証拠"
+                  value={filters.source}
+                  options={SOURCE_LABELS}
+                  onChange={(source) => setFilters((f) => ({ ...f, source }))}
+                />
+              </Box>
+            </Box>
+
+            <Box
+              display="flex"
+              flexDirection="column"
+              gap="12px"
+              flex="1"
+              minH="0"
+            >
+              <Box flexShrink={0}>
+                <SegmentedPicker
+                  variant="segment"
+                  label="状態"
+                  options={stateOptions}
+                  value={filters.state}
+                  onChange={(state) => setFilters((f) => ({ ...f, state }))}
+                />
+              </Box>
+
+              <Box
+                flex="1"
+                minH="0"
+                overflowY="auto"
+                display="grid"
+                gap="10px"
+                alignContent="start"
+              >
+                {shopIds.length === 0 && (
+                  <Box
+                    fontSize="13px"
+                    color="nm.inkMuted"
+                    py="24px"
+                    textAlign="center"
+                  >
+                    該当する提案はありません
+                  </Box>
+                )}
+                {shopIds.map((shopId) => (
+                  <ShopGroup
+                    key={shopId}
                     shop={shopsById.get(shopId)}
-                    tags={tags ?? []}
-                    readOnly={running}
-                    checked={selected.has(row.proposal.id)}
-                    onCheck={(on) => toggle(row.proposal.id, on)}
-                    edit={edits[row.proposal.id]}
-                    onEdit={(edit) => {
-                      setEdits((current) => {
-                        const next = { ...current };
-                        if (edit) {
-                          next[row.proposal.id] = edit;
-                        } else {
-                          delete next[row.proposal.id];
-                        }
-                        return next;
-                      });
-                      // Starting an edit chooses it and stopping takes that back. A keystroke leaves the choice alone.
-                      if (
-                        edit === undefined ||
-                        edits[row.proposal.id] === undefined
-                      ) {
-                        toggle(row.proposal.id, edit !== undefined);
-                      }
-                    }}
-                  />
+                    shopId={shopId}
+                    notices={file.notices.filter((n) => n.shopId === shopId)}
+                  >
+                    {(rowsByShop[shopId] ?? []).map((row) => (
+                      <ProposalRow
+                        key={row.proposal.id}
+                        row={row}
+                        shop={shopsById.get(shopId)}
+                        tags={tags ?? []}
+                        readOnly={running}
+                        checked={selected.has(row.proposal.id)}
+                        onCheck={(on) => toggle(row.proposal.id, on)}
+                        edit={edits[row.proposal.id]}
+                        onEdit={(edit) => {
+                          setEdits((current) => {
+                            const next = { ...current };
+                            if (edit) {
+                              next[row.proposal.id] = edit;
+                            } else {
+                              delete next[row.proposal.id];
+                            }
+                            return next;
+                          });
+                          // Starting an edit chooses it and stopping takes that back. A keystroke leaves the choice alone.
+                          if (
+                            edit === undefined ||
+                            edits[row.proposal.id] === undefined
+                          ) {
+                            toggle(row.proposal.id, edit !== undefined);
+                          }
+                        }}
+                      />
+                    ))}
+                  </ShopGroup>
                 ))}
-              </ShopGroup>
-            ))}
+              </Box>
+            </Box>
           </Box>
-        </>
-      )}
+        )}
+      </Box>
     </ModalDialog>
   );
 }

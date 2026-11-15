@@ -3,7 +3,7 @@ import type { Shop, Tag } from "@/features/shops/api/use-shops.ts";
 import { makeShop, makeTag } from "@/test/fixtures.ts";
 import { renderWithProviders } from "@/test/render.tsx";
 import { server } from "@/test/server.ts";
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -39,6 +39,28 @@ const fileOf = (records: unknown[]) =>
     "accepted.jsonl",
   );
 
+// As a browser does: the file shows only on drop, an untaken dragover or drop lets the browser open
+// the file, and an effect of "none" refuses it.
+const dropFile = (target: Element, file: File) => {
+  const over = { types: ["Files"], files: [] as File[], dropEffect: "copy" };
+  if (fireEvent.dragOver(target, { dataTransfer: over })) {
+    return "opened";
+  }
+  if (over.dropEffect === "none") {
+    return "refused";
+  }
+  return fireEvent.drop(target, { dataTransfer: { ...over, files: [file] } })
+    ? "opened"
+    : "dropped";
+};
+
+const ready = async () => {
+  renderWithProviders(<ShopEnrichmentModal open onClose={() => {}} />);
+  const picker = await screen.findByLabelText("ファイルを選ぶ");
+  await waitFor(() => expect(picker).toBeEnabled());
+  return picker;
+};
+
 let shops: Shop[];
 let tags: Tag[];
 let puts: { id: string; body: Record<string, unknown> }[];
@@ -62,10 +84,7 @@ function serve() {
 
 async function loadFile(records: unknown[]) {
   const user = userEvent.setup();
-  renderWithProviders(<ShopEnrichmentModal open onClose={() => {}} />);
-  const picker = await screen.findByLabelText("ファイルを選ぶ");
-  await waitFor(() => expect(picker).toBeEnabled());
-  await user.upload(picker, fileOf(records));
+  await user.upload(await ready(), fileOf(records));
   return user;
 }
 
@@ -340,6 +359,93 @@ describe("ShopEnrichmentModal", () => {
     expect(screen.getByLabelText("開店日を選択")).toBeChecked();
   });
 
+  it("loads a dropped file, and a second drop replaces the review", async () => {
+    const shop = makeShop({ name: "店" });
+    shops = [shop];
+    const user = userEvent.setup();
+    await ready();
+
+    expect(
+      dropFile(
+        screen.getByText(/ここにドロップしてください/),
+        fileOf([proposalLine(shop, "a", {})]),
+      ),
+    ).toBe("dropped");
+    await user.click(await screen.findByLabelText("開店日を選択"));
+
+    dropFile(
+      screen.getByRole("group", { name: "店" }),
+      fileOf([proposalLine(shop, "a", { runId: "b08-2026-11-13" })]),
+    );
+    expect(await screen.findByText(/^b08-2026-11-13 /)).toBeInTheDocument();
+    expect(screen.queryByText(/^b07-2026-11-06 /)).toBeNull();
+    expect(screen.getByLabelText("開店日を選択")).not.toBeChecked();
+  });
+
+  it("ignores a file dropped while a run is going", async () => {
+    const shop = makeShop({ name: "店" });
+    shops = [shop];
+    let release = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      http.put(`/api/v1/auth/shops/${shop.id}`, async () => {
+        await held;
+        return new HttpResponse(null, { status: 200 });
+      }),
+    );
+    const user = await loadFile([proposalLine(shop, "a", {})]);
+    await user.click(await screen.findByLabelText("開店日を選択"));
+    await user.click(
+      screen.getByRole("button", { name: "選択した 1 件を本番へ反映" }),
+    );
+    await screen.findByRole("button", { name: "停止" });
+
+    expect(
+      dropFile(
+        screen.getByRole("group", { name: "店" }),
+        fileOf([proposalLine(shop, "a", { runId: "b08-2026-11-13" })]),
+      ),
+    ).toBe("refused");
+    release();
+
+    await screen.findByText("反映が終わりました");
+  });
+
+  it.each(["shops", "tags"] as const)(
+    "refuses a file dropped before the %s load",
+    async (pending) => {
+      let release = () => {};
+      const held = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      server.use(
+        http.get(`/api/v1/${pending}`, async () => {
+          await held;
+          return HttpResponse.json({ shops, tags });
+        }),
+      );
+      renderWithProviders(<ShopEnrichmentModal open onClose={() => {}} />);
+
+      expect(
+        dropFile(
+          await screen.findByText(/ここにドロップしてください/),
+          fileOf([]),
+        ),
+      ).toBe("refused");
+      release();
+    },
+  );
+
+  it("keeps the browser from opening a file dropped outside the drop area", async () => {
+    await ready();
+
+    expect(dropFile(screen.getByText("調査結果の取り込み"), fileOf([]))).toBe(
+      "refused",
+    );
+  });
+
   it("sends an edited value and blocks an invalid one", async () => {
     const shop = makeShop({ name: "店" });
     shops = [shop];
@@ -550,6 +656,35 @@ describe("ShopEnrichmentModal", () => {
       "読み込めませんでした。1 行目: 未知のレコードです",
     );
     expect(screen.getByLabelText("ファイルを選ぶ")).toBeInTheDocument();
+  });
+
+  it("explains a folder dropped on the review and keeps the review", async () => {
+    const shop = makeShop({ name: "店" });
+    shops = [shop];
+    const user = await loadFile([proposalLine(shop, "a", {})]);
+    await user.click(await screen.findByRole("button", { name: "修正する" }));
+    const input = screen.getByLabelText("開店日の修正");
+    await user.clear(input);
+    await user.type(input, "2021-02-03");
+    // Chromium hands a dropped folder over as an empty File whose read fails.
+    const folder = new File([], "b07-2026-11-06");
+    folder.text = () =>
+      Promise.reject(new DOMException("not found", "NotFoundError"));
+
+    dropFile(screen.getByRole("group", { name: "店" }), folder);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "読み込めませんでした。フォルダではないか、ほかのアプリで開いたままになっていないかを確かめてください",
+    );
+    expect(screen.getByLabelText("開店日を選択")).toBeChecked();
+    expect(screen.getByLabelText("開店日の修正")).toHaveValue("2021-02-03");
+  });
+
+  it("explains an empty file as empty, not as unreadable", async () => {
+    await loadFile([]);
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "読み込めませんでした。レコードがありません",
+    );
   });
 
   it("renders web text as text and links only with a safe rel", async () => {
