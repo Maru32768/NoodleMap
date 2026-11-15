@@ -1,5 +1,10 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 import { addCandidates, areaOf, braveSearch, candidatesFrom, searchShop } from './search-candidates.mjs';
 
 test('the area is the city, Tokyo ward, or district of the address', () => {
@@ -171,4 +176,21 @@ test('a shop gets at most two pages for its name and area', async () => {
 
 test('a blog on a subdomain of an excluded site is not an official candidate', () => {
   assert.deepEqual(candidatesFrom(['https://someone.hatenablog.com/entry/1']).official, []);
+});
+
+test('the command fails without the key and writes nothing', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'search-candidates-'));
+  try {
+    const batchPath = join(dir, 'batch.json');
+    const outPath = join(dir, 'out.json');
+    writeFileSync(batchPath, JSON.stringify({ schemaVersion: 1, runId: 'r', fields: [], shops: [], tags: [] }));
+    const { BRAVE_SEARCH_API_KEY: _key, ...env } = process.env;
+    const script = fileURLToPath(new URL('./search-candidates.mjs', import.meta.url));
+    const run = spawnSync(process.execPath, [script, '--batch', batchPath, '--out', outPath], { encoding: 'utf8', env });
+    assert.notEqual(run.status, 0);
+    assert.match(run.stderr, /BRAVE_SEARCH_API_KEY is not set/);
+    assert.equal(existsSync(outPath), false);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
