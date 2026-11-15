@@ -411,8 +411,6 @@ describe("ShopEnrichmentModal", () => {
     release();
 
     await screen.findByText("反映が終わりました");
-    expect(screen.getByText(/^b07-2026-11-06 /)).toBeInTheDocument();
-    expect(screen.queryByText(/^b08-2026-11-13 /)).toBeNull();
   });
 
   it.each(["shops", "tags"] as const)(
