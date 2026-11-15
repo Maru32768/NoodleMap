@@ -150,3 +150,21 @@ test('a path of 80 characters is kept and a longer one is cut to the top page', 
   const { official } = candidatesFrom([`https://a.example/${'a'.repeat(79)}`, `https://b.example/${'b'.repeat(80)}`]);
   assert.deepEqual(official, [`https://a.example/${'a'.repeat(79)}`, 'https://b.example/']);
 });
+
+test('the search reports no more results unless Brave says so', async () => {
+  const search = braveSearch('secret', async () => Response.json({ web: { results: [] } }));
+  assert.deepEqual(await search('x', 0), { urls: [], more: false });
+});
+
+test('a shop gets at most two pages for its name and area', async () => {
+  const queries = [];
+  await searchShop(
+    shop,
+    async (query, page) => {
+      queries.push(`${query}#${page}`);
+      return { urls: ['https://x.com/men_sonan'], more: true };
+    },
+    async () => {},
+  );
+  assert.deepEqual(queries, ['MEN SONAN 神戸市#0', 'MEN SONAN 神戸市#1']);
+});
