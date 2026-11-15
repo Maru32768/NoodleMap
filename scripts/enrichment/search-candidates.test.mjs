@@ -145,3 +145,8 @@ test('a failed search keeps the shops saved before it', async () => {
   );
   assert.deepEqual(saves, [[true, false]]);
 });
+
+test('a path of 80 characters is kept and a longer one is cut to the top page', () => {
+  const { official } = candidatesFrom([`https://a.example/${'a'.repeat(79)}`, `https://b.example/${'b'.repeat(80)}`]);
+  assert.deepEqual(official, [`https://a.example/${'a'.repeat(79)}`, 'https://b.example/']);
+});
