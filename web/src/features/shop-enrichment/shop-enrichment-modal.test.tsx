@@ -54,6 +54,26 @@ const dropFile = (target: Element, file: File) => {
     : "dropped";
 };
 
+// Holds production's shops as a slow network would. `reached` settles once a read waits on them.
+const holdShops = () => {
+  let release = () => {};
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let arrive = () => {};
+  const reached = new Promise<void>((resolve) => {
+    arrive = resolve;
+  });
+  server.use(
+    http.get("/api/v1/shops", async () => {
+      arrive();
+      await held;
+      return HttpResponse.json({ shops });
+    }),
+  );
+  return { release, reached };
+};
+
 const ready = async () => {
   renderWithProviders(<ShopEnrichmentModal open onClose={() => {}} />);
   const picker = await screen.findByLabelText("ファイルを選ぶ");
@@ -411,6 +431,54 @@ describe("ShopEnrichmentModal", () => {
     release();
 
     await screen.findByText("反映が終わりました");
+  });
+
+  it("starts no run while a replacement file is compared with production", async () => {
+    const shop = makeShop({ name: "店" });
+    shops = [shop];
+    const user = await loadFile([proposalLine(shop, "a", {})]);
+    await user.click(await screen.findByLabelText("開店日を選択"));
+    const { release, reached } = holdShops();
+
+    await user.upload(
+      screen.getByLabelText("別のファイルを選ぶ"),
+      fileOf([proposalLine(shop, "a", { runId: "b08-2026-11-13" })]),
+    );
+    await reached;
+    const apply = screen.getByRole("button", {
+      name: "選択した 1 件を本番へ反映",
+    });
+    expect(apply).toBeDisabled();
+    await user.click(apply);
+    release();
+
+    expect(await screen.findByText(/^b08-2026-11-13 /)).toBeInTheDocument();
+    expect(screen.queryByText(/反映しています|反映が終わりました/)).toBeNull();
+    expect(puts).toEqual([]);
+  });
+
+  it("refuses another file while one is compared with production", async () => {
+    const shop = makeShop({ name: "店" });
+    shops = [shop];
+    await loadFile([proposalLine(shop, "a", {})]);
+    const group = await screen.findByRole("group", { name: "店" });
+    const { release, reached } = holdShops();
+
+    expect(
+      dropFile(
+        group,
+        fileOf([proposalLine(shop, "a", { runId: "b08-2026-11-13" })]),
+      ),
+    ).toBe("dropped");
+    await reached;
+    expect(dropFile(group, fileOf([{ kind: "command", runId: "r" }]))).toBe(
+      "refused",
+    );
+    expect(screen.getByLabelText("別のファイルを選ぶ")).toBeDisabled();
+    release();
+
+    expect(await screen.findByText(/^b08-2026-11-13 /)).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it.each(["shops", "tags"] as const)(

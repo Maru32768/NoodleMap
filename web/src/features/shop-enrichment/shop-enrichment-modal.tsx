@@ -186,6 +186,7 @@ export function ShopEnrichmentModal({
   const [edits, setEdits] = useState<Readonly<Record<string, Proposal>>>({});
   const [filters, setFilters] = useState(INITIAL_FILTERS);
   const [run, setRun] = useState<RunState>({ kind: "idle" });
+  const [loading, setLoading] = useState(false);
   const abort = useRef<AbortController | null>(null);
   const running = run.kind === "running";
 
@@ -198,8 +199,9 @@ export function ShopEnrichmentModal({
     return () => window.removeEventListener("beforeunload", warn);
   }, [running]);
 
-  // Refused mid-run, like the hidden picker: a new file would replace the review the run reports on.
-  const accepting = !!shops && !!tags && !running;
+  // A load replaces the review a run reports on, so neither starts while the other goes: a file is
+  // refused mid-run, and the run waits for the load. One load at a time keeps the last file the one shown.
+  const accepting = !!shops && !!tags && !running && !loading;
   const [dragging, setDragging] = useState(false);
   const dragDepth = useRef(0);
   useRefuseFileDrop(open);
@@ -253,28 +255,33 @@ export function ShopEnrichmentModal({
   const refresh = () => Promise.all([mutateShops(), mutateTags()]);
 
   const load = async (picked: File) => {
-    // A dropped folder, or a file another app holds open, arrives as a File whose read fails.
-    const text = await picked.text().catch(() => null);
-    if (text === null) {
-      setFileError(
-        "フォルダではないか、ほかのアプリで開いたままになっていないかを確かめてください",
-      );
-      return;
+    setLoading(true);
+    try {
+      // A dropped folder, or a file another app holds open, arrives as a File whose read fails.
+      const text = await picked.text().catch(() => null);
+      if (text === null) {
+        setFileError(
+          "フォルダではないか、ほかのアプリで開いたままになっていないかを確かめてください",
+        );
+        return;
+      }
+      const parsed = parseEnrichmentFile(text);
+      if (!parsed.ok) {
+        // A loaded review stays, with its selections and edits: picking the wrong file costs nothing.
+        setFileError(parsed.error);
+        return;
+      }
+      // The admin page's cache can be hours old, and every state below compares with production.
+      await refresh();
+      setFileError(null);
+      setFile(parsed.data);
+      setSelected(new Set());
+      setEdits({});
+      setFilters(INITIAL_FILTERS);
+      setRun({ kind: "idle" });
+    } finally {
+      setLoading(false);
     }
-    const parsed = parseEnrichmentFile(text);
-    if (!parsed.ok) {
-      // A loaded review stays, with its selections and edits: picking the wrong file costs nothing.
-      setFileError(parsed.error);
-      return;
-    }
-    // The admin page's cache can be hours old, and every state below compares with production.
-    await refresh();
-    setFileError(null);
-    setFile(parsed.data);
-    setSelected(new Set());
-    setEdits({});
-    setFilters(INITIAL_FILTERS);
-    setRun({ kind: "idle" });
   };
 
   const toggle = (id: string, on: boolean) =>
@@ -404,7 +411,7 @@ export function ShopEnrichmentModal({
             <FileButton
               {...primaryButton}
               accept={FILE_ACCEPT}
-              disabled={!shops || !tags}
+              disabled={!accepting}
               onFiles={([picked]) => void load(picked)}
             >
               ファイルを選ぶ
@@ -487,6 +494,7 @@ export function ShopEnrichmentModal({
                       <FileButton
                         {...outlineButton}
                         accept={FILE_ACCEPT}
+                        disabled={!accepting}
                         onFiles={([picked]) => void load(picked)}
                       >
                         別のファイルを選ぶ
@@ -505,7 +513,7 @@ export function ShopEnrichmentModal({
                   )}
                   <LoadableButton
                     {...primaryButton}
-                    disabled={chosen.length === 0 || invalidEdit}
+                    disabled={chosen.length === 0 || invalidEdit || loading}
                     onClick={apply}
                   >
                     選択した {chosen.length} 件を本番へ反映
