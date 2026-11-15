@@ -454,6 +454,7 @@ describe("ShopEnrichmentModal", () => {
       name: "選択した 1 件を本番へ反映",
     });
     expect(apply).toBeDisabled();
+    expect(screen.getByLabelText("別のファイルを選ぶ")).toBeDisabled();
     await user.click(apply);
     release();
 
@@ -465,19 +466,19 @@ describe("ShopEnrichmentModal", () => {
   it("refuses another file while one is compared with production", async () => {
     const shop = makeShop({ name: "店" });
     shops = [shop];
-    await loadFile([proposalLine(shop, "a", {})]);
-    const group = await screen.findByRole("group", { name: "店" });
+    await ready();
+    const area = screen.getByText(/ここにドロップしてください/);
     const { release, reached } = holdShops();
 
     expect(
       dropFile(
-        group,
+        area,
         fileOf([proposalLine(shop, "a", { runId: "b08-2026-11-13" })]),
       ),
     ).toBe("dropped");
     await reached;
-    expect(dropFile(group, fileOf([]))).toBe("refused");
-    expect(screen.getByLabelText("別のファイルを選ぶ")).toBeDisabled();
+    expect(dropFile(area, fileOf([]))).toBe("refused");
+    expect(screen.getByLabelText("ファイルを選ぶ")).toBeDisabled();
     release();
 
     expect(await screen.findByText(/^b08-2026-11-13 /)).toBeInTheDocument();
