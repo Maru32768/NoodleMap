@@ -279,6 +279,16 @@ test('a closing date needs an official announcement or a news article', () => {
     { closed_at: 'found' },
   );
   assert.deepEqual(reasons(newsOnGourmetSite), ['source_site_not_allowed']);
+  const newsOnSns = runProposal(
+    { field: 'closed_at', value: '2026-10-31', evidence: [{ ...article, url: 'https://x.com/tohoseiso' }] },
+    { closed_at: 'found' },
+  );
+  assert.deepEqual(reasons(newsOnSns), ['source_domain_mismatch']);
+  const pausedFromNews = runProposal(
+    { field: 'temporary_closure', value: { startsOn: '2026-12-01', reopensOn: null }, evidence: [article] },
+    { temporary_closure: 'found' },
+  );
+  assert.deepEqual(reasons(pausedFromNews), ['source_not_allowed_for_field']);
 });
 
 test('a closing date known only to the month is its last day, marked as estimated', () => {
@@ -289,6 +299,12 @@ test('a closing date known only to the month is its last day, marked as estimate
   assert.deepEqual(reasons(monthEnd('2024-06-15')), ['estimated_date_not_month_end']);
   assert.deepEqual(reasons(monthEnd('2023-02-29')), ['invalid_date']);
   assert.deepEqual(reasons(monthEnd('2024-06-30', [])), ['evidence_required']);
+  const shopWithReading = runProposal(
+    { field: 'closed_at', value: '2024-06-30', evidence: [officialEvidence], estimated: true },
+    { closed_at: 'found' },
+    makeShop({ nameKana: 'とうほうせいそう' }),
+  );
+  assert.deepEqual(shopWithReading.rejected, []);
   const openedEstimate = runProposal(
     { field: 'opened_at', value: '2020-06-30', evidence: [officialEvidence], estimated: true },
     { opened_at: 'found' },
