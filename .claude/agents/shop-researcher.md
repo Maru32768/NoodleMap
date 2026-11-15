@@ -36,7 +36,7 @@ Tabelog's terms forbid copying its information, so Tabelog does three things onl
 
 1. Identify the shop on Tabelog first.
 2. Open at most 2 `official` candidates whose domain or path looks like the shop's own. A candidate is the shop's site when it names the shop and its address, and then it is evidence like any official site.
-3. Confirm an account candidate, or a Tabelog lead, by the rule for accounts in Sources. One search for its handle, as in `"@men_sonan"`, usually returns its profile.
+3. Confirm an account candidate, or a Tabelog lead, by the rule for accounts in Sources. One search for its handle, as in `"@men_sonan"`, usually returns its profile. Open no X or Instagram candidate, as Sources says.
 4. Search the web yourself only for what the candidates and leads did not settle.
 
 ## Sources
