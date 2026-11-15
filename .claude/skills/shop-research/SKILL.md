@@ -41,10 +41,10 @@ Run `node ${CLAUDE_SKILL_DIR}/scripts/validate-results.mjs <batch.json> <results
 
 Exit code 0 means every result passed. On exit code 1, read `<results-dir>/.validation/rejected.jsonl`. It holds shop ids and fixed reason codes.
 
-For each shop in that file that is on this run's work list, dispatch a fresh researcher once more, with the rejection's `where` and `reason` values added to the brief as `previousRejections`, overwrite its file, and validate again. One retry per shop is the limit. Skip the shops that are not on the work list: their `missing_result` means they wait for the next run, and researching them here would spend the search budget the cap protects.
+Skip every `missing_result` rejection of a shop that is not on this run's work list: that shop waits for the next run, and researching it here would spend the search budget the cap protects. For each other shop in that file, dispatch a fresh researcher once more, with the rejection's `where` and `reason` values added to the brief as `previousRejections`, overwrite its file, and validate again. This includes a shop whose invalid file an interrupted run left behind. One retry per shop is the limit.
 
 ## 5. Report
 
-The run is complete when the validator has run after the last write. Report its three output lines, then the shop id and reason code of each remaining rejection for a shop on the work list, and the number of shops in the batch that still have no result file.
+The run is complete when the validator has run after the last write. Report its three output lines, then the shop id and reason code of each remaining rejection except the skipped `missing_result` ones, and the number of shops in the batch that still have no result file.
 
 The operator takes `<results-dir>` out of the environment and validates it again with their own copy of the validator and the batch.
