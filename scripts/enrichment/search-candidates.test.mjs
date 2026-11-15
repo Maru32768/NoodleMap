@@ -127,3 +127,21 @@ test('the search sends the key in its header only, and fails on an error answer 
   await assert.rejects(search('x', 0), (error) => /answered 500/.test(error.message) && !error.message.includes('secret'));
   assert.ok(calls.every((call) => !call.url.href.includes('secret')));
 });
+
+test('a failed search keeps the shops saved before it', async () => {
+  const batch = { shops: [{ ...shop }, { ...shop, id: 's2', name: 'FAIL' }] };
+  const saves = [];
+  await assert.rejects(
+    addCandidates(
+      batch,
+      async (query) => {
+        if (query.startsWith('FAIL')) throw new Error('Brave Search answered 429');
+        return { urls: ['https://x.com/men_sonan'], more: false };
+      },
+      (value) => saves.push(value.shops.map((entry) => Boolean(entry.candidates))),
+      async () => {},
+    ),
+    /429/,
+  );
+  assert.deepEqual(saves, [[true, false]]);
+});
